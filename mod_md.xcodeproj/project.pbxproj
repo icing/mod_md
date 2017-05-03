@@ -1,0 +1,249 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXFileReference section */
+		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
+		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
+		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
+		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
+		B2D309A31EBA229F007BECC8 /* COPYING */ = {isa = PBXFileReference; lastKnownFileType = text; path = COPYING; sourceTree = SOURCE_ROOT; };
+		B2D309A41EBA229F007BECC8 /* DISCUSS */ = {isa = PBXFileReference; lastKnownFileType = text; path = DISCUSS; sourceTree = SOURCE_ROOT; };
+		B2D309A51EBA229F007BECC8 /* INSTALL */ = {isa = PBXFileReference; lastKnownFileType = text; path = INSTALL; sourceTree = SOURCE_ROOT; };
+		B2D309A61EBA229F007BECC8 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
+		B2D309A71EBA229F007BECC8 /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = SOURCE_ROOT; };
+		B2D309A81EBA229F007BECC8 /* NEWS */ = {isa = PBXFileReference; lastKnownFileType = text; path = NEWS; sourceTree = SOURCE_ROOT; };
+		B2D309A91EBA229F007BECC8 /* README */ = {isa = PBXFileReference; lastKnownFileType = text; path = README; sourceTree = SOURCE_ROOT; };
+		B2D309AA1EBA229F007BECC8 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
+		B2D309AD1EBA2384007BECC8 /* mod_http2_la-h2_alt_svc.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_alt_svc.Plo"; sourceTree = "<group>"; };
+		B2D309AE1EBA2384007BECC8 /* mod_http2_la-h2_bucket_beam.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_bucket_beam.Plo"; sourceTree = "<group>"; };
+		B2D309AF1EBA2384007BECC8 /* mod_http2_la-h2_bucket_eoc.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_bucket_eoc.Plo"; sourceTree = "<group>"; };
+		B2D309B01EBA2384007BECC8 /* mod_http2_la-h2_bucket_eos.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_bucket_eos.Plo"; sourceTree = "<group>"; };
+		B2D309B11EBA2384007BECC8 /* mod_http2_la-h2_config.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_config.Plo"; sourceTree = "<group>"; };
+		B2D309B21EBA2384007BECC8 /* mod_http2_la-h2_conn.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_conn.Plo"; sourceTree = "<group>"; };
+		B2D309B31EBA2384007BECC8 /* mod_http2_la-h2_conn_io.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_conn_io.Plo"; sourceTree = "<group>"; };
+		B2D309B41EBA2384007BECC8 /* mod_http2_la-h2_ctx.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_ctx.Plo"; sourceTree = "<group>"; };
+		B2D309B51EBA2384007BECC8 /* mod_http2_la-h2_filter.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_filter.Plo"; sourceTree = "<group>"; };
+		B2D309B61EBA2384007BECC8 /* mod_http2_la-h2_from_h1.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_from_h1.Plo"; sourceTree = "<group>"; };
+		B2D309B71EBA2384007BECC8 /* mod_http2_la-h2_h2.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_h2.Plo"; sourceTree = "<group>"; };
+		B2D309B81EBA2384007BECC8 /* mod_http2_la-h2_headers.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_headers.Plo"; sourceTree = "<group>"; };
+		B2D309B91EBA2384007BECC8 /* mod_http2_la-h2_int_queue.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_int_queue.Plo"; sourceTree = "<group>"; };
+		B2D309BA1EBA2384007BECC8 /* mod_http2_la-h2_io.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_io.Plo"; sourceTree = "<group>"; };
+		B2D309BB1EBA2384007BECC8 /* mod_http2_la-h2_io_set.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_io_set.Plo"; sourceTree = "<group>"; };
+		B2D309BC1EBA2384007BECC8 /* mod_http2_la-h2_mplx.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_mplx.Plo"; sourceTree = "<group>"; };
+		B2D309BD1EBA2384007BECC8 /* mod_http2_la-h2_ngn_shed.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_ngn_shed.Plo"; sourceTree = "<group>"; };
+		B2D309BE1EBA2384007BECC8 /* mod_http2_la-h2_push.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_push.Plo"; sourceTree = "<group>"; };
+		B2D309BF1EBA2384007BECC8 /* mod_http2_la-h2_request.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_request.Plo"; sourceTree = "<group>"; };
+		B2D309C01EBA2384007BECC8 /* mod_http2_la-h2_response.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_response.Plo"; sourceTree = "<group>"; };
+		B2D309C11EBA2384007BECC8 /* mod_http2_la-h2_session.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_session.Plo"; sourceTree = "<group>"; };
+		B2D309C21EBA2384007BECC8 /* mod_http2_la-h2_stream.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_stream.Plo"; sourceTree = "<group>"; };
+		B2D309C31EBA2384007BECC8 /* mod_http2_la-h2_stream_set.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_stream_set.Plo"; sourceTree = "<group>"; };
+		B2D309C41EBA2384007BECC8 /* mod_http2_la-h2_switch.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_switch.Plo"; sourceTree = "<group>"; };
+		B2D309C51EBA2384007BECC8 /* mod_http2_la-h2_task.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task.Plo"; sourceTree = "<group>"; };
+		B2D309C61EBA2384007BECC8 /* mod_http2_la-h2_task_input.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task_input.Plo"; sourceTree = "<group>"; };
+		B2D309C71EBA2384007BECC8 /* mod_http2_la-h2_task_output.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task_output.Plo"; sourceTree = "<group>"; };
+		B2D309C81EBA2384007BECC8 /* mod_http2_la-h2_task_queue.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task_queue.Plo"; sourceTree = "<group>"; };
+		B2D309C91EBA2384007BECC8 /* mod_http2_la-h2_util.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_util.Plo"; sourceTree = "<group>"; };
+		B2D309CA1EBA2384007BECC8 /* mod_http2_la-h2_worker.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_worker.Plo"; sourceTree = "<group>"; };
+		B2D309CB1EBA2384007BECC8 /* mod_http2_la-h2_workers.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_workers.Plo"; sourceTree = "<group>"; };
+		B2D309CC1EBA2384007BECC8 /* mod_http2_la-mod_http2.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-mod_http2.Plo"; sourceTree = "<group>"; };
+		B2D309CD1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_session.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_proxy_session.Plo"; sourceTree = "<group>"; };
+		B2D309CE1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_util.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_proxy_util.Plo"; sourceTree = "<group>"; };
+		B2D309CF1EBA2384007BECC8 /* mod_proxy_http2_la-h2_request.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_request.Plo"; sourceTree = "<group>"; };
+		B2D309D01EBA2384007BECC8 /* mod_proxy_http2_la-h2_util.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_util.Plo"; sourceTree = "<group>"; };
+		B2D309D11EBA2384007BECC8 /* mod_proxy_http2_la-mod_proxy_http2.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-mod_proxy_http2.Plo"; sourceTree = "<group>"; };
+		B2D309D21EBA2384007BECC8 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		B2D309D31EBA2384007BECC8 /* config.h.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = config.h.in; sourceTree = "<group>"; };
+		B2D309D51EBA2384007BECC8 /* h2.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = h2.m4; sourceTree = "<group>"; };
+		B2D309D61EBA2384007BECC8 /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		B2D309D71EBA2384007BECC8 /* mod_md.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mod_md.c; sourceTree = "<group>"; };
+		B2D309D81EBA2384007BECC8 /* mod_md.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mod_md.h; sourceTree = "<group>"; };
+		B2D309D91EBA25B5007BECC8 /* md_version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_version.h; sourceTree = "<group>"; };
+		B2D309DA1EBA25B5007BECC8 /* md_version.h.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = md_version.h.in; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
+			isa = PBXGroup;
+			children = (
+				B2D3099F1EBA229F007BECC8 /* aclocal.m4 */,
+				B2D309A01EBA229F007BECC8 /* AUTHORS */,
+				B2D309A11EBA229F007BECC8 /* ChangeLog */,
+				B2D309A21EBA229F007BECC8 /* configure.ac */,
+				B2D309A31EBA229F007BECC8 /* COPYING */,
+				B2D309A41EBA229F007BECC8 /* DISCUSS */,
+				B2D309A51EBA229F007BECC8 /* INSTALL */,
+				B2D309A61EBA229F007BECC8 /* LICENSE */,
+				B2D309A71EBA229F007BECC8 /* Makefile.am */,
+				B2D309AB1EBA2384007BECC8 /* mod_md */,
+				B2D309A81EBA229F007BECC8 /* NEWS */,
+				B2D309A91EBA229F007BECC8 /* README */,
+				B2D309AA1EBA229F007BECC8 /* README.md */,
+			);
+			path = /Users/sei/projects/mod_cert/mod_cert.xcodeproj;
+			sourceTree = "<absolute>";
+		};
+		B2D309AB1EBA2384007BECC8 /* mod_md */ = {
+			isa = PBXGroup;
+			children = (
+				B2D309AC1EBA2384007BECC8 /* .deps */,
+				B2D309D21EBA2384007BECC8 /* .gitignore */,
+				B2D309D31EBA2384007BECC8 /* config.h.in */,
+				B2D309D41EBA2384007BECC8 /* m4 */,
+				B2D309D61EBA2384007BECC8 /* Makefile.am */,
+				B2D309D91EBA25B5007BECC8 /* md_version.h */,
+				B2D309DA1EBA25B5007BECC8 /* md_version.h.in */,
+				B2D309D71EBA2384007BECC8 /* mod_md.c */,
+				B2D309D81EBA2384007BECC8 /* mod_md.h */,
+			);
+			path = mod_md;
+			sourceTree = SOURCE_ROOT;
+		};
+		B2D309AC1EBA2384007BECC8 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				B2D309AD1EBA2384007BECC8 /* mod_http2_la-h2_alt_svc.Plo */,
+				B2D309AE1EBA2384007BECC8 /* mod_http2_la-h2_bucket_beam.Plo */,
+				B2D309AF1EBA2384007BECC8 /* mod_http2_la-h2_bucket_eoc.Plo */,
+				B2D309B01EBA2384007BECC8 /* mod_http2_la-h2_bucket_eos.Plo */,
+				B2D309B11EBA2384007BECC8 /* mod_http2_la-h2_config.Plo */,
+				B2D309B21EBA2384007BECC8 /* mod_http2_la-h2_conn.Plo */,
+				B2D309B31EBA2384007BECC8 /* mod_http2_la-h2_conn_io.Plo */,
+				B2D309B41EBA2384007BECC8 /* mod_http2_la-h2_ctx.Plo */,
+				B2D309B51EBA2384007BECC8 /* mod_http2_la-h2_filter.Plo */,
+				B2D309B61EBA2384007BECC8 /* mod_http2_la-h2_from_h1.Plo */,
+				B2D309B71EBA2384007BECC8 /* mod_http2_la-h2_h2.Plo */,
+				B2D309B81EBA2384007BECC8 /* mod_http2_la-h2_headers.Plo */,
+				B2D309B91EBA2384007BECC8 /* mod_http2_la-h2_int_queue.Plo */,
+				B2D309BA1EBA2384007BECC8 /* mod_http2_la-h2_io.Plo */,
+				B2D309BB1EBA2384007BECC8 /* mod_http2_la-h2_io_set.Plo */,
+				B2D309BC1EBA2384007BECC8 /* mod_http2_la-h2_mplx.Plo */,
+				B2D309BD1EBA2384007BECC8 /* mod_http2_la-h2_ngn_shed.Plo */,
+				B2D309BE1EBA2384007BECC8 /* mod_http2_la-h2_push.Plo */,
+				B2D309BF1EBA2384007BECC8 /* mod_http2_la-h2_request.Plo */,
+				B2D309C01EBA2384007BECC8 /* mod_http2_la-h2_response.Plo */,
+				B2D309C11EBA2384007BECC8 /* mod_http2_la-h2_session.Plo */,
+				B2D309C21EBA2384007BECC8 /* mod_http2_la-h2_stream.Plo */,
+				B2D309C31EBA2384007BECC8 /* mod_http2_la-h2_stream_set.Plo */,
+				B2D309C41EBA2384007BECC8 /* mod_http2_la-h2_switch.Plo */,
+				B2D309C51EBA2384007BECC8 /* mod_http2_la-h2_task.Plo */,
+				B2D309C61EBA2384007BECC8 /* mod_http2_la-h2_task_input.Plo */,
+				B2D309C71EBA2384007BECC8 /* mod_http2_la-h2_task_output.Plo */,
+				B2D309C81EBA2384007BECC8 /* mod_http2_la-h2_task_queue.Plo */,
+				B2D309C91EBA2384007BECC8 /* mod_http2_la-h2_util.Plo */,
+				B2D309CA1EBA2384007BECC8 /* mod_http2_la-h2_worker.Plo */,
+				B2D309CB1EBA2384007BECC8 /* mod_http2_la-h2_workers.Plo */,
+				B2D309CC1EBA2384007BECC8 /* mod_http2_la-mod_http2.Plo */,
+				B2D309CD1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_session.Plo */,
+				B2D309CE1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_util.Plo */,
+				B2D309CF1EBA2384007BECC8 /* mod_proxy_http2_la-h2_request.Plo */,
+				B2D309D01EBA2384007BECC8 /* mod_proxy_http2_la-h2_util.Plo */,
+				B2D309D11EBA2384007BECC8 /* mod_proxy_http2_la-mod_proxy_http2.Plo */,
+			);
+			path = .deps;
+			sourceTree = "<group>";
+		};
+		B2D309D41EBA2384007BECC8 /* m4 */ = {
+			isa = PBXGroup;
+			children = (
+				B2D309D51EBA2384007BECC8 /* h2.m4 */,
+			);
+			path = m4;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		B27BBD201A65757700C58A41 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0800;
+			};
+			buildConfigurationList = B27BBD231A65757700C58A41 /* Build configuration list for PBXProject "mod_md" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		B27BBD241A65757700C58A41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BuildMake = "";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+			};
+			name = Debug;
+		};
+		B27BBD251A65757700C58A41 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BuildMake = "";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B27BBD231A65757700C58A41 /* Build configuration list for PBXProject "mod_md" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B27BBD241A65757700C58A41 /* Debug */,
+				B27BBD251A65757700C58A41 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B27BBD201A65757700C58A41 /* Project object */;
+}
