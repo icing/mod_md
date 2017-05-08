@@ -64,6 +64,11 @@
 		B2D309D81EBA2384007BECC8 /* mod_md.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mod_md.h; sourceTree = "<group>"; };
 		B2D309D91EBA25B5007BECC8 /* md_version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_version.h; sourceTree = "<group>"; };
 		B2D309DA1EBA25B5007BECC8 /* md_version.h.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = md_version.h.in; sourceTree = "<group>"; };
+		B2D309DC1EBB5488007BECC8 /* md_config.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_config.c; sourceTree = "<group>"; };
+		B2D309DD1EBB5488007BECC8 /* md_config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_config.h; sourceTree = "<group>"; };
+		B2D309DE1EBB6600007BECC8 /* md_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_private.h; sourceTree = "<group>"; };
+		B2D309DF1EBB676C007BECC8 /* md.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md.h; sourceTree = "<group>"; };
+		B2D309E01EBB6C38007BECC8 /* md_core.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_core.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -95,8 +100,13 @@
 				B2D309D31EBA2384007BECC8 /* config.h.in */,
 				B2D309D41EBA2384007BECC8 /* m4 */,
 				B2D309D61EBA2384007BECC8 /* Makefile.am */,
+				B2D309DC1EBB5488007BECC8 /* md_config.c */,
+				B2D309DD1EBB5488007BECC8 /* md_config.h */,
+				B2D309E01EBB6C38007BECC8 /* md_core.c */,
+				B2D309DE1EBB6600007BECC8 /* md_private.h */,
 				B2D309D91EBA25B5007BECC8 /* md_version.h */,
 				B2D309DA1EBA25B5007BECC8 /* md_version.h.in */,
+				B2D309DF1EBB676C007BECC8 /* md.h */,
 				B2D309D71EBA2384007BECC8 /* mod_md.c */,
 				B2D309D81EBA2384007BECC8 /* mod_md.h */,
 			);

@@ -22,9 +22,13 @@ mod_md_la_CPPFLAGS = -std=c99 -D_GNU_SOURCE -Werror
 mod_md_la_LDFLAGS  = -module
 
 OBJECTS = \
+    md_config.c \
+    md_core.c \
     mod_md.c
 
 HFILES = \
+    md_config.h \
+    md.h \
     mod_md.h
 
 mod_md_la_SOURCES = $(HFILES) $(OBJECTS)

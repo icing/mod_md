@@ -54,6 +54,9 @@ AC_ARG_WITH([apxs], [AS_HELP_STRING([--with-apxs],
     [Use APXS executable [default=check]])],
     [request_apxs=$withval], [request_apxs=check])
 
+AC_ARG_WITH([curl], [AS_HELP_STRING([--with-curl], [Use curl from this prefix])],
+    [request_curl=$withval], [request_curl=check])
+
 
 # Checks for programs.
 AC_PROG_CC
@@ -122,14 +125,47 @@ HTTPD_VERSION="$($APXS -q HTTPD_VERSION)"
 
 # We need crypto to be in our link path, check for it.
 #
-AC_CHECK_LIB([crypto], [SHA256_Init], ,
-[AC_MSG_ERROR("library crypto not found")])
+AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found")])
+
+# We need a JSON lib, like jansson
+#
+AC_CHECK_LIB([jansson], [json_loads], , [AC_MSG_ERROR("library jansson not found")])
+
+AC_CHECK_HEADERS([jansson.h])
+
+# We need a HTTP client which can talk https: and, optionally even HTTP/2
+# just like curl can.
+#
+
+if test x"$request_curl" = "xcheck"; then
+    AC_CHECK_LIB([curl], [curl_global_init], , [AC_MSG_ERROR("libcurl not found")])
+    curl_config="curl-config"
+    AC_CHECK_PROG([CURL_CONFIG],[$curl_config],[yes],[no])
+else
+    curl_config="$request_curl/bin/curl-config"
+    AC_PATH_PROG([CURL_CONFIG],[$curl_config],[yes],[no])
+fi
+
+AM_CONDITIONAL([FOUND_CURL_CONFIG], [test "x$CURL_CONFIG" = xyes])
+AM_COND_IF([FOUND_CURL_CONFIG],,[AC_MSG_ERROR([required program 'curl-config' not found.])])
+
+# $curl_config is available. Does it off SSL?
+curl_ssl=$( $curl_config --features | fgrep SSL )
+if test "x$curl_ssl" = "x"; then
+    AC_MSG_ERROR([curl from $curl_config does not support SSL.])
+fi
+
+AC_CHECK_HEADERS([curl/curl.h])
+
+CFLAGS="$CFLAGS "`$curl_config --cflags`
+LIBS="$LIBS "`$curl_config --libs`
 
 # Checks for header files.
 AC_CHECK_HEADERS([ \
     assert.h \
     stddef.h \
 ])
+
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_INT32_T
@@ -170,4 +206,5 @@ AC_MSG_NOTICE([summary of build options:
     LIBS:           ${LIBS}
     CPPFLAGS:       ${CPPFLAGS}
     a2enmod         ${A2ENMOD:--}
+    curl-config     ${curl_config:--}
 ])
