@@ -30,3 +30,5 @@ Makefile.in
 Makefile
 mod_cert-*.tar.gz
 m4
+.cache
+__pycache__

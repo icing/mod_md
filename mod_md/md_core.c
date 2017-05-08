@@ -36,7 +36,7 @@ static int ap_array_str_case_index(const apr_array_header_t *array,
         
         for (i = start; i < array->nelts; i++) {
             const char *p = APR_ARRAY_IDX(array, i, const char *);
-            if (!strcmp(p, s)) {
+            if (!apr_strnatcasecmp(p, s)) {
                 return i;
             }
         }
@@ -47,7 +47,7 @@ static int ap_array_str_case_index(const apr_array_header_t *array,
 
 const char *md_common_name(const md_t *md1, const md_t *md2)
 {
-    int i, j;
+    int i;
     
     if (md1 == NULL || md1->domains == NULL
         || md2 == NULL || md2->domains == NULL) {
@@ -96,4 +96,14 @@ const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[])
  
     *pmd = md;
     return NULL;   
+}
+
+md_t *md_clone(apr_pool_t *p, md_t *src)
+{
+    md_t *md;
+    
+    md = apr_pcalloc(p, sizeof(*md));
+    md->name = apr_pstrdup(p, src->name);
+    md->domains = apr_array_copy(p, src->domains);
+    return md;   
 }

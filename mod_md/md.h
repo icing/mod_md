@@ -18,7 +18,7 @@
 
 typedef struct md_ca_t {
     const char *url;
-    const char *protocol;
+    const char *proto;
 } md_ca_t;
 
 typedef struct md_t {
@@ -44,5 +44,7 @@ const char *md_common_name(const md_t *md1, const md_t *md2);
  * Create a managed domain, given a list of domain names.
  */
 const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[]);
+
+md_t *md_clone(apr_pool_t *p, md_t *src);
 
 #endif /* mod_md_md_h */

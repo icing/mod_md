@@ -61,12 +61,19 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     md_config *add = (md_config *)addv;
     md_config *n = (md_config *)apr_pcalloc(pool, sizeof(md_config));
     char *name = apr_pstrcat(pool, "merged[", add->name, ", ", base->name, "]", NULL);
+    md_t *md, **pmd;
+    int i;
+    
     n->name = name;
 
     /* I think we should not merge md definitions. They should reside where
      * they were defined */
-    /*n->mds = apr_array_append(pool, base->mds, add->mds); */
-    n->mds = add->mds;
+    n->mds = apr_array_make(pool, add->mds->nelts, sizeof(const md_t *));
+    for (i = 0; i < add->mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(add->mds, i, md_t*);
+        pmd = (md_t **)apr_array_push(n->mds);
+        *pmd = md_clone(pool, md);
+    }
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     
@@ -97,8 +104,14 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
         return err;
     }
     
-    md->defn_name = parms->config_file->name;
-    md->defn_line_number = parms->config_file->line_number;
+    if (parms->config_file) {
+        md->defn_name = parms->config_file->name;
+        md->defn_line_number = parms->config_file->line_number;
+    }
+    else {
+        md->defn_name = "unknown";
+        md->defn_line_number = 0;
+    }
 
     pmd = (md_t **)apr_array_push(config->mds);
     *pmd = md;
@@ -137,7 +150,7 @@ static const char *md_config_set_ca_proto(cmd_parms *parms,
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
-    AP_INIT_TAKE_ARGV("ManagedDomains", md_config_set_names, NULL,
+    AP_INIT_TAKE_ARGV("ManagedDomain", md_config_set_names, NULL,
                       RSRC_CONF, "domain names managed with one certificate"),
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL,
                   RSRC_CONF, "URL of CA issueing the certificates"),
