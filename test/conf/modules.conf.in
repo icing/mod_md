@@ -33,3 +33,5 @@ LoadModule rewrite_module       "@PREFIX@/modules/mod_rewrite.so
 
 LoadModule mpm_event_module     "@PREFIX@/modules/mod_mpm_event.so
 
+LoadModule md_module            "@SRC_DIR@/.libs/mod_md.so"
+

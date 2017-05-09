@@ -1,10 +1,11 @@
+
+
 ServerName @SERVER_NAME@
 ServerRoot "@SERVER_DIR@"
 
 Listen @HTTP_PORT@ @HTTPS_PORT@
 
 Include conf/modules.conf
-LoadModule md_module "../../mod_md/.libs/mod_md.so"
 
 DocumentRoot "@SERVER_DIR@/htdocs"
 
@@ -15,3 +16,4 @@ DocumentRoot "@SERVER_DIR@/htdocs"
     
 </IfModule>
 
+Include "conf/test.conf"

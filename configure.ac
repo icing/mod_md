@@ -61,11 +61,18 @@ AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
     [Use serverdir directory for setup [default=gen/apache]])],
     [request_serverdir=$withval], [request_serverdir=$PWD/test/gen/apache])
 
+SRC_DIR="$PWD/mod_md"
+AC_SUBST(SRC_DIR)
+
 SERVER_NAME=$(hostname -f)
 AC_SUBST(SERVER_NAME)
-
 SERVER_DIR="$request_serverdir"
 AC_SUBST(SERVER_DIR)
+HTTP_PORT=12345
+AC_SUBST(HTTP_PORT)
+HTTPS_PORT=12346
+AC_SUBST(HTTPS_PORT)
+
 
 # Checks for programs.
 AC_PROG_CC
@@ -199,7 +206,7 @@ AC_CONFIG_FILES([
     Makefile
     mod_md/Makefile
     mod_md/md_version.h
-    test/conf/general.conf
+    test/conf/httpd.conf
     test/conf/modules.conf
     test/test.ini
 ])

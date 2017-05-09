@@ -40,19 +40,22 @@ def count_errors():
     
 
 def apachectl(conf, cmd):
-    conf_src = os.path.join("test_configs_data", conf + ".conf")
+    if conf is None:
+        conf_src = os.path.join("conf", "test.conf")
+    else:
+        conf_src = os.path.join("test_configs_data", conf + ".conf")
     copyfile(conf_src, TEST_CONF)
     return subprocess.call([APACHECTL, "-d", WEBROOT, "-k", cmd])
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     reset_errors()
-    status = apachectl("httpd", "start")
+    status = apachectl(None, "start")
     assert status == 0
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    status = apachectl("httpd", "stop")
+    status = apachectl(None, "stop")
 
 
 class TestConf:
@@ -72,7 +75,7 @@ class TestConf:
 
     def test_003(self):
         # two ManagedDomain definitions, exactly the same
-        status = apachectl("httpd", "stop")
+        status = apachectl(None, "stop")
         status = apachectl("test_003", "start")
         assert status == 0
         time.sleep(.5)
@@ -82,7 +85,7 @@ class TestConf:
         
     def test_004(self):
         # two ManagedDomain definitions, overlapping
-        status = apachectl("httpd", "stop")
+        status = apachectl(None, "stop")
         status = apachectl("test_004", "start")
         assert status == 0
         time.sleep(.5)
@@ -92,7 +95,7 @@ class TestConf:
 
     def test_005(self):
         # two ManagedDomain, one inside a virtual host
-        status = apachectl("httpd", "stop")
+        status = apachectl(None, "stop")
         status = apachectl("test_005", "start")
         assert status == 0
         time.sleep(.5)

@@ -22,6 +22,14 @@ dist_doc_DATA   = README README.md LICENSE
 
 .PHONY: test
 
+SERVER_DIR      = @SERVER_DIR@
 
-test:
+test: $(SERVER_DIR)/.test-setup
 	@cd test; py.test
+
+$(SERVER_DIR)/.test-setup: test/conf/*
+	@mkdir -p $(SERVER_DIR)/conf
+	@mkdir -p $(SERVER_DIR)/htdocs
+	@mkdir -p $(SERVER_DIR)/logs
+	@cp test/conf/*.* $(SERVER_DIR)/conf
+	@touch $(SERVER_DIR)/.test-setup

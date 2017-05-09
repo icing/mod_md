@@ -33,3 +33,6 @@ m4
 .cache
 __pycache__
 test/test.ini
+test/gen
+test/conf/httpd.conf
+test/conf/modules.conf
