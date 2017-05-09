@@ -57,6 +57,15 @@ AC_ARG_WITH([apxs], [AS_HELP_STRING([--with-apxs],
 AC_ARG_WITH([curl], [AS_HELP_STRING([--with-curl], [Use curl from this prefix])],
     [request_curl=$withval], [request_curl=check])
 
+AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
+    [Use serverdir directory for setup [default=gen/apache]])],
+    [request_serverdir=$withval], [request_serverdir=$PWD/test/gen/apache])
+
+SERVER_NAME=$(hostname -f)
+AC_SUBST(SERVER_NAME)
+
+SERVER_DIR="$request_serverdir"
+AC_SUBST(SERVER_DIR)
 
 # Checks for programs.
 AC_PROG_CC
@@ -190,6 +199,8 @@ AC_CONFIG_FILES([
     Makefile
     mod_md/Makefile
     mod_md/md_version.h
+    test/conf/general.conf
+    test/conf/modules.conf
     test/test.ini
 ])
 

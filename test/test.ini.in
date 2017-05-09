@@ -2,3 +2,5 @@
 
 [global]
 prefix = @PREFIX@
+server_name = @SERVER_NAME@
+server_dir = @SERVER_DIR@

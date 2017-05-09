@@ -13,7 +13,8 @@ config.read('test.ini')
 PREFIX = config.get('global', 'prefix')
 
 APACHECTL = os.path.join(PREFIX, 'bin', 'apachectl')
-WEBROOT = os.path.abspath("test_configs_srv")
+
+WEBROOT = config.get('global', 'server_dir')
 ERROR_LOG = os.path.join(WEBROOT, "logs", "error_log")
 TEST_CONF = os.path.join(WEBROOT, "conf", "test.conf")
 
