@@ -40,9 +40,9 @@ def count_errors():
     
 
 def apachectl(conf, cmd):
-    conf_src = os.path.join(WEBROOT, "conf", conf + ".conf")
+    conf_src = os.path.join("test_configs_data", conf + ".conf")
     copyfile(conf_src, TEST_CONF)
-    return subprocess.call([APACHECTL, "-d", WEBROOT, "-f", TEST_CONF, "-k", cmd])
+    return subprocess.call([APACHECTL, "-d", WEBROOT, "-k", cmd])
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)

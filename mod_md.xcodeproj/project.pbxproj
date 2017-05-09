@@ -192,16 +192,8 @@
 		B2D309F91EC1AD26007BECC8 /* test_configs_srv */ = {
 			isa = PBXGroup;
 			children = (
-				B2D30A031EC1AD26007BECC8 /* htdocs */,
 			);
 			path = test_configs_srv;
-			sourceTree = "<group>";
-		};
-		B2D30A031EC1AD26007BECC8 /* htdocs */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = htdocs;
 			sourceTree = "<group>";
 		};
 		B2D31AEA1EC1B506007BECC8 /* conf */ = {
