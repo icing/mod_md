@@ -16,7 +16,14 @@ DocumentRoot "@SERVER_DIR@/htdocs"
     
 </IfModule>
 
+LogLevel md:info
+
 <VirtualHost *:@HTTP_PORT@>
+    DocumentRoot "@SERVER_DIR@/htdocs"
+</VirtualHost>
+
+<VirtualHost *:@HTTPS_PORT@>
+    DocumentRoot "@SERVER_DIR@/htdocs"
 </VirtualHost>
 
 Include "conf/test.conf"

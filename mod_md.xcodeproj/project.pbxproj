@@ -80,6 +80,13 @@
 		B2D31AF91EC1B80D007BECC8 /* test_004.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_004.conf; sourceTree = "<group>"; };
 		B2D31AFA1EC1B80D007BECC8 /* test_005.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_005.conf; sourceTree = "<group>"; };
 		B2D31AFB1EC1BC83007BECC8 /* httpd.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = httpd.conf.in; sourceTree = "<group>"; };
+		B2D31AFC1EC1E868007BECC8 /* test_006.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_006.conf; sourceTree = "<group>"; };
+		B2D31AFD1EC1E88B007BECC8 /* test_007.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_007.conf; sourceTree = "<group>"; };
+		B2D31AFE1EC1E8BD007BECC8 /* test_008.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_008.conf; sourceTree = "<group>"; };
+		B2D31AFF1EC1E8ED007BECC8 /* test_009.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_009.conf; sourceTree = "<group>"; };
+		B2D31B001EC1F16F007BECC8 /* test_010.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_010.conf; sourceTree = "<group>"; };
+		B2D31B011EC1F4CE007BECC8 /* test_011.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_011.conf; sourceTree = "<group>"; };
+		B2D31B021EC1F54A007BECC8 /* test_012.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_012.conf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -207,6 +214,13 @@
 				B2D31AF81EC1B80D007BECC8 /* test_003.conf */,
 				B2D31AF91EC1B80D007BECC8 /* test_004.conf */,
 				B2D31AFA1EC1B80D007BECC8 /* test_005.conf */,
+				B2D31AFC1EC1E868007BECC8 /* test_006.conf */,
+				B2D31AFD1EC1E88B007BECC8 /* test_007.conf */,
+				B2D31AFE1EC1E8BD007BECC8 /* test_008.conf */,
+				B2D31AFF1EC1E8ED007BECC8 /* test_009.conf */,
+				B2D31B001EC1F16F007BECC8 /* test_010.conf */,
+				B2D31B011EC1F4CE007BECC8 /* test_011.conf */,
+				B2D31B021EC1F54A007BECC8 /* test_012.conf */,
 			);
 			path = test_configs_data;
 			sourceTree = "<group>";

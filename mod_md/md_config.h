@@ -27,6 +27,7 @@ typedef struct md_config {
     apr_array_header_t *mds; /* array of md_t pointers */
     const char *ca_url;
     const char *ca_proto;
+    const md_t *emd;         /* effective md */
 } md_config;
 
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s);

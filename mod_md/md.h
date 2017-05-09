@@ -31,6 +31,11 @@ typedef struct md_t {
 } md_t;
 
 /**
+ * Determine if the Managed Domain conotains a specific domain.
+ */
+int md_contains(const md_t *md, const char *domain);
+
+/**
  * Determine if the names of the two managed domains overlap.
  */
 int md_names_overlap(const md_t *md1, const md_t *md2);

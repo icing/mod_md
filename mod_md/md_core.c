@@ -45,6 +45,11 @@ static int ap_array_str_case_index(const apr_array_header_t *array,
     return -1;
 }
 
+int md_contains(const md_t *md, const char *domain)
+{
+   return ap_array_str_case_index(md->domains, domain, 0) >= 0;
+}
+
 const char *md_common_name(const md_t *md1, const md_t *md2)
 {
     int i;
@@ -56,7 +61,7 @@ const char *md_common_name(const md_t *md1, const md_t *md2)
     
     for (i = 0; i < md1->domains->nelts; ++i) {
         const char *name1 = APR_ARRAY_IDX(md1->domains, i, const char*);
-        if (ap_array_str_case_index(md2->domains, name1, 0) >= 0) {
+        if (md_contains(md2, name1)) {
             return name1;
         }
     }

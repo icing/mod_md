@@ -35,7 +35,8 @@ static md_config defconf = {
     "default",
     NULL,
     "https://acme-v01.api.letsencrypt.org/directory",
-    "ACME"
+    "ACME",
+    NULL
 };
 
 static void *md_config_create(apr_pool_t *pool,
@@ -76,6 +77,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     }
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
+    n->emd = add->emd? add->emd : base->emd;
     
     return n;
 }
@@ -89,11 +91,8 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
                                        int argc, char *const argv[])
 {
     md_config *config = (md_config *)md_config_sget(parms->server);
-    const char **np;
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
-    int i;
     md_t *md, **pmd;
-    apr_status_t rv;
     
     if (err) {
         return err;
@@ -150,7 +149,7 @@ static const char *md_config_set_ca_proto(cmd_parms *parms,
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
-    AP_INIT_TAKE_ARGV("ManagedDomain", md_config_set_names, NULL,
+    AP_INIT_TAKE_ARGV("ManagedDomains", md_config_set_names, NULL,
                       RSRC_CONF, "domain names managed with one certificate"),
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL,
                   RSRC_CONF, "URL of CA issueing the certificates"),
@@ -175,8 +174,6 @@ const md_config *md_config_get(conn_rec *c)
 
 const char *md_config_var_get(const md_config *config, md_config_var_t var)
 {
-    const char *s;
-    
     switch (var) {
         case MD_CONFIG_CA_URL:
             return config->ca_url? config->ca_url : defconf.ca_url;

@@ -19,6 +19,7 @@
 #include <http_protocol.h>
 #include <http_request.h>
 #include <http_log.h>
+#include <http_vhost.h>
 
 #include "md.h"
 #include "mod_md.h"
@@ -84,12 +85,14 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     void *data = NULL;
     const char *mod_md_init_key = "mod_md_init_counter";
     server_rec *s;
-    const md_config *config;
+    md_config *config;
     apr_array_header_t *mds;
     apr_array_header_t *cas;
-    int i, j;
+    int i, j, k;
     md_t *md, *nmd, **pmd;
-    const char *domain;
+    const char *domain, *name;
+    request_rec r;
+    apr_status_t status = APR_SUCCESS;
     
     (void)plog;(void)ptemp;
     
@@ -112,7 +115,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     mds = apr_array_make(p, 5, sizeof(const md_t *));
     cas = apr_array_make(p, 5, sizeof(const md_ca_t *));
     for (s = base_server; s; s = s->next) {
-        config = md_config_sget(s);
+        config = (md_config *)md_config_sget(s);
         
         for (i = 0; i < config->mds->nelts; ++i) {
             nmd = APR_ARRAY_IDX(config->mds, i, md_t*);
@@ -139,13 +142,76 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                 *pmd = nmd;
             }
         }
+        
+        /* set the aggregated md_t list into each config, so there is access
+         * to it from severy server_rec */
+        config->mds = mds;
     }
     
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
                  "found %d Managed Domains against %d CAs in configuration",
                  mds->nelts, cas->nelts);
+                 
+    memset(&r, 0, sizeof(r));
+    for (i = 0; i < mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mds, i, md_t*);
+        config = NULL;
+        for (s = base_server; s; s = s->next) {
+            r.server = s;
+            /* try finding a matching server for the domain, might be more than  one */ 
+            for (j = 0; j < md->domains->nelts; ++j) {
+                domain = APR_ARRAY_IDX(md->domains, j, const char*);
+                
+                if (ap_matches_request_vhost(&r, domain, s->port)) {
+                    config = (md_config *)md_config_sget(s);
+                    if (config->emd == md) {
+                        /* already matched via another domain name */
+                    }
+                    else if (config->emd) {
+                        ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
+                                     "Managed Domain %s matches server %s, but MD %s also matches",
+                                     md->name, s->server_hostname, config->emd->name);
+                        status = APR_EINVAL;
+                    }
+                    /* This server matches a managed domain. If it contains names or
+                     * alias that are not in this md, a generated certificate will not match.
+                     */
+                    if (!md_contains(md, s->server_hostname)) {
+                        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
+                                     "Virtual Host %s:%d matches Managed Domain %s, but the name"
+                                     " itself is not managed. A requested MD certificate will "
+                                     "not match ServerName.",
+                                     s->server_hostname, s->port, md->name);
+                    }
+                    else {
+                        for (k = 0; k < s->names->nelts; ++k) {
+                            name = APR_ARRAY_IDX(s->names, k, const char*);
+                            if (!md_contains(md, name)) {
+                                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
+                                             "Virtual Host %s:%d matches Managed Domain %s, but "
+                                             "the ServerAlias %s is not covered by the MD. "
+                                             "A requested MD certificate will not match this " 
+                                             "alias.", s->server_hostname, s->port, md->name,
+                                             name);
+                            }
+                        }
+                    }
+                    config->emd = md;
+                    ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+                                 "Managed Domain %s applies to vhost %s:%d", md->name,
+                                 s->server_hostname, s->port);
+                    break;
+                }
+            }
+        }
+        
+        if (config == NULL) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
+                         "No VirtualHost matches Managed Domain %s", md->name);
+        }
+    }
     
-    return APR_SUCCESS;
+    return status;
 }
 
 /* Runs once per created child process. Perform any process 

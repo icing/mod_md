@@ -26,6 +26,7 @@ HTTPS_PORT = config.get('global', 'https_port')
 
 
 RE_MD_ERROR = re.compile('.*\[md:error\].*')
+RE_MD_WARN  = re.compile('.*\[md:warn\].*')
 
 def remove_if_exists(f):
     if os.path.isfile(f):
@@ -34,17 +35,6 @@ def remove_if_exists(f):
 def reset_errors():
     remove_if_exists(ERROR_LOG)
 
-def count_errors():
-    if not os.path.isfile(ERROR_LOG):
-        return 0
-    fin = open(ERROR_LOG)
-    ecount = 0
-    for line in fin:
-        m = RE_MD_ERROR.match(line)
-        if m:
-            ecount += 1
-    return ecount
-    
 def apachectl(conf, cmd):
     if conf is None:
         conf_src = os.path.join("conf", "test.conf")
@@ -84,8 +74,32 @@ def check_live(timeout):
 
 class TestConf:
 
+    def count_errors(self):
+        if not os.path.isfile(ERROR_LOG):
+            return (0, 0)
+        else:
+            fin = open(ERROR_LOG)
+            ecount = 0
+            wcount = 0
+            for line in fin:
+                m = RE_MD_ERROR.match(line)
+                if m:
+                    ecount += 1
+                m = RE_MD_WARN.match(line)
+                if m:
+                    wcount += 1
+            return (ecount, wcount)
+
+    def new_errors(self):
+        (errors, warnings) = self.count_errors()
+        return errors - self.errors
+        
+    def new_warnings(self):
+        (errors, warnings) = self.count_errors()
+        return warnings - self.warnings
+        
     def setup_method(self, method):
-        self.errors = count_errors()
+        (self.errors, self.warnings) = self.count_errors()
                             
     def test_001(self):
         # just one ManagedDomain definition
@@ -101,16 +115,63 @@ class TestConf:
         # two ManagedDomain definitions, exactly the same
         assert apachectl("test_003", "graceful") == 0
         assert not check_live(.5)
-        assert (count_errors() - self.errors) == 1
+        assert self.new_errors() == 1
         
     def test_004(self):
         # two ManagedDomain definitions, overlapping
         assert apachectl("test_004", "graceful") == 0
         assert not check_live(.5)
-        assert (count_errors() - self.errors) == 1
+        assert self.new_errors() == 1
 
     def test_005(self):
         # two ManagedDomain, one inside a virtual host
         assert apachectl("test_005", "graceful") == 0
         assert check_live(1)
-        assert (count_errors() - self.errors) == 0
+        assert self.new_errors() == 0
+
+    def test_006(self):
+        # two ManagedDomain, one correct vhost name
+        assert apachectl("test_006", "graceful") == 0
+        assert check_live(1)
+        assert self.new_errors() == 0
+
+    def test_007(self):
+        # two ManagedDomain, two correct vhost names
+        assert apachectl("test_007", "graceful") == 0
+        assert check_live(1)
+        assert self.new_errors() == 0
+
+    def test_008(self):
+        # two ManagedDomain, overlapping vhosts
+        assert apachectl("test_008", "graceful") == 0
+        assert check_live(1)
+        assert self.new_errors() == 0
+
+    def test_009(self):
+        # vhosts with overlapping MDs
+        assert apachectl("test_009", "graceful") == 0
+        assert not check_live(1)
+        assert self.new_errors() == 1
+        assert self.new_warnings() == 2
+
+    def test_010(self):
+        # ManagedDomain, vhost with matching ServerAlias
+        assert apachectl("test_010", "graceful") == 0
+        assert check_live(1)
+        assert self.new_errors() == 0
+        assert self.new_warnings() == 0
+
+    def test_011(self):
+        # ManagedDomain does misses one ServerAlias
+        assert apachectl("test_011", "graceful") == 0
+        assert check_live(1)
+        assert self.new_errors() == 0
+        assert self.new_warnings() == 1
+
+    def test_012(self):
+        # ManagedDomain does not match any vhost
+        assert apachectl("test_012", "graceful") == 0
+        assert check_live(1)
+        assert self.new_errors() == 0
+        assert self.new_warnings() == 1
+
