@@ -18,6 +18,8 @@ DocumentRoot "@SERVER_DIR@/htdocs"
 
 LogLevel md:info
 
+SSLEngine off
+
 <VirtualHost *:@HTTP_PORT@>
     DocumentRoot "@SERVER_DIR@/htdocs"
 </VirtualHost>

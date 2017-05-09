@@ -158,6 +158,14 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         config = NULL;
         for (s = base_server; s; s = s->next) {
             r.server = s;
+            
+            if (strcmp(ap_http_scheme(&r), "https")) {
+                /* Not a TLS enabled server */
+                continue;
+            }
+            ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+                         "Server %s:%d uses https", s->server_hostname, s->port);
+            
             /* try finding a matching server for the domain, might be more than  one */ 
             for (j = 0; j < md->domains->nelts; ++j) {
                 domain = APR_ARRAY_IDX(md->domains, j, const char*);
