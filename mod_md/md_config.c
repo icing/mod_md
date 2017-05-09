@@ -91,9 +91,10 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
                                        int argc, char *const argv[])
 {
     md_config *config = (md_config *)md_config_sget(parms->server);
-    const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
+    const char *err;
     md_t *md, **pmd;
     
+    err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
     if (err) {
         return err;
     }
@@ -106,10 +107,6 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
     if (parms->config_file) {
         md->defn_name = parms->config_file->name;
         md->defn_line_number = parms->config_file->line_number;
-    }
-    else {
-        md->defn_name = "unknown";
-        md->defn_line_number = 0;
     }
 
     pmd = (md_t **)apr_array_push(config->mds);
@@ -149,12 +146,12 @@ static const char *md_config_set_ca_proto(cmd_parms *parms,
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
-    AP_INIT_TAKE_ARGV("ManagedDomains", md_config_set_names, NULL,
-                      RSRC_CONF, "domain names managed with one certificate"),
-    AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL,
-                  RSRC_CONF, "URL of CA issueing the certificates"),
-    AP_INIT_TAKE1("MDCertificateProtocol", md_config_set_ca_proto, NULL,
-                  RSRC_CONF, "Protocol used to obtain/renew certificates"),
+    AP_INIT_TAKE_ARGV("ManagedDomains", md_config_set_names, NULL, RSRC_CONF | EXEC_ON_READ, 
+                      "A group of domain names with one certificate"),
+    AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
+                  "URL of CA issueing the certificates"),
+    AP_INIT_TAKE1("MDCertificateProtocol", md_config_set_ca_proto, NULL, RSRC_CONF, 
+                  "Protocol used to obtain/renew certificates"),
     AP_END_CMD
 };
 

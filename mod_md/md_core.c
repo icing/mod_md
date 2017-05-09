@@ -86,7 +86,9 @@ const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[])
 
     md = apr_pcalloc(p, sizeof(*md));
     md->domains = apr_array_make(p, argc, sizeof(const char *));
-    
+    md->defn_name = "unknown";
+    md->defn_line_number = 0;
+   
     for (i = 0; i < argc; ++i) {
         name = argv[i];
         /* TODO: some dns sanity check on the name? */
