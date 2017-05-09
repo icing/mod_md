@@ -3,10 +3,13 @@
 import os.path
 import re
 import subprocess
+import sys
 import time
 
-from shutil import copyfile
 from ConfigParser import SafeConfigParser
+from datetime import datetime
+from httplib import HTTPConnection
+from shutil import copyfile
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -17,6 +20,10 @@ APACHECTL = os.path.join(PREFIX, 'bin', 'apachectl')
 WEBROOT = config.get('global', 'server_dir')
 ERROR_LOG = os.path.join(WEBROOT, "logs", "error_log")
 TEST_CONF = os.path.join(WEBROOT, "conf", "test.conf")
+
+HTTP_PORT = config.get('global', 'http_port')
+HTTPS_PORT = config.get('global', 'https_port')
+
 
 RE_MD_ERROR = re.compile('.*\[md:error\].*')
 
@@ -38,7 +45,6 @@ def count_errors():
             ecount += 1
     return ecount
     
-
 def apachectl(conf, cmd):
     if conf is None:
         conf_src = os.path.join("conf", "test.conf")
@@ -58,6 +64,24 @@ def teardown_module(module):
     status = apachectl(None, "stop")
 
 
+def check_live(timeout):
+    try_until = time.time() + timeout
+    while time.time() < try_until:
+        try:
+            c = HTTPConnection('localhost', HTTP_PORT, timeout=timeout)
+            c.request('HEAD', '/')
+            resp = c.getresponse()
+            print "response %d %s" % (resp.status, resp.reason)
+            c.close()
+            return True
+        except IOError:
+            print "connect error:", sys.exc_info()[0]
+            time.sleep(.1)
+        except:
+            print "Unexpected error:", sys.exc_info()[0]
+    print "Unable to contact server after %d sec" % timeout
+    return False
+
 class TestConf:
 
     def setup_method(self, method):
@@ -65,40 +89,28 @@ class TestConf:
                             
     def test_001(self):
         # just one ManagedDomain definition
-        status = apachectl("test_001", "graceful")
-        assert status == 0
+        assert apachectl("test_001", "graceful") == 0
+        assert check_live(1)
 
     def test_002(self):
         # two ManagedDomain definitions, non-overlapping
-        status = apachectl("test_002", "graceful")
-        assert status == 0
+        assert apachectl("test_002", "graceful") == 0
+        assert check_live(1)
 
     def test_003(self):
         # two ManagedDomain definitions, exactly the same
-        status = apachectl(None, "stop")
-        status = apachectl("test_003", "start")
-        assert status == 0
-        time.sleep(.5)
-        errors = count_errors()
-        # error can be reported in more than one process
-        assert (errors - self.errors) == 1
+        assert apachectl("test_003", "graceful") == 0
+        assert not check_live(.5)
+        assert (count_errors() - self.errors) == 1
         
     def test_004(self):
         # two ManagedDomain definitions, overlapping
-        status = apachectl(None, "stop")
-        status = apachectl("test_004", "start")
-        assert status == 0
-        time.sleep(.5)
-        errors = count_errors()
-        # error can be reported in more than one process
-        assert (errors - self.errors) == 1
+        assert apachectl("test_004", "graceful") == 0
+        assert not check_live(.5)
+        assert (count_errors() - self.errors) == 1
 
     def test_005(self):
         # two ManagedDomain, one inside a virtual host
-        status = apachectl(None, "stop")
-        status = apachectl("test_005", "start")
-        assert status == 0
-        time.sleep(.5)
-        errors = count_errors()
-        # error can be reported in more than one process
-        assert (errors - self.errors) == 0
+        assert apachectl("test_005", "graceful") == 0
+        assert check_live(1)
+        assert (count_errors() - self.errors) == 0

@@ -16,4 +16,8 @@ DocumentRoot "@SERVER_DIR@/htdocs"
     
 </IfModule>
 
+<VirtualHost *:@HTTP_PORT@>
+</VirtualHost>
+
 Include "conf/test.conf"
+
