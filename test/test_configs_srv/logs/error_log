@@ -1,32 +1,32 @@
-[Mon May 08 15:44:52.837564 2017] [md:info] [pid 72309:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
-[Mon May 08 15:44:52.837694 2017] [md:info] [pid 72309:tid 140736644027328] AH: found 0 Managed Domains against 0 CAs in configuration
-[Mon May 08 15:44:52.837748 2017] [ssl:warn] [pid 72309:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
-[Mon May 08 15:44:52.839776 2017] [mpm_event:notice] [pid 72309:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
-[Mon May 08 15:44:52.839851 2017] [core:notice] [pid 72309:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
-[Mon May 08 15:44:52.936901 2017] [mpm_event:notice] [pid 72309:tid 140736644027328] AH00493: SIGUSR1 received.  Doing graceful restart
-[Mon May 08 15:44:52.946874 2017] [md:info] [pid 72309:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
-[Mon May 08 15:44:52.946891 2017] [md:info] [pid 72309:tid 140736644027328] AH: found 1 Managed Domains against 1 CAs in configuration
-[Mon May 08 15:44:52.946907 2017] [ssl:warn] [pid 72309:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
-[Mon May 08 15:44:52.947495 2017] [mpm_event:notice] [pid 72309:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
-[Mon May 08 15:44:52.947521 2017] [core:notice] [pid 72309:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
-[Mon May 08 15:44:53.049877 2017] [mpm_event:notice] [pid 72309:tid 140736644027328] AH00493: SIGUSR1 received.  Doing graceful restart
-[Mon May 08 15:44:53.061008 2017] [md:info] [pid 72309:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
-[Mon May 08 15:44:53.061027 2017] [md:info] [pid 72309:tid 140736644027328] AH: found 2 Managed Domains against 1 CAs in configuration
-[Mon May 08 15:44:53.061044 2017] [ssl:warn] [pid 72309:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
-[Mon May 08 15:44:53.061630 2017] [mpm_event:notice] [pid 72309:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
-[Mon May 08 15:44:53.061660 2017] [core:notice] [pid 72309:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
-[Mon May 08 15:44:53.181326 2017] [mpm_event:notice] [pid 72309:tid 140736644027328] AH00491: caught SIGTERM, shutting down
-[Mon May 08 15:44:53.286396 2017] [md:info] [pid 72330:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
-[Mon May 08 15:44:53.286507 2017] [md:error] [pid 72330:tid 140736644027328] AH: two Managed Domains have an overlap in domain 'example.org', first definition in unknown(line 0), second in unknown(line 0)
-[Mon May 08 15:44:53.286513 2017] [core:emerg] [pid 72330:tid 140736644027328] AH00020: Configuration Failed, exiting
-[Mon May 08 15:44:54.012426 2017] [md:info] [pid 72335:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
-[Mon May 08 15:44:54.012581 2017] [md:error] [pid 72335:tid 140736644027328] AH: two Managed Domains have an overlap in domain 'test3.example.org', first definition in unknown(line 0), second in unknown(line 0)
-[Mon May 08 15:44:54.012590 2017] [core:emerg] [pid 72335:tid 140736644027328] AH00020: Configuration Failed, exiting
-[Mon May 08 15:44:54.728556 2017] [ssl:warn] [pid 72339:tid 140736644027328] AH01916: Init: (localhost:443) You configured HTTP(80) on the standard HTTPS(443) port!
-[Mon May 08 15:44:54.739941 2017] [md:info] [pid 72340:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
-[Mon May 08 15:44:54.740833 2017] [md:info] [pid 72340:tid 140736644027328] AH: found 2 Managed Domains against 1 CAs in configuration
-[Mon May 08 15:44:54.740896 2017] [ssl:warn] [pid 72340:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
-[Mon May 08 15:44:54.740908 2017] [ssl:warn] [pid 72340:tid 140736644027328] AH01916: Init: (localhost:443) You configured HTTP(80) on the standard HTTPS(443) port!
-[Mon May 08 15:44:54.742554 2017] [mpm_event:notice] [pid 72340:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
-[Mon May 08 15:44:54.742624 2017] [core:notice] [pid 72340:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
-[Mon May 08 15:44:55.358201 2017] [mpm_event:notice] [pid 72340:tid 140736644027328] AH00491: caught SIGTERM, shutting down
+[Tue May 09 07:57:44.398470 2017] [md:info] [pid 80054:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
+[Tue May 09 07:57:44.398625 2017] [md:info] [pid 80054:tid 140736644027328] AH: found 0 Managed Domains against 0 CAs in configuration
+[Tue May 09 07:57:44.398667 2017] [ssl:warn] [pid 80054:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
+[Tue May 09 07:57:44.400492 2017] [mpm_event:notice] [pid 80054:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
+[Tue May 09 07:57:44.400541 2017] [core:notice] [pid 80054:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
+[Tue May 09 07:57:44.504549 2017] [mpm_event:notice] [pid 80054:tid 140736644027328] AH00493: SIGUSR1 received.  Doing graceful restart
+[Tue May 09 07:57:44.513955 2017] [md:info] [pid 80054:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
+[Tue May 09 07:57:44.513971 2017] [md:info] [pid 80054:tid 140736644027328] AH: found 1 Managed Domains against 1 CAs in configuration
+[Tue May 09 07:57:44.513986 2017] [ssl:warn] [pid 80054:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
+[Tue May 09 07:57:44.514517 2017] [mpm_event:notice] [pid 80054:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
+[Tue May 09 07:57:44.514545 2017] [core:notice] [pid 80054:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
+[Tue May 09 07:57:44.614790 2017] [mpm_event:notice] [pid 80054:tid 140736644027328] AH00493: SIGUSR1 received.  Doing graceful restart
+[Tue May 09 07:57:44.624622 2017] [md:info] [pid 80054:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
+[Tue May 09 07:57:44.624640 2017] [md:info] [pid 80054:tid 140736644027328] AH: found 2 Managed Domains against 1 CAs in configuration
+[Tue May 09 07:57:44.624655 2017] [ssl:warn] [pid 80054:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
+[Tue May 09 07:57:44.625328 2017] [mpm_event:notice] [pid 80054:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
+[Tue May 09 07:57:44.625363 2017] [core:notice] [pid 80054:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
+[Tue May 09 07:57:44.743552 2017] [mpm_event:notice] [pid 80054:tid 140736644027328] AH00491: caught SIGTERM, shutting down
+[Tue May 09 07:57:44.852016 2017] [md:info] [pid 80075:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
+[Tue May 09 07:57:44.852176 2017] [md:error] [pid 80075:tid 140736644027328] AH: two Managed Domains have an overlap in domain 'example.org', first definition in unknown(line 0), second in unknown(line 0)
+[Tue May 09 07:57:44.852182 2017] [core:emerg] [pid 80075:tid 140736644027328] AH00020: Configuration Failed, exiting
+[Tue May 09 07:57:45.578081 2017] [md:info] [pid 80080:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
+[Tue May 09 07:57:45.578208 2017] [md:error] [pid 80080:tid 140736644027328] AH: two Managed Domains have an overlap in domain 'test3.example.org', first definition in unknown(line 0), second in unknown(line 0)
+[Tue May 09 07:57:45.578215 2017] [core:emerg] [pid 80080:tid 140736644027328] AH00020: Configuration Failed, exiting
+[Tue May 09 07:57:46.292249 2017] [ssl:warn] [pid 80084:tid 140736644027328] AH01916: Init: (localhost:443) You configured HTTP(80) on the standard HTTPS(443) port!
+[Tue May 09 07:57:46.302534 2017] [md:info] [pid 80085:tid 140736644027328] AH: mod_md (v0.0.1-git), initializing...
+[Tue May 09 07:57:46.305559 2017] [md:info] [pid 80085:tid 140736644027328] AH: found 2 Managed Domains against 1 CAs in configuration
+[Tue May 09 07:57:46.305644 2017] [ssl:warn] [pid 80085:tid 140736644027328] AH01873: Init: Session Cache is not configured [hint: SSLSessionCache]
+[Tue May 09 07:57:46.305655 2017] [ssl:warn] [pid 80085:tid 140736644027328] AH01916: Init: (localhost:443) You configured HTTP(80) on the standard HTTPS(443) port!
+[Tue May 09 07:57:46.307490 2017] [mpm_event:notice] [pid 80085:tid 140736644027328] AH00489: Apache/2.5.0-dev (Unix) OpenSSL/1.1.0e configured -- resuming normal operations
+[Tue May 09 07:57:46.307543 2017] [core:notice] [pid 80085:tid 140736644027328] AH00094: Command line: '/opt/apache-trunk/bin/httpd -d /Users/sei/projects/mod_md/test/test_configs_srv -f /Users/sei/projects/mod_md/test/test_configs_srv/conf/test.conf'
+[Tue May 09 07:57:46.921637 2017] [mpm_event:notice] [pid 80085:tid 140736644027328] AH00491: caught SIGTERM, shutting down

@@ -4,12 +4,15 @@ import os.path
 import re
 import subprocess
 import time
+
 from shutil import copyfile
+from ConfigParser import SafeConfigParser
 
+config = SafeConfigParser()
+config.read('test.ini')
+PREFIX = config.get('global', 'prefix')
 
-PREFIX = "/opt/apache-trunk"
 APACHECTL = os.path.join(PREFIX, 'bin', 'apachectl')
-
 WEBROOT = os.path.abspath("test_configs_srv")
 ERROR_LOG = os.path.join(WEBROOT, "logs", "error_log")
 TEST_CONF = os.path.join(WEBROOT, "conf", "test.conf")
@@ -38,8 +41,7 @@ def count_errors():
 def apachectl(conf, cmd):
     conf_src = os.path.join(WEBROOT, "conf", conf + ".conf")
     copyfile(conf_src, TEST_CONF)
-    return subprocess.call([APACHECTL, "-d", WEBROOT, 
-                            "-f", TEST_CONF, "-k", cmd])
+    return subprocess.call([APACHECTL, "-d", WEBROOT, "-f", TEST_CONF, "-k", cmd])
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)

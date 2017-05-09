@@ -32,3 +32,4 @@ mod_cert-*.tar.gz
 m4
 .cache
 __pycache__
+test/test.ini

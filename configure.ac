@@ -116,6 +116,7 @@ fi
 export BUILD_SUBDIRS="mod_md"
 
 prefix="$($APXS -q prefix)"
+export PREFIX="${prefix}"
 LDFLAGS="$LDFLAGS -L$($APXS -q libdir)"
 CPPFLAGS="$CPPFLAGS -I$($APXS -q includedir) -I$($APXS -q APR_INCLUDEDIR)"
 export SYSCONF_DIR="$($APXS -q sysconfdir)"
@@ -180,6 +181,7 @@ AC_CHECK_FUNCS([memmove memset strcasecmp strchr])
 AC_CHECK_PROG([A2ENMOD],[a2enmod])
 
 # substitution in generated files
+AC_SUBST(PREFIX)
 AC_SUBST(BUILD_SUBDIRS)
 AC_SUBST(SYSCONF_DIR)
 AC_SUBST(LIBEXEC_DIR)
@@ -188,6 +190,7 @@ AC_CONFIG_FILES([
     Makefile
     mod_md/Makefile
     mod_md/md_version.h
+    test/test.ini
 ])
 
 AC_OUTPUT
