@@ -1,13 +1,12 @@
-ServerName localhost
-ServerRoot "@/Users/sei/projects/mod_md/test/test_configs_srv"
+ServerName @SERVER_NAME@
+ServerRoot "@SERVER_DIR@"
 
-Listen 12345 12346
+Listen @HTTP_PORT@ @HTTPS_PORT@
 
-Include ../modules.conf
-
+Include conf/modules.conf
 LoadModule md_module "../../mod_md/.libs/mod_md.so"
 
-DocumentRoot "/Users/sei/projects/mod_md/test/test_configs_srv/htdocs"
+DocumentRoot "@SERVER_DIR@/htdocs"
 
 <IfModule log_config_module>
     LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\" %k" combined
