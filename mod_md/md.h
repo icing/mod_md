@@ -16,18 +16,33 @@
 #ifndef mod_md_md_h
 #define mod_md_md_h
 
+typedef enum {
+    MD_CA_S_UNKNOWN,                /* CA state is unknown */
+    MD_CA_S_LIVE,                   /* CA has been talked to successfully */
+    MD_CA_S_ERR,                    /* CA had error in communication */
+} md_ca_state_t;
+
 typedef struct md_ca_t {
-    const char *url;
-    const char *proto;
+    const char *url;                /* url of CA certificate service */
+    const char *proto;              /* protocol used vs CA (e.g. ACME) */
+    md_ca_state_t state;            /* state of this CA */
+    apr_time_t retry_after;         /* retries should not commence before this */ 
 } md_ca_t;
 
-typedef struct md_t {
-    const char         *name;
-    apr_array_header_t *domains;
-    const md_ca_t      *ca;
+typedef enum {
+    MD_S_INCOMPLETE,                /* MD is missing data, e.g. certificates */
+    MD_S_COMPLETE,                  /* MD has all data, can go live */
+    MD_S_EXPIRED,                   /* MD has all data, but (part of) is expired */
+} md_state_t;
 
-    const char *defn_name;
-    unsigned defn_line_number;
+typedef struct md_t {
+    const char         *name;       /* unique name of this MD */
+    apr_array_header_t *domains;    /* all DNS names this MD includes */
+    const md_ca_t      *ca;         /* CA handing out certificates for this MD */
+    md_state_t state;               /* state of this MD */
+
+    const char *defn_name;          /* config file this MD was defined */
+    unsigned defn_line_number;      /* line number of definition */
 } md_t;
 
 /**

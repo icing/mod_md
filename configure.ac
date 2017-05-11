@@ -68,9 +68,9 @@ SERVER_NAME=$(hostname -f)
 AC_SUBST(SERVER_NAME)
 SERVER_DIR="$request_serverdir"
 AC_SUBST(SERVER_DIR)
-HTTP_PORT=12345
+HTTP_PORT=12350
 AC_SUBST(HTTP_PORT)
-HTTPS_PORT=12346
+HTTPS_PORT=12351
 AC_SUBST(HTTPS_PORT)
 
 
@@ -129,7 +129,7 @@ else
     AC_MSG_NOTICE("using APXS=$APXS as configured")
 fi
 
-export BUILD_SUBDIRS="mod_md"
+export BUILD_SUBDIRS="mod_md src"
 
 prefix="$($APXS -q prefix)"
 export PREFIX="${prefix}"
@@ -206,6 +206,7 @@ AC_CONFIG_FILES([
     Makefile
     mod_md/Makefile
     mod_md/md_version.h
+    src/Makefile
     test/conf/httpd.conf
     test/conf/modules.conf
     test/test.ini

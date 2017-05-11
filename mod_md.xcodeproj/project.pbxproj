@@ -19,46 +19,6 @@
 		B2D309A81EBA229F007BECC8 /* NEWS */ = {isa = PBXFileReference; lastKnownFileType = text; path = NEWS; sourceTree = SOURCE_ROOT; };
 		B2D309A91EBA229F007BECC8 /* README */ = {isa = PBXFileReference; lastKnownFileType = text; path = README; sourceTree = SOURCE_ROOT; };
 		B2D309AA1EBA229F007BECC8 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
-		B2D309AD1EBA2384007BECC8 /* mod_http2_la-h2_alt_svc.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_alt_svc.Plo"; sourceTree = "<group>"; };
-		B2D309AE1EBA2384007BECC8 /* mod_http2_la-h2_bucket_beam.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_bucket_beam.Plo"; sourceTree = "<group>"; };
-		B2D309AF1EBA2384007BECC8 /* mod_http2_la-h2_bucket_eoc.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_bucket_eoc.Plo"; sourceTree = "<group>"; };
-		B2D309B01EBA2384007BECC8 /* mod_http2_la-h2_bucket_eos.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_bucket_eos.Plo"; sourceTree = "<group>"; };
-		B2D309B11EBA2384007BECC8 /* mod_http2_la-h2_config.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_config.Plo"; sourceTree = "<group>"; };
-		B2D309B21EBA2384007BECC8 /* mod_http2_la-h2_conn.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_conn.Plo"; sourceTree = "<group>"; };
-		B2D309B31EBA2384007BECC8 /* mod_http2_la-h2_conn_io.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_conn_io.Plo"; sourceTree = "<group>"; };
-		B2D309B41EBA2384007BECC8 /* mod_http2_la-h2_ctx.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_ctx.Plo"; sourceTree = "<group>"; };
-		B2D309B51EBA2384007BECC8 /* mod_http2_la-h2_filter.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_filter.Plo"; sourceTree = "<group>"; };
-		B2D309B61EBA2384007BECC8 /* mod_http2_la-h2_from_h1.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_from_h1.Plo"; sourceTree = "<group>"; };
-		B2D309B71EBA2384007BECC8 /* mod_http2_la-h2_h2.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_h2.Plo"; sourceTree = "<group>"; };
-		B2D309B81EBA2384007BECC8 /* mod_http2_la-h2_headers.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_headers.Plo"; sourceTree = "<group>"; };
-		B2D309B91EBA2384007BECC8 /* mod_http2_la-h2_int_queue.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_int_queue.Plo"; sourceTree = "<group>"; };
-		B2D309BA1EBA2384007BECC8 /* mod_http2_la-h2_io.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_io.Plo"; sourceTree = "<group>"; };
-		B2D309BB1EBA2384007BECC8 /* mod_http2_la-h2_io_set.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_io_set.Plo"; sourceTree = "<group>"; };
-		B2D309BC1EBA2384007BECC8 /* mod_http2_la-h2_mplx.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_mplx.Plo"; sourceTree = "<group>"; };
-		B2D309BD1EBA2384007BECC8 /* mod_http2_la-h2_ngn_shed.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_ngn_shed.Plo"; sourceTree = "<group>"; };
-		B2D309BE1EBA2384007BECC8 /* mod_http2_la-h2_push.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_push.Plo"; sourceTree = "<group>"; };
-		B2D309BF1EBA2384007BECC8 /* mod_http2_la-h2_request.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_request.Plo"; sourceTree = "<group>"; };
-		B2D309C01EBA2384007BECC8 /* mod_http2_la-h2_response.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_response.Plo"; sourceTree = "<group>"; };
-		B2D309C11EBA2384007BECC8 /* mod_http2_la-h2_session.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_session.Plo"; sourceTree = "<group>"; };
-		B2D309C21EBA2384007BECC8 /* mod_http2_la-h2_stream.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_stream.Plo"; sourceTree = "<group>"; };
-		B2D309C31EBA2384007BECC8 /* mod_http2_la-h2_stream_set.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_stream_set.Plo"; sourceTree = "<group>"; };
-		B2D309C41EBA2384007BECC8 /* mod_http2_la-h2_switch.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_switch.Plo"; sourceTree = "<group>"; };
-		B2D309C51EBA2384007BECC8 /* mod_http2_la-h2_task.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task.Plo"; sourceTree = "<group>"; };
-		B2D309C61EBA2384007BECC8 /* mod_http2_la-h2_task_input.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task_input.Plo"; sourceTree = "<group>"; };
-		B2D309C71EBA2384007BECC8 /* mod_http2_la-h2_task_output.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task_output.Plo"; sourceTree = "<group>"; };
-		B2D309C81EBA2384007BECC8 /* mod_http2_la-h2_task_queue.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_task_queue.Plo"; sourceTree = "<group>"; };
-		B2D309C91EBA2384007BECC8 /* mod_http2_la-h2_util.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_util.Plo"; sourceTree = "<group>"; };
-		B2D309CA1EBA2384007BECC8 /* mod_http2_la-h2_worker.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_worker.Plo"; sourceTree = "<group>"; };
-		B2D309CB1EBA2384007BECC8 /* mod_http2_la-h2_workers.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-h2_workers.Plo"; sourceTree = "<group>"; };
-		B2D309CC1EBA2384007BECC8 /* mod_http2_la-mod_http2.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_http2_la-mod_http2.Plo"; sourceTree = "<group>"; };
-		B2D309CD1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_session.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_proxy_session.Plo"; sourceTree = "<group>"; };
-		B2D309CE1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_util.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_proxy_util.Plo"; sourceTree = "<group>"; };
-		B2D309CF1EBA2384007BECC8 /* mod_proxy_http2_la-h2_request.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_request.Plo"; sourceTree = "<group>"; };
-		B2D309D01EBA2384007BECC8 /* mod_proxy_http2_la-h2_util.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-h2_util.Plo"; sourceTree = "<group>"; };
-		B2D309D11EBA2384007BECC8 /* mod_proxy_http2_la-mod_proxy_http2.Plo */ = {isa = PBXFileReference; lastKnownFileType = text; path = "mod_proxy_http2_la-mod_proxy_http2.Plo"; sourceTree = "<group>"; };
-		B2D309D21EBA2384007BECC8 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		B2D309D31EBA2384007BECC8 /* config.h.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = config.h.in; sourceTree = "<group>"; };
-		B2D309D51EBA2384007BECC8 /* h2.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = h2.m4; sourceTree = "<group>"; };
 		B2D309D61EBA2384007BECC8 /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
 		B2D309D71EBA2384007BECC8 /* mod_md.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mod_md.c; sourceTree = "<group>"; };
 		B2D309D81EBA2384007BECC8 /* mod_md.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mod_md.h; sourceTree = "<group>"; };
@@ -89,6 +49,10 @@
 		B2D31B021EC1F54A007BECC8 /* test_012.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test_012.conf; sourceTree = "<group>"; };
 		B2D31B041EC20F63007BECC8 /* cert-template.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "cert-template.conf"; sourceTree = "<group>"; };
 		B2D31B051EC20F63007BECC8 /* extensions.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = extensions.conf; sourceTree = "<group>"; };
+		B2D31B071EC33CBE007BECC8 /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		B2D31B081EC33D77007BECC8 /* md_main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_main.c; sourceTree = "<group>"; };
+		B2D31B091EC34449007BECC8 /* md_http.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_http.c; sourceTree = "<group>"; };
+		B2D31B0A1EC34449007BECC8 /* md_http.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_http.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -108,6 +72,7 @@
 				B2D309A81EBA229F007BECC8 /* NEWS */,
 				B2D309A91EBA229F007BECC8 /* README */,
 				B2D309AA1EBA229F007BECC8 /* README.md */,
+				B2D31B061EC33CBE007BECC8 /* src */,
 				B2D309EF1EC1AD26007BECC8 /* test */,
 			);
 			path = /Users/sei/projects/mod_cert/mod_cert.xcodeproj;
@@ -116,75 +81,21 @@
 		B2D309AB1EBA2384007BECC8 /* mod_md */ = {
 			isa = PBXGroup;
 			children = (
-				B2D309AC1EBA2384007BECC8 /* .deps */,
-				B2D309D21EBA2384007BECC8 /* .gitignore */,
-				B2D309D31EBA2384007BECC8 /* config.h.in */,
-				B2D309D41EBA2384007BECC8 /* m4 */,
 				B2D309D61EBA2384007BECC8 /* Makefile.am */,
 				B2D309DC1EBB5488007BECC8 /* md_config.c */,
 				B2D309DD1EBB5488007BECC8 /* md_config.h */,
 				B2D309E01EBB6C38007BECC8 /* md_core.c */,
+				B2D31B091EC34449007BECC8 /* md_http.c */,
+				B2D31B0A1EC34449007BECC8 /* md_http.h */,
 				B2D309DE1EBB6600007BECC8 /* md_private.h */,
 				B2D309D91EBA25B5007BECC8 /* md_version.h */,
+				B2D309DA1EBA25B5007BECC8 /* md_version.h.in */,
 				B2D309DF1EBB676C007BECC8 /* md.h */,
 				B2D309D71EBA2384007BECC8 /* mod_md.c */,
 				B2D309D81EBA2384007BECC8 /* mod_md.h */,
-				B2D309DA1EBA25B5007BECC8 /* md_version.h.in */,
 			);
 			path = mod_md;
 			sourceTree = SOURCE_ROOT;
-		};
-		B2D309AC1EBA2384007BECC8 /* .deps */ = {
-			isa = PBXGroup;
-			children = (
-				B2D309AD1EBA2384007BECC8 /* mod_http2_la-h2_alt_svc.Plo */,
-				B2D309AE1EBA2384007BECC8 /* mod_http2_la-h2_bucket_beam.Plo */,
-				B2D309AF1EBA2384007BECC8 /* mod_http2_la-h2_bucket_eoc.Plo */,
-				B2D309B01EBA2384007BECC8 /* mod_http2_la-h2_bucket_eos.Plo */,
-				B2D309B11EBA2384007BECC8 /* mod_http2_la-h2_config.Plo */,
-				B2D309B21EBA2384007BECC8 /* mod_http2_la-h2_conn.Plo */,
-				B2D309B31EBA2384007BECC8 /* mod_http2_la-h2_conn_io.Plo */,
-				B2D309B41EBA2384007BECC8 /* mod_http2_la-h2_ctx.Plo */,
-				B2D309B51EBA2384007BECC8 /* mod_http2_la-h2_filter.Plo */,
-				B2D309B61EBA2384007BECC8 /* mod_http2_la-h2_from_h1.Plo */,
-				B2D309B71EBA2384007BECC8 /* mod_http2_la-h2_h2.Plo */,
-				B2D309B81EBA2384007BECC8 /* mod_http2_la-h2_headers.Plo */,
-				B2D309B91EBA2384007BECC8 /* mod_http2_la-h2_int_queue.Plo */,
-				B2D309BA1EBA2384007BECC8 /* mod_http2_la-h2_io.Plo */,
-				B2D309BB1EBA2384007BECC8 /* mod_http2_la-h2_io_set.Plo */,
-				B2D309BC1EBA2384007BECC8 /* mod_http2_la-h2_mplx.Plo */,
-				B2D309BD1EBA2384007BECC8 /* mod_http2_la-h2_ngn_shed.Plo */,
-				B2D309BE1EBA2384007BECC8 /* mod_http2_la-h2_push.Plo */,
-				B2D309BF1EBA2384007BECC8 /* mod_http2_la-h2_request.Plo */,
-				B2D309C01EBA2384007BECC8 /* mod_http2_la-h2_response.Plo */,
-				B2D309C11EBA2384007BECC8 /* mod_http2_la-h2_session.Plo */,
-				B2D309C21EBA2384007BECC8 /* mod_http2_la-h2_stream.Plo */,
-				B2D309C31EBA2384007BECC8 /* mod_http2_la-h2_stream_set.Plo */,
-				B2D309C41EBA2384007BECC8 /* mod_http2_la-h2_switch.Plo */,
-				B2D309C51EBA2384007BECC8 /* mod_http2_la-h2_task.Plo */,
-				B2D309C61EBA2384007BECC8 /* mod_http2_la-h2_task_input.Plo */,
-				B2D309C71EBA2384007BECC8 /* mod_http2_la-h2_task_output.Plo */,
-				B2D309C81EBA2384007BECC8 /* mod_http2_la-h2_task_queue.Plo */,
-				B2D309C91EBA2384007BECC8 /* mod_http2_la-h2_util.Plo */,
-				B2D309CA1EBA2384007BECC8 /* mod_http2_la-h2_worker.Plo */,
-				B2D309CB1EBA2384007BECC8 /* mod_http2_la-h2_workers.Plo */,
-				B2D309CC1EBA2384007BECC8 /* mod_http2_la-mod_http2.Plo */,
-				B2D309CD1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_session.Plo */,
-				B2D309CE1EBA2384007BECC8 /* mod_proxy_http2_la-h2_proxy_util.Plo */,
-				B2D309CF1EBA2384007BECC8 /* mod_proxy_http2_la-h2_request.Plo */,
-				B2D309D01EBA2384007BECC8 /* mod_proxy_http2_la-h2_util.Plo */,
-				B2D309D11EBA2384007BECC8 /* mod_proxy_http2_la-mod_proxy_http2.Plo */,
-			);
-			path = .deps;
-			sourceTree = "<group>";
-		};
-		B2D309D41EBA2384007BECC8 /* m4 */ = {
-			isa = PBXGroup;
-			children = (
-				B2D309D51EBA2384007BECC8 /* h2.m4 */,
-			);
-			path = m4;
-			sourceTree = "<group>";
 		};
 		B2D309EF1EC1AD26007BECC8 /* test */ = {
 			isa = PBXGroup;
@@ -236,6 +147,15 @@
 			);
 			path = ssl;
 			sourceTree = "<group>";
+		};
+		B2D31B061EC33CBE007BECC8 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				B2D31B071EC33CBE007BECC8 /* Makefile.am */,
+				B2D31B081EC33D77007BECC8 /* md_main.c */,
+			);
+			path = src;
+			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXGroup section */
 

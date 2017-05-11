@@ -7,6 +7,7 @@
 .libs
 .configured
 .deps
+.dirstamp
 compile
 aclocal.m4
 autom4te.cache
@@ -32,6 +33,7 @@ mod_cert-*.tar.gz
 m4
 .cache
 __pycache__
+src/a2md
 test/test.ini
 test/gen
 test/conf/httpd.conf

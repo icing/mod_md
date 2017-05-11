@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 SUBDIRS         = @BUILD_SUBDIRS@
-DIST_SUBDIRS    = mod_md
+DIST_SUBDIRS    = mod_md src
 
 ACLOCAL_AMFLAGS = -I m4
 

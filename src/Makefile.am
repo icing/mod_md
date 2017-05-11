@@ -12,36 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-SUBDIRS =
 
 ACLOCAL_AMFLAGS = -I m4
 
-lib_LTLIBRARIES    = mod_md.la
+AUTOMAKE_OPTIONS = foreign
 
-mod_md_la_CPPFLAGS = -std=c99 -D_GNU_SOURCE -Werror
-mod_md_la_LDFLAGS  = -module
+CFLAGS  = -g -I ../mod_md
+LDFLAGS = -lapr-1 -laprutil-1  -lcurl -lssl -lcrypto
 
-OBJECTS = \
-    md_config.c \
-    md_http.c \
-    md_core.c \
-    mod_md.c
+bin_PROGRAMS = a2md
 
-HFILES = \
-    md_config.h \
-    md_http.h \
-    md.h \
-    mod_md.h
-
-mod_md_la_SOURCES = $(HFILES) $(OBJECTS)
-
-all: mod_md.la 
-
-install-libLTLIBRARIES:
-	@: # override
-
-install-exec-local: mod_md.la
-	$(MKDIR_P) $(DESTDIR)/@LIBEXEC_DIR@
-	$(APXS) -i -S LIBEXECDIR=$(DESTDIR)/@LIBEXEC_DIR@ -n h2 mod_md.la
-
+a2md_SOURCES = \
+    md_main.c \
+    ../mod_md/md_http.c
 
