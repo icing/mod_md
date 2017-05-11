@@ -24,12 +24,14 @@ mod_md_la_LDFLAGS  = -module
 OBJECTS = \
     md_config.c \
     md_http.c \
+    md_json.c \
     md_core.c \
     mod_md.c
 
 HFILES = \
     md_config.h \
     md_http.h \
+    md_json.h \
     md.h \
     mod_md.h
 

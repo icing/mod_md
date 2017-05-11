@@ -48,7 +48,7 @@ static size_t req_data_cb(void *data, size_t len, size_t nmemb, void *baton)
     apr_bucket *b;
     apr_status_t status;
     
-    while (body && !APR_BRIGADE_EMPTY(body)) {
+    while (body && !APR_BRIGADE_EMPTY(body) && max_len > 0) {
         b = APR_BRIGADE_FIRST(body);
         if (APR_BUCKET_IS_METADATA(b)) {
             if (APR_BUCKET_IS_EOS(b)) {
@@ -161,6 +161,42 @@ apr_status_t md_http_create(struct md_http **phttp, apr_pool_t *p)
     return APR_SUCCESS;
 }
 
+static apr_status_t req_create(md_http_request **preq, md_http *http, 
+                               const char *method, const char *url, struct apr_table_t *headers,
+                               md_http_cb *cb, void *baton)
+{
+    md_http_request *req;
+    apr_pool_t *pool;
+    apr_status_t status;
+    
+    status = apr_pool_create(&pool, http->pool);
+    if (status != APR_SUCCESS) {
+        return status;
+    }
+    
+    req = apr_pcalloc(pool, sizeof(*req));
+    if (!req) {
+        return APR_ENOMEM;
+    }
+    
+    req->id = next_req_id++;
+    req->pool = pool; 
+    req->http = http;
+    req->method = method;
+    req->url = url;
+    req->headers = headers? apr_table_copy(req->pool, headers) : apr_table_make(req->pool, 5);
+    req->cb = cb;
+    req->baton = baton;
+
+    *preq = req;
+    return status;
+}
+
+static void req_destroy(md_http_request *req) 
+{
+    apr_pool_destroy(req->pool);
+}
+ 
 static apr_status_t perform(md_http_request *req)
 {
     md_http_response *res;
@@ -194,46 +230,24 @@ static apr_status_t perform(md_http_request *req)
     }
     
     status = res->rv;
-    apr_pool_destroy(req->pool);
+    req_destroy(req);
     
     return status;
 }
 
-static apr_status_t schedule(struct md_http *http, const char *method, 
-                             const char *url, struct apr_table_t *headers,
-                             apr_bucket_brigade *body, int detect_clen, 
-                             md_http_cb *cb, void *baton, long *preq_id)
+static apr_status_t schedule(md_http_request *req, 
+                             apr_bucket_brigade *body, int detect_clen,
+                             long *preq_id) 
 {
-    md_http_request *req;
-    apr_pool_t *pool;
     apr_status_t status;
     
-    status = apr_pool_create(&pool, http->pool);
-    if (status != APR_SUCCESS) {
-        return status;
-    }
-    
-    req = apr_pcalloc(pool, sizeof(*req));
-    
-    req->id = next_req_id++;
-    req->pool = http->pool; 
-    req->http = http;
-    req->method = method;
-    req->url = url;
-    req->headers = headers? apr_table_copy(req->pool, headers) : apr_table_make(req->pool, 5);
     req->body = body;
     req->body_len = body? -1 : 0;
-    req->cb = cb;
-    req->baton = baton;
 
-    if (preq_id) {
-        *preq_id = req->id;
-    }
-    
     if (req->body && detect_clen) {
         status = apr_brigade_length(req->body, 1, &req->body_len);
         if (status != APR_SUCCESS) {
-            apr_pool_destroy(req->pool);
+            req_destroy(req);
             return status;
         }
     }
@@ -243,6 +257,10 @@ static apr_status_t schedule(struct md_http *http, const char *method,
     }
     else if (req->body_len > 0) {
         apr_table_setn(req->headers, "content-length", apr_off_t_toa(req->pool, req->body_len));
+    }
+    
+    if (preq_id) {
+        *preq_id = req->id;
     }
     
     /* we send right away */
@@ -255,7 +273,15 @@ apr_status_t md_http_GET(struct md_http *http,
                          const char *url, struct apr_table_t *headers,
                          md_http_cb *cb, void *baton, long *preq_id)
 {
-    return schedule(http, "GET", url, headers, NULL, 1, cb, baton, preq_id);
+    md_http_request *req;
+    apr_status_t status;
+    
+    status = req_create(&req, http, "GET", url, headers, cb, baton);
+    if (status != APR_SUCCESS) {
+        return status;
+    }
+    
+    return schedule(req, NULL, 0, preq_id);
 }
 
 apr_status_t md_http_POST(struct md_http *http, 
@@ -263,7 +289,41 @@ apr_status_t md_http_POST(struct md_http *http,
                           apr_bucket_brigade *body,
                           md_http_cb *cb, void *baton, long *preq_id)
 {
-    return schedule(http, "POST", url, headers, body, 1, cb, baton, preq_id);
+    md_http_request *req;
+    apr_status_t status;
+    
+    status = req_create(&req, http, "POST", url, headers, cb, baton);
+    if (status != APR_SUCCESS) {
+        return status;
+    }
+    
+    return schedule(req, body, 1, preq_id);
+}
+
+apr_status_t md_http_POSTd(md_http *http, 
+                           const char *url, struct apr_table_t *headers,
+                           const char *data, size_t data_len, 
+                           md_http_cb *cb, void *baton, long *preq_id)
+{
+    md_http_request *req;
+    apr_status_t status;
+    apr_bucket_brigade *body = NULL;
+    
+    status = req_create(&req, http, "POST", url, headers, cb, baton);
+    if (status != APR_SUCCESS) {
+        return status;
+    }
+
+    if (data && data_len > 0) {
+        body = apr_brigade_create(req->pool, req->http->bucket_alloc);
+        status = apr_brigade_write(body, NULL, NULL, data, data_len);
+        if (status != APR_SUCCESS) {
+            req_destroy(req);
+            return status;
+        }
+    }
+    
+    return schedule(req, body, 1, preq_id);
 }
 
 apr_status_t md_http_await(md_http *http, long req_id)

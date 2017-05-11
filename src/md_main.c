@@ -26,6 +26,7 @@
 #include <jansson.h>
 
 #include "md.h"
+#include "md_json.h"
 #include "md_http.h"
 #include "mod_md.h"
 #include "md_version.h"
@@ -40,29 +41,63 @@ static void usage(const char *msg)
 
 static apr_status_t resp_cb(const md_http_response *res)
 {
+    const md_http_request *req = res->req;
+    
     if (res->rv == APR_SUCCESS) {
         apr_off_t len = 0;
         if (res->body) {
             apr_brigade_length(res->body, 1, &len);
         }
-        fprintf(stderr, "response(%ld): %d, DATA %ld\n", res->req->id, res->status, (long)len);
+        fprintf(stderr, "response(%ld): %s %s -> %d, DATA %ld\n",
+                req->id, req->method, req->url, res->status, (long)len);
     }
     else {
-        fprintf(stderr, "response(%ld): error %d\n", res->req->id, res->rv);
+        fprintf(stderr, "response(%ld): %s %s -> error %d\n", 
+                req->id, req->method, req->url, res->rv);
     }
     return res->rv;
 }
 
-static apr_status_t run(apr_pool_t *pool, const char *url) 
+static apr_status_t run(apr_pool_t *pool, int argc, char *argv[]) 
 {
     md_http *http;
     apr_status_t rv;
     long req_id;
+    const char *url, *data;
+    md_json *json;
     
     rv = md_http_create(&http, pool);
     if (rv != APR_SUCCESS) return rv;
     
-    rv = md_http_GET(http, url, NULL, resp_cb, NULL, &req_id);
+    while (argc >  0) {
+        if (argc > 1) {
+            data = argv[0];
+            url = argv[1];
+            argc -= 2;
+            argv += 2;
+            
+            if (!strcmp("json", data)) {
+                rv = md_json_http_get(&json, pool, http, url);
+                if (rv == APR_SUCCESS) {
+                    fprintf(stderr, "GET %s -> %s\n", url,  
+                            md_json_writep(json, MD_JSON_FMT_INDENT, pool)); 
+                }
+                else {
+                    fprintf(stderr, "json failed: %d\n", rv); 
+                }
+            }
+            else {
+                rv = md_http_POSTd(http, url, NULL, data, strlen(data), resp_cb, NULL, &req_id);
+            }
+        }
+        else {
+            url = argv[0];
+            --argc;
+            --argc;
+            rv = md_http_GET(http, url, NULL, resp_cb, NULL, &req_id);
+        }
+    }
+    
     if (rv == APR_SUCCESS) {
         rv = md_http_await(http, req_id);
     }
@@ -75,7 +110,6 @@ int main(int argc, char *argv[])
     apr_allocator_t *allocator;
     apr_status_t status;
     apr_pool_t *pool;
-    const char *url;
     
     if (argc <= 1) {
         usage(NULL);
@@ -85,8 +119,7 @@ int main(int argc, char *argv[])
     apr_allocator_create(&allocator);
     status = apr_pool_create_ex(&pool, NULL, NULL, allocator);
     if (status == APR_SUCCESS) {
-        url = argv[1];
-        status = run(pool, url);
+        status = run(pool, argc-1, argv+1);
     }
     else {
         fprintf(stderr, "error initializing pool\n");
