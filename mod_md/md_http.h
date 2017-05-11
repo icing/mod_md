@@ -33,6 +33,7 @@ struct md_http_request {
     const char *url;
     apr_table_t *headers;
     apr_bucket_brigade *body;
+    apr_off_t body_len;
     md_http_cb *cb;
     void *baton;
 };

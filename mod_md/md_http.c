@@ -201,7 +201,7 @@ static apr_status_t perform(md_http_request *req)
 
 static apr_status_t schedule(struct md_http *http, const char *method, 
                              const char *url, struct apr_table_t *headers,
-                             apr_bucket_brigade *body,
+                             apr_bucket_brigade *body, int detect_clen, 
                              md_http_cb *cb, void *baton, long *preq_id)
 {
     md_http_request *req;
@@ -220,13 +220,29 @@ static apr_status_t schedule(struct md_http *http, const char *method,
     req->http = http;
     req->method = method;
     req->url = url;
-    req->headers = headers;
+    req->headers = headers? apr_table_copy(req->pool, headers) : apr_table_make(req->pool, 5);
     req->body = body;
+    req->body_len = body? -1 : 0;
     req->cb = cb;
     req->baton = baton;
 
     if (preq_id) {
         *preq_id = req->id;
+    }
+    
+    if (req->body && detect_clen) {
+        status = apr_brigade_length(req->body, 1, &req->body_len);
+        if (status != APR_SUCCESS) {
+            apr_pool_destroy(req->pool);
+            return status;
+        }
+    }
+    
+    if (req->body_len == 0 && apr_strnatcasecmp("GET", req->method)) {
+        apr_table_setn(req->headers, "content-length", "0");
+    }
+    else if (req->body_len > 0) {
+        apr_table_setn(req->headers, "content-length", apr_off_t_toa(req->pool, req->body_len));
     }
     
     /* we send right away */
@@ -239,7 +255,7 @@ apr_status_t md_http_GET(struct md_http *http,
                          const char *url, struct apr_table_t *headers,
                          md_http_cb *cb, void *baton, long *preq_id)
 {
-    return schedule(http, "GET", url, headers, NULL, cb, baton, preq_id);
+    return schedule(http, "GET", url, headers, NULL, 1, cb, baton, preq_id);
 }
 
 apr_status_t md_http_POST(struct md_http *http, 
@@ -247,7 +263,7 @@ apr_status_t md_http_POST(struct md_http *http,
                           apr_bucket_brigade *body,
                           md_http_cb *cb, void *baton, long *preq_id)
 {
-    return schedule(http, "POST", url, headers, body, cb, baton, preq_id);
+    return schedule(http, "POST", url, headers, body, 1, cb, baton, preq_id);
 }
 
 apr_status_t md_http_await(md_http *http, long req_id)
