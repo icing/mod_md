@@ -99,10 +99,12 @@ static size_t resp_data_cb(void *data, size_t len, size_t nmemb, void *baton)
 static size_t header_cb(void *buffer, size_t elen, size_t nmemb, void *baton)
 {
     md_http_response *res = baton;
-    size_t len = elen * nmemb;
+    size_t len, clen = elen * nmemb;
     const char *name = NULL, *value = "", *b = buffer;
     int i;
     
+    len = (clen && b[clen-1] == '\n')? clen-1 : clen;
+    len = (len && b[len-1] == '\r')? len-1 : len;
     for (i = 0; i < len; ++i) {
         if (b[i] == ':') {
             name = apr_pstrndup(res->req->pool, b, i);
@@ -118,9 +120,10 @@ static size_t header_cb(void *buffer, size_t elen, size_t nmemb, void *baton)
     }
     
     if (name != NULL) {
+        fprintf(stderr, "add header %s: %s\n", name, value);
         apr_table_add(res->headers, name, value);
     }
-    return len;
+    return clen;
 }
 
 apr_status_t md_http_create(struct md_http **phttp, apr_pool_t *p)
@@ -194,14 +197,14 @@ static apr_status_t req_create(md_http_request **preq, md_http *http,
 
 static void req_destroy(md_http_request *req) 
 {
-    apr_pool_destroy(req->pool);
+   apr_pool_destroy(req->pool);
 }
  
 static apr_status_t perform(md_http_request *req)
 {
-    md_http_response *res;
     apr_status_t status = APR_SUCCESS;
     CURL *curl = req->http->curl;
+    md_http_response *res;
 
     res = apr_pcalloc(req->pool, sizeof(*res));
     
@@ -218,7 +221,11 @@ static apr_status_t perform(md_http_request *req)
     
     res->rv = curl_easy_perform(curl);
     if (res->rv == CURLE_OK) {
-        res->rv = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res->status);
+        long l;
+        res->rv = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &l);
+        if (res->rv == CURLE_OK) {
+            res->status = (int)l;
+        }
     }
     else {
         fprintf(stderr, "GET %s failed: %s\n", req->url, curl_easy_strerror(res->rv));

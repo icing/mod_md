@@ -453,11 +453,12 @@ static apr_status_t json_resp_cb(const md_http_response *res)
     
     resp->status = res->rv;
     if (res->rv == APR_SUCCESS) {
+        resp->status = APR_EINVAL;
         if (res->status >= 200 && res->status < 300) {
-            resp->status = md_json_readb(&resp->json, resp->pool, res->body);
-        }
-        else {
-            resp->status = APR_EINVAL;
+            const char *ctype = apr_table_get(res->headers, "content-type");
+            if (ctype && !strcmp("application/json", ctype)) {
+                resp->status = md_json_readb(&resp->json, resp->pool, res->body);
+            }
         }
     }
     return resp->status;
