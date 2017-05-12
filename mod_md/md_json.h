@@ -17,6 +17,7 @@
 #define mod_md_md_json_h
 
 struct md_http;
+struct md_http_response;
 
 
 typedef struct md_json md_json;
@@ -68,5 +69,7 @@ apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, 
 /* http retrieval */
 apr_status_t md_json_http_get(md_json **pjson, apr_pool_t *pool,
                               struct md_http *http, const char *url);
+apr_status_t md_json_read_http(md_json **pjson, apr_pool_t *pool, 
+                               const struct md_http_response *res);
 
 #endif /* md_json_h */

@@ -441,6 +441,20 @@ apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, apr_bucket_brigade
 /**************************************************************************************************/
 /* http get */
 
+apr_status_t md_json_read_http(md_json **pjson, apr_pool_t *pool, const md_http_response *res)
+{
+    apr_status_t status = APR_EINVAL;
+    if (res->rv == APR_SUCCESS) {
+        if (res->status >= 200 && res->status < 300) {
+            const char *ctype = apr_table_get(res->headers, "content-type");
+            if (ctype && !strcmp("application/json", ctype) && res->body) {
+                status = md_json_readb(pjson, pool, res->body);
+            }
+        }
+    }
+    return status;
+}
+
 typedef struct {
     apr_status_t status;
     apr_pool_t *pool;
@@ -450,18 +464,7 @@ typedef struct {
 static apr_status_t json_resp_cb(const md_http_response *res)
 {
     resp_data *resp = res->req->baton;
-    
-    resp->status = res->rv;
-    if (res->rv == APR_SUCCESS) {
-        resp->status = APR_EINVAL;
-        if (res->status >= 200 && res->status < 300) {
-            const char *ctype = apr_table_get(res->headers, "content-type");
-            if (ctype && !strcmp("application/json", ctype)) {
-                resp->status = md_json_readb(&resp->json, resp->pool, res->body);
-            }
-        }
-    }
-    return resp->status;
+    return md_json_read_http(&resp->json, resp->pool, res);
 }
 
 apr_status_t md_json_http_get(md_json **pjson, apr_pool_t *pool,
