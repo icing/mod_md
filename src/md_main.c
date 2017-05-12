@@ -26,6 +26,7 @@
 #include <jansson.h>
 
 #include "md.h"
+#include "md_acme.h"
 #include "md_json.h"
 #include "md_http.h"
 #include "mod_md.h"
@@ -63,43 +64,22 @@ static apr_status_t run(apr_pool_t *pool, int argc, char *argv[])
     md_http *http;
     apr_status_t rv;
     long req_id;
+    md_acme *acme;
     const char *url, *data;
     md_json *json;
     
-    rv = md_http_create(&http, pool);
-    if (rv != APR_SUCCESS) return rv;
-    
-    while (argc >  0) {
-        if (argc > 1) {
-            data = argv[0];
-            url = argv[1];
-            argc -= 2;
-            argv += 2;
-            
-            if (!strcmp("json", data)) {
-                rv = md_json_http_get(&json, pool, http, url);
-                if (rv == APR_SUCCESS) {
-                    fprintf(stderr, "GET %s -> %s\n", url,  
-                            md_json_writep(json, MD_JSON_FMT_INDENT, pool)); 
-                }
-                else {
-                    fprintf(stderr, "json failed: %d\n", rv); 
-                }
-            }
-            else {
-                rv = md_http_POSTd(http, url, NULL, data, strlen(data), resp_cb, NULL, &req_id);
-            }
-        }
-        else {
-            url = argv[0];
-            --argc;
-            --argc;
-            rv = md_http_GET(http, url, NULL, resp_cb, NULL, &req_id);
-        }
+    if (argc > 0) {
+        url = argv[0];
+        --argc;
+        --argc;
     }
     
+    rv = md_acme_create(&acme, pool, url);
+    if (rv != APR_SUCCESS) return rv;
+    
+    rv = md_acme_setup(acme);
     if (rv == APR_SUCCESS) {
-        rv = md_http_await(http, req_id);
+        fprintf(stderr, "acme setup state: %d, new_authz: %s", acme->state, acme->new_authz);
     }
     
     return rv;
@@ -119,6 +99,7 @@ int main(int argc, char *argv[])
     apr_allocator_create(&allocator);
     status = apr_pool_create_ex(&pool, NULL, NULL, allocator);
     if (status == APR_SUCCESS) {
+        md_acme_init(pool);
         status = run(pool, argc-1, argv+1);
     }
     else {

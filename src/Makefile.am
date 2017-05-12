@@ -24,6 +24,11 @@ bin_PROGRAMS = a2md
 
 a2md_SOURCES = \
     md_main.c \
+    ../mod_md/md_acme.c \
+    ../mod_md/md_acme_acct.c \
+    ../mod_md/md_crypt.c \
     ../mod_md/md_http.c \
-    ../mod_md/md_json.c
+    ../mod_md/md_json.c \
+    ../mod_md/md_util.c
+
 

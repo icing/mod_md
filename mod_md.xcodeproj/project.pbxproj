@@ -55,6 +55,16 @@
 		B2D31B0A1EC34449007BECC8 /* md_http.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_http.h; sourceTree = "<group>"; };
 		B2D31B0B1EC473CC007BECC8 /* md_json.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_json.c; sourceTree = "<group>"; };
 		B2D31B0C1EC473CC007BECC8 /* md_json.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_json.h; sourceTree = "<group>"; };
+		B2D31B0D1EC5BE4B007BECC8 /* md_acme.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme.c; sourceTree = "<group>"; };
+		B2D31B0E1EC5BE4B007BECC8 /* md_acme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme.h; sourceTree = "<group>"; };
+		B2D31B0F1EC5D430007BECC8 /* md_acme_acct.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
+		B2D31B101EC5D430007BECC8 /* md_acme_acct.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_acct.h; sourceTree = "<group>"; };
+		B2D31B111EC5D483007BECC8 /* md_acme_cert.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_cert.c; sourceTree = "<group>"; };
+		B2D31B121EC5D483007BECC8 /* md_acme_cert.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_cert.h; sourceTree = "<group>"; };
+		B2D31B131EC5F1EA007BECC8 /* md_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_util.c; sourceTree = "<group>"; };
+		B2D31B141EC5F1EA007BECC8 /* md_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_util.h; sourceTree = "<group>"; };
+		B2D31B151EC5F945007BECC8 /* md_crypt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_crypt.c; sourceTree = "<group>"; };
+		B2D31B161EC5F945007BECC8 /* md_crypt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_crypt.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -84,14 +94,24 @@
 			isa = PBXGroup;
 			children = (
 				B2D309D61EBA2384007BECC8 /* Makefile.am */,
+				B2D31B0F1EC5D430007BECC8 /* md_acme_acct.c */,
+				B2D31B101EC5D430007BECC8 /* md_acme_acct.h */,
+				B2D31B111EC5D483007BECC8 /* md_acme_cert.c */,
+				B2D31B121EC5D483007BECC8 /* md_acme_cert.h */,
+				B2D31B0D1EC5BE4B007BECC8 /* md_acme.c */,
+				B2D31B0E1EC5BE4B007BECC8 /* md_acme.h */,
 				B2D309DC1EBB5488007BECC8 /* md_config.c */,
 				B2D309DD1EBB5488007BECC8 /* md_config.h */,
 				B2D309E01EBB6C38007BECC8 /* md_core.c */,
+				B2D31B151EC5F945007BECC8 /* md_crypt.c */,
+				B2D31B161EC5F945007BECC8 /* md_crypt.h */,
 				B2D31B091EC34449007BECC8 /* md_http.c */,
 				B2D31B0A1EC34449007BECC8 /* md_http.h */,
 				B2D31B0B1EC473CC007BECC8 /* md_json.c */,
 				B2D31B0C1EC473CC007BECC8 /* md_json.h */,
 				B2D309DE1EBB6600007BECC8 /* md_private.h */,
+				B2D31B131EC5F1EA007BECC8 /* md_util.c */,
+				B2D31B141EC5F1EA007BECC8 /* md_util.h */,
 				B2D309D91EBA25B5007BECC8 /* md_version.h */,
 				B2D309DA1EBA25B5007BECC8 /* md_version.h.in */,
 				B2D309DF1EBB676C007BECC8 /* md.h */,

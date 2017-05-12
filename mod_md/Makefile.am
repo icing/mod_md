@@ -22,16 +22,24 @@ mod_md_la_CPPFLAGS = -std=c99 -D_GNU_SOURCE -Werror
 mod_md_la_LDFLAGS  = -module
 
 OBJECTS = \
+    md_acme.c \
+    md_acme_acct.c \
     md_config.c \
+    md_core.c \
+    md_crypt.c \
     md_http.c \
     md_json.c \
-    md_core.c \
+    md_util.c \
     mod_md.c
 
 HFILES = \
+    md_acme.h \
+    md_acme_acct.h \
     md_config.h \
+    md_crypt.h \
     md_http.h \
     md_json.h \
+    md_util.h \
     md.h \
     mod_md.h
 

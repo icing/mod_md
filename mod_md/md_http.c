@@ -120,7 +120,6 @@ static size_t header_cb(void *buffer, size_t elen, size_t nmemb, void *baton)
     }
     
     if (name != NULL) {
-        fprintf(stderr, "add header %s: %s\n", name, value);
         apr_table_add(res->headers, name, value);
     }
     return clen;
