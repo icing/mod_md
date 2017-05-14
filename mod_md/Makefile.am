@@ -29,6 +29,7 @@ OBJECTS = \
     md_crypt.c \
     md_http.c \
     md_json.c \
+    md_jws.c \
     md_util.c \
     mod_md.c
 
@@ -39,6 +40,7 @@ HFILES = \
     md_crypt.h \
     md_http.h \
     md_json.h \
+    md_jws.h \
     md_util.h \
     md.h \
     mod_md.h

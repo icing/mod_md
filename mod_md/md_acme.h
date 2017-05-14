@@ -17,6 +17,7 @@
 #define mod_md_md_acme_h
 
 struct md_http;
+struct md_acme_acct;
 
 typedef enum {
     MD_ACME_S_INIT,
@@ -37,6 +38,7 @@ struct md_acme {
     const char *revoke_cert;
     
     struct md_http *http;
+    struct md_acme_acct *acct;
 };
 
 
@@ -46,5 +48,7 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url);
 
 apr_status_t md_acme_setup(md_acme *acme);
 
+
+apr_status_t md_acme_new_reg(md_acme *acme, const char *key_file, int key_bits);
 
 #endif /* md_acme_h */

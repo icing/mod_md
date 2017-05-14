@@ -13,14 +13,15 @@
  * limitations under the License.
  */
 
-#ifndef mod_md_md_util_h
-#define mod_md_md_util_h
+#ifndef mod_md_md_jws_h
+#define mod_md_md_jws_h
 
-apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode);
+struct apr_table_t;
+struct md_json;
+struct md_pkey;
 
-const char *md_util_base64url_encode(const char *data, 
-                                     apr_size_t len, apr_pool_t *pool);
-apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded, 
-                                    apr_pool_t *pool);
+apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
+                         const char *payload, size_t len, struct apr_table_t *protected, 
+                         struct md_pkey *pkey, const char *key_id);
 
-#endif /* md_util_h */
+#endif /* md_jws_h */

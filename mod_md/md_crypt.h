@@ -29,4 +29,7 @@ apr_status_t md_crypt_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname)
 
 apr_status_t md_crypt_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits);
 
+const char *md_crypt_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p);
+const char *md_crypt_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p);
+
 #endif /* md_crypt_h */

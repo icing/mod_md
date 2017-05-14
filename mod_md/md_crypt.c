@@ -165,3 +165,56 @@ apr_status_t md_crypt_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits)
     }
     return status;
 }
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+
+static void RSA_get0_key(const RSA *r,
+                         const BIGNUM **n, const BIGNUM **e, const BIGNUM **d)
+{
+    if (n != NULL)
+        *n = r->n;
+    if (e != NULL)
+        *e = r->e;
+    if (d != NULL)
+        *d = r->d;
+}
+
+#endif
+
+static const char *bn64(const BIGNUM *b, apr_pool_t *p) 
+{
+    if (b) {
+         int len = BN_num_bytes(b);
+         char *buffer = apr_pcalloc(p, len);
+         if (buffer) {
+            BN_bn2bin(b, (unsigned char *)buffer);
+            return md_util_base64url_encode(buffer, len, p);
+         }
+    }
+    return NULL;
+}
+
+const char *md_crypt_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p)
+{
+    const BIGNUM *e;
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey->pkey);
+    
+    if (!rsa) {
+        return NULL;
+    }
+    RSA_get0_key(rsa, NULL, &e, NULL);
+    return bn64(e, p);
+}
+
+const char *md_crypt_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p)
+{
+    const BIGNUM *n;
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey->pkey);
+    
+    if (!rsa) {
+        return NULL;
+    }
+    RSA_get0_key(rsa, &n, NULL, NULL);
+    return bn64(n, p);
+}
+

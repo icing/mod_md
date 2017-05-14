@@ -31,9 +31,8 @@ typedef enum {
 apr_status_t md_json_create(md_json **pjson, apr_pool_t *pool);
 void md_json_destroy(md_json *json);
 
-
-apr_status_t md_jsel_create(md_jsel **pjsel, apr_pool_t *pool, const char *key);
-apr_status_t md_jsel_add(md_jsel *jsel, const char *key);
+md_jsel *md_jsel_create(apr_pool_t *pool, const char *key);
+md_jsel *md_jsel_createvn(apr_pool_t *pool, ...);
 
 /* boolean manipulation */
 int md_json_getb(md_json *json, md_jsel *sel);
@@ -44,8 +43,8 @@ double md_json_getn(md_json *json, md_jsel *sel);
 apr_status_t md_json_setn(md_json *json, md_jsel *sel, double value);
 
 /* string manipulation */
-const char *md_json_gets(md_json *json, md_jsel *sel);
-apr_status_t md_json_sets(md_json *json, md_jsel *sel, const char *value);
+const char *md_json_getsv(md_json *json, ...);
+apr_status_t md_json_setsv(md_json *json, ...);
 
 /* Array/Object manipulation */
 apr_status_t md_json_clr(md_json *json, md_jsel *sel);

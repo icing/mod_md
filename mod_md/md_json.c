@@ -31,8 +31,8 @@ struct md_json {
 };
 
 struct md_jsel {
-    apr_array_header_t *keys;
-    struct md_jsel *next;
+    const char **keys;
+    size_t nelts;
 };
 
 static void init_dummy()
@@ -95,43 +95,64 @@ void md_json_destroy(md_json *json)
 /**************************************************************************************************/
 /* selectors */
 
-apr_status_t md_jsel_create(md_jsel **pjsel, apr_pool_t *pool, const char *key)
+md_jsel *md_jsel_create(apr_pool_t *pool, const char *key)
 {
     md_jsel *jsel;
     
     jsel = apr_pcalloc(pool, sizeof(*jsel));
-    if (!jsel) {
-        return APR_ENOMEM;
+    if (jsel) {
+        jsel->keys = apr_pcalloc(pool, sizeof(const char *));
+        jsel->keys[0] = key; 
+        jsel->nelts = 1;
     }
-    jsel->keys = apr_array_make(pool, 5, sizeof(const char *));
-    *pjsel = jsel;
-    
-    return md_jsel_add(jsel, key);
+
+    return jsel;
 }
 
-apr_status_t md_jsel_add(md_jsel *jsel, const char *key)
+md_jsel *md_jsel_createvn(apr_pool_t *pool, ...)
 {
-    const char **np =(const char **)apr_array_push(jsel->keys);
-    *np = key;
-    return APR_SUCCESS;
+    md_jsel *jsel;
+    const char *key;
+    int i;
+    va_list ap;
+    
+    jsel = apr_pcalloc(pool, sizeof(*jsel));
+    if (!jsel) {
+        return NULL;
+    }
+    
+    va_start(ap, pool);
+    key = va_arg(ap, char *);
+    while (key) {
+        ++jsel->nelts;
+        key = va_arg(ap, char *);
+    }
+    va_end(ap);
+        
+    jsel->keys = apr_pcalloc(pool, sizeof(const char *)*jsel->nelts);
+    va_start(ap, pool);
+    for (i = 0; i < jsel->nelts; ++i) {
+        key = va_arg(ap, char *);
+        jsel->keys[i] = key; 
+    }
+    va_end(ap);
+    
+    return jsel;
 }
 
 static const char *last_key(md_jsel *sel)
 {
-    int last = sel->keys->nelts - 1;
-    return (last >= 0)? APR_ARRAY_IDX(sel->keys, last, const char*) : NULL; 
+    return (sel->nelts  > 0)? sel->keys[sel->nelts-1] : NULL; 
 }
 
 static json_t *select(md_json *json, md_jsel *sel)
 {
     json_t *j;
-    const char *key;
     int i;
     
     j = json->j;
-    for (i = 0; j && i < sel->keys->nelts; ++i) {
-        key = APR_ARRAY_IDX(sel->keys, i, const char*);
-        j = json_object_get(j, key);
+    for (i = 0; j && i < sel->nelts; ++i) {
+        j = json_object_get(j, sel->keys[i]);
     }
     
     return j;
@@ -144,8 +165,8 @@ static json_t *select_parent(md_json *json, md_jsel *sel, int create)
     int i;
     
     j = json->j;
-    for (i = 0; j && i < sel->keys->nelts-1; ++i) {
-        key = APR_ARRAY_IDX(sel->keys, i, const char*);
+    for (i = 0; j && i < sel->nelts-1; ++i) {
+        key = sel->keys[i];
         jn = json_object_get(j, key);
         if (!jn && create) {
             jn = json_object();
@@ -209,18 +230,67 @@ apr_status_t md_json_setn(md_json *json, md_jsel *sel, double value)
 /**************************************************************************************************/
 /* strings */
 
-const char *md_json_gets(md_json *json, md_jsel *sel)
+const char *md_json_getsv(md_json *json, ...)
 {
-    json_t *j = select(json, sel);
+    json_t *j;
+    const char *key;
+    va_list ap;
+
+    j = json->j;
+    va_start(ap, json);
+    key = va_arg(ap, char *);
+    while (key && j) {
+        j = json_object_get(j, key);
+        key = va_arg(ap, char *);
+    }
+    va_end(ap);
+
     if (j && json_is_string(j)) {
         return json_string_value(j);
     }
     return NULL;
 }
 
-apr_status_t md_json_sets(md_json *json, md_jsel *sel, const char *value)
+apr_status_t md_json_setsv(md_json *json, ...)
 {
-    return select_set_new(json, sel, json_string(value));
+    const char *key, *val;
+    json_t *j, *next, *parent;
+    int argc, i;
+    va_list ap;
+    
+    j = json->j;
+    parent = NULL;
+    
+    va_start(ap, json);
+    key = va_arg(ap, char *);
+    argc = 0;
+    while (key) {
+        ++argc;
+        key = va_arg(ap, char *);
+    }
+    va_end(ap);
+
+    if (argc < 2) {
+        return APR_NOTFOUND;
+    }
+    
+    va_start(ap, json);
+    for (i = 0; i < argc-2; ++i) {
+        key = va_arg(ap, char *);
+        next = json_object_get(j, key);
+        if (!next) {
+            next = json_object();
+            json_object_set_new(j, key, next);
+        }
+        j = next;
+    }
+    
+    key = va_arg(ap, char *);
+    val = va_arg(ap, char *);
+    json_object_set_new(j, key, json_string(val));
+    va_end(ap);
+    
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/

@@ -48,7 +48,15 @@ apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, const char
     
     status = md_crypt_pkey_gen_rsa(&pkey, p, key_bits);
     if (status == APR_SUCCESS) {
-        status = acct_make(pacct, p, pkey, key_file);
+        if (key_file) {
+            status = md_crypt_pkey_save(pkey, p, key_file);
+            if (status != APR_SUCCESS) {
+                md_crypt_pkey_free(pkey);
+            }
+        }
+        if (status == APR_SUCCESS) {
+            status = acct_make(pacct, p, pkey, key_file);
+        }
     }
     return status;
 }

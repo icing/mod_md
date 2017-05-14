@@ -27,6 +27,7 @@
 
 #include "md.h"
 #include "md_acme.h"
+#include "md_acme_acct.h"
 #include "md_json.h"
 #include "md_http.h"
 #include "mod_md.h"
@@ -79,9 +80,14 @@ static apr_status_t run(apr_pool_t *pool, int argc, char *argv[])
     
     rv = md_acme_setup(acme);
     if (rv == APR_SUCCESS) {
-        fprintf(stderr, "acme setup state: %d, new_authz: %s", acme->state, acme->new_authz);
+        fprintf(stderr, "acme setup state: %d, new_authz: %s\n", acme->state, acme->new_authz);
+        
+        rv = md_acme_new_reg(acme, NULL, 4096); 
+        if (rv == APR_SUCCESS) {
+            fprintf(stderr, "acme acct created: %d\n", rv);
+        }
     }
-    
+
     return rv;
 }
 
