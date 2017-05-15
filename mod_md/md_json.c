@@ -30,11 +30,6 @@ struct md_json {
     json_t *j;
 };
 
-struct md_jsel {
-    const char **keys;
-    size_t nelts;
-};
-
 static void init_dummy()
 {
     /* jansson wants to inline static function that we never call and this,
@@ -95,210 +90,152 @@ void md_json_destroy(md_json *json)
 /**************************************************************************************************/
 /* selectors */
 
-md_jsel *md_jsel_create(apr_pool_t *pool, const char *key)
-{
-    md_jsel *jsel;
-    
-    jsel = apr_pcalloc(pool, sizeof(*jsel));
-    if (jsel) {
-        jsel->keys = apr_pcalloc(pool, sizeof(const char *));
-        jsel->keys[0] = key; 
-        jsel->nelts = 1;
-    }
 
-    return jsel;
-}
-
-md_jsel *md_jsel_createvn(apr_pool_t *pool, ...)
-{
-    md_jsel *jsel;
-    const char *key;
-    int i;
-    va_list ap;
-    
-    jsel = apr_pcalloc(pool, sizeof(*jsel));
-    if (!jsel) {
-        return NULL;
-    }
-    
-    va_start(ap, pool);
-    key = va_arg(ap, char *);
-    while (key) {
-        ++jsel->nelts;
-        key = va_arg(ap, char *);
-    }
-    va_end(ap);
-        
-    jsel->keys = apr_pcalloc(pool, sizeof(const char *)*jsel->nelts);
-    va_start(ap, pool);
-    for (i = 0; i < jsel->nelts; ++i) {
-        key = va_arg(ap, char *);
-        jsel->keys[i] = key; 
-    }
-    va_end(ap);
-    
-    return jsel;
-}
-
-static const char *last_key(md_jsel *sel)
-{
-    return (sel->nelts  > 0)? sel->keys[sel->nelts-1] : NULL; 
-}
-
-static json_t *select(md_json *json, md_jsel *sel)
+static json_t *select(md_json *json, va_list ap)
 {
     json_t *j;
-    int i;
-    
-    j = json->j;
-    for (i = 0; j && i < sel->nelts; ++i) {
-        j = json_object_get(j, sel->keys[i]);
-    }
-    
-    return j;
-}
-
-static json_t *select_parent(md_json *json, md_jsel *sel, int create)
-{
-    json_t *j, *jn;
     const char *key;
-    int i;
     
     j = json->j;
-    for (i = 0; j && i < sel->nelts-1; ++i) {
-        key = sel->keys[i];
-        jn = json_object_get(j, key);
-        if (!jn && create) {
-            jn = json_object();
-            json_object_set(j, key, jn);
-            json_decref(jn);
-        }
-        j = jn;
+    key = va_arg(ap, char *);
+    while (key && j) {
+        j = json_object_get(j, key);
+        key = va_arg(ap, char *);
     }
-    
     return j;
 }
 
-static apr_status_t select_set_new(md_json *json, md_jsel *sel, json_t *val)
+static json_t *select_parent(const char **child_key, int create, md_json *json, va_list ap)
 {
-    json_t *j = select_parent(json, sel, 1);
+    const char *key, *next;
+    json_t *j, *jn;
+    
+    *child_key = NULL;
+    j = json->j;
+    key = va_arg(ap, char *);
+    while (key && j) {
+        next = va_arg(ap, char *);
+        if (next) {
+            jn = json_object_get(j, key);
+            if (!jn && create) {
+                jn = json_object();
+                json_object_set_new(j, key, jn);
+            }
+            j = jn;
+        }
+        else {
+            *child_key = key;
+        }
+        key = next;
+    }
+    return j;
+}
+
+static apr_status_t select_set_new(json_t *val, md_json *json, va_list ap)
+{
+    const char *key;
+    json_t *j;
+    
+    j = select_parent(&key, 1, json, ap);
     
     if (!j || !json_is_object(j)) {
         json_decref(val);
         return APR_EINVAL;
     }
     
-    json_object_set_new(j, last_key(sel), val);
-
+    json_object_set_new(j, key, val);
     return APR_SUCCESS;
 }
 
 /**************************************************************************************************/
 /* booleans */
 
-int md_json_getb(md_json *json, md_jsel *sel)
+int md_json_getb(md_json *json, ...)
 {
-    json_t *j = select(json, sel);
-    if (j) {
-        return json_is_true(j);
-    }
-    return 0;
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+
+    return j? json_is_true(j) : 0;
 }
 
-apr_status_t md_json_setb(md_json *json, md_jsel *sel, int value)
+apr_status_t md_json_setb(int value, md_json *json, ...)
 {
-    return select_set_new(json, sel, json_boolean(value));
+    va_list ap;
+    apr_status_t status;
+    
+    va_start(ap, json);
+    status = select_set_new(json_boolean(value), json, ap);
+    va_end(ap);
+    return status;
 }
 
 /**************************************************************************************************/
 /* numbers */
 
-double md_json_getn(md_json *json, md_jsel *sel)
+double md_json_getn(md_json *json, ...)
 {
-    json_t *j = select(json, sel);
-    if (j && json_is_number(j)) {
-        return json_number_value(j);
-    }
-    return 0.0;
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+    return (j && json_is_number(j))? json_number_value(j) : 0.0;
 }
 
-apr_status_t md_json_setn(md_json *json, md_jsel *sel, double value)
+apr_status_t md_json_setn(double value, md_json *json, ...)
 {
-    return select_set_new(json, sel, json_real(value));
+    va_list ap;
+    apr_status_t status;
+    
+    va_start(ap, json);
+    status = select_set_new(json_real(value), json, ap);
+    va_end(ap);
+    return status;
 }
 
 /**************************************************************************************************/
 /* strings */
 
-const char *md_json_getsv(md_json *json, ...)
+const char *md_json_gets(md_json *json, ...)
 {
     json_t *j;
-    const char *key;
     va_list ap;
-
-    j = json->j;
+    
     va_start(ap, json);
-    key = va_arg(ap, char *);
-    while (key && j) {
-        j = json_object_get(j, key);
-        key = va_arg(ap, char *);
-    }
+    j = select(json, ap);
     va_end(ap);
 
-    if (j && json_is_string(j)) {
-        return json_string_value(j);
-    }
-    return NULL;
+    return (j && json_is_string(j))? json_string_value(j) : NULL;
 }
 
-apr_status_t md_json_setsv(md_json *json, ...)
+apr_status_t md_json_sets(const char *value, md_json *json, ...)
 {
-    const char *key, *val;
-    json_t *j, *next, *parent;
-    int argc, i;
     va_list ap;
-    
-    j = json->j;
-    parent = NULL;
+    apr_status_t status;
     
     va_start(ap, json);
-    key = va_arg(ap, char *);
-    argc = 0;
-    while (key) {
-        ++argc;
-        key = va_arg(ap, char *);
-    }
+    status = select_set_new(json_string(value), json, ap);
     va_end(ap);
-
-    if (argc < 2) {
-        return APR_NOTFOUND;
-    }
-    
-    va_start(ap, json);
-    for (i = 0; i < argc-2; ++i) {
-        key = va_arg(ap, char *);
-        next = json_object_get(j, key);
-        if (!next) {
-            next = json_object();
-            json_object_set_new(j, key, next);
-        }
-        j = next;
-    }
-    
-    key = va_arg(ap, char *);
-    val = va_arg(ap, char *);
-    json_object_set_new(j, key, json_string(val));
-    va_end(ap);
-    
-    return APR_SUCCESS;
+    return status;
 }
 
 /**************************************************************************************************/
 /* arrays / objects */
 
-apr_status_t md_json_clr(md_json *json, md_jsel *sel)
+apr_status_t md_json_clr(md_json *json, ...)
 {
-    json_t *j = select(json, sel);
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+
     if (j && json_is_object(j)) {
         json_object_clear(j);
     }
@@ -308,11 +245,18 @@ apr_status_t md_json_clr(md_json *json, md_jsel *sel)
     return APR_SUCCESS;
 }
 
-apr_status_t md_json_del(md_json *json, md_jsel *sel)
+apr_status_t md_json_del(md_json *json, ...)
 {
-    json_t *j = select_parent(json, sel, 0);
-    if (j && json_is_object(j)) {
-        json_object_del(j, last_key(sel));
+    const char *key;
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select_parent(&key, 0, json, ap);
+    va_end(ap);
+    
+    if (key && j && json_is_object(j)) {
+        json_object_del(j, key);
     }
     return APR_SUCCESS;
 }
@@ -320,9 +264,15 @@ apr_status_t md_json_del(md_json *json, md_jsel *sel)
 /**************************************************************************************************/
 /* object strings */
 
-apr_status_t md_json_gets_dict(md_json *json, md_jsel *sel, apr_table_t *dict)
+apr_status_t md_json_gets_dict(apr_table_t *dict, md_json *json, ...)
 {
-    json_t *j = select(json, sel);
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+
     if (j && json_is_object(j)) {
         const char *key;
         json_t *val;
@@ -345,18 +295,27 @@ static int object_set(void *data, const char *key, const char *val)
     return 1;
 }
  
-apr_status_t md_json_sets_dict(md_json *json, md_jsel *sel, apr_table_t *dict)
+apr_status_t md_json_sets_dict(apr_table_t *dict, md_json *json, ...)
 {
-    json_t *nj, *j = select(json, sel);
+    json_t *nj, *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
     
     if (!j || !json_is_object(j)) {
-        j = select_parent(json, sel, 1);
-        if (!j || !json_is_object(j)) {
+        const char *key;
+        
+        va_start(ap, json);
+        j = select_parent(&key, 1, json, ap);
+        va_end(ap);
+        
+        if (!key || !j || !json_is_object(j)) {
             return APR_EINVAL;
         }
         nj = json_object();
-        json_object_set(j, last_key(sel), nj);
-        json_decref(nj);
+        json_object_set_new(j, key, nj);
         j = nj; 
     }
     
@@ -367,9 +326,15 @@ apr_status_t md_json_sets_dict(md_json *json, md_jsel *sel, apr_table_t *dict)
 /**************************************************************************************************/
 /* array strings */
 
-apr_status_t md_json_getsa(md_json *json, md_jsel *sel, apr_array_header_t *a)
+apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...)
 {
-    json_t *j = select(json, sel);
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+
     if (j && json_is_array(j)) {
         const char **np;
         size_t index;
@@ -386,22 +351,31 @@ apr_status_t md_json_getsa(md_json *json, md_jsel *sel, apr_array_header_t *a)
     return APR_NOTFOUND;
 }
 
-apr_status_t md_json_setsa(md_json *json, md_jsel *sel, apr_array_header_t *a)
+apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...)
 {
-    json_t *nj, *j = select(json, sel);
+    json_t *nj, *j;
+    va_list ap;
     int i;
     
-    if (!j || !json_is_array(j)) {
-        j = select_parent(json, sel, 1);
-        if (!j || !json_is_object(j)) {
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+    
+    if (!j || !json_is_object(j)) {
+        const char *key;
+        
+        va_start(ap, json);
+        j = select_parent(&key, 1, json, ap);
+        va_end(ap);
+        
+        if (!key || !j || !json_is_object(j)) {
             return APR_EINVAL;
         }
         nj = json_array();
-        json_object_set(j, last_key(sel), nj);
-        json_decref(nj);
+        json_object_set_new(j, key, nj);
         j = nj; 
     }
-
+    
     json_array_clear(j);
     for (i = 0; i < a->nelts; ++i) {
         json_array_append_new(j, json_string(APR_ARRAY_IDX(a, i, const char*)));

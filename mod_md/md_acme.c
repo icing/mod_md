@@ -53,10 +53,10 @@ apr_status_t md_acme_setup(md_acme *acme)
     
     status = md_json_http_get(&json, acme->pool, acme->http, acme->url);
     if (status == APR_SUCCESS) {
-        acme->new_authz = md_json_getsv(json, "new-authz", NULL);
-        acme->new_cert = md_json_getsv(json, "new-cert", NULL);
-        acme->new_reg = md_json_getsv(json, "new-reg", NULL);
-        acme->revoke_cert = md_json_getsv(json, "revoke-cert", NULL);
+        acme->new_authz = md_json_gets(json, "new-authz", NULL);
+        acme->new_cert = md_json_gets(json, "new-cert", NULL);
+        acme->new_reg = md_json_gets(json, "new-reg", NULL);
+        acme->revoke_cert = md_json_gets(json, "revoke-cert", NULL);
         if (acme->new_authz && acme->new_cert && acme->new_reg && acme->revoke_cert) {
             acme->state = MD_ACME_S_LIVE;
             return APR_SUCCESS;

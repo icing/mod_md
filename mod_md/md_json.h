@@ -21,7 +21,6 @@ struct md_http_response;
 
 
 typedef struct md_json md_json;
-typedef struct md_jsel md_jsel;
 
 typedef enum {
     MD_JSON_FMT_COMPACT,
@@ -31,32 +30,29 @@ typedef enum {
 apr_status_t md_json_create(md_json **pjson, apr_pool_t *pool);
 void md_json_destroy(md_json *json);
 
-md_jsel *md_jsel_create(apr_pool_t *pool, const char *key);
-md_jsel *md_jsel_createvn(apr_pool_t *pool, ...);
-
 /* boolean manipulation */
-int md_json_getb(md_json *json, md_jsel *sel);
-apr_status_t md_json_setb(md_json *json, md_jsel *sel, int value);
+int md_json_getb(md_json *json, ...);
+apr_status_t md_json_setb(int value, md_json *json, ...);
 
 /* number manipulation */
-double md_json_getn(md_json *json, md_jsel *sel);
-apr_status_t md_json_setn(md_json *json, md_jsel *sel, double value);
+double md_json_getn(md_json *json, ...);
+apr_status_t md_json_setn(double value, md_json *json, ...);
 
 /* string manipulation */
-const char *md_json_getsv(md_json *json, ...);
-apr_status_t md_json_setsv(md_json *json, ...);
+const char *md_json_gets(md_json *json, ...);
+apr_status_t md_json_sets(const char *s, md_json *json, ...);
 
 /* Array/Object manipulation */
-apr_status_t md_json_clr(md_json *json, md_jsel *sel);
-apr_status_t md_json_del(md_json *json, md_jsel *sel);
+apr_status_t md_json_clr(md_json *json, ...);
+apr_status_t md_json_del(md_json *json, ...);
 
 /* Manipulating Object String values */
-apr_status_t md_json_gets_dict(md_json *json, md_jsel *sel, apr_table_t *dict);
-apr_status_t md_json_sets_dict(md_json *json, md_jsel *sel, apr_table_t *dict);
+apr_status_t md_json_gets_dict(apr_table_t *dict, md_json *json, ...);
+apr_status_t md_json_sets_dict(apr_table_t *dict, md_json *json, ...);
 
 /* Manipulating String Arrays */
-apr_status_t md_json_getsa(md_json *json, md_jsel *sel, apr_array_header_t *a);
-apr_status_t md_json_setsa(md_json *json, md_jsel *sel, apr_array_header_t *a);
+apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...);
+apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...);
 
 /* serialization & parsing */
 apr_status_t md_json_writeb(md_json *json, md_json_fmt_t fmt, apr_bucket_brigade *bb);

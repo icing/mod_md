@@ -47,14 +47,14 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
         return status;
     }
 
-    md_json_setsv(prot_msg, "alg", "RS256", NULL);
+    md_json_sets("RS256", prot_msg, "alg", NULL);
     if (key_id) {
-        md_json_setsv(prot_msg, "kid", key_id, NULL);
+        md_json_sets(key_id, prot_msg, "kid", NULL);
     }
     else {
-        md_json_setsv(prot_msg, "jwk", "e", md_crypt_pkey_get_rsa_e64(pkey, p), NULL);
-        md_json_setsv(prot_msg, "jwk", "kty", "RSA", NULL);
-        md_json_setsv(prot_msg, "jwk", "n", md_crypt_pkey_get_rsa_n64(pkey, p), NULL);
+        md_json_sets(md_crypt_pkey_get_rsa_e64(pkey, p), prot_msg, "jwk", "e", NULL);
+        md_json_sets("RSA", prot_msg, "jwk", "kty", NULL);
+        md_json_sets(md_crypt_pkey_get_rsa_n64(pkey, p), prot_msg, "jwk", "n", NULL);
     }
 
     
@@ -64,7 +64,7 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
     if (!prot64) {
         return APR_ENOMEM;
     }
-    md_json_setsv(msg, "protected", prot64, NULL);
+    md_json_sets(prot64, msg, "protected", NULL);
     
     (void)sign64;
     *pmsg = msg;
