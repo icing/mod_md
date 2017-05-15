@@ -23,50 +23,62 @@
 #include "md_jws.h"
 #include "md_util.h"
 
+static int header_set(void *data, const char *key, const char *val)
+{
+    md_json_sets(val, (md_json*)data, key, NULL);
+    return 1;
+}
+
 apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
                          const char *payload, size_t len, 
                          struct apr_table_t *protected, 
                          struct md_pkey *pkey, const char *key_id)
 {
-    md_json *msg, *prot_msg;
-    apr_status_t status;
-    const char *prot64, *pay64, *sign64, *s;
-    
-    status = md_json_create(&msg, p);
-    if (status != APR_SUCCESS) {
-        return status;
-    }
-    
-    pay64 = md_util_base64url_encode(payload, len, p);
-    if (!pay64) {
-        return APR_ENOMEM;
-    }
-    
-    status = md_json_create(&prot_msg, p);
-    if (status != APR_SUCCESS) {
-        return status;
-    }
+    md_json *msg;
+    const char *prot64, *pay64, *sign64, *sign, *prot;
+    apr_status_t status = APR_ENOMEM;
 
-    md_json_sets("RS256", prot_msg, "alg", NULL);
-    if (key_id) {
-        md_json_sets(key_id, prot_msg, "kid", NULL);
-    }
-    else {
-        md_json_sets(md_crypt_pkey_get_rsa_e64(pkey, p), prot_msg, "jwk", "e", NULL);
-        md_json_sets("RSA", prot_msg, "jwk", "kty", NULL);
-        md_json_sets(md_crypt_pkey_get_rsa_n64(pkey, p), prot_msg, "jwk", "n", NULL);
-    }
-
+    prot = NULL;
+    *pmsg = NULL;
     
-    s = md_json_writep(prot_msg, MD_JSON_FMT_COMPACT, p);
-    fprintf(stderr, "prot_msg: %s\n", s);
-    prot64 = s? md_util_base64url_encode(s, strlen(s), p) : NULL;
-    if (!prot64) {
-        return APR_ENOMEM;
+    msg = md_json_create(p);
+    if (msg) {
+        md_json *jprotected = md_json_create(p);
+        if (jprotected) {
+            md_json_sets("RS256", jprotected, "alg", NULL);
+            if (key_id) {
+                md_json_sets(key_id, jprotected, "kid", NULL);
+            }
+            else {
+                md_json_sets(md_crypt_pkey_get_rsa_e64(pkey, p), jprotected, "jwk", "e", NULL);
+                md_json_sets("RSA", jprotected, "jwk", "kty", NULL);
+                md_json_sets(md_crypt_pkey_get_rsa_n64(pkey, p), jprotected, "jwk", "n", NULL);
+            }
+            apr_table_do(header_set, jprotected, protected, NULL);
+            prot = md_json_writep(jprotected, MD_JSON_FMT_COMPACT, p);
+            fprintf(stderr, "jprotected: %s\n", prot);
+        }
     }
-    md_json_sets(prot64, msg, "protected", NULL);
     
-    (void)sign64;
-    *pmsg = msg;
+    if (prot) {
+        prot64 = md_util_base64url_encode(prot, strlen(prot), p);
+        if (prot64) {
+            md_json_sets(prot64, msg, "protected", NULL);
+            pay64 = md_util_base64url_encode(payload, len, p);
+            if (pay64) {
+                md_json_sets(pay64, msg, "payload", NULL);
+                sign = apr_psprintf(p, "%s.%s", prot64, pay64);
+                if (sign) {
+                    status = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
+                    if (status == APR_SUCCESS) {
+                        md_json_sets(sign64, msg, "signature", NULL);
+                        *pmsg = msg;
+                        status = APR_SUCCESS;
+                    }
+                }
+            }
+        }
+    }
+    
     return status;
 }

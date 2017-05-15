@@ -52,13 +52,17 @@ apr_status_t md_http_GET(md_http *http,
                          const char *url, struct apr_table_t *headers,
                          md_http_cb *cb, void *baton, long *preq_id);
 
-apr_status_t md_http_POST(md_http *http, 
+apr_status_t md_http_HEAD(md_http *http, 
                           const char *url, struct apr_table_t *headers,
+                          md_http_cb *cb, void *baton, long *preq_id);
+
+apr_status_t md_http_POST(md_http *http, const char *url, 
+                          struct apr_table_t *headers, const char *content_type, 
                           apr_bucket_brigade *body,
                           md_http_cb *cb, void *baton, long *preq_id);
 
-apr_status_t md_http_POSTd(md_http *http, 
-                           const char *url, struct apr_table_t *headers,
+apr_status_t md_http_POSTd(md_http *http, const char *url, 
+                           struct apr_table_t *headers, const char *content_type, 
                            const char *data, size_t data_len, 
                            md_http_cb *cb, void *baton, long *preq_id);
 

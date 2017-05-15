@@ -39,6 +39,8 @@ struct md_acme {
     
     struct md_http *http;
     struct md_acme_acct *acct;
+    
+    const char *nonce;
 };
 
 

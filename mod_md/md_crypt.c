@@ -218,3 +218,39 @@ const char *md_crypt_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p)
     return bn64(n, p);
 }
 
+apr_status_t md_crypt_sign64(const char **psign64, md_pkey *pkey, apr_pool_t *p, 
+                             const char *d, size_t dlen)
+{
+    EVP_MD_CTX *ctx = NULL;
+    char *buffer;
+    unsigned int blen;
+    const char *sign64 = NULL;
+    apr_status_t status = APR_ENOMEM;
+    
+    buffer = apr_pcalloc(p, EVP_PKEY_size(pkey->pkey));
+    if (buffer) {
+        ctx = EVP_MD_CTX_create();
+        if (ctx) {
+            status = APR_ENOTIMPL;
+            if (EVP_SignInit_ex(ctx, EVP_sha256(), NULL)) {
+                status = APR_EGENERAL;
+                if (EVP_SignUpdate(ctx, d, dlen)) {
+                    if (EVP_SignFinal(ctx, (unsigned char*)buffer, &blen, pkey->pkey)) {
+                        sign64 = md_util_base64url_encode(buffer, blen, p);
+                        if (sign64) {
+                            status = APR_SUCCESS;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (ctx) {
+            EVP_MD_CTX_destroy(ctx);
+        }
+    }
+    
+    *psign64 = sign64;
+    return status;
+}
+

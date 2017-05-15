@@ -198,12 +198,38 @@ static void req_destroy(md_http_request *req)
 {
    apr_pool_destroy(req->pool);
 }
- 
+
+typedef struct {
+    md_http_request *req;
+    struct curl_slist *hdrs;
+    apr_status_t status;
+} curlify_hdrs_ctx;
+
+static int curlify_headers(void *baton, const char *key, const char *value)
+{
+    curlify_hdrs_ctx *ctx = baton;
+    const char *s;
+    
+    if (strchr(key, '\r') || strchr(key, '\n')
+        || strchr(value, '\r') || strchr(value, '\n')) {
+        ctx->status = APR_EINVAL;
+        return 0;
+    }
+    s = apr_psprintf(ctx->req->pool, "%s: %s", key, value);
+    if (!s) {
+        ctx->status = APR_ENOMEM;
+        return 0;
+    }
+    ctx->hdrs = curl_slist_append(ctx->hdrs, s);
+    return 1;
+}
+
 static apr_status_t perform(md_http_request *req)
 {
     apr_status_t status = APR_SUCCESS;
     CURL *curl = req->http->curl;
     md_http_response *res;
+    struct curl_slist *req_hdrs = NULL;
 
     res = apr_pcalloc(req->pool, sizeof(*res));
     
@@ -214,9 +240,34 @@ static apr_status_t perform(md_http_request *req)
     res->body = apr_brigade_create(req->pool, req->http->bucket_alloc);
     
     curl_easy_setopt(curl, CURLOPT_URL, req->url);
+    if (!apr_strnatcasecmp("GET", req->method)) {
+        /* nop */
+    }
+    else if (!apr_strnatcasecmp("HEAD", req->method)) {
+        curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+    }
+    else if (!apr_strnatcasecmp("POST", req->method)) {
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    }
+    else {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, req->method);
+    }
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, res);
     curl_easy_setopt(curl, CURLOPT_READDATA, req->body);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, res);
+    
+    if (!apr_is_empty_table(req->headers)) {
+        curlify_hdrs_ctx ctx;
+        
+        ctx.req = req;
+        ctx.hdrs = NULL;
+        ctx.status = APR_SUCCESS;
+        apr_table_do(curlify_headers, &ctx, req->headers, NULL);
+        req_hdrs = ctx.hdrs;
+        if (ctx.status == APR_SUCCESS) {
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, req_hdrs);
+        }
+    }
     
     res->rv = curl_easy_perform(curl);
     if (res->rv == CURLE_OK) {
@@ -237,6 +288,9 @@ static apr_status_t perform(md_http_request *req)
     
     status = res->rv;
     req_destroy(req);
+    if (req_hdrs) {
+        curl_slist_free_all(req_hdrs);
+    }
     
     return status;
 }
@@ -259,10 +313,10 @@ static apr_status_t schedule(md_http_request *req,
     }
     
     if (req->body_len == 0 && apr_strnatcasecmp("GET", req->method)) {
-        apr_table_setn(req->headers, "content-length", "0");
+        apr_table_setn(req->headers, "Content-Length", "0");
     }
     else if (req->body_len > 0) {
-        apr_table_setn(req->headers, "content-length", apr_off_t_toa(req->pool, req->body_len));
+        apr_table_setn(req->headers, "Content-Length", apr_off_t_toa(req->pool, req->body_len));
     }
     
     if (preq_id) {
@@ -290,8 +344,23 @@ apr_status_t md_http_GET(struct md_http *http,
     return schedule(req, NULL, 0, preq_id);
 }
 
-apr_status_t md_http_POST(struct md_http *http, 
+apr_status_t md_http_HEAD(struct md_http *http, 
                           const char *url, struct apr_table_t *headers,
+                          md_http_cb *cb, void *baton, long *preq_id)
+{
+    md_http_request *req;
+    apr_status_t status;
+    
+    status = req_create(&req, http, "HEAD", url, headers, cb, baton);
+    if (status != APR_SUCCESS) {
+        return status;
+    }
+    
+    return schedule(req, NULL, 0, preq_id);
+}
+
+apr_status_t md_http_POST(struct md_http *http, const char *url, 
+                          struct apr_table_t *headers, const char *content_type, 
                           apr_bucket_brigade *body,
                           md_http_cb *cb, void *baton, long *preq_id)
 {
@@ -303,11 +372,14 @@ apr_status_t md_http_POST(struct md_http *http,
         return status;
     }
     
+    if (content_type) {
+        apr_table_set(req->headers, "Content-Type", content_type); 
+    }
     return schedule(req, body, 1, preq_id);
 }
 
-apr_status_t md_http_POSTd(md_http *http, 
-                           const char *url, struct apr_table_t *headers,
+apr_status_t md_http_POSTd(md_http *http, const char *url, 
+                           struct apr_table_t *headers, const char *content_type, 
                            const char *data, size_t data_len, 
                            md_http_cb *cb, void *baton, long *preq_id)
 {
@@ -329,6 +401,9 @@ apr_status_t md_http_POSTd(md_http *http,
         }
     }
     
+    if (content_type) {
+        apr_table_set(req->headers, "Content-Type", content_type); 
+    }
     return schedule(req, body, 1, preq_id);
 }
 

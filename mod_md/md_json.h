@@ -27,7 +27,7 @@ typedef enum {
     MD_JSON_FMT_INDENT,
 } md_json_fmt_t;
 
-apr_status_t md_json_create(md_json **pjson, apr_pool_t *pool);
+md_json *md_json_create(apr_pool_t *pool);
 void md_json_destroy(md_json *json);
 
 /* boolean manipulation */

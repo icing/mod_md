@@ -54,7 +54,7 @@ static apr_status_t json_pool_cleanup(void *data)
     return APR_SUCCESS;
 }
 
-static apr_status_t json_create(md_json **pjson, apr_pool_t *pool, json_t *j)
+static md_json *json_create(apr_pool_t *pool, json_t *j)
 {
     md_json *json;
     
@@ -62,26 +62,24 @@ static apr_status_t json_create(md_json **pjson, apr_pool_t *pool, json_t *j)
     json = apr_pcalloc(pool, sizeof(*json));
     if (json == NULL) {
         json_decref(j);
-        return APR_ENOMEM;
+        return NULL;
     }
     
     json->p = pool;
     json->j = j;
-    apr_pool_cleanup_register(pool, json, json_pool_cleanup, apr_pool_cleanup_null);    
-
-    *pjson = json;
-    
-    return APR_SUCCESS;
+    apr_pool_cleanup_register(pool, json, json_pool_cleanup, apr_pool_cleanup_null);
+        
+    return json;
 }
 
-apr_status_t md_json_create(md_json **pjson, apr_pool_t *pool)
+md_json *md_json_create(apr_pool_t *pool)
 {
-    return json_create(pjson, pool, json_object());
+    return json_create(pool, json_object());
 }
 
 void md_json_destroy(md_json *json)
 {
-    if (json->j) {
+    if (json && json->j) {
         json_decref(json->j);
         json->j = NULL;
     }
@@ -426,7 +424,8 @@ apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, 
     if (!j) {
         return APR_EINVAL;
     }
-    return json_create(pjson, pool, j);
+    *pjson = json_create(pool, j);
+    return *pjson? APR_SUCCESS : APR_ENOMEM;
 }
 
 static size_t load_cb(void *data, size_t max_len, void *baton)
@@ -479,7 +478,8 @@ apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, apr_bucket_brigade
     if (!j) {
         return APR_EINVAL;
     }
-    return json_create(pjson, pool, j);
+    *pjson = json_create(pool, j);
+    return *pjson? APR_SUCCESS : APR_ENOMEM;
 }
 
 /**************************************************************************************************/

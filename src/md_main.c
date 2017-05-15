@@ -80,7 +80,7 @@ static apr_status_t run(apr_pool_t *pool, int argc, char *argv[])
     
     rv = md_acme_setup(acme);
     if (rv == APR_SUCCESS) {
-        fprintf(stderr, "acme setup state: %d, new_authz: %s\n", acme->state, acme->new_authz);
+        fprintf(stderr, "acme setup state: %d, new_reg: %s\n", acme->state, acme->new_reg);
         
         rv = md_acme_new_reg(acme, NULL, 4096); 
         if (rv == APR_SUCCESS) {

@@ -67,6 +67,28 @@ apr_status_t md_acme_setup(md_acme *acme)
     return status;
 }
 
+static apr_status_t update_nonce(const md_http_response *res)
+{
+    md_acme *acme = res->req->baton;
+    if (res->rv == APR_SUCCESS && res->headers) {
+        acme->nonce = apr_table_get(res->headers, "Replay-Nonce");
+        if (!acme->nonce) {
+            return APR_EGENERAL;
+        }
+    }
+    return res->rv;
+}
+
+static apr_status_t md_acme_new_nonce(md_acme *acme)
+{
+    apr_status_t status;
+    long id;
+    
+    status = md_http_HEAD(acme->http, acme->new_reg, NULL, update_nonce, acme, &id);
+    md_http_await(acme->http, id);
+    return status;
+}
+
 typedef struct md_acme_req md_acme_req;
 
 typedef apr_status_t md_acme_req_cb(md_acme_req *req, apr_status_t status);
@@ -91,8 +113,7 @@ struct md_acme_req {
     void *baton;
 };
 
-static apr_status_t md_acme_req_create(md_acme_req **preq, md_acme *acme, 
-                                       md_acme_acct *acct, const char *url)
+static md_acme_req *md_acme_req_create(md_acme *acme, md_acme_acct *acct, const char *url)
 {
     apr_pool_t *pool;
     md_acme_req *req;
@@ -100,14 +121,13 @@ static apr_status_t md_acme_req_create(md_acme_req **preq, md_acme *acme,
     
     status = apr_pool_create(&pool, acme->pool);
     if (status != APR_SUCCESS) {
-        *preq = NULL;
-        return status;
+        return NULL;
     }
     
     req = apr_pcalloc(pool, sizeof(*req));
     if (!req) {
         apr_pool_destroy(pool);
-        return APR_ENOMEM;
+        return NULL;
     }
         
     req->acme = acme;
@@ -117,10 +137,9 @@ static apr_status_t md_acme_req_create(md_acme_req **preq, md_acme *acme,
     req->prot_hdrs = apr_table_make(pool, 5);
     if (!req->prot_hdrs) {
         apr_pool_destroy(pool);
-        return APR_ENOMEM;
+        return NULL;
     }
-    *preq = req;
-    return APR_SUCCESS;
+    return req;
 }
  
 static apr_status_t on_response(const md_http_response *res)
@@ -130,6 +149,7 @@ static apr_status_t on_response(const md_http_response *res)
     
     fprintf(stderr, "recvd acme resp: %d %d\n", res->rv, res->status);
     if (status == APR_SUCCESS) {
+        update_nonce(res);
         status = md_json_read_http(&req->jws_resp, req->pool, res);
         if (status == APR_SUCCESS) {
             
@@ -152,9 +172,19 @@ static apr_status_t md_acme_req_done(md_acme_req *req)
 static apr_status_t md_acme_req_send(md_acme_req *req)
 {
     apr_status_t status;
+
+    if (!req->acme->nonce) {
+        status = md_acme_new_nonce(req->acme);
+        if (status != APR_SUCCESS) {
+            return status;
+        }
+    }
     
-     status = md_jws_sign(&req->jws_req, req->pool, req->payload, req->payload_len,
-                          req->prot_hdrs, req->acct->key, NULL);
+    apr_table_set(req->prot_hdrs, "nonce", req->acme->nonce);
+    req->acme->nonce = NULL;
+
+    status = md_jws_sign(&req->jws_req, req->pool, req->payload, req->payload_len,
+                         req->prot_hdrs, req->acct->key, NULL);
     if (status == APR_SUCCESS) {
         long id;
         const char *body;
@@ -163,9 +193,9 @@ static apr_status_t md_acme_req_send(md_acme_req *req)
         if (!body) {
             return APR_ENOMEM;
         }
-        fprintf(stderr, "sending acme req: %s\n", body);
-        status = md_http_POSTd(req->acme->http, req->url, NULL, body, strlen(body), 
-                               on_response, req, &id);
+        fprintf(stderr, "sending acme req: POST %s\n%s\n", req->url, body);
+        status = md_http_POSTd(req->acme->http, req->url, NULL, "application/json",  
+                               body, strlen(body), on_response, req, &id);
         md_http_await(req->acme->http, id);
         return md_acme_req_done(req);
     }
@@ -174,19 +204,28 @@ static apr_status_t md_acme_req_send(md_acme_req *req)
 
 apr_status_t md_acme_new_reg(md_acme *acme, const char *key_file, int key_bits)
 {
+    md_acme_req *req;
+    md_json *jpayload;
     apr_status_t status;
     
     status = md_acme_acct_create(&acme->acct, acme->pool, key_file, key_bits);
-    if (status == APR_SUCCESS) {
-        md_acme_req *req;
-        
-        status = md_acme_req_create(&req, acme, acme->acct, acme->new_reg);
-        if (status == APR_SUCCESS) {
-            apr_table_set(req->prot_hdrs, "nonce", "bldskldjskldjasl");
-            req->payload = "{ \"test\" : 1}";
-            return md_acme_req_send(req);
+    if (status != APR_SUCCESS) {
+        return status;
+    }
+    
+    req = md_acme_req_create(acme, acme->acct, acme->new_reg);
+    if (req) {
+        jpayload = md_json_create(req->pool);
+        if (jpayload) {
+            md_json_sets("new-reg", jpayload, "resource", NULL);
+            req->payload = md_json_writep(jpayload, MD_JSON_FMT_COMPACT, req->pool);
         }
     }
-    return status;
+        
+    if (req->payload) {
+        req->payload_len = strlen(req->payload);
+        return md_acme_req_send(req);
+    }
+    return APR_ENOMEM;
 }
 
