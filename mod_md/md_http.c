@@ -19,6 +19,7 @@
 #include <curl/curl.h>
 
 #include "md_http.h"
+#include "md_log.h"
 
 struct md_http {
     apr_pool_t *pool;
@@ -269,6 +270,13 @@ static apr_status_t perform(md_http_request *req)
         }
     }
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+                  "request %ld --> %s %s", req->id, req->method, req->url);
+    
+    if (md_log_is_level(req->pool, MD_LOG_TRACE3)) {
+        curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+    }
+    
     res->rv = curl_easy_perform(curl);
     if (res->rv == CURLE_OK) {
         long l;
@@ -276,9 +284,12 @@ static apr_status_t perform(md_http_request *req)
         if (res->rv == CURLE_OK) {
             res->status = (int)l;
         }
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+                      "request %ld <-- %d", req->id, res->status);
     }
     else {
-        fprintf(stderr, "GET %s failed: %s\n", req->url, curl_easy_strerror(res->rv));
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+                      "request %ld failed: %s", req->id, curl_easy_strerror(res->rv));
         res->rv = APR_EGENERAL;
     }
     
@@ -404,6 +415,7 @@ apr_status_t md_http_POSTd(md_http *http, const char *url,
     if (content_type) {
         apr_table_set(req->headers, "Content-Type", content_type); 
     }
+     
     return schedule(req, body, 1, preq_id);
 }
 

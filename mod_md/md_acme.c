@@ -23,6 +23,7 @@
 #include "md_json.h"
 #include "md_jws.h"
 #include "md_http.h"
+#include "md_log.h"
 
 apr_status_t md_acme_init(apr_pool_t *p)
 {
@@ -105,8 +106,8 @@ struct md_acme_req {
     
     md_json *jws_req;
 
-    md_json *jws_resp;
     apr_table_t *resp_hdrs;
+    md_json *resp_json;
     
     apr_status_t status;
     md_http_cb *on_done;
@@ -147,13 +148,16 @@ static apr_status_t on_response(const md_http_response *res)
     md_acme_req *req = res->req->baton;
     apr_status_t status = res->rv;
     
-    fprintf(stderr, "recvd acme resp: %d %d\n", res->rv, res->status);
+    if (res->rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, res->rv, res->req->pool, "req failed");
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, res->req->pool, "resp: %d", res->status);
+    }
+    
     if (status == APR_SUCCESS) {
         update_nonce(res);
-        status = md_json_read_http(&req->jws_resp, req->pool, res);
-        if (status == APR_SUCCESS) {
-            
-        }
+        status = md_json_read_http(&req->resp_json, req->pool, res);
     }
     
     req->status = status;
@@ -189,11 +193,19 @@ static apr_status_t md_acme_req_send(md_acme_req *req)
         long id;
         const char *body;
         
-        body = md_json_writep(req->jws_req, MD_JSON_FMT_COMPACT, req->pool);
+        body = md_json_writep(req->jws_req, MD_JSON_FMT_INDENT, req->pool);
         if (!body) {
             return APR_ENOMEM;
         }
-        fprintf(stderr, "sending acme req: POST %s\n%s\n", req->url, body);
+        
+        if (md_log_is_level(req->pool, MD_LOG_TRACE2)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->pool, 
+                          "req: POST %s, body:\n%s", req->url, body);
+        }
+        else {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
+                          "req: POST %s\n", req->url);
+        }
         status = md_http_POSTd(req->acme->http, req->url, NULL, "application/json",  
                                body, strlen(body), on_response, req, &id);
         md_http_await(req->acme->http, id);
@@ -218,7 +230,7 @@ apr_status_t md_acme_new_reg(md_acme *acme, const char *key_file, int key_bits)
         jpayload = md_json_create(req->pool);
         if (jpayload) {
             md_json_sets("new-reg", jpayload, "resource", NULL);
-            req->payload = md_json_writep(jpayload, MD_JSON_FMT_COMPACT, req->pool);
+            req->payload = md_json_writep(jpayload, MD_JSON_FMT_INDENT, req->pool);
         }
     }
         

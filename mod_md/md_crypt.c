@@ -27,6 +27,7 @@
 #include <openssl/rsa.h>
 
 #include "md_crypt.h"
+#include "md_log.h"
 #include "md_util.h"
 
 static int initialized;
@@ -44,6 +45,7 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
     if (!initialized) {
         ERR_load_crypto_strings();
     
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, pool, "initializing RAND"); 
         while (!RAND_status()) {
             arc4random_buf(seed, sizeof(seed));
             RAND_seed(seed, sizeof(seed));
@@ -105,6 +107,7 @@ apr_status_t md_crypt_pkey_load_rsa(md_pkey **ppkey, apr_pool_t *p, const char *
     
     if ((status = md_crypt_pkey_load(ppkey, p, fname)) == APR_SUCCESS) {
         if (EVP_PKEY_id((*ppkey)->pkey) != EVP_PKEY_RSA) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "key is not RSA: %s", fname); 
             md_crypt_pkey_free(*ppkey);
             *ppkey = NULL;
             status = APR_EINVAL;
@@ -123,6 +126,7 @@ apr_status_t md_crypt_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname)
         status = apr_file_perms_set(fname, (APR_FPROT_UREAD|APR_FPROT_UWRITE));
         if (status == APR_SUCCESS) {
             if (PEM_write_PrivateKey(f, pkey->pkey, NULL, NULL, 0, NULL, NULL) < 0) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "error writing key: %s", fname); 
                 status = APR_EGENERAL;
             }
         }
@@ -130,6 +134,7 @@ apr_status_t md_crypt_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname)
             /* TODO: Windows, OS2 do not implement this. Do we have other
              * means to secure the file? */
             if (PEM_write_PrivateKey(f, pkey->pkey, NULL, NULL, 0, NULL, NULL) < 0) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "error writing key: %s", fname); 
                 status = APR_EGENERAL;
             }
         }
@@ -156,6 +161,7 @@ apr_status_t md_crypt_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits)
         status = APR_SUCCESS;
     }
     else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "unable to generate new key"); 
         *ppkey = NULL;
         status = APR_EGENERAL;
     }
@@ -248,6 +254,10 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey *pkey, apr_pool_t *p,
         if (ctx) {
             EVP_MD_CTX_destroy(ctx);
         }
+    }
+    
+    if (status != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, status, p, "signing"); 
     }
     
     *psign64 = sign64;

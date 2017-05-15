@@ -67,6 +67,8 @@
 		B2D31B161EC5F945007BECC8 /* md_crypt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_crypt.h; sourceTree = "<group>"; };
 		B2D31B171EC8756D007BECC8 /* md_jws.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_jws.c; sourceTree = "<group>"; };
 		B2D31B181EC8756D007BECC8 /* md_jws.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_jws.h; sourceTree = "<group>"; };
+		B2D31B191EC9EBC2007BECC8 /* md_log.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_log.c; sourceTree = "<group>"; };
+		B2D31B1A1EC9EBC2007BECC8 /* md_log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_log.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -113,6 +115,8 @@
 				B2D31B0C1EC473CC007BECC8 /* md_json.h */,
 				B2D31B171EC8756D007BECC8 /* md_jws.c */,
 				B2D31B181EC8756D007BECC8 /* md_jws.h */,
+				B2D31B191EC9EBC2007BECC8 /* md_log.c */,
+				B2D31B1A1EC9EBC2007BECC8 /* md_log.h */,
 				B2D309DE1EBB6600007BECC8 /* md_private.h */,
 				B2D31B131EC5F1EA007BECC8 /* md_util.c */,
 				B2D31B141EC5F1EA007BECC8 /* md_util.h */,

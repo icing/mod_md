@@ -30,6 +30,7 @@ OBJECTS = \
     md_http.c \
     md_json.c \
     md_jws.c \
+    md_log.c \
     md_util.c \
     mod_md.c
 
@@ -41,6 +42,7 @@ HFILES = \
     md_http.h \
     md_json.h \
     md_jws.h \
+    md_log.h \
     md_util.h \
     md.h \
     mod_md.h

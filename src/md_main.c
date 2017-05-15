@@ -30,6 +30,7 @@
 #include "md_acme_acct.h"
 #include "md_json.h"
 #include "md_http.h"
+#include "md_log.h"
 #include "mod_md.h"
 #include "md_version.h"
 
@@ -41,23 +42,27 @@ static void usage(const char *msg)
     fprintf(stderr, "usage: a2md ca-url\n");
 }
 
-static apr_status_t resp_cb(const md_http_response *res)
+static md_log_level_t active_level = MD_LOG_NOTICE;
+
+static int log_is_level(void *baton, apr_pool_t *p, md_log_level_t level)
 {
-    const md_http_request *req = res->req;
-    
-    if (res->rv == APR_SUCCESS) {
-        apr_off_t len = 0;
-        if (res->body) {
-            apr_brigade_length(res->body, 1, &len);
-        }
-        fprintf(stderr, "response(%ld): %s %s -> %d, DATA %ld\n",
-                req->id, req->method, req->url, res->status, (long)len);
+    return level <= active_level;
+}
+
+#define LOG_BUF_LEN 1024
+
+void log_print(const char *file, int line, md_log_level_t level, 
+               apr_status_t status, void *baton, apr_pool_t *p, const char *fmt, va_list ap)
+{
+    if (log_is_level(baton, p, level)) {
+        char buffer[LOG_BUF_LEN];
+        
+        apr_vsnprintf(buffer, LOG_BUF_LEN-1, fmt, ap);
+        buffer[LOG_BUF_LEN-1] = '\0';
+        
+        fprintf(stderr, "[%s:%d %s][%d] %s\n", file, line, 
+                md_log_level_name(level), status, buffer);
     }
-    else {
-        fprintf(stderr, "response(%ld): %s %s -> error %d\n", 
-                req->id, req->method, req->url, res->rv);
-    }
-    return res->rv;
 }
 
 static apr_status_t run(apr_pool_t *pool, int argc, char *argv[]) 
@@ -80,11 +85,12 @@ static apr_status_t run(apr_pool_t *pool, int argc, char *argv[])
     
     rv = md_acme_setup(acme);
     if (rv == APR_SUCCESS) {
-        fprintf(stderr, "acme setup state: %d, new_reg: %s\n", acme->state, acme->new_reg);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, pool, 
+                      "acme setup state: %d, new_reg: %s\n", acme->state, acme->new_reg);
         
         rv = md_acme_new_reg(acme, NULL, 4096); 
         if (rv == APR_SUCCESS) {
-            fprintf(stderr, "acme acct created: %d\n", rv);
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, pool, "acme acct registered: %d\n", rv);
         }
     }
 
@@ -101,6 +107,9 @@ int main(int argc, char *argv[])
         usage(NULL);
         return 2;
     }
+    
+    md_log_set(log_is_level, log_print, NULL);
+    active_level = MD_LOG_TRACE1;
     
     apr_allocator_create(&allocator);
     status = apr_pool_create_ex(&pool, NULL, NULL, allocator);

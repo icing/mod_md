@@ -433,6 +433,7 @@ static size_t load_cb(void *data, size_t max_len, void *baton)
     apr_bucket_brigade *body = baton;
     size_t blen, read_len = 0;
     const char *bdata;
+    char *dest = data;
     apr_bucket *b;
     apr_status_t status;
     
@@ -450,9 +451,10 @@ static size_t load_cb(void *data, size_t max_len, void *baton)
                     apr_bucket_split(b, max_len);
                     blen = max_len;
                 }
-                memcpy(data, bdata, blen);
+                memcpy(dest, bdata, blen);
                 read_len += blen;
                 max_len -= blen;
+                dest += blen;
             }
             else {
                 body = NULL;
@@ -489,11 +491,9 @@ apr_status_t md_json_read_http(md_json **pjson, apr_pool_t *pool, const md_http_
 {
     apr_status_t status = APR_EINVAL;
     if (res->rv == APR_SUCCESS) {
-        if (res->status >= 200 && res->status < 300) {
-            const char *ctype = apr_table_get(res->headers, "content-type");
-            if (ctype && !strcmp("application/json", ctype) && res->body) {
-                status = md_json_readb(pjson, pool, res->body);
-            }
+        const char *ctype = apr_table_get(res->headers, "content-type");
+        if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {
+            status = md_json_readb(pjson, pool, res->body);
         }
     }
     return status;

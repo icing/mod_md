@@ -21,6 +21,7 @@
 #include "md_crypt.h"
 #include "md_json.h"
 #include "md_jws.h"
+#include "md_log.h"
 #include "md_util.h"
 
 static int header_set(void *data, const char *key, const char *val)
@@ -55,8 +56,8 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
                 md_json_sets(md_crypt_pkey_get_rsa_n64(pkey, p), jprotected, "jwk", "n", NULL);
             }
             apr_table_do(header_set, jprotected, protected, NULL);
-            prot = md_json_writep(jprotected, MD_JSON_FMT_COMPACT, p);
-            fprintf(stderr, "jprotected: %s\n", prot);
+            prot = md_json_writep(jprotected, MD_JSON_FMT_INDENT, p);
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "protected: %s", prot); 
         }
     }
     
@@ -80,5 +81,8 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
         }
     }
     
+    if (status != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, status, p, "jwk signed message");
+    } 
     return status;
 }

@@ -19,6 +19,7 @@
 
 #include "md_acme_acct.h"
 #include "md_crypt.h"
+#include "md_log.h"
 
 static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, void *pkey, const char *key_file)
 {
@@ -46,6 +47,7 @@ apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, const char
     apr_status_t status;
     md_pkey *pkey;
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "generating new account key"); 
     status = md_crypt_pkey_gen_rsa(&pkey, p, key_bits);
     if (status == APR_SUCCESS) {
         if (key_file) {
