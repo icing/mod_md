@@ -16,6 +16,7 @@
 #ifndef mod_md_md_json_h
 #define mod_md_md_json_h
 
+struct apr_bucket_brigade;
 struct md_http;
 struct md_http_response;
 
@@ -55,10 +56,10 @@ apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...);
 apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...);
 
 /* serialization & parsing */
-apr_status_t md_json_writeb(md_json *json, md_json_fmt_t fmt, apr_bucket_brigade *bb);
+apr_status_t md_json_writeb(md_json *json, md_json_fmt_t fmt, struct apr_bucket_brigade *bb);
 const char *md_json_writep(md_json *json, md_json_fmt_t fmt, apr_pool_t *pool);
 
-apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, apr_bucket_brigade *bb);
+apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, struct apr_bucket_brigade *bb);
 apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, size_t data_len);
 
 /* http retrieval */

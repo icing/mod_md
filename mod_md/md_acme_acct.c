@@ -16,12 +16,18 @@
 #include <stdio.h>
 #include <apr_lib.h>
 #include <apr_strings.h>
+#include <apr_tables.h>
 
+#include "md_acme.h"
 #include "md_acme_acct.h"
 #include "md_crypt.h"
+#include "md_json.h"
+#include "md_jws.h"
 #include "md_log.h"
 
-static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, void *pkey, const char *key_file)
+static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, 
+                              apr_array_header_t *contact,  
+                              void *pkey, const char *key_file)
 {
     md_acme_acct *acct;
     
@@ -32,17 +38,25 @@ static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, void *pkey, c
         }
         return APR_ENOMEM;
     }
-    
+
+    acct->pool = p;
     acct->key_file = key_file;
     acct->key = pkey;
+    if (!contact || apr_is_empty_array(contact)) {
+        acct->contact = apr_array_make(p, 5, sizeof(const char *));
+    }
+    else {
+        acct->contact = apr_array_copy(acct->pool, contact);
+    }
     
     *pacct = acct;
     return APR_SUCCESS;
 }
 
 
-apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, const char *key_file,
-    int key_bits)
+apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, 
+                                 apr_array_header_t *contact,  
+                                 const char *key_file, int key_bits)
 {
     apr_status_t status;
     md_pkey *pkey;
@@ -57,7 +71,7 @@ apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, const char
             }
         }
         if (status == APR_SUCCESS) {
-            status = acct_make(pacct, p, pkey, key_file);
+            status = acct_make(pacct, p, contact, pkey, key_file);
         }
     }
     return status;
@@ -70,9 +84,71 @@ apr_status_t md_acme_acct_open(md_acme_acct **pacct, apr_pool_t *p, const char *
     
     status = md_crypt_pkey_load_rsa(&pkey, p, key_file);
     if (status == APR_SUCCESS) {
-        return acct_make(pacct, p, pkey, key_file);
+        apr_array_header_t *contact = apr_array_make(p, 5, sizeof(const char *));
+        
+        return acct_make(pacct, p, contact, pkey, key_file);
     }
     return status;
 }
 
+static void on_new_reg(md_acme *acme, const char *location, md_json *body, void *baton)
+{
+    md_acme_acct *acct = baton;
+    
+    acct->url = apr_pstrdup(acct->pool, location);
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "registered new account %s", location);
+    
+    /* TODO save */
+    md_acme_add_acct(acme, acct);
+}
 
+static apr_status_t on_init_payload(md_acme_req *req, void *baton)
+{
+    md_acme_acct *acct = baton;
+    md_json *jpayload;
+    const char *payload;
+    size_t payload_len;
+
+    jpayload = md_json_create(req->pool);
+    if (jpayload) {
+        md_json_sets("new-reg", jpayload, "resource", NULL);
+        md_json_setsa(acct->contact, jpayload, "contact", NULL);
+        
+        payload = md_json_writep(jpayload, MD_JSON_FMT_INDENT, req->pool);
+        if (payload) {
+            payload_len = strlen(payload);
+            
+            return md_jws_sign(&req->req_json, req->pool, payload, payload_len,
+                               req->prot_hdrs, acct->key, NULL);
+        }
+    }
+    return APR_ENOMEM;
+} 
+
+apr_status_t md_acme_acct_new(md_acme *acme, 
+                              apr_array_header_t *contact,
+                              const char *key_file, int key_bits)
+{
+    md_acme_acct *acct;
+    md_acme_req *req;
+    apr_status_t status;
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new local account");
+    status = md_acme_acct_create(&acct, acme->pool, contact, key_file, key_bits);
+    if (status != APR_SUCCESS) {
+        return status;
+    }
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
+                  "register new account at %s", acme->new_reg);
+                  
+    req = md_acme_req_create(acme, acme->new_reg);
+    if (req) {
+        req->on_init = on_init_payload;
+        req->on_success = on_new_reg;
+        req->baton = acct;
+    
+        return md_acme_req_send(req);
+    }
+    return APR_ENOMEM;
+}

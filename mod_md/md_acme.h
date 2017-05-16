@@ -16,7 +16,10 @@
 #ifndef mod_md_md_acme_h
 #define mod_md_md_acme_h
 
+struct apr_array_header_t;
 struct md_http;
+struct md_json;
+struct md_pkey;
 struct md_acme_acct;
 
 typedef enum {
@@ -50,7 +53,35 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url);
 
 apr_status_t md_acme_setup(md_acme *acme);
 
+apr_status_t md_acme_add_acct(md_acme *acme, struct md_acme_acct *acct);
 
-apr_status_t md_acme_new_reg(md_acme *acme, const char *key_file, int key_bits);
+
+typedef struct md_acme_req md_acme_req;
+
+typedef apr_status_t md_acme_req_init_cb(md_acme_req *req, void *baton);
+
+typedef void md_acme_req_success_cb(md_acme *acme, const char *location, 
+                                    struct md_json *body, void *baton);
+
+struct md_acme_req {
+    md_acme *acme;
+    apr_pool_t *pool;
+    
+    const char *url;
+    apr_table_t *prot_hdrs;
+    struct md_json *req_json;
+
+    apr_table_t *resp_hdrs;
+    struct md_json *resp_json;
+    
+    apr_status_t status;
+    
+    md_acme_req_init_cb *on_init;
+    md_acme_req_success_cb *on_success;
+    void *baton;
+};
+
+md_acme_req *md_acme_req_create(md_acme *acme, const char *url);
+apr_status_t md_acme_req_send(md_acme_req *req);
 
 #endif /* md_acme_h */

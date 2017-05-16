@@ -20,13 +20,23 @@
 typedef struct md_acme_acct md_acme_acct;
 
 struct md_acme_acct {
+    apr_pool_t *pool;
+    struct apr_array_header_t *contact;
     const char *key_file;
     void *key;
+    const char *url;
 };
 
-apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, 
+apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p,
+                                 struct apr_array_header_t *contact,  
                                  const char *key_file, int key_bits);
 
 apr_status_t md_acme_acct_open(md_acme_acct **pacct, apr_pool_t *p, const char *key_file);
+
+apr_status_t md_acme_acct_new(md_acme *acme,
+                              struct apr_array_header_t *contacts,
+                              const char *key_file, int key_bits);
+
+
 
 #endif /* md_acme_acct_h */
