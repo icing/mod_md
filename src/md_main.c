@@ -113,7 +113,11 @@ static apr_status_t run(md_acme *acme, apr_array_header_t *contacts)
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "register new account");
         return rv;
     }
-
+    
+    rv = md_acme_acct_del(acme, acme->acct->url);
+    if (rv != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "delete account");
+    }
     return rv;
 }
 

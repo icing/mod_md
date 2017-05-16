@@ -91,18 +91,10 @@ apr_status_t md_acme_acct_open(md_acme_acct **pacct, apr_pool_t *p, const char *
     return status;
 }
 
-static void on_new_reg(md_acme *acme, const char *location, md_json *body, void *baton)
-{
-    md_acme_acct *acct = baton;
-    
-    acct->url = apr_pstrdup(acct->pool, location);
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "registered new account %s", location);
-    
-    /* TODO save */
-    md_acme_add_acct(acme, acct);
-}
+/**************************************************************************************************/
+/* Register a new account */
 
-static apr_status_t on_init_payload(md_acme_req *req, void *baton)
+static apr_status_t on_init_acct_new(md_acme_req *req, void *baton)
 {
     md_acme_acct *acct = baton;
     md_json *jpayload;
@@ -125,12 +117,22 @@ static apr_status_t on_init_payload(md_acme_req *req, void *baton)
     return APR_ENOMEM;
 } 
 
+static void on_success_acct_new(md_acme *acme, const char *location, md_json *body, void *baton)
+{
+    md_acme_acct *acct = baton;
+    
+    acct->url = apr_pstrdup(acct->pool, location);
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "registered new account %s", location);
+    
+    /* TODO save */
+    md_acme_add_acct(acme, acct);
+}
+
 apr_status_t md_acme_acct_new(md_acme *acme, 
                               apr_array_header_t *contact,
                               const char *key_file, int key_bits)
 {
     md_acme_acct *acct;
-    md_acme_req *req;
     apr_status_t status;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new local account");
@@ -139,16 +141,57 @@ apr_status_t md_acme_acct_new(md_acme *acme,
         return status;
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
-                  "register new account at %s", acme->new_reg);
-                  
-    req = md_acme_req_create(acme, acme->new_reg);
-    if (req) {
-        req->on_init = on_init_payload;
-        req->on_success = on_new_reg;
-        req->baton = acct;
-    
-        return md_acme_req_send(req);
+    return md_acme_req_add(acme, acme->new_reg, on_init_acct_new, on_success_acct_new, acct);
+}
+
+/**************************************************************************************************/
+/* Delete an existing account */
+
+static apr_status_t on_init_acct_del(md_acme_req *req, void *baton)
+{
+    md_acme_acct *acct = baton;
+    md_json *jpayload;
+    const char *payload;
+    size_t payload_len;
+
+    jpayload = md_json_create(req->pool);
+    if (jpayload) {
+        md_json_sets("reg", jpayload, "resource", NULL);
+        md_json_setb(1, jpayload, "delete", NULL);
+        
+        payload = md_json_writep(jpayload, MD_JSON_FMT_INDENT, req->pool);
+        if (payload) {
+            payload_len = strlen(payload);
+            
+            return md_jws_sign(&req->req_json, req->pool, payload, payload_len,
+                               req->prot_hdrs, acct->key, NULL);
+        }
     }
     return APR_ENOMEM;
+} 
+
+static void on_success_acct_del(md_acme *acme, const char *location, md_json *body, void *baton)
+{
+    md_acme_acct *acct = baton;
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "deleted account %s", acct->url);
+    
+    /* TODO delete files */
+    md_acme_remove_acct(acme, acct);
 }
+
+apr_status_t md_acme_acct_del(md_acme *acme, const char *url)
+{
+    md_acme_acct *acct;
+    
+    acct = md_acme_get_acct(acme, url);
+    if (!acct) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_NOTFOUND, acme->pool, 
+                      "account not found: %s", url);
+        return APR_NOTFOUND;
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "delete account %s", url);
+    
+    return md_acme_req_add(acme, url, on_init_acct_del, on_success_acct_del, acct);
+}
+

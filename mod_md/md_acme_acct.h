@@ -37,6 +37,8 @@ apr_status_t md_acme_acct_new(md_acme *acme,
                               struct apr_array_header_t *contacts,
                               const char *key_file, int key_bits);
 
+apr_status_t md_acme_acct_del(md_acme *acme, const char *acct_url);
+
 
 
 #endif /* md_acme_acct_h */
