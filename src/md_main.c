@@ -69,7 +69,7 @@ static int log_is_level(void *baton, apr_pool_t *p, md_log_level_t level)
     return level <= active_level;
 }
 
-#define LOG_BUF_LEN 1024
+#define LOG_BUF_LEN 16*1024
 
 void log_print(const char *file, int line, md_log_level_t level, 
                apr_status_t status, void *baton, apr_pool_t *p, const char *fmt, va_list ap)
@@ -98,6 +98,7 @@ static apr_status_t run(md_acme *acme, apr_array_header_t *contacts)
     long req_id;
     const char *data;
     md_json *json;
+    md_acme_acct *acct;
     
     rv = md_acme_setup(acme);
     if (rv != APR_SUCCESS) {
@@ -108,13 +109,14 @@ static apr_status_t run(md_acme *acme, apr_array_header_t *contacts)
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
                   "acme setup state: %d, new_reg: %s", acme->state, acme->new_reg);
         
-    rv = md_acme_acct_new(acme, contacts, NULL, 4096);
+    rv = md_acme_register(&acct, acme, contacts);
+    
     if (rv != APR_SUCCESS) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "register new account");
         return rv;
     }
     
-    rv = md_acme_acct_del(acme, acme->acct->url);
+    rv = md_acme_acct_del(acme, acct);
     if (rv != APR_SUCCESS) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "delete account");
     }

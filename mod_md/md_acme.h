@@ -17,6 +17,7 @@
 #define mod_md_md_acme_h
 
 struct apr_array_header_t;
+struct apr_hash_t;
 struct md_http;
 struct md_json;
 struct md_pkey;
@@ -41,9 +42,10 @@ struct md_acme {
     const char *revoke_cert;
     
     struct md_http *http;
-    struct md_acme_acct *acct;
+    struct apr_hash_t *accounts;
     
     const char *nonce;
+    unsigned int pkey_bits;
 };
 
 
@@ -53,10 +55,10 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url);
 
 apr_status_t md_acme_setup(md_acme *acme);
 
-apr_status_t md_acme_add_acct(md_acme *acme, struct md_acme_acct *acct);
-struct md_acme_acct *md_acme_get_acct(md_acme *acme, const char *url);
-apr_status_t md_acme_remove_acct(md_acme *acme, struct md_acme_acct *acct);
+apr_status_t md_acme_register(struct md_acme_acct **pacct, md_acme *acme, 
+                              apr_array_header_t *contacts);
 
+struct md_acme_acct *md_acme_acct_get(md_acme *acme, const char *url);
 
 typedef struct md_acme_req md_acme_req;
 
@@ -83,9 +85,9 @@ struct md_acme_req {
     void *baton;
 };
 
-apr_status_t md_acme_req_add(md_acme *acme, const char *url,
-                             md_acme_req_init_cb *on_init,
-                             md_acme_req_success_cb *on_success,
-                             void *baton);
+apr_status_t md_acme_req_do(md_acme *acme, const char *url,
+                            md_acme_req_init_cb *on_init,
+                            md_acme_req_success_cb *on_success,
+                            void *baton);
 
 #endif /* md_acme_h */

@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <apr_lib.h>
+#include <apr_hash.h>
 #include <apr_strings.h>
 #include <apr_tables.h>
 
@@ -77,6 +78,14 @@ apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p,
     return status;
 }
 
+void md_acme_acct_free(md_acme_acct *acct)
+{
+    if (acct->key) {
+        md_crypt_pkey_free(acct->key);
+        acct->key = NULL;
+    }
+}
+
 apr_status_t md_acme_acct_open(md_acme_acct **pacct, apr_pool_t *p, const char *key_file)
 {
     apr_status_t status;
@@ -110,6 +119,8 @@ static apr_status_t on_init_acct_new(md_acme_req *req, void *baton)
         if (payload) {
             payload_len = strlen(payload);
             
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+                          "acct_new payload(len=%d): %s", payload_len, payload);
             return md_jws_sign(&req->req_json, req->pool, payload, payload_len,
                                req->prot_hdrs, acct->key, NULL);
         }
@@ -122,26 +133,29 @@ static void on_success_acct_new(md_acme *acme, const char *location, md_json *bo
     md_acme_acct *acct = baton;
     
     acct->url = apr_pstrdup(acct->pool, location);
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "registered new account %s", location);
-    
-    /* TODO save */
-    md_acme_add_acct(acme, acct);
 }
 
-apr_status_t md_acme_acct_new(md_acme *acme, 
-                              apr_array_header_t *contact,
-                              const char *key_file, int key_bits)
+apr_status_t md_acme_acct_new(md_acme_acct **pacct, md_acme *acme, apr_array_header_t *contacts)
 {
     md_acme_acct *acct;
     apr_status_t status;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new local account");
-    status = md_acme_acct_create(&acct, acme->pool, contact, key_file, key_bits);
+    status = md_acme_acct_create(&acct, acme->pool, contacts, NULL, acme->pkey_bits);
     if (status != APR_SUCCESS) {
         return status;
     }
     
-    return md_acme_req_add(acme, acme->new_reg, on_init_acct_new, on_success_acct_new, acct);
+    status = md_acme_req_do(acme, acme->new_reg, on_init_acct_new, on_success_acct_new, acct);
+    if (status == APR_SUCCESS) {
+        apr_hash_set(acme->accounts, acct->url, strlen(acct->url), acct);
+        *pacct = acct;
+        
+        return APR_SUCCESS;
+    }
+    *pacct = NULL;
+    md_acme_acct_free(acct);
+    return status;
 }
 
 /**************************************************************************************************/
@@ -175,23 +189,19 @@ static void on_success_acct_del(md_acme *acme, const char *location, md_json *bo
     md_acme_acct *acct = baton;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "deleted account %s", acct->url);
-    
-    /* TODO delete files */
-    md_acme_remove_acct(acme, acct);
 }
 
-apr_status_t md_acme_acct_del(md_acme *acme, const char *url)
+apr_status_t md_acme_acct_del(md_acme *acme, md_acme_acct *acct)
 {
-    md_acme_acct *acct;
+    apr_status_t status;
     
-    acct = md_acme_get_acct(acme, url);
-    if (!acct) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_NOTFOUND, acme->pool, 
-                      "account not found: %s", url);
-        return APR_NOTFOUND;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "delete account %s", acct->url);
+    
+    status = md_acme_req_do(acme, acct->url, on_init_acct_del, on_success_acct_del, acct);
+    if (status == APR_SUCCESS) {
+        apr_hash_set(acme->accounts, acct->url, strlen(acct->url), NULL);
+        md_acme_acct_free(acct);
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "delete account %s", url);
-    
-    return md_acme_req_add(acme, url, on_init_acct_del, on_success_acct_del, acct);
+    return status;
 }
 

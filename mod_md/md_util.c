@@ -110,23 +110,29 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
 const char *md_util_base64url_encode(const char *data, 
                                      apr_size_t len, apr_pool_t *pool)
 {
-    apr_size_t mlen = ((len+2)/3)*3;
-    apr_size_t slen = (mlen/3)*4;
+    apr_size_t slen = ((len+2)/3)*4 + 1; /* 0 terminated */
     apr_size_t i;
     const unsigned char *udata = (const unsigned char*)data;
-    char *enc, *p = apr_pcalloc(pool, slen+1); /* 0 terminated */
+    char *enc, *p = apr_pcalloc(pool, slen);
     
     enc = p;
-    for (i = 0; i < mlen; i+= 3) {
+    for (i = 0; i < len-2; i+= 3) {
         *p++ = BASE64URL_CHARS[ (udata[i] >> 2) & 0x3fu ];
-        *p++ = BASE64URL_CHARS[ ((udata[i] << 4) + 
-                                 ((i+1 < len)? (udata[i+1] >> 4) : 0)) & 0x3fu ];
-        *p++ = BASE64URL_CHARS[ ((udata[i+1] << 2) + 
-                                 ((i+2 < len)? (udata[i+2] >> 6) : 0)) & 0x3fu ];
-        if (i+2 < len) {
-            *p++ = BASE64URL_CHARS[ udata[i+2] & 0x3fu ];
-        }
+        *p++ = BASE64URL_CHARS[ ((udata[i] << 4) + (udata[i+1] >> 4)) & 0x3fu ];
+        *p++ = BASE64URL_CHARS[ ((udata[i+1] << 2) + (udata[i+2] >> 6)) & 0x3fu ];
+        *p++ = BASE64URL_CHARS[ udata[i+2] & 0x3fu ];
     }
     
+    if (i < len) {
+        *p++ = BASE64URL_CHARS[ (udata[i] >> 2) & 0x3fu ];
+        if (i == (len - 1)) {
+            *p++ = BASE64URL_CHARS[ (udata[i] << 4) & 0x3fu ];
+        }
+        else {
+            *p++ = BASE64URL_CHARS[ ((udata[i] << 4) + (udata[i+1] >> 4)) & 0x3fu ];
+            *p++ = BASE64URL_CHARS[ (udata[i+1] << 2) & 0x3fu ];
+        }
+    }
+    *p++ = '\0';
     return enc;
 }

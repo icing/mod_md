@@ -30,15 +30,14 @@ struct md_acme_acct {
 apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p,
                                  struct apr_array_header_t *contact,  
                                  const char *key_file, int key_bits);
+void md_acme_acct_free(md_acme_acct *acct);
 
 apr_status_t md_acme_acct_open(md_acme_acct **pacct, apr_pool_t *p, const char *key_file);
 
-apr_status_t md_acme_acct_new(md_acme *acme,
-                              struct apr_array_header_t *contacts,
-                              const char *key_file, int key_bits);
+apr_status_t md_acme_acct_new(md_acme_acct **pacct, md_acme *acme,
+                              struct apr_array_header_t *contacts);
 
-apr_status_t md_acme_acct_del(md_acme *acme, const char *acct_url);
-
+apr_status_t md_acme_acct_del(md_acme *acme, md_acme_acct *acct);
 
 
 #endif /* md_acme_acct_h */

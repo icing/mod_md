@@ -56,7 +56,7 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
                 md_json_sets(md_crypt_pkey_get_rsa_n64(pkey, p), jprotected, "jwk", "n", NULL);
             }
             apr_table_do(header_set, jprotected, protected, NULL);
-            prot = md_json_writep(jprotected, MD_JSON_FMT_INDENT, p);
+            prot = md_json_writep(jprotected, MD_JSON_FMT_COMPACT, p);
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "protected: %s", prot); 
         }
     }
@@ -72,6 +72,9 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
                 if (sign) {
                     status = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
                     if (status == APR_SUCCESS) {
+                        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
+                                      "jws pay64=%s\nprot64=%s\nsign64=%s", pay64, prot64, sign64);
+
                         md_json_sets(sign64, msg, "signature", NULL);
                         *pmsg = msg;
                         status = APR_SUCCESS;

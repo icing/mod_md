@@ -16,6 +16,7 @@
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_buckets.h>
+#include <apr_hash.h>
 
 #include "md_acme.h"
 #include "md_acme_acct.h"
@@ -55,15 +56,19 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url)
     md_acme *acme;
     
     acme = apr_pcalloc(p, sizeof(*acme));
-    if (!acme) {
-        return APR_ENOMEM;
+    if (acme) {
+        acme->url = url;
+        acme->state = MD_ACME_S_INIT;
+        acme->pool = p;
+        acme->pkey_bits = 4096;
+        acme->accounts = apr_hash_make(acme->pool);
     }
     
-    acme->url = url;
-    acme->state = MD_ACME_S_INIT;
-    acme->pool = p;
+    if (!acme || !acme->accounts) {
+        *pacme = NULL;
+        return APR_ENOMEM;
+    }
     *pacme = acme;
-    
     return md_http_create(&acme->http, p);
 }
 
@@ -92,30 +97,21 @@ apr_status_t md_acme_setup(md_acme *acme)
 
 /**************************************************************************************************/
 /* acme accounts */
-apr_status_t md_acme_add_acct(md_acme *acme, struct md_acme_acct *acct)
+
+apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme, apr_array_header_t *contacts)
 {
-    /* TODO: n accounts */
-    acme->acct = acct;
-    return APR_SUCCESS;
+    apr_status_t status = md_acme_acct_new(pacct, acme, contacts);
+    if (status == APR_SUCCESS) {
+        /* TODO: save in file */
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acme->pool, 
+                      "registered new account %s", (*pacct)->url);
+    }
+    return status;
 }
 
-md_acme_acct *md_acme_get_acct(md_acme *acme, const char *url)
+md_acme_acct *md_acme_acct_get(md_acme *acme, const char *url)
 {
-    md_acme_acct *acct = acme->acct;
-    
-    if (acct && acct->url && !strcmp(url, acct->url)) {
-        return acct;
-    }
-    return NULL;
-}
-
-apr_status_t md_acme_remove_acct(md_acme *acme, struct md_acme_acct *acct)
-{
-    if (acct == acme->acct) {
-        acme->acct = NULL;
-        return APR_SUCCESS;
-    }
-    return APR_NOTFOUND;
+    return apr_hash_get(acme->accounts, url, strlen(url));
 }
 
 /**************************************************************************************************/
@@ -319,10 +315,10 @@ out:
     return status;
 }
 
-apr_status_t md_acme_req_add(md_acme *acme, const char *url,
-                             md_acme_req_init_cb *on_init,
-                             md_acme_req_success_cb *on_success,
-                             void *baton)
+apr_status_t md_acme_req_do(md_acme *acme, const char *url,
+                            md_acme_req_init_cb *on_init,
+                            md_acme_req_success_cb *on_success,
+                            void *baton)
 {
     md_acme_req *req;
     
