@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		B2BCAB761ECD8FB0002F4EB9 /* test_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_regs.py; sourceTree = "<group>"; };
 		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -136,6 +137,7 @@
 				B2D31AF51EC1B80D007BECC8 /* test_configs_data */,
 				B2D309F81EC1AD26007BECC8 /* test_configs.py */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
+				B2BCAB761ECD8FB0002F4EB9 /* test_regs.py */,
 			);
 			path = test;
 			sourceTree = SOURCE_ROOT;

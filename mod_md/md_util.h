@@ -23,4 +23,6 @@ const char *md_util_base64url_encode(const char *data,
 apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded, 
                                     apr_pool_t *pool);
 
+const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme);
+
 #endif /* md_util_h */

@@ -29,11 +29,12 @@
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_util.h"
 #include "mod_md.h"
 #include "md_version.h"
 
 static apr_getopt_option_t Options [] = {
-    { "contact", 'c', 1, "contact url for the acme account"},
+    { "acme", 'a', 1, "the url of the ACME server directory"},
     { "quiet", 'q', 0, "produce less output"},
     { "verbose", 'v', 0, "produce more output" },
     { "version", 'V', 0, "print version" },
@@ -46,10 +47,10 @@ static void usage(const char *msg)
     int i;
 
     if (msg) {
-        fprintf(stderr, "%s", msg);
+        fprintf(stderr, "%s\n", msg);
     }
-    fprintf(stderr, "usage: a2md ca-url\n");
-    fprintf(stderr, "  with the following options:\n");
+    fprintf(stderr, "usage: a2md [options] cmd [cmd-args]\n");
+    fprintf(stderr, "  with the following general options:\n");
     
     opt = NULL;
     for (i = 0; !opt || opt->optch; ++i) {
@@ -60,6 +61,11 @@ static void usage(const char *msg)
             
         }
     }
+    fprintf(stderr, "  using one of the following commands:\n");
+    fprintf(stderr, "  \tnewreg contact...\n");
+    fprintf(stderr, "  \t\tregister a new account with contact email(s)\n");
+    fprintf(stderr, "  \tdelreg url\n");
+    fprintf(stderr, "  \t\tdelete an account given its url\n");
 }
 
 static md_log_level_t active_level = MD_LOG_INFO;
@@ -91,7 +97,7 @@ void log_print(const char *file, int line, md_log_level_t level,
     }
 }
 
-static apr_status_t run(md_acme *acme, apr_array_header_t *contacts) 
+static apr_status_t acme_newreg(md_acme *acme, apr_array_header_t *contacts) 
 {
     md_http *http;
     apr_status_t rv;
@@ -111,13 +117,41 @@ static apr_status_t run(md_acme *acme, apr_array_header_t *contacts)
         
     rv = md_acme_register(&acct, acme, contacts);
     
-    if (rv != APR_SUCCESS) {
+    if (rv == APR_SUCCESS) {
+        fprintf(stdout, "registered: %s\n", acct->url);
+    }
+    else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "register new account");
+    }
+    return rv;
+}
+
+static apr_status_t acme_delreg(md_acme *acme, const char *acct_url) 
+{
+    md_http *http;
+    md_acme_acct *acct;
+    apr_status_t rv;
+    long req_id;
+    const char *data;
+    md_json *json;
+    
+    rv = md_acme_setup(acme);
+    if (rv != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "contacting %s", acme->url);
         return rv;
     }
     
+    acct = md_acme_acct_get(acme, acct_url);
+    if (!acct) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "unknown account: %s", acct_url);
+        return APR_NOTFOUND;
+    }
+    
     rv = md_acme_acct_del(acme, acct);
-    if (rv != APR_SUCCESS) {
+    if (rv == APR_SUCCESS) {
+        fprintf(stdout, "deleted: %s\n", acct->url);
+    }
+    else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "delete account");
     }
     return rv;
@@ -130,9 +164,8 @@ int main(int argc, const char **argv)
     apr_pool_t *pool;
     md_acme *acme;
     apr_getopt_t *os;
-    int opt, do_run = 1;
-    const char *optarg, *ca_url, **cpp;
-    apr_array_header_t *contacts;
+    int opt, do_run = 1, i;
+    const char *optarg, *ca_url = NULL, **cpp, *cmd;
     
     md_log_set(log_is_level, log_print, NULL);
     
@@ -142,15 +175,13 @@ int main(int argc, const char **argv)
         fprintf(stderr, "error initializing pool\n");
         return 1;
     }
-    contacts = apr_array_make(pool, 5, sizeof(const char *));
             
     apr_getopt_init(&os, pool, argc, argv);
     os->interleave = 1;
     while ((status = apr_getopt_long(os, Options, &opt, &optarg)) == APR_SUCCESS) {
         switch (opt) {
-            case 'c':
-                cpp = (const char **)apr_array_push(contacts);
-                *cpp = optarg;
+            case 'a':
+                ca_url = optarg;
                 break;
             case 'q':
                 if (active_level > 0) {
@@ -175,19 +206,46 @@ int main(int argc, const char **argv)
         usage(NULL);
         return 2;
     }
+    if (!ca_url) {
+        usage("ACME server direcotry url is missing");
+        return 1;
+    }
     
     if (do_run) {
-        if (os->ind + 1 != argc) {
-            usage(NULL);
-            return 2;
+        if (os->ind >= argc) {
+            usage("cmd is missing");
+            return 1;
         }
-        
-        ca_url = os->argv[os->ind];
         
         md_acme_init(pool);
         status = md_acme_create(&acme, pool, ca_url);
         if (status == APR_SUCCESS) {
-            status = run(acme, contacts);
+        
+            cmd = os->argv[os->ind];
+            if (!strcmp("newreg", cmd)) {
+                apr_array_header_t *contacts = apr_array_make(pool, 5, sizeof(const char *));
+                for (i = os->ind + 1; i < argc; ++i) {
+                    cpp = (const char **)apr_array_push(contacts);
+                    *cpp = md_util_schemify(pool, os->argv[i], "mailto");
+                }
+                if (apr_is_empty_array(contacts)) {
+                    usage("newreg needs at least one contact email as argument");
+                }
+                status = acme_newreg(acme, contacts);
+            }
+            else if (!strcmp("delreg", cmd)) {
+                for (i = os->ind + 1; i < argc; ++i) {
+                    status = acme_delreg(acme, os->argv[i]);
+                    if (status != APR_SUCCESS) {
+                        break;
+                    }
+                }
+            }
+            else {
+                fprintf(stderr, "unknown command: %s\n", cmd);
+                usage(NULL);
+                return 1;
+            }
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, status, pool, "creating acme for %s", ca_url);

@@ -6,3 +6,6 @@ server_name = @SERVER_NAME@
 server_dir = @SERVER_DIR@
 http_port = @HTTP_PORT@
 https_port = @HTTPS_PORT@
+
+[acme]
+directory = http://localhost:4000/directory

@@ -19,6 +19,9 @@
 
 #include "md_util.h"
 
+/**************************************************************************************************/
+/* small things */
+
 apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode)
 {
     *pf = fopen(fn, mode);
@@ -27,6 +30,22 @@ apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode)
     }
 
     return APR_SUCCESS;
+}
+
+const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme)
+{
+    const char *cp = s;
+    while (*cp) {
+        if (*cp == ':') {
+            /* could be an url scheme, leave unchanged */
+            return s;
+        }
+        else if (!apr_isalnum(*cp)) {
+            break;
+        }
+        ++cp;
+    }
+    return apr_psprintf(p, "%s:%s", def_scheme, s);
 }
 
 /* base64 url encoding ****************************************************************************/
@@ -136,3 +155,4 @@ const char *md_util_base64url_encode(const char *data,
     *p++ = '\0';
     return enc;
 }
+
