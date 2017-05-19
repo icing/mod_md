@@ -24,6 +24,7 @@
 
 #include "md_json.h"
 #include "md_http.h"
+#include "md_util.h"
 
 struct md_json {
     apr_pool_t *p;
@@ -486,6 +487,20 @@ apr_status_t md_json_writef(md_json *json, md_json_fmt_t fmt, apr_file_t *f)
     size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
     int rv = json_dump_callback(json->j, fdump_cb, f, flags);
     return rv? APR_EGENERAL : APR_SUCCESS;
+}
+
+apr_status_t md_json_createf(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
+{
+    apr_status_t rv;
+    apr_file_t *f;
+    
+    rv = apr_file_open(&f, fpath, APR_FOPEN_WRITE|APR_FOPEN_CREATE|APR_FOPEN_EXCL,
+                       MD_FPROT_F_UONLY, p);
+    if (APR_SUCCESS == rv) {
+        rv = md_json_writef(json, fmt, f);
+        apr_file_close(f);
+    }
+    return rv;
 }
 
 apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, size_t data_len)

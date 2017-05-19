@@ -273,6 +273,7 @@ apr_status_t md_acme_acct_save(md_acme_acct *acct, md_acme *acme)
 {
     apr_pool_t *ptemp;
     const char *name, *data_path, *key_path;
+    md_json *jacct;
     int i;
     apr_file_t *f = NULL;
     apr_status_t rv;
@@ -282,12 +283,21 @@ apr_status_t md_acme_acct_save(md_acme_acct *acct, md_acme *acme)
         return rv;
     }
     
+    jacct = md_json_create(ptemp);
+    md_json_sets(acct->url, jacct, "url", NULL);
+    md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, "version", NULL);
+    md_json_setj(acct->registration, jacct, "registration", NULL);
+
     name = acct->name;
     if (name) {
         rv = mk_acct_paths(&data_path, &key_path, ptemp, acme, name);
         if (APR_SUCCESS == rv) {
             rv = apr_file_open(&f, data_path, APR_FOPEN_WRITE|APR_FOPEN_CREATE,
                                MD_FPROT_F_UONLY, ptemp);
+            if (APR_SUCCESS == rv) {
+                rv = md_json_writef(jacct, MD_JSON_FMT_INDENT, f);
+                apr_file_close(f);
+            }
         }
     }
     else {
@@ -296,8 +306,7 @@ apr_status_t md_acme_acct_save(md_acme_acct *acct, md_acme *acme)
             name = apr_psprintf(acme->pool, "%08d", i);
             rv = mk_acct_paths(&data_path, &key_path, ptemp, acme, name);
             if (APR_SUCCESS == rv) {
-                rv = apr_file_open(&f, data_path, APR_FOPEN_WRITE|APR_FOPEN_CREATE|APR_FOPEN_EXCL,
-                                   MD_FPROT_F_UONLY, ptemp);
+                rv = md_json_createf(jacct, ptemp, MD_JSON_FMT_INDENT, data_path);
                 if (APR_SUCCESS == rv) {
                     break;
                 }
@@ -308,19 +317,9 @@ apr_status_t md_acme_acct_save(md_acme_acct *acct, md_acme *acme)
     }
     
     if (APR_SUCCESS == rv) {
-        md_json *jacct;
-        
-        jacct = md_json_create(ptemp);
-        md_json_sets(acct->url, jacct, "url", NULL);
-        md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, "version", NULL);
-        md_json_setj(acct->registration, jacct, "registration", NULL);
-        rv = md_json_writef(jacct, MD_JSON_FMT_INDENT, f);
-        apr_file_close(f);
-        
-        if (APR_SUCCESS == rv) {
-            rv = md_crypt_pkey_save(acct->key, ptemp, key_path);
-        }
+        rv = md_crypt_pkey_save(acct->key, ptemp, key_path);
     }
+    
     apr_pool_destroy(ptemp);
     return rv;
 }

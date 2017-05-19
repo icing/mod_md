@@ -121,4 +121,20 @@ class TestRegs:
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
 
+    def test_013(self):
+        # delete a persisted account without specifying url
+        args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
+        args.extend(["newreg", "tmp@example.org"])
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        (outdata, errdata) = p.communicate()
+        assert p.wait() == 0
+        m = re.match("registered: (.*)$", outdata)
+        assert m
+        acct = m.group(1)
+        args = [A2MD, "-d", CA1_DIR]
+        args.extend(["delreg", acct])
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        (outdata, errdata) = p.communicate()
+        assert p.wait() == 0
+
  

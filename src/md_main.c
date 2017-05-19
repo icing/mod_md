@@ -251,8 +251,8 @@ int main(int argc, const char **argv)
         usage(NULL);
         return 2;
     }
-    if (!ca_url) {
-        usage("ACME server direcotry url is missing");
+    if (!ca_url && !ca_path) {
+        usage("either ACME url or a local directory needs to be specified");
         return 1;
     }
     

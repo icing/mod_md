@@ -28,6 +28,7 @@
 #include "md_util.h"
 
 #define MD_DIRNAME_ACCOUNTS "accounts"
+#define MD_FILENAME_CA "ca.json"
 
 typedef struct acme_problem_status_t acme_problem_status_t;
 
@@ -76,7 +77,8 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
     }
 
     if (acme->path) {
-        char *acct_path;
+        char *acct_path, *ca_file;
+        md_json *jca;
         
         rv = apr_filepath_merge(&acct_path, acme->path, MD_DIRNAME_ACCOUNTS, 
                                 APR_FILEPATH_SECUREROOTTEST, acme->pool);
@@ -92,6 +94,54 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
             return rv;
         }
         acme->acct_path = acct_path;
+        
+        
+        rv = apr_filepath_merge(&ca_file, acme->path, MD_FILENAME_CA, 
+                                APR_FILEPATH_SECUREROOTTEST, acme->pool);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, 
+                          "invalid ca file path %s/%s", acme->path,  MD_FILENAME_CA);
+            return rv;
+        }
+        
+        rv = md_json_readf(&jca, acme->pool, ca_file);
+        if (APR_SUCCESS == rv) {
+            const char *ca_url = md_json_gets(jca, "url", NULL);
+            if (!ca_url) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, 
+                    "url not found in CA file %s", ca_file);
+                return APR_ENOENT;
+            }
+            else if (url && strcmp(ca_url, url)) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, 
+                    "url from CA file %s and given url differ: %s", ca_file, ca_url);
+                return APR_EINVAL;
+            }
+            else {
+                acme->url = ca_url;
+            }
+        }
+        else if (APR_STATUS_IS_ENOENT(rv)) {
+            if (!url) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, 
+                    "need the server url for initializing the CA in: %s", path);
+                return rv;
+            }
+        
+            jca = md_json_create(acme->pool);
+            md_json_sets(url, jca, "url", NULL);
+            rv = md_json_createf(jca, acme->pool, MD_JSON_FMT_INDENT, ca_file);
+            if (APR_SUCCESS != rv) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "saving ca: %s", ca_file);
+                return rv;
+            }
+            
+        }
+        else {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "reading ca: %s", ca_file);
+            return rv;
+        }
+        
         
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, acme->pool,
                       "scanning for existing accounts at %s", acme->acct_path);
