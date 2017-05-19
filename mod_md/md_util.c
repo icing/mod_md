@@ -14,8 +14,10 @@
  */
 
 #include <stdio.h>
+
 #include <apr_lib.h>
 #include <apr_strings.h>
+#include <apr_file_io.h>
 
 #include "md_util.h"
 
@@ -30,6 +32,13 @@ apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode)
     }
 
     return APR_SUCCESS;
+}
+
+
+apr_status_t md_util_fcreatex(apr_file_t **pf, const char *fn, apr_pool_t *p)
+{
+    return apr_file_open(pf, fn, (APR_FOPEN_WRITE|APR_FOPEN_CREATE|APR_FOPEN_EXCL),
+                         MD_FPROT_F_UONLY, p);
 }
 
 const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme)

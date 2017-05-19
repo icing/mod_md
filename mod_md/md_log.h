@@ -42,13 +42,13 @@ const char *md_log_level_name(md_log_level_t level);
 int md_log_is_level(apr_pool_t *p, md_log_level_t level);
 
 void md_log_perror(const char *file, int line, md_log_level_t level, 
-                   apr_status_t status, apr_pool_t *p, const char *fmt, ...);
+                   apr_status_t rv, apr_pool_t *p, const char *fmt, ...);
 
 
 typedef int md_log_level_cb(void *baton, apr_pool_t *p, md_log_level_t level);
 
 typedef void md_log_print_cb(const char *file, int line, md_log_level_t level, 
-                apr_status_t status, void *baton, apr_pool_t *p, const char *fmt, va_list ap);
+                apr_status_t rv, void *baton, apr_pool_t *p, const char *fmt, va_list ap);
 
 void md_log_set(md_log_level_cb *level_cb, md_log_print_cb *print_cb, void *baton);
 

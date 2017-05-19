@@ -62,26 +62,161 @@ static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p,
 }
 
 
-apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, 
-                                 apr_array_header_t *contacts, int key_bits)
+static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, 
+                                apr_array_header_t *contacts, int key_bits)
 {
-    apr_status_t status;
+    apr_status_t rv;
     md_pkey *pkey;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "generating new account key"); 
-    status = md_crypt_pkey_gen_rsa(&pkey, p, key_bits);
-    if (status == APR_SUCCESS) {
-        status = acct_make(pacct, p, NULL, contacts, pkey);
+    rv = md_crypt_pkey_gen_rsa(&pkey, p, key_bits);
+    if (rv == APR_SUCCESS) {
+        rv = acct_make(pacct, p, NULL, contacts, pkey);
     }
-    return status;
+    return rv;
 }
 
-void md_acme_acct_free(md_acme_acct *acct)
+static void md_acme_acct_free(md_acme_acct *acct)
 {
     if (acct->key) {
         md_crypt_pkey_free(acct->key);
         acct->key = NULL;
     }
+}
+
+/**************************************************************************************************/
+/* json load/save */
+
+static apr_status_t mk_acct_paths(const char **pdata_file, const char **pkey_file, 
+                                  apr_pool_t *p, md_acme *acme, const char *name)
+{
+    char *key_file = apr_psprintf(p, "%s.pem", name);
+    char *data_file = apr_psprintf(p, "%s.json", name);
+    apr_status_t rv;
+    
+    rv = apr_filepath_merge((char **)pdata_file, acme->acct_path, data_file, 
+                            APR_FILEPATH_SECUREROOTTEST, p);
+    if (APR_SUCCESS == rv) {
+        rv = apr_filepath_merge((char **)pkey_file, acme->acct_path, key_file, 
+                                APR_FILEPATH_SECUREROOTTEST, p);
+    }
+    return rv;
+}
+
+static apr_status_t acct_save(md_acme_acct *acct, md_acme *acme)
+{
+    apr_pool_t *ptemp;
+    const char *name, *data_path, *key_path;
+    md_json *jacct;
+    int i;
+    apr_file_t *f = NULL;
+    apr_status_t rv;
+    
+    rv = apr_pool_create(&ptemp, acme->pool);
+    if (APR_SUCCESS != rv) {
+        return rv;
+    }
+    
+    jacct = md_json_create(ptemp);
+    md_json_sets(acct->url, jacct, "url", NULL);
+    md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, "version", NULL);
+    md_json_setj(acct->registration, jacct, "registration", NULL);
+
+    name = acct->name;
+    if (name) {
+        rv = mk_acct_paths(&data_path, &key_path, ptemp, acme, name);
+        if (APR_SUCCESS == rv) {
+            rv = apr_file_open(&f, data_path, APR_FOPEN_WRITE|APR_FOPEN_CREATE,
+                               MD_FPROT_F_UONLY, ptemp);
+            if (APR_SUCCESS == rv) {
+                rv = md_json_writef(jacct, MD_JSON_FMT_INDENT, f);
+                apr_file_close(f);
+            }
+        }
+    }
+    else {
+        /* meh! */
+        for (i = 0; i < 1000; ++i) {
+            name = apr_psprintf(acme->pool, "%04d", i);
+            rv = mk_acct_paths(&data_path, &key_path, ptemp, acme, name);
+            if (APR_SUCCESS == rv) {
+                rv = md_json_fcreatex(jacct, ptemp, MD_JSON_FMT_INDENT, data_path);
+                if (APR_SUCCESS == rv) {
+                    break;
+                }
+            }
+            name = NULL;
+        }
+        acct->name = name;
+    }
+    
+    if (APR_SUCCESS == rv) {
+        rv = md_crypt_pkey_save(acct->key, ptemp, key_path);
+    }
+    
+    apr_pool_destroy(ptemp);
+    return rv;
+}
+
+static apr_status_t acct_load(md_acme_acct **pacct, md_acme *acme, const char *name)
+{
+    md_json *json;
+    apr_status_t rv;
+    md_pkey *pkey;
+    const char *data_path, *key_path;
+    apr_array_header_t *contacts;
+    const char *url;
+    double version;
+    
+    rv = mk_acct_paths(&data_path, &key_path, acme->pool, acme, name);
+    if (APR_SUCCESS != rv) {
+        return rv;
+    }   
+     
+    rv = md_crypt_pkey_load_rsa(&pkey, acme->pool, key_path);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "loading key: %s", name);
+        return rv;
+    }
+    
+    rv = md_json_readf(&json, acme->pool, data_path);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
+                      "error reading account: %s", name);
+        return APR_EINVAL;
+    }
+    
+    version = md_json_getn(json, "version", NULL);
+    if (version == 0.0) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
+                      "account has no version: %s", name);
+        return APR_EINVAL;
+    }
+    if (version > MD_ACME_ACCT_JSON_FMT_VERSION) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
+                      "account has newer version %f, expecting %f: %s", 
+                      version, MD_ACME_ACCT_JSON_FMT_VERSION, name);
+        return APR_EINVAL;
+    }
+    
+    url = md_json_gets(json, "url", NULL);
+    if (!url) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
+                      "account has no url: %s", name);
+        return APR_EINVAL;
+    }
+    contacts = apr_array_make(acme->pool, 5, sizeof(const char *));
+    md_json_getsa(contacts, json, "registration", "contact", NULL);
+    rv = acct_make(pacct, acme->pool, name, contacts, pkey);
+    if (APR_SUCCESS == rv) {
+        (*pacct)->url = url;
+        
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
+                      "load account %s (%s)", name, url);
+        apr_hash_set(acme->accounts, url, strlen(url), (*pacct));
+    }
+
+    return rv;
 }
 
 /**************************************************************************************************/
@@ -122,20 +257,20 @@ static void on_success_acct_new(md_acme *acme, const char *location, md_json *bo
     acct->registration = md_json_clone(acct->pool, body);
 }
 
-apr_status_t md_acme_acct_new(md_acme_acct **pacct, md_acme *acme, apr_array_header_t *contacts)
+static apr_status_t acct_new(md_acme_acct **pacct, md_acme *acme, apr_array_header_t *contacts)
 {
     md_acme_acct *acct;
     apr_status_t rv;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new local account");
-    rv = md_acme_acct_create(&acct, acme->pool, contacts, acme->pkey_bits);
+    rv = acct_create(&acct, acme->pool, contacts, acme->pkey_bits);
     if (APR_SUCCESS != rv) {
         return rv;
     }
     
     rv = md_acme_req_do(acme, acme->new_reg, on_init_acct_new, on_success_acct_new, acct);
     if (APR_SUCCESS == rv) {
-        rv = acme->acct_path? md_acme_acct_save(acct, acme) : APR_SUCCESS;
+        rv = acme->acct_path? acct_save(acct, acme) : APR_SUCCESS;
         if (APR_SUCCESS == rv) {
             apr_hash_set(acme->accounts, acct->url, strlen(acct->url), acct);
             *pacct = acct;
@@ -146,6 +281,21 @@ apr_status_t md_acme_acct_new(md_acme_acct **pacct, md_acme *acme, apr_array_hea
     *pacct = NULL;
     md_acme_acct_free(acct);
     return rv;
+}
+
+apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme, apr_array_header_t *contacts)
+{
+    apr_status_t rv = acct_new(pacct, acme, contacts);
+    if (rv == APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acme->pool, 
+                      "registered new account %s", (*pacct)->url);
+    }
+    return rv;
+}
+
+md_acme_acct *md_acme_acct_get(md_acme *acme, const char *url)
+{
+    return apr_hash_get(acme->accounts, url, strlen(url));
 }
 
 /**************************************************************************************************/
@@ -183,151 +333,26 @@ static void on_success_acct_del(md_acme *acme, const char *location, md_json *bo
 
 apr_status_t md_acme_acct_del(md_acme *acme, md_acme_acct *acct)
 {
-    apr_status_t status;
+    apr_status_t rv;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "delete account %s", acct->url);
     
-    status = md_acme_req_do(acme, acct->url, on_init_acct_del, on_success_acct_del, acct);
-    if (status == APR_SUCCESS) {
+    rv = md_acme_req_do(acme, acct->url, on_init_acct_del, on_success_acct_del, acct);
+    if (rv == APR_SUCCESS) {
         apr_hash_set(acme->accounts, acct->url, strlen(acct->url), NULL);
         md_acme_acct_free(acct);
     }
-    return status;
+    return rv;
 }
 
 /**************************************************************************************************/
 /* Account file persistence */
 
-static apr_status_t mk_acct_paths(const char **pdata_file, const char **pkey_file, 
-                                  apr_pool_t *p, md_acme *acme, const char *name)
-{
-    char *key_file = apr_psprintf(p, "%s.pem", name);
-    char *data_file = apr_psprintf(p, "%s.json", name);
-    apr_status_t rv;
-    
-    rv = apr_filepath_merge((char **)pdata_file, acme->acct_path, data_file, 
-                            APR_FILEPATH_SECUREROOTTEST, p);
-    if (APR_SUCCESS == rv) {
-        rv = apr_filepath_merge((char **)pkey_file, acme->acct_path, key_file, 
-                                APR_FILEPATH_SECUREROOTTEST, p);
-    }
-    return rv;
-}
-
-apr_status_t md_acme_acct_load(md_acme_acct **pacct, md_acme *acme, const char *name)
-{
-    md_json *json;
-    apr_status_t rv;
-    md_pkey *pkey;
-    const char *data_path, *key_path;
-    apr_array_header_t *contacts;
-    const char *url;
-    double version;
-    
-    rv = mk_acct_paths(&data_path, &key_path, acme->pool, acme, name);
-    if (APR_SUCCESS == rv) {    
-        rv = md_crypt_pkey_load_rsa(&pkey, acme->pool, key_path);
-        if (APR_SUCCESS == rv) {
-            rv = md_json_readf(&json, acme->pool, data_path);
-            if (APR_SUCCESS != rv) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
-                              "error reading account: %s", name);
-                return APR_EINVAL;
-            }
-                
-            version = md_json_getn(json, "version", NULL);
-            if (version == 0.0) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
-                              "account has no version: %s", name);
-                return APR_EINVAL;
-            }
-            if (version > MD_ACME_ACCT_JSON_FMT_VERSION) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
-                              "account has newer version %f, expecting %f: %s", 
-                              version, MD_ACME_ACCT_JSON_FMT_VERSION, name);
-                return APR_EINVAL;
-            }
-            
-            url = md_json_gets(json, "url", NULL);
-            if (!url) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
-                              "account has no url: %s", name);
-                return APR_EINVAL;
-            }
-            contacts = apr_array_make(acme->pool, 5, sizeof(const char *));
-            md_json_getsa(contacts, json, "registration", "contact", NULL);
-            rv = acct_make(pacct, acme->pool, name, contacts, pkey);
-            if (APR_SUCCESS == rv) {
-                (*pacct)->url = url;
-                
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
-                              "load account %s (%s)", name, url);
-                apr_hash_set(acme->accounts, url, strlen(url), (*pacct));
-            }
-        }
-    }
-    return rv;
-}
-
-apr_status_t md_acme_acct_save(md_acme_acct *acct, md_acme *acme)
-{
-    apr_pool_t *ptemp;
-    const char *name, *data_path, *key_path;
-    md_json *jacct;
-    int i;
-    apr_file_t *f = NULL;
-    apr_status_t rv;
-    
-    rv = apr_pool_create(&ptemp, acme->pool);
-    if (APR_SUCCESS != rv) {
-        return rv;
-    }
-    
-    jacct = md_json_create(ptemp);
-    md_json_sets(acct->url, jacct, "url", NULL);
-    md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, "version", NULL);
-    md_json_setj(acct->registration, jacct, "registration", NULL);
-
-    name = acct->name;
-    if (name) {
-        rv = mk_acct_paths(&data_path, &key_path, ptemp, acme, name);
-        if (APR_SUCCESS == rv) {
-            rv = apr_file_open(&f, data_path, APR_FOPEN_WRITE|APR_FOPEN_CREATE,
-                               MD_FPROT_F_UONLY, ptemp);
-            if (APR_SUCCESS == rv) {
-                rv = md_json_writef(jacct, MD_JSON_FMT_INDENT, f);
-                apr_file_close(f);
-            }
-        }
-    }
-    else {
-        /* meh! */
-        for (i = 0; i < 10000; ++i) {
-            name = apr_psprintf(acme->pool, "%08d", i);
-            rv = mk_acct_paths(&data_path, &key_path, ptemp, acme, name);
-            if (APR_SUCCESS == rv) {
-                rv = md_json_createf(jacct, ptemp, MD_JSON_FMT_INDENT, data_path);
-                if (APR_SUCCESS == rv) {
-                    break;
-                }
-            }
-            name = NULL;
-        }
-        acct->name = name;
-    }
-    
-    if (APR_SUCCESS == rv) {
-        rv = md_crypt_pkey_save(acct->key, ptemp, key_path);
-    }
-    
-    apr_pool_destroy(ptemp);
-    return rv;
-}
-
-apr_status_t md_acme_acct_scan(md_acme *acme, const char *path)
+apr_status_t md_acme_acct_load(md_acme *acme)
 {
     md_acme_acct *acct;
     apr_pool_t *ptemp;
+    const char *path = acme->acct_path;
     apr_int32_t info = (APR_FINFO_TYPE|APR_FINFO_NAME);
     apr_finfo_t finfo;
     apr_dir_t *dir;
@@ -350,7 +375,7 @@ apr_status_t md_acme_acct_scan(md_acme *acme, const char *path)
             && (APR_SUCCESS == apr_fnmatch("*.json", finfo.name, 0))) {
             
             name = apr_pstrndup(ptemp, finfo.name, strlen(finfo.name)-5);
-            rv = md_acme_acct_load(&acct, acme, name);
+            rv = acct_load(&acct, acme, name);
             if (APR_SUCCESS != rv) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, acme->pool, 
                               "error loading account %s", name);

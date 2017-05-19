@@ -19,34 +19,58 @@
 struct md_json;
 struct md_pkey;
 
+/** 
+ * An ACME account at an ACME server.
+ */
 typedef struct md_acme_acct md_acme_acct;
 
 struct md_acme_acct {
-    const char *name;
-    apr_pool_t *pool;
+    const char *name;               /* short name unique for a server, file name compat */
+    apr_pool_t *pool;               /* pool used for account data */
 
-    const char *url;
-    apr_array_header_t *contacts;
+    const char *url;                /* url of the accunt, once registered */
+    apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
-    struct md_pkey *key;
-    const char *key_file;
+    struct md_pkey *key;            /* private key of account for JWS */
     
-    struct md_json *registration;
+    struct md_json *registration;   /* data from server registration */
 };
 
-apr_status_t md_acme_acct_create(md_acme_acct **pacct, apr_pool_t *p, 
-                                 apr_array_header_t *contact, int key_bits);
-void md_acme_acct_free(md_acme_acct *acct);
+/**
+ * Register a new account at the ACME server.
+ *
+ * @param pacct  will be assigned the new account on success
+ * @param acme   the acme server to register at
+ * @param contacts list of contact uris, at least one
+ */
+apr_status_t md_acme_register(struct md_acme_acct **pacct, md_acme *acme, 
+                              apr_array_header_t *contacts);
 
-apr_status_t md_acme_acct_new(md_acme_acct **pacct, md_acme *acme,
-                              struct apr_array_header_t *contacts);
-
-apr_status_t md_acme_acct_load(md_acme_acct **pacct, md_acme *acme, const char *name);
-apr_status_t md_acme_acct_save(md_acme_acct *acct, md_acme *acme);
-
+/**
+ * Unregister/delete the account at the ACME server. Will remove
+ * local copy on success as well.
+ *
+ * @param acme    the ACME server to remove the account from
+ * @param acct    the account to delete
+ */
 apr_status_t md_acme_acct_del(md_acme *acme, md_acme_acct *acct);
 
+/**
+ * Retrieve an existing account from the ACME server.
+ * 
+ * @param acme     the ACME server to get the account from
+ * @param url      the url at which the account was registered
+ */
+md_acme_acct *md_acme_acct_get(md_acme *acme, const char *url);
 
-apr_status_t md_acme_acct_scan(md_acme *acme, const char *path);
+/**
+ * Load the accounts store for the ACME server. Only accounts registered
+ * with the same server before will be found.
+ * 
+ * @param acme     the ACME server to load accounts for. 
+ */
+apr_status_t md_acme_acct_load(md_acme *acme);
+
+
 
 #endif /* md_acme_acct_h */

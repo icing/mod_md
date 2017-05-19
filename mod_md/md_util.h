@@ -21,6 +21,8 @@
 
 apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode);
 
+apr_status_t md_util_fcreatex(apr_file_t **pf, const char *fn, apr_pool_t *p);
+
 const char *md_util_base64url_encode(const char *data, 
                                      apr_size_t len, apr_pool_t *pool);
 apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded, 

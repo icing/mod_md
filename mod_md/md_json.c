@@ -190,12 +190,12 @@ int md_json_getb(md_json *json, ...)
 apr_status_t md_json_setb(int value, md_json *json, ...)
 {
     va_list ap;
-    apr_status_t status;
+    apr_status_t rv;
     
     va_start(ap, json);
-    status = select_set_new(json_boolean(value), json, ap);
+    rv = select_set_new(json_boolean(value), json, ap);
     va_end(ap);
-    return status;
+    return rv;
 }
 
 /**************************************************************************************************/
@@ -215,12 +215,12 @@ double md_json_getn(md_json *json, ...)
 apr_status_t md_json_setn(double value, md_json *json, ...)
 {
     va_list ap;
-    apr_status_t status;
+    apr_status_t rv;
     
     va_start(ap, json);
-    status = select_set_new(json_real(value), json, ap);
+    rv = select_set_new(json_real(value), json, ap);
     va_end(ap);
-    return status;
+    return rv;
 }
 
 /**************************************************************************************************/
@@ -241,12 +241,12 @@ const char *md_json_gets(md_json *json, ...)
 apr_status_t md_json_sets(const char *value, md_json *json, ...)
 {
     va_list ap;
-    apr_status_t status;
+    apr_status_t rv;
     
     va_start(ap, json);
-    status = select_set_new(json_string(value), json, ap);
+    rv = select_set_new(json_string(value), json, ap);
     va_end(ap);
-    return status;
+    return rv;
 }
 
 /**************************************************************************************************/
@@ -271,12 +271,12 @@ md_json *md_json_getj(md_json *json, ...)
 apr_status_t md_json_setj(md_json *value, md_json *json, ...)
 {
     va_list ap;
-    apr_status_t status;
+    apr_status_t rv;
     
     va_start(ap, json);
-    status = select_set(value->j, json, ap);
+    rv = select_set(value->j, json, ap);
     va_end(ap);
-    return status;
+    return rv;
 }
 
 /**************************************************************************************************/
@@ -339,7 +339,7 @@ apr_status_t md_json_gets_dict(apr_table_t *dict, md_json *json, ...)
         }
         return APR_SUCCESS;
     }
-    return APR_NOTFOUND;
+    return APR_ENOENT;
 }
 
 static int object_set(void *data, const char *key, const char *val)
@@ -403,7 +403,7 @@ apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...)
         }
         return APR_SUCCESS;
     }
-    return APR_NOTFOUND;
+    return APR_ENOENT;
 }
 
 apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...)
@@ -444,10 +444,10 @@ apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...)
 static int dump_cb(const char *buffer, size_t len, void *baton)
 {
     apr_bucket_brigade *bb = baton;
-    apr_status_t status;
+    apr_status_t rv;
     
-    status = apr_brigade_write(bb, NULL, NULL, buffer, len);
-    return (status == APR_SUCCESS)? 0 : -1;
+    rv = apr_brigade_write(bb, NULL, NULL, buffer, len);
+    return (rv == APR_SUCCESS)? 0 : -1;
 }
 
 apr_status_t md_json_writeb(md_json *json, md_json_fmt_t fmt, apr_bucket_brigade *bb)
@@ -489,13 +489,12 @@ apr_status_t md_json_writef(md_json *json, md_json_fmt_t fmt, apr_file_t *f)
     return rv? APR_EGENERAL : APR_SUCCESS;
 }
 
-apr_status_t md_json_createf(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
+apr_status_t md_json_fcreatex(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
 {
     apr_status_t rv;
     apr_file_t *f;
     
-    rv = apr_file_open(&f, fpath, APR_FOPEN_WRITE|APR_FOPEN_CREATE|APR_FOPEN_EXCL,
-                       MD_FPROT_F_UONLY, p);
+    rv = md_util_fcreatex(&f, fpath, p);
     if (APR_SUCCESS == rv) {
         rv = md_json_writef(json, fmt, f);
         apr_file_close(f);
@@ -523,7 +522,7 @@ static size_t load_cb(void *data, size_t max_len, void *baton)
     const char *bdata;
     char *dest = data;
     apr_bucket *b;
-    apr_status_t status;
+    apr_status_t rv;
     
     while (body && !APR_BRIGADE_EMPTY(body) && max_len > 0) {
         b = APR_BRIGADE_FIRST(body);
@@ -533,8 +532,8 @@ static size_t load_cb(void *data, size_t max_len, void *baton)
             }
         }
         else {
-            status = apr_bucket_read(b, &bdata, &blen, APR_BLOCK_READ);
-            if (status == APR_SUCCESS) {
+            rv = apr_bucket_read(b, &bdata, &blen, APR_BLOCK_READ);
+            if (rv == APR_SUCCESS) {
                 if (blen > max_len) {
                     apr_bucket_split(b, max_len);
                     blen = max_len;
@@ -546,7 +545,7 @@ static size_t load_cb(void *data, size_t max_len, void *baton)
             }
             else {
                 body = NULL;
-                if (!APR_STATUS_IS_EOF(status)) {
+                if (!APR_STATUS_IS_EOF(rv)) {
                     /* everything beside EOF is an error */
                     read_len = (size_t)-1;
                 }
@@ -612,18 +611,18 @@ apr_status_t md_json_readf(md_json **pjson, apr_pool_t *p, const char *fpath)
 
 apr_status_t md_json_read_http(md_json **pjson, apr_pool_t *pool, const md_http_response *res)
 {
-    apr_status_t status = APR_EINVAL;
+    apr_status_t rv = APR_EINVAL;
     if (res->rv == APR_SUCCESS) {
         const char *ctype = apr_table_get(res->headers, "content-type");
         if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {
-            status = md_json_readb(pjson, pool, res->body);
+            rv = md_json_readb(pjson, pool, res->body);
         }
     }
-    return status;
+    return rv;
 }
 
 typedef struct {
-    apr_status_t status;
+    apr_status_t rv;
     apr_pool_t *pool;
     md_json *json;
 } resp_data;
@@ -638,20 +637,20 @@ apr_status_t md_json_http_get(md_json **pjson, apr_pool_t *pool,
                               struct md_http *http, const char *url)
 {
     long req_id;
-    apr_status_t status;
+    apr_status_t rv;
     resp_data resp;
     
     memset(&resp, 0, sizeof(resp));
     resp.pool = pool;
     
-    status = md_http_GET(http, url, NULL, json_resp_cb, &resp, &req_id);
+    rv = md_http_GET(http, url, NULL, json_resp_cb, &resp, &req_id);
     
-    if (status == APR_SUCCESS) {
+    if (rv == APR_SUCCESS) {
         md_http_await(http, req_id);
         *pjson = resp.json;
-        return resp.status;
+        return resp.rv;
     }
     *pjson = NULL;
-    return status;
+    return rv;
 }
 

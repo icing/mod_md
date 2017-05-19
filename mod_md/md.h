@@ -22,12 +22,14 @@ typedef enum {
     MD_CA_S_ERR,                    /* CA had error in communication */
 } md_ca_state_t;
 
-typedef struct md_ca_t {
+typedef struct md_ca_t md_ca_t;
+
+struct md_ca_t {
     const char *url;                /* url of CA certificate service */
     const char *proto;              /* protocol used vs CA (e.g. ACME) */
-    md_ca_state_t state;            /* state of this CA */
-    apr_time_t retry_after;         /* retries should not commence before this */ 
-} md_ca_t;
+};
+
+#define md_ca_state_get_cb(ca)      ca->state_get(ca)
 
 typedef enum {
     MD_S_INCOMPLETE,                /* MD is missing data, e.g. certificates */

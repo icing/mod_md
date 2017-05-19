@@ -92,7 +92,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     md_t *md, *nmd, **pmd;
     const char *domain, *name;
     request_rec r;
-    apr_status_t status = APR_SUCCESS;
+    apr_status_t rv = APR_SUCCESS;
     
     (void)plog;(void)ptemp;
     
@@ -179,7 +179,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                         ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                      "Managed Domain %s matches server %s, but MD %s also matches",
                                      md->name, s->server_hostname, config->emd->name);
-                        status = APR_EINVAL;
+                        rv = APR_EINVAL;
                     }
                     /* This server matches a managed domain. If it contains names or
                      * alias that are not in this md, a generated certificate will not match.
@@ -219,7 +219,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         }
     }
     
-    return status;
+    return rv;
 }
 
 /* Runs once per created child process. Perform any process 

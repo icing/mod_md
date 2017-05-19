@@ -34,7 +34,7 @@ typedef struct acme_problem_status_t acme_problem_status_t;
 
 struct acme_problem_status_t {
     const char *type;
-    apr_status_t status;
+    apr_status_t rv;
 };
 
 static acme_problem_status_t Problems[] = {
@@ -45,7 +45,7 @@ static apr_status_t problem_status_get(const char *type) {
     
     for(i = 0; i < (sizeof(Problems)/sizeof(Problems[0])); ++i) {
         if (!apr_strnatcasecmp(type, Problems[i].type)) {
-            return Problems[i].status;
+            return Problems[i].rv;
         }
     }
     return APR_EGENERAL;
@@ -130,12 +130,11 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
         
             jca = md_json_create(acme->pool);
             md_json_sets(url, jca, "url", NULL);
-            rv = md_json_createf(jca, acme->pool, MD_JSON_FMT_INDENT, ca_file);
+            rv = md_json_fcreatex(jca, acme->pool, MD_JSON_FMT_INDENT, ca_file);
             if (APR_SUCCESS != rv) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "saving ca: %s", ca_file);
                 return rv;
             }
-            
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "reading ca: %s", ca_file);
@@ -145,7 +144,7 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
         
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, acme->pool,
                       "scanning for existing accounts at %s", acme->acct_path);
-        rv = md_acme_acct_scan(acme, acme->acct_path);
+        rv = md_acme_acct_load(acme);
         if (APR_SUCCESS != rv) {
             return rv;
         }
@@ -179,25 +178,6 @@ apr_status_t md_acme_setup(md_acme *acme)
 }
 
 /**************************************************************************************************/
-/* acme accounts */
-
-apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme, apr_array_header_t *contacts)
-{
-    apr_status_t status = md_acme_acct_new(pacct, acme, contacts);
-    if (status == APR_SUCCESS) {
-        /* TODO: save in file */
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acme->pool, 
-                      "registered new account %s", (*pacct)->url);
-    }
-    return status;
-}
-
-md_acme_acct *md_acme_acct_get(md_acme *acme, const char *url)
-{
-    return apr_hash_get(acme->accounts, url, strlen(url));
-}
-
-/**************************************************************************************************/
 /* acme requests */
 
 static void req_update_nonce(md_acme_req *req)
@@ -224,22 +204,22 @@ static apr_status_t http_update_nonce(const md_http_response *res)
 
 static apr_status_t md_acme_new_nonce(md_acme *acme)
 {
-    apr_status_t status;
+    apr_status_t rv;
     long id;
     
-    status = md_http_HEAD(acme->http, acme->new_reg, NULL, http_update_nonce, acme, &id);
+    rv = md_http_HEAD(acme->http, acme->new_reg, NULL, http_update_nonce, acme, &id);
     md_http_await(acme->http, id);
-    return status;
+    return rv;
 }
 
 static md_acme_req *md_acme_req_create(md_acme *acme, const char *url)
 {
     apr_pool_t *pool;
     md_acme_req *req;
-    apr_status_t status;
+    apr_status_t rv;
     
-    status = apr_pool_create(&pool, acme->pool);
-    if (status != APR_SUCCESS) {
+    rv = apr_pool_create(&pool, acme->pool);
+    if (rv != APR_SUCCESS) {
         return NULL;
     }
     
@@ -275,11 +255,11 @@ static apr_status_t inspect_problem(md_acme_req *req, const md_http_response *re
             req->resp_json = problem;
             ptype = md_json_gets(problem, "type", NULL); 
             pdetail = md_json_gets(problem, "detail", NULL);
-            req->status = problem_status_get(ptype);
+            req->rv = problem_status_get(ptype);
              
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, req->status, req->pool,
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, req->rv, req->pool,
                           "acme problem %s: %s", ptype, pdetail);
-            return req->status;
+            return req->rv;
         }
     }
     md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, req->pool,
@@ -289,22 +269,22 @@ static apr_status_t inspect_problem(md_acme_req *req, const md_http_response *re
 
 static apr_status_t md_acme_req_done(md_acme_req *req)
 {
-    apr_status_t status = req->status;
+    apr_status_t rv = req->rv;
     if (req->pool) {
         apr_pool_destroy(req->pool);
     }
-    return status;
+    return rv;
 }
 
 static apr_status_t on_response(const md_http_response *res)
 {
     md_acme_req *req = res->req->baton;
     const char *location;
-    apr_status_t status = res->rv;
+    apr_status_t rv = res->rv;
     
-    if (status != APR_SUCCESS) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, status, res->req->pool, "req failed");
-        return status;
+    if (rv != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, res->req->pool, "req failed");
+        return rv;
     }
     
     req->resp_hdrs = apr_table_clone(req->pool, res->headers);
@@ -322,58 +302,58 @@ static apr_status_t on_response(const md_http_response *res)
             location = req->url;
         }
         
-        status = md_json_read_http(&req->resp_json, req->pool, res);
-        if (status != APR_SUCCESS) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, status, req->pool, 
+        rv = md_json_read_http(&req->resp_json, req->pool, res);
+        if (rv != APR_SUCCESS) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, req->pool, 
                               "unable to parse JSON response body");
                 return APR_EINVAL;
         }
         
         if (md_log_is_level(req->pool, MD_LOG_TRACE2)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, status, req->pool,
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->pool,
                           "acme response: %s", md_json_writep(req->resp_json, 
                                                               MD_JSON_FMT_INDENT, req->pool));
         }
     
         if (req->on_success) {
-            req->status = status;
+            req->rv = rv;
             req->on_success(req->acme, location, req->resp_json, req->baton);
         }
     }
     else {
-        req->status = status;
-        status = inspect_problem(req, res);
+        req->rv = rv;
+        rv = inspect_problem(req, res);
     }
     
     md_acme_req_done(req);
-    return status;
+    return rv;
 }
 
 static apr_status_t md_acme_req_send(md_acme_req *req)
 {
-    apr_status_t status;
+    apr_status_t rv;
     md_acme *acme = req->acme;
 
     if (!acme->nonce) {
-        status = md_acme_new_nonce(acme);
-        if (status != APR_SUCCESS) {
-            return status;
+        rv = md_acme_new_nonce(acme);
+        if (rv != APR_SUCCESS) {
+            return rv;
         }
     }
     
     apr_table_set(req->prot_hdrs, "nonce", acme->nonce);
     acme->nonce = NULL;
 
-    status = req->on_init(req, req->baton);
+    rv = req->on_init(req, req->baton);
     
-    if (status == APR_SUCCESS) {
+    if (rv == APR_SUCCESS) {
         long id;
         const char *body = NULL;
     
         if (req->req_json) {
             body = md_json_writep(req->req_json, MD_JSON_FMT_INDENT, req->pool);
             if (!body) {
-                status = APR_ENOMEM;
+                rv = APR_ENOMEM;
                 goto out;
             }
         }
@@ -386,7 +366,7 @@ static apr_status_t md_acme_req_send(md_acme_req *req)
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
                           "req: POST %s\n", req->url);
         }
-        status = md_http_POSTd(req->acme->http, req->url, NULL, "application/json",  
+        rv = md_http_POSTd(req->acme->http, req->url, NULL, "application/json",  
                                body, body? strlen(body) : 0, on_response, req, &id);
         req = NULL;
         md_http_await(acme->http, id);
@@ -395,7 +375,7 @@ out:
     if (req) {
         md_acme_req_done(req);
     }
-    return status;
+    return rv;
 }
 
 apr_status_t md_acme_req_do(md_acme *acme, const char *url,

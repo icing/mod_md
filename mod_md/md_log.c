@@ -68,13 +68,13 @@ int md_log_is_level(apr_pool_t *p, md_log_level_t level)
 }
 
 void md_log_perror(const char *file, int line, md_log_level_t level, 
-                   apr_status_t status, apr_pool_t *p, const char *fmt, ...)
+                   apr_status_t rv, apr_pool_t *p, const char *fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
     if (log_printv) {
-        log_printv(file, line, level, status, log_baton, p, fmt, ap);
+        log_printv(file, line, level, rv, log_baton, p, fmt, ap);
     }
     va_end(ap);
 }

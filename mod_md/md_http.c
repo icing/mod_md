@@ -47,7 +47,7 @@ static size_t req_data_cb(void *data, size_t len, size_t nmemb, void *baton)
     size_t blen, read_len = 0, max_len = len * nmemb;
     const char *bdata;
     apr_bucket *b;
-    apr_status_t status;
+    apr_status_t rv;
     
     while (body && !APR_BRIGADE_EMPTY(body) && max_len > 0) {
         b = APR_BRIGADE_FIRST(body);
@@ -57,8 +57,8 @@ static size_t req_data_cb(void *data, size_t len, size_t nmemb, void *baton)
             }
         }
         else {
-            status = apr_bucket_read(b, &bdata, &blen, APR_BLOCK_READ);
-            if (status == APR_SUCCESS) {
+            rv = apr_bucket_read(b, &bdata, &blen, APR_BLOCK_READ);
+            if (rv == APR_SUCCESS) {
                 if (blen > max_len) {
                     apr_bucket_split(b, max_len);
                     blen = max_len;
@@ -69,7 +69,7 @@ static size_t req_data_cb(void *data, size_t len, size_t nmemb, void *baton)
             }
             else {
                 body = NULL;
-                if (!APR_STATUS_IS_EOF(status)) {
+                if (!APR_STATUS_IS_EOF(rv)) {
                     /* everything beside EOF is an error */
                     read_len = CURL_READFUNC_ABORT;
                 }
@@ -170,11 +170,11 @@ static apr_status_t req_create(md_http_request **preq, md_http *http,
 {
     md_http_request *req;
     apr_pool_t *pool;
-    apr_status_t status;
+    apr_status_t rv;
     
-    status = apr_pool_create(&pool, http->pool);
-    if (status != APR_SUCCESS) {
-        return status;
+    rv = apr_pool_create(&pool, http->pool);
+    if (rv != APR_SUCCESS) {
+        return rv;
     }
     
     req = apr_pcalloc(pool, sizeof(*req));
@@ -192,7 +192,7 @@ static apr_status_t req_create(md_http_request **preq, md_http *http,
     req->baton = baton;
 
     *preq = req;
-    return status;
+    return rv;
 }
 
 static void req_destroy(md_http_request *req) 
@@ -203,7 +203,7 @@ static void req_destroy(md_http_request *req)
 typedef struct {
     md_http_request *req;
     struct curl_slist *hdrs;
-    apr_status_t status;
+    apr_status_t rv;
 } curlify_hdrs_ctx;
 
 static int curlify_headers(void *baton, const char *key, const char *value)
@@ -213,12 +213,12 @@ static int curlify_headers(void *baton, const char *key, const char *value)
     
     if (strchr(key, '\r') || strchr(key, '\n')
         || strchr(value, '\r') || strchr(value, '\n')) {
-        ctx->status = APR_EINVAL;
+        ctx->rv = APR_EINVAL;
         return 0;
     }
     s = apr_psprintf(ctx->req->pool, "%s: %s", key, value);
     if (!s) {
-        ctx->status = APR_ENOMEM;
+        ctx->rv = APR_ENOMEM;
         return 0;
     }
     ctx->hdrs = curl_slist_append(ctx->hdrs, s);
@@ -227,7 +227,7 @@ static int curlify_headers(void *baton, const char *key, const char *value)
 
 static apr_status_t perform(md_http_request *req)
 {
-    apr_status_t status = APR_SUCCESS;
+    apr_status_t rv = APR_SUCCESS;
     CURL *curl = req->http->curl;
     md_http_response *res;
     struct curl_slist *req_hdrs = NULL;
@@ -262,10 +262,10 @@ static apr_status_t perform(md_http_request *req)
         
         ctx.req = req;
         ctx.hdrs = NULL;
-        ctx.status = APR_SUCCESS;
+        ctx.rv = APR_SUCCESS;
         apr_table_do(curlify_headers, &ctx, req->headers, NULL);
         req_hdrs = ctx.hdrs;
-        if (ctx.status == APR_SUCCESS) {
+        if (ctx.rv == APR_SUCCESS) {
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, req_hdrs);
         }
     }
@@ -297,29 +297,29 @@ static apr_status_t perform(md_http_request *req)
         res->rv = req->cb(res);
     }
     
-    status = res->rv;
+    rv = res->rv;
     req_destroy(req);
     if (req_hdrs) {
         curl_slist_free_all(req_hdrs);
     }
     
-    return status;
+    return rv;
 }
 
 static apr_status_t schedule(md_http_request *req, 
                              apr_bucket_brigade *body, int detect_clen,
                              long *preq_id) 
 {
-    apr_status_t status;
+    apr_status_t rv;
     
     req->body = body;
     req->body_len = body? -1 : 0;
 
     if (req->body && detect_clen) {
-        status = apr_brigade_length(req->body, 1, &req->body_len);
-        if (status != APR_SUCCESS) {
+        rv = apr_brigade_length(req->body, 1, &req->body_len);
+        if (rv != APR_SUCCESS) {
             req_destroy(req);
-            return status;
+            return rv;
         }
     }
     
@@ -335,9 +335,9 @@ static apr_status_t schedule(md_http_request *req,
     }
     
     /* we send right away */
-    status = perform(req);
+    rv = perform(req);
     
-    return status;
+    return rv;
 }
 
 apr_status_t md_http_GET(struct md_http *http, 
@@ -345,11 +345,11 @@ apr_status_t md_http_GET(struct md_http *http,
                          md_http_cb *cb, void *baton, long *preq_id)
 {
     md_http_request *req;
-    apr_status_t status;
+    apr_status_t rv;
     
-    status = req_create(&req, http, "GET", url, headers, cb, baton);
-    if (status != APR_SUCCESS) {
-        return status;
+    rv = req_create(&req, http, "GET", url, headers, cb, baton);
+    if (rv != APR_SUCCESS) {
+        return rv;
     }
     
     return schedule(req, NULL, 0, preq_id);
@@ -360,11 +360,11 @@ apr_status_t md_http_HEAD(struct md_http *http,
                           md_http_cb *cb, void *baton, long *preq_id)
 {
     md_http_request *req;
-    apr_status_t status;
+    apr_status_t rv;
     
-    status = req_create(&req, http, "HEAD", url, headers, cb, baton);
-    if (status != APR_SUCCESS) {
-        return status;
+    rv = req_create(&req, http, "HEAD", url, headers, cb, baton);
+    if (rv != APR_SUCCESS) {
+        return rv;
     }
     
     return schedule(req, NULL, 0, preq_id);
@@ -376,11 +376,11 @@ apr_status_t md_http_POST(struct md_http *http, const char *url,
                           md_http_cb *cb, void *baton, long *preq_id)
 {
     md_http_request *req;
-    apr_status_t status;
+    apr_status_t rv;
     
-    status = req_create(&req, http, "POST", url, headers, cb, baton);
-    if (status != APR_SUCCESS) {
-        return status;
+    rv = req_create(&req, http, "POST", url, headers, cb, baton);
+    if (rv != APR_SUCCESS) {
+        return rv;
     }
     
     if (content_type) {
@@ -395,20 +395,20 @@ apr_status_t md_http_POSTd(md_http *http, const char *url,
                            md_http_cb *cb, void *baton, long *preq_id)
 {
     md_http_request *req;
-    apr_status_t status;
+    apr_status_t rv;
     apr_bucket_brigade *body = NULL;
     
-    status = req_create(&req, http, "POST", url, headers, cb, baton);
-    if (status != APR_SUCCESS) {
-        return status;
+    rv = req_create(&req, http, "POST", url, headers, cb, baton);
+    if (rv != APR_SUCCESS) {
+        return rv;
     }
 
     if (data && data_len > 0) {
         body = apr_brigade_create(req->pool, req->http->bucket_alloc);
-        status = apr_brigade_write(body, NULL, NULL, data, data_len);
-        if (status != APR_SUCCESS) {
+        rv = apr_brigade_write(body, NULL, NULL, data, data_len);
+        if (rv != APR_SUCCESS) {
             req_destroy(req);
-            return status;
+            return rv;
         }
     }
     

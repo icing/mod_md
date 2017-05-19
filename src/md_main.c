@@ -82,7 +82,7 @@ static int log_is_level(void *baton, apr_pool_t *p, md_log_level_t level)
 #define LOG_BUF_LEN 16*1024
 
 void log_print(const char *file, int line, md_log_level_t level, 
-               apr_status_t status, void *baton, apr_pool_t *p, const char *fmt, va_list ap)
+               apr_status_t rv, void *baton, apr_pool_t *p, const char *fmt, va_list ap)
 {
     if (log_is_level(baton, p, level)) {
         char buffer[LOG_BUF_LEN];
@@ -91,10 +91,10 @@ void log_print(const char *file, int line, md_log_level_t level,
         apr_vsnprintf(buffer, LOG_BUF_LEN-1, fmt, ap);
         buffer[LOG_BUF_LEN-1] = '\0';
         
-        if (status) {
+        if (rv) {
             fprintf(stderr, "[%s:%d %s][%d(%s)] %s\n", file, line, 
-                    md_log_level_name(level), status, 
-                    apr_strerror(status, errbuff, sizeof(errbuff)/sizeof(errbuff[0])), 
+                    md_log_level_name(level), rv, 
+                    apr_strerror(rv, errbuff, sizeof(errbuff)/sizeof(errbuff[0])), 
                     buffer);
         }
         else {
@@ -151,7 +151,7 @@ static apr_status_t acme_delreg(md_acme *acme, const char *acct_url)
     acct = md_acme_acct_get(acme, acct_url);
     if (!acct) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "unknown account: %s", acct_url);
-        return APR_NOTFOUND;
+        return APR_ENOENT;
     }
     
     rv = md_acme_acct_del(acme, acct);
@@ -202,7 +202,7 @@ static int pool_abort(int rv)
 int main(int argc, const char **argv)
 {
     apr_allocator_t *allocator;
-    apr_status_t status;
+    apr_status_t rv;
     apr_pool_t *pool;
     md_acme *acme;
     apr_getopt_t *os;
@@ -212,15 +212,15 @@ int main(int argc, const char **argv)
     md_log_set(log_is_level, log_print, NULL);
     
     apr_allocator_create(&allocator);
-    status = apr_pool_create_ex(&pool, NULL, pool_abort, allocator);
-    if (status != APR_SUCCESS) {
+    rv = apr_pool_create_ex(&pool, NULL, pool_abort, allocator);
+    if (rv != APR_SUCCESS) {
         fprintf(stderr, "error initializing pool\n");
         return 1;
     }
             
     apr_getopt_init(&os, pool, argc, argv);
     os->interleave = 1;
-    while ((status = apr_getopt_long(os, Options, &opt, &optarg)) == APR_SUCCESS) {
+    while ((rv = apr_getopt_long(os, Options, &opt, &optarg)) == APR_SUCCESS) {
         switch (opt) {
             case 'a':
                 ca_url = optarg;
@@ -247,7 +247,7 @@ int main(int argc, const char **argv)
                 return 2;
         }
     }
-    if (status != APR_EOF) {
+    if (rv != APR_EOF) {
         usage(NULL);
         return 2;
     }
@@ -263,8 +263,8 @@ int main(int argc, const char **argv)
         }
         
         md_acme_init(pool);
-        status = md_acme_create(&acme, pool, ca_url, ca_path);
-        if (status == APR_SUCCESS) {
+        rv = md_acme_create(&acme, pool, ca_url, ca_path);
+        if (rv == APR_SUCCESS) {
         
             cmd = os->argv[os->ind];
             if (!strcmp("newreg", cmd)) {
@@ -276,18 +276,18 @@ int main(int argc, const char **argv)
                 if (apr_is_empty_array(contacts)) {
                     usage("newreg needs at least one contact email as argument");
                 }
-                status = acme_newreg(acme, contacts);
+                rv = acme_newreg(acme, contacts);
             }
             else if (!strcmp("delreg", cmd)) {
                 for (i = os->ind + 1; i < argc; ++i) {
-                    status = acme_delreg(acme, os->argv[i]);
-                    if (status != APR_SUCCESS) {
+                    rv = acme_delreg(acme, os->argv[i]);
+                    if (rv != APR_SUCCESS) {
                         break;
                     }
                 }
             }
             else if (!strcmp("list", cmd)) {
-                status = acme_list(acme);
+                rv = acme_list(acme);
             }
             else {
                 fprintf(stderr, "unknown command: %s\n", cmd);
@@ -296,9 +296,9 @@ int main(int argc, const char **argv)
             }
         }
         else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, status, pool, "creating acme for %s", ca_url);
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, pool, "creating acme for %s", ca_url);
         }
     }
     
-    return (status == APR_SUCCESS)? 0 : 1;
+    return (rv == APR_SUCCESS)? 0 : 1;
 }

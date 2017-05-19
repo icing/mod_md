@@ -37,7 +37,7 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
 {
     md_json *msg;
     const char *prot64, *pay64, *sign64, *sign, *prot;
-    apr_status_t status = APR_ENOMEM;
+    apr_status_t rv = APR_ENOMEM;
 
     prot = NULL;
     *pmsg = NULL;
@@ -70,22 +70,22 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
                 md_json_sets(pay64, msg, "payload", NULL);
                 sign = apr_psprintf(p, "%s.%s", prot64, pay64);
                 if (sign) {
-                    status = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
-                    if (status == APR_SUCCESS) {
+                    rv = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
+                    if (rv == APR_SUCCESS) {
                         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
                                       "jws pay64=%s\nprot64=%s\nsign64=%s", pay64, prot64, sign64);
 
                         md_json_sets(sign64, msg, "signature", NULL);
                         *pmsg = msg;
-                        status = APR_SUCCESS;
+                        rv = APR_SUCCESS;
                     }
                 }
             }
         }
     }
     
-    if (status != APR_SUCCESS) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, status, p, "jwk signed message");
+    if (rv != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "jwk signed message");
     } 
-    return status;
+    return rv;
 }

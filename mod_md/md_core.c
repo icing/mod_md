@@ -17,15 +17,10 @@
 
 #include <apr_lib.h>
 #include <apr_strings.h>
-
-#include <httpd.h>
-#include <http_core.h>
-#include <http_config.h>
-#include <http_log.h>
-#include <http_vhost.h>
+#include <apr_tables.h>
+#include <apr_time.h>
 
 #include "md.h"
-#include "md_private.h"
 
 
 static int ap_array_str_case_index(const apr_array_header_t *array, 

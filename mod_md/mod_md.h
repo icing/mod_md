@@ -28,7 +28,7 @@ struct apr_array_header_t;
  *
  * @param domain the DNS name to get the status for
  * @param pstate receives the status of the Managed Domain on success 
- * @return APR_NOTFOUND if domain is not known.
+ * @return APR_ENOENT if domain is not known.
  */
 apr_status_t md_get_status(const char *domain, int *pstate);
 
