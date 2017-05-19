@@ -16,6 +16,9 @@
 #ifndef mod_md_md_util_h
 #define mod_md_md_util_h
 
+#define MD_FPROT_F_UONLY      (APR_FPROT_UREAD|APR_FPROT_UWRITE)
+#define MD_FPROT_D_UONLY      (APR_FPROT_UREAD|APR_FPROT_UWRITE|APR_FPROT_UEXECUTE)
+
 apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode);
 
 const char *md_util_base64url_encode(const char *data, 

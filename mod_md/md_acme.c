@@ -25,8 +25,12 @@
 #include "md_jws.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_util.h"
+
+#define MD_DIRNAME_ACCOUNTS "accounts"
 
 typedef struct acme_problem_status_t acme_problem_status_t;
+
 struct acme_problem_status_t {
     const char *type;
     apr_status_t status;
@@ -51,13 +55,15 @@ apr_status_t md_acme_init(apr_pool_t *p)
     return md_crypt_init(p);
 }
 
-apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url)
+apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, const char *path)
 {
     md_acme *acme;
+    apr_status_t rv;
     
     acme = apr_pcalloc(p, sizeof(*acme));
     if (acme) {
         acme->url = url;
+        acme->path = path;
         acme->state = MD_ACME_S_INIT;
         acme->pool = p;
         acme->pkey_bits = 4096;
@@ -68,19 +74,46 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url)
         *pacme = NULL;
         return APR_ENOMEM;
     }
+
+    if (acme->path) {
+        char *acct_path;
+        
+        rv = apr_filepath_merge(&acct_path, acme->path, MD_DIRNAME_ACCOUNTS, 
+                                APR_FILEPATH_SECUREROOTTEST, acme->pool);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, 
+                          "invalid accounts path %s/%s", acme->path,  MD_DIRNAME_ACCOUNTS);
+            return rv;
+        }
+        
+        rv = apr_dir_make_recursive(acct_path, MD_FPROT_D_UONLY, acme->pool);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "mkdir %s", acme->path);
+            return rv;
+        }
+        acme->acct_path = acct_path;
+        
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, acme->pool,
+                      "scanning for existing accounts at %s", acme->acct_path);
+        rv = md_acme_acct_scan(acme, acme->acct_path);
+        if (APR_SUCCESS != rv) {
+            return rv;
+        }
+    }
+    
     *pacme = acme;
-    return md_http_create(&acme->http, p);
+    return md_http_create(&acme->http, acme->pool);
 }
 
 apr_status_t md_acme_setup(md_acme *acme)
 {
-    apr_status_t status;
+    apr_status_t rv;
     md_json *json;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "get directory from %s", acme->url);
     
-    status = md_json_http_get(&json, acme->pool, acme->http, acme->url);
-    if (status == APR_SUCCESS) {
+    rv = md_json_http_get(&json, acme->pool, acme->http, acme->url);
+    if (APR_SUCCESS == rv) {
         acme->new_authz = md_json_gets(json, "new-authz", NULL);
         acme->new_cert = md_json_gets(json, "new-cert", NULL);
         acme->new_reg = md_json_gets(json, "new-reg", NULL);
@@ -90,9 +123,9 @@ apr_status_t md_acme_setup(md_acme *acme)
             return APR_SUCCESS;
         }
         acme->state = MD_ACME_S_INIT;
-        status = APR_EINVAL;
+        rv = APR_EINVAL;
     }
-    return status;
+    return rv;
 }
 
 /**************************************************************************************************/

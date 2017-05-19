@@ -46,12 +46,15 @@ struct md_acme {
     
     const char *nonce;
     unsigned int pkey_bits;
+
+    const char *path;
+    const char *acct_path;
 };
 
 
 apr_status_t md_acme_init(apr_pool_t *pool);
 
-apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url);
+apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, const char *path);
 
 apr_status_t md_acme_setup(md_acme *acme);
 

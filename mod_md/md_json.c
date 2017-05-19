@@ -85,6 +85,16 @@ void md_json_destroy(md_json *json)
     }
 }
 
+md_json *md_json_copy(apr_pool_t *pool, md_json *json)
+{
+    return json_create(pool, json_copy(json->j));
+}
+
+md_json *md_json_clone(apr_pool_t *pool, md_json *json)
+{
+    return json_create(pool, json_deep_copy(json->j));
+}
+
 /**************************************************************************************************/
 /* selectors */
 
@@ -127,6 +137,22 @@ static json_t *select_parent(const char **child_key, int create, md_json *json, 
         key = next;
     }
     return j;
+}
+
+static apr_status_t select_set(json_t *val, md_json *json, va_list ap)
+{
+    const char *key;
+    json_t *j;
+    
+    j = select_parent(&key, 1, json, ap);
+    
+    if (!j || !json_is_object(j)) {
+        json_decref(val);
+        return APR_EINVAL;
+    }
+    
+    json_object_set(j, key, val);
+    return APR_SUCCESS;
 }
 
 static apr_status_t select_set_new(json_t *val, md_json *json, va_list ap)
@@ -218,6 +244,36 @@ apr_status_t md_json_sets(const char *value, md_json *json, ...)
     
     va_start(ap, json);
     status = select_set_new(json_string(value), json, ap);
+    va_end(ap);
+    return status;
+}
+
+/**************************************************************************************************/
+/* json itself */
+
+md_json *md_json_getj(md_json *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+    
+    if (j) {
+        json_incref(j);
+        return json_create(json->p, j);
+    }
+    return NULL;
+}
+
+apr_status_t md_json_setj(md_json *value, md_json *json, ...)
+{
+    va_list ap;
+    apr_status_t status;
+    
+    va_start(ap, json);
+    status = select_set(value->j, json, ap);
     va_end(ap);
     return status;
 }
@@ -415,6 +471,23 @@ const char *md_json_writep(md_json *json, md_json_fmt_t fmt, apr_pool_t *pool)
     return s;
 }
 
+static int fdump_cb(const char *buffer, size_t blen, void *baton)
+{
+    apr_file_t *f = baton;
+    apr_size_t len = blen;
+    apr_status_t rv;
+    
+    rv = apr_file_write(f, buffer, &len);
+    return (APR_SUCCESS == rv)? 0 : -1;
+}
+
+apr_status_t md_json_writef(md_json *json, md_json_fmt_t fmt, apr_file_t *f)
+{
+    size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
+    int rv = json_dump_callback(json->j, fdump_cb, f, flags);
+    return rv? APR_EGENERAL : APR_SUCCESS;
+}
+
 apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, size_t data_len)
 {
     json_error_t error;
@@ -482,6 +555,41 @@ apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, apr_bucket_brigade
     }
     *pjson = json_create(pool, j);
     return *pjson? APR_SUCCESS : APR_ENOMEM;
+}
+
+static size_t load_file_cb(void *data, size_t max_len, void *baton)
+{
+    apr_file_t *f = baton;
+    apr_size_t len = max_len;
+    apr_status_t rv;
+    
+    rv = apr_file_read(f, data, &len);
+    if (APR_SUCCESS == rv) {
+        return len;
+    }
+    else if (APR_EOF == rv) {
+        return 0;
+    }
+    return (size_t)-1;
+}
+
+apr_status_t md_json_readf(md_json **pjson, apr_pool_t *p, const char *fpath)
+{
+    apr_file_t *f;
+    json_t *j;
+    apr_status_t rv;
+    json_error_t error;
+    
+    rv = apr_file_open(&f, fpath, APR_FOPEN_READ, 0, p);
+    if (rv == APR_SUCCESS) {
+        j = json_load_callback(load_file_cb, f, 0, &error);
+        if (j) {
+            *pjson = json_create(p, j);
+        }
+        apr_file_close(f);
+        return *pjson? APR_SUCCESS : (j? APR_ENOMEM : APR_EINVAL);
+    }
+    return rv;
 }
 
 /**************************************************************************************************/

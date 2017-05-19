@@ -19,6 +19,7 @@
 #include <apr_lib.h>
 #include <apr_buckets.h>
 #include <apr_getopt.h>
+#include <apr_hash.h>
 #include <apr_strings.h>
 
 #include <jansson.h>
@@ -35,6 +36,7 @@
 
 static apr_getopt_option_t Options [] = {
     { "acme", 'a', 1, "the url of the ACME server directory"},
+    { "dir", 'd', 1, "directory for file data"},
     { "quiet", 'q', 0, "produce less output"},
     { "verbose", 'v', 0, "produce more output" },
     { "version", 'V', 0, "print version" },
@@ -66,6 +68,8 @@ static void usage(const char *msg)
     fprintf(stderr, "  \t\tregister a new account with contact email(s)\n");
     fprintf(stderr, "  \tdelreg url\n");
     fprintf(stderr, "  \t\tdelete an account given its url\n");
+    fprintf(stderr, "  \tlist\n");
+    fprintf(stderr, "  \t\tlist all accounts and certificates\n");
 }
 
 static md_log_level_t active_level = MD_LOG_INFO;
@@ -82,13 +86,16 @@ void log_print(const char *file, int line, md_log_level_t level,
 {
     if (log_is_level(baton, p, level)) {
         char buffer[LOG_BUF_LEN];
+        char errbuff[32];
         
         apr_vsnprintf(buffer, LOG_BUF_LEN-1, fmt, ap);
         buffer[LOG_BUF_LEN-1] = '\0';
         
         if (status) {
-            fprintf(stderr, "[%s:%d %s][err=%d] %s\n", file, line, 
-                    md_log_level_name(level), status, buffer);
+            fprintf(stderr, "[%s:%d %s][%d(%s)] %s\n", file, line, 
+                    md_log_level_name(level), status, 
+                    apr_strerror(status, errbuff, sizeof(errbuff)/sizeof(errbuff[0])), 
+                    buffer);
         }
         else {
             fprintf(stderr, "[%s:%d %s][ok] %s\n", file, line, 
@@ -157,6 +164,41 @@ static apr_status_t acme_delreg(md_acme *acme, const char *acct_url)
     return rv;
 }
 
+static int acct_print(void *baton, const void *key, apr_ssize_t klen, const void *value)
+{
+    apr_pool_t *pool = baton;
+    const md_acme_acct *acct = value;
+    md_json *json;
+    
+    json = md_json_create(pool);
+    md_json_sets(acct->name, json, "name", NULL);
+    md_json_sets(acct->url, json, "url", NULL);
+    md_json_setsa(acct->contacts, json, "contact", NULL);
+    fprintf (stdout, "%s\n", md_json_writep(json, MD_JSON_FMT_INDENT, pool));
+    return 1;
+}
+
+static apr_status_t acme_list(md_acme *acme) 
+{
+    md_http *http;
+    md_acme_acct *acct;
+    apr_status_t rv;
+    long req_id;
+    const char *data;
+    md_json *json;
+    
+    fprintf(stdout, "ACME server at %s\n", acme->url);
+    fprintf(stdout, "accounts: %d\n", apr_hash_count(acme->accounts));
+    apr_hash_do(acct_print, acme->pool, acme->accounts);
+    
+    return rv;
+}
+
+static int pool_abort(int rv)
+{
+    exit(1);
+}
+
 int main(int argc, const char **argv)
 {
     apr_allocator_t *allocator;
@@ -165,12 +207,12 @@ int main(int argc, const char **argv)
     md_acme *acme;
     apr_getopt_t *os;
     int opt, do_run = 1, i;
-    const char *optarg, *ca_url = NULL, **cpp, *cmd;
+    const char *optarg, *ca_url = NULL, **cpp, *cmd, *ca_path = NULL;
     
     md_log_set(log_is_level, log_print, NULL);
     
     apr_allocator_create(&allocator);
-    status = apr_pool_create_ex(&pool, NULL, NULL, allocator);
+    status = apr_pool_create_ex(&pool, NULL, pool_abort, allocator);
     if (status != APR_SUCCESS) {
         fprintf(stderr, "error initializing pool\n");
         return 1;
@@ -182,6 +224,9 @@ int main(int argc, const char **argv)
         switch (opt) {
             case 'a':
                 ca_url = optarg;
+                break;
+            case 'd':
+                ca_path = optarg;
                 break;
             case 'q':
                 if (active_level > 0) {
@@ -218,7 +263,7 @@ int main(int argc, const char **argv)
         }
         
         md_acme_init(pool);
-        status = md_acme_create(&acme, pool, ca_url);
+        status = md_acme_create(&acme, pool, ca_url, ca_path);
         if (status == APR_SUCCESS) {
         
             cmd = os->argv[os->ind];
@@ -240,6 +285,9 @@ int main(int argc, const char **argv)
                         break;
                     }
                 }
+            }
+            else if (!strcmp("list", cmd)) {
+                status = acme_list(acme);
             }
             else {
                 fprintf(stderr, "unknown command: %s\n", cmd);

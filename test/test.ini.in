@@ -8,4 +8,4 @@ http_port = @HTTP_PORT@
 https_port = @HTTPS_PORT@
 
 [acme]
-directory = http://localhost:4000/directory
+url = http://localhost:4000/directory

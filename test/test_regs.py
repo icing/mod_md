@@ -17,8 +17,12 @@ config.read('test.ini')
 PREFIX = config.get('global', 'prefix')
 
 A2MD = os.path.join(PREFIX, 'bin', 'a2md')
+ACME_URL = config.get('acme', 'url')
+WEBROOT = config.get('global', 'server_dir')
+ACME_DIR = os.path.join(WEBROOT, 'acme') 
 
-ACME_DIRECTORY = config.get('acme', 'directory')
+CA1_DIR = os.path.join(ACME_DIR, 'server1')
+CA2_DIR = os.path.join(ACME_DIR, 'server2')
 
 def check_live(url, timeout):
     server = urlparse(url)
@@ -40,8 +44,8 @@ def check_live(url, timeout):
     return False
 
 def setup_module(module):
-    print("looking for ACME server at %s" % ACME_DIRECTORY)
-    assert check_live(ACME_DIRECTORY, 1)
+    print("looking for ACME server at %s" % ACME_URL)
+    assert check_live(ACME_URL, 1)
         
     
 def teardown_module(module):
@@ -52,7 +56,7 @@ class TestRegs:
 
     def test_001(self):
         # try register a new account
-        args = [A2MD, "-a", ACME_DIRECTORY]
+        args = [A2MD, "-a", ACME_URL]
         args.extend(["newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
@@ -63,7 +67,7 @@ class TestRegs:
  
     def test_002(self):
         # register with varying length to check our base64 encoding
-        args = [A2MD, "-a", ACME_DIRECTORY]
+        args = [A2MD, "-a", ACME_URL]
         args.extend(["newreg", "x@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         p.communicate()
@@ -71,7 +75,7 @@ class TestRegs:
 
     def test_003(self):
         # register with varying length to check our base64 encoding
-        args = [A2MD, "-a", ACME_DIRECTORY]
+        args = [A2MD, "-a", ACME_URL]
         args.extend(["newreg", "xxx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         p.communicate()
@@ -79,7 +83,7 @@ class TestRegs:
 
     def test_004(self):
         # needs to fail on an invalid contact url
-        args = [A2MD, "-a", ACME_DIRECTORY]
+        args = [A2MD, "-a", ACME_URL]
         args.extend(["newreg", "mehlto:xxx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         p.communicate()
@@ -87,7 +91,7 @@ class TestRegs:
 
     def test_010(self):
         # register and try delete an account, will fail without persistence
-        args = [A2MD, "-a", ACME_DIRECTORY]
+        args = [A2MD, "-a", ACME_URL]
         args.extend(["newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
@@ -95,10 +99,26 @@ class TestRegs:
         m = re.match("registered: (.*)$", outdata)
         assert m
         acct = m.group(1)
-        args = [A2MD, "-a", ACME_DIRECTORY]
+        args = [A2MD, "-a", ACME_URL]
         args.extend(["delreg", acct])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 1
         
+    def test_012(self):
+        # register and try delete an account with persistence
+        args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
+        args.extend(["newreg", "tmp@example.org"])
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        (outdata, errdata) = p.communicate()
+        assert p.wait() == 0
+        m = re.match("registered: (.*)$", outdata)
+        assert m
+        acct = m.group(1)
+        args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
+        args.extend(["delreg", acct])
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        (outdata, errdata) = p.communicate()
+        assert p.wait() == 0
+
  
