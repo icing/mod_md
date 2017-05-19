@@ -65,7 +65,6 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
     if (acme) {
         acme->url = url;
         acme->path = path;
-        acme->state = MD_ACME_S_INIT;
         acme->pool = p;
         acme->pkey_bits = 4096;
         acme->accounts = apr_hash_make(acme->pool);
@@ -168,10 +167,8 @@ apr_status_t md_acme_setup(md_acme *acme)
         acme->new_reg = md_json_gets(json, "new-reg", NULL);
         acme->revoke_cert = md_json_gets(json, "revoke-cert", NULL);
         if (acme->new_authz && acme->new_cert && acme->new_reg && acme->revoke_cert) {
-            acme->state = MD_ACME_S_LIVE;
             return APR_SUCCESS;
         }
-        acme->state = MD_ACME_S_INIT;
         rv = APR_EINVAL;
     }
     return rv;

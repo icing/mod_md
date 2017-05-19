@@ -24,6 +24,8 @@ mod_md_la_LDFLAGS  = -module
 OBJECTS = \
     md_acme.c \
     md_acme_acct.c \
+    md_acme_authz.c \
+    md_acme_cert.c \
     md_config.c \
     md_core.c \
     md_crypt.c \
@@ -37,6 +39,8 @@ OBJECTS = \
 HFILES = \
     md_acme.h \
     md_acme_acct.h \
+    md_acme_authz.h \
+    md_acme_cert.h \
     md_config.h \
     md_crypt.h \
     md_http.h \

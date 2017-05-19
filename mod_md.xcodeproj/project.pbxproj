@@ -8,6 +8,8 @@
 
 /* Begin PBXFileReference section */
 		B2BCAB761ECD8FB0002F4EB9 /* test_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_regs.py; sourceTree = "<group>"; };
+		B2BCAB771ECF2A2E002F4EB9 /* md_acme_authz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
+		B2BCAB781ECF2A2E002F4EB9 /* md_acme_authz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
 		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -101,6 +103,8 @@
 				B2D309D61EBA2384007BECC8 /* Makefile.am */,
 				B2D31B0F1EC5D430007BECC8 /* md_acme_acct.c */,
 				B2D31B101EC5D430007BECC8 /* md_acme_acct.h */,
+				B2BCAB771ECF2A2E002F4EB9 /* md_acme_authz.c */,
+				B2BCAB781ECF2A2E002F4EB9 /* md_acme_authz.h */,
 				B2D31B111EC5D483007BECC8 /* md_acme_cert.c */,
 				B2D31B121EC5D483007BECC8 /* md_acme_cert.h */,
 				B2D31B0D1EC5BE4B007BECC8 /* md_acme.c */,

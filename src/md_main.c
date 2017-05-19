@@ -27,6 +27,7 @@
 #include "md.h"
 #include "md_acme.h"
 #include "md_acme_acct.h"
+#include "md_acme_authz.h"
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"
@@ -70,6 +71,8 @@ static void usage(const char *msg)
     fprintf(stderr, "  \t\tdelete an account given its url\n");
     fprintf(stderr, "  \tlist\n");
     fprintf(stderr, "  \t\tlist all accounts and certificates\n");
+    fprintf(stderr, "  \tauthz acct domain\n");
+    fprintf(stderr, "  \t\tstart domain authentication with account\n");
 }
 
 static md_log_level_t active_level = MD_LOG_INFO;
@@ -119,9 +122,6 @@ static apr_status_t acme_newreg(md_acme *acme, apr_array_header_t *contacts)
         return rv;
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, 
-                  "acme setup state: %d, new_reg: %s", acme->state, acme->new_reg);
-        
     rv = md_acme_register(&acct, acme, contacts);
     
     if (rv == APR_SUCCESS) {
@@ -160,6 +160,32 @@ static apr_status_t acme_delreg(md_acme *acme, const char *acct_url)
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "delete account");
+    }
+    return rv;
+}
+
+static apr_status_t acme_newauthz(md_acme_acct *acct, const char *domain) 
+{
+    md_acme *acme = acct->acme;
+    apr_status_t rv;
+    long req_id;
+    const char *data;
+    md_json *json;
+    md_acme_authz *authz;
+    
+    rv = md_acme_setup(acme);
+    if (rv != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "contacting %s", acme->url);
+        return rv;
+    }
+    
+    rv = md_acme_authz_register(&authz, domain, acct); 
+    
+    if (rv == APR_SUCCESS) {
+        fprintf(stdout, "new authz for %s: %s\n", domain, authz->url);
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "register new authz");
     }
     return rv;
 }
@@ -286,12 +312,34 @@ int main(int argc, const char **argv)
                     }
                 }
             }
+            else if (!strcmp("authz", cmd)) {
+                const char *s;
+                md_acme_acct *acct;
+                
+                i = os->ind + 1;
+                if (i >= argc) {
+                    usage(NULL);
+                    return 1;
+                }
+                s = os->argv[i];
+                acct = md_acme_acct_get(acme, s);
+                if (!acct) {
+                    fprintf(stderr, "unknown account: %s\n", s);
+                    return 1;
+                }
+                
+                for (i = os->ind + 2; i < argc; ++i) {
+                    rv = acme_newauthz(acct, os->argv[i]);
+                    if (rv != APR_SUCCESS) {
+                        break;
+                    }
+                }
+            }
             else if (!strcmp("list", cmd)) {
                 rv = acme_list(acme);
             }
             else {
                 fprintf(stderr, "unknown command: %s\n", cmd);
-                usage(NULL);
                 return 1;
             }
         }

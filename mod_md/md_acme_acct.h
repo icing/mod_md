@@ -26,6 +26,7 @@ typedef struct md_acme_acct md_acme_acct;
 
 struct md_acme_acct {
     const char *name;               /* short name unique for a server, file name compat */
+    md_acme * acme;                 /* server this account is from */
     apr_pool_t *pool;               /* pool used for account data */
 
     const char *url;                /* url of the accunt, once registered */
@@ -59,9 +60,9 @@ apr_status_t md_acme_acct_del(md_acme *acme, md_acme_acct *acct);
  * Retrieve an existing account from the ACME server.
  * 
  * @param acme     the ACME server to get the account from
- * @param url      the url at which the account was registered
+ * @param url      the url at which the account was registered or the name of the account
  */
-md_acme_acct *md_acme_acct_get(md_acme *acme, const char *url);
+md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s);
 
 /**
  * Load the accounts store for the ACME server. Only accounts registered

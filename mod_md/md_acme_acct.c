@@ -33,7 +33,7 @@
 
 #define MD_ACME_ACCT_JSON_FMT_VERSION   0.01
 
-static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p,
+static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, md_acme *acme, 
                               const char *name, apr_array_header_t *contacts,  
                               void *pkey)
 {
@@ -49,6 +49,7 @@ static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p,
 
     acct->name = name;
     acct->pool = p;
+    acct->acme = acme;
     acct->key = pkey;
     if (!contacts || apr_is_empty_array(contacts)) {
         acct->contacts = apr_array_make(p, 5, sizeof(const char *));
@@ -62,7 +63,7 @@ static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p,
 }
 
 
-static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, 
+static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, md_acme *acme,  
                                 apr_array_header_t *contacts, int key_bits)
 {
     apr_status_t rv;
@@ -71,7 +72,7 @@ static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p,
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "generating new account key"); 
     rv = md_crypt_pkey_gen_rsa(&pkey, p, key_bits);
     if (rv == APR_SUCCESS) {
-        rv = acct_make(pacct, p, NULL, contacts, pkey);
+        rv = acct_make(pacct, p, acme, NULL, contacts, pkey);
     }
     return rv;
 }
@@ -207,7 +208,7 @@ static apr_status_t acct_load(md_acme_acct **pacct, md_acme *acme, const char *n
     }
     contacts = apr_array_make(acme->pool, 5, sizeof(const char *));
     md_json_getsa(contacts, json, "registration", "contact", NULL);
-    rv = acct_make(pacct, acme->pool, name, contacts, pkey);
+    rv = acct_make(pacct, acme->pool, acme, name, contacts, pkey);
     if (APR_SUCCESS == rv) {
         (*pacct)->url = url;
         
@@ -263,7 +264,7 @@ static apr_status_t acct_new(md_acme_acct **pacct, md_acme *acme, apr_array_head
     apr_status_t rv;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new local account");
-    rv = acct_create(&acct, acme->pool, contacts, acme->pkey_bits);
+    rv = acct_create(&acct, acme->pool, acme, contacts, acme->pkey_bits);
     if (APR_SUCCESS != rv) {
         return rv;
     }
@@ -293,9 +294,37 @@ apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme, apr_array_hea
     return rv;
 }
 
-md_acme_acct *md_acme_acct_get(md_acme *acme, const char *url)
+typedef struct {
+    md_acme_acct *acct;
+    const char *value;
+} acct_do_ctx;
+
+static int find_by_name(void *baton, const void *key, apr_ssize_t klen, const void *value)
 {
-    return apr_hash_get(acme->accounts, url, strlen(url));
+    acct_do_ctx *c = baton;
+    md_acme_acct *acct = (md_acme_acct *)value;
+    
+    if (acct->name && !strcmp(c->value, acct->name)) {
+        c->acct = acct;
+        return 0;
+    }
+    return 1;
+}
+
+md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s)
+{
+    md_acme_acct *acct;
+    
+    acct = apr_hash_get(acme->accounts, s, strlen(s));
+    if (!acct) {
+        acct_do_ctx c;
+        
+        c.acct = NULL;
+        c.value = s;
+        apr_hash_do(find_by_name, &c, acme->accounts);
+        return c.acct;
+    }
+    return acct;
 }
 
 /**************************************************************************************************/

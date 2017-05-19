@@ -25,9 +25,12 @@ struct md_t;
 struct md_acme_acct;
 
 typedef enum {
-    MD_ACME_S_INIT,
-    MD_ACME_S_ERROR,
-    MD_ACME_S_LIVE,
+    MD_ACME_S_UNKNOWN,
+    MD_ACME_S_PENDING,
+    MD_ACME_AUTHZ_S_PROCESSING,
+    MD_ACME_AUTHZ_S_VALID,
+    MD_ACME_AUTHZ_S_INVALID,
+    MD_ACME_AUTHZ_S_REVOKED,
 } md_acme_state_t;
 
 typedef struct md_acme md_acme;
@@ -35,7 +38,6 @@ typedef struct md_acme md_acme;
 struct md_acme {
     const char *url;
     apr_pool_t *pool;
-    md_acme_state_t state;
     
     const char *new_authz;
     const char *new_cert;
