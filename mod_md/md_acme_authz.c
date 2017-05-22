@@ -56,8 +56,6 @@ static apr_status_t on_init_authz(md_acme_req *req, void *baton)
     md_acme_authz *authz = baton;
     md_acme_acct *acct = authz->acct;
     md_json *jpayload;
-    const char *payload;
-    size_t payload_len;
 
     jpayload = md_json_create(req->pool);
     if (jpayload) {
@@ -65,15 +63,7 @@ static apr_status_t on_init_authz(md_acme_req *req, void *baton)
         md_json_sets("dns", jpayload, "identifier", "type", NULL);
         md_json_sets(authz->domain, jpayload, "identifier", "value", NULL);
         
-        payload = md_json_writep(jpayload, MD_JSON_FMT_INDENT, req->pool);
-        if (payload) {
-            payload_len = strlen(payload);
-            
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
-                          "authz_new payload(len=%d): %s", payload_len, payload);
-            return md_jws_sign(&req->req_json, req->pool, payload, payload_len,
-                               req->prot_hdrs, acct->key, NULL);
-        }
+        return md_acme_req_body_init(req, jpayload, acct->key);
     }
     return APR_ENOMEM;
 } 

@@ -16,6 +16,7 @@
 #ifndef mod_md_md_acme_acct_h
 #define mod_md_md_acme_acct_h
 
+struct md_acme_req;
 struct md_json;
 struct md_pkey;
 
@@ -45,8 +46,10 @@ struct md_acme_acct {
  * @param acme   the acme server to register at
  * @param contacts list of contact uris, at least one
  */
-apr_status_t md_acme_register(struct md_acme_acct **pacct, md_acme *acme, 
+apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme, 
                               apr_array_header_t *contacts, const char *agreed_tos);
+
+apr_status_t md_acme_acct_agree_tos(md_acme_acct *acct, const char *agreed_tos);
 
 /**
  * Unregister/delete the account at the ACME server. Will remove
@@ -55,7 +58,7 @@ apr_status_t md_acme_register(struct md_acme_acct **pacct, md_acme *acme,
  * @param acme    the ACME server to remove the account from
  * @param acct    the account to delete
  */
-apr_status_t md_acme_acct_del(md_acme *acme, md_acme_acct *acct);
+apr_status_t md_acme_acct_del(md_acme_acct *acct);
 
 /**
  * Retrieve an existing account from the ACME server.
@@ -72,7 +75,6 @@ md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s);
  * @param acme     the ACME server to load accounts for. 
  */
 apr_status_t md_acme_acct_load(md_acme *acme);
-
 
 
 #endif /* md_acme_acct_h */

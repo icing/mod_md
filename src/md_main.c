@@ -35,10 +35,13 @@
 #include "mod_md.h"
 #include "md_version.h"
 
+#define TOS_DEFAULT     "https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf"
+
 static apr_getopt_option_t Options [] = {
     { "acme", 'a', 1, "the url of the ACME server directory"},
     { "dir", 'd', 1, "directory for file data"},
     { "quiet", 'q', 0, "produce less output"},
+    { "terms", 't', 1, "you agree to the terms of services (url)" },
     { "verbose", 'v', 0, "produce more output" },
     { "version", 'V', 0, "print version" },
     { NULL, 0, 0, NULL }
@@ -135,6 +138,45 @@ static apr_status_t acme_newreg(md_acme *acme, apr_array_header_t *contacts,
     return rv;
 }
 
+static apr_status_t acct_agree_tos(md_acme *acme, const char *acct_url, const char *tos) 
+{
+    md_http *http;
+    md_acme_acct *acct;
+    apr_status_t rv;
+    long req_id;
+    const char *data;
+    md_json *json;
+    
+    rv = md_acme_setup(acme);
+    if (rv != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "contacting %s", acme->url);
+        return rv;
+    }
+    
+    acct = md_acme_acct_get(acme, acct_url);
+    if (!acct) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "unknown account: %s", acct_url);
+        return APR_ENOENT;
+    }
+    
+    if (!tos) {
+        tos = acct->tos;
+        if (!tos) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, acme->pool, 
+                "terms-of-service not specified (--terms), using default %s", TOS_DEFAULT);
+            tos = TOS_DEFAULT;
+        }
+    }
+    rv = md_acme_acct_agree_tos(acct, tos);
+    if (rv == APR_SUCCESS) {
+        fprintf(stdout, "agreed terms-of-service: %s\n", acct->url);
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "agreement to terms-of-service");
+    }
+    return rv;
+}
+
 static apr_status_t acme_delreg(md_acme *acme, const char *acct_url) 
 {
     md_http *http;
@@ -156,7 +198,7 @@ static apr_status_t acme_delreg(md_acme *acme, const char *acct_url)
         return APR_ENOENT;
     }
     
-    rv = md_acme_acct_del(acme, acct);
+    rv = md_acme_acct_del(acct);
     if (rv == APR_SUCCESS) {
         fprintf(stdout, "deleted: %s\n", acct->url);
     }
@@ -236,7 +278,7 @@ int main(int argc, const char **argv)
     apr_getopt_t *os;
     int opt, do_run = 1, i;
     const char *optarg, *ca_url = NULL, **cpp, *cmd, *ca_path = NULL;
-    const char *agreed_tos;
+    const char *tos;
     
     md_log_set(log_is_level, log_print, NULL);
     
@@ -270,6 +312,9 @@ int main(int argc, const char **argv)
             case 'V':
                 fprintf(stdout, "version: %s\n", MOD_MD_VERSION);
                 do_run = 0;
+                break;
+            case 't':
+                tos = optarg;
                 break;
             default:
                 usage(NULL);
@@ -305,11 +350,19 @@ int main(int argc, const char **argv)
                 if (apr_is_empty_array(contacts)) {
                     usage("newreg needs at least one contact email as argument");
                 }
-                rv = acme_newreg(acme, contacts, agreed_tos);
+                rv = acme_newreg(acme, contacts, tos);
             }
             else if (!strcmp("delreg", cmd)) {
                 for (i = os->ind + 1; i < argc; ++i) {
                     rv = acme_delreg(acme, os->argv[i]);
+                    if (rv != APR_SUCCESS) {
+                        break;
+                    }
+                }
+            }
+            else if (!strcmp("agree", cmd)) {
+                for (i = os->ind + 1; i < argc; ++i) {
+                    rv = acct_agree_tos(acme, os->argv[i], tos);
                     if (rv != APR_SUCCESS) {
                         break;
                     }

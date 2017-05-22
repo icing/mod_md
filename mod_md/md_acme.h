@@ -128,4 +128,7 @@ apr_status_t md_acme_req_do(md_acme *acme, const char *url,
                             md_acme_req_success_cb *on_success,
                             void *baton);
 
+apr_status_t md_acme_req_body_init(md_acme_req *req, struct md_json *jpayload, struct md_pkey *key);
+
+
 #endif /* md_acme_h */

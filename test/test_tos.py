@@ -1,4 +1,4 @@
-# test mod_md acme registrations
+# test mod_md acme terms-of-service handling
 
 import os.path
 import re
@@ -18,6 +18,8 @@ PREFIX = config.get('global', 'prefix')
 
 A2MD = os.path.join(PREFIX, 'bin', 'a2md')
 ACME_URL = config.get('acme', 'url')
+ACME_TOS = config.get('acme', 'tos')
+ACME_TOS2 = config.get('acme', 'tos2')
 WEBROOT = config.get('global', 'server_dir')
 ACME_DIR = os.path.join(WEBROOT, 'acme') 
 
@@ -55,8 +57,8 @@ def teardown_module(module):
 class TestRegs:
 
     def test_001(self):
-        # try register a new account
-        args = [A2MD, "-a", ACME_URL]
+        # try register a new account with valid tos agreements
+        args = [A2MD, "-a", ACME_URL, "--terms", ACME_TOS ]
         args.extend(["newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
@@ -66,63 +68,15 @@ class TestRegs:
         print "newreg: %s" % (m.group(1))
  
     def test_002(self):
-        # register with varying length to check our base64 encoding
-        args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "x@example.org"])
+        # try register a new account with invalid tos agreements
+        args = [A2MD, "-a", ACME_URL, "--terms", ACME_TOS2 ]
+        args.extend(["newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        p.communicate()
-        assert p.wait() == 0
-
+        (outdata, errdata) = p.communicate()
+        assert p.wait() == 1
+ 
     def test_003(self):
-        # register with varying length to check our base64 encoding
-        args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "xxx@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        p.communicate()
-        assert p.wait() == 0
-
-    def test_004(self):
-        # needs to fail on an invalid contact url
-        args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "mehlto:xxx@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        p.communicate()
-        assert p.wait() == 1
-
-    def test_010(self):
-        # register and try delete an account, will fail without persistence
-        args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "tmp@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
-        m = re.match("registered: (.*)$", outdata)
-        assert m
-        acct = m.group(1)
-        args = [A2MD, "-a", ACME_URL]
-        args.extend(["delreg", acct])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 1
-        
-    def test_012(self):
-        # register and try delete an account with persistence
-        args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
-        args.extend(["newreg", "tmp@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
-        m = re.match("registered: (.*)$", outdata)
-        assert m
-        acct = m.group(1)
-        args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
-        args.extend(["delreg", acct])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
-
-    def test_013(self):
-        # delete a persisted account without specifying url
+        # register new account, agree to tos afterwards
         args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
         args.extend(["newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
@@ -132,10 +86,7 @@ class TestRegs:
         assert m
         acct = m.group(1)
         args = [A2MD, "-d", CA1_DIR]
-        args.extend(["delreg", acct])
+        args.extend(["agree", acct])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
-
-
- 

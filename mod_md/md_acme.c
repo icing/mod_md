@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+#include <stdlib.h>
+
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_buckets.h>
@@ -38,11 +40,36 @@ struct acme_problem_status_t {
 };
 
 static acme_problem_status_t Problems[] = {
+    { "acme:error:badCSR",                       APR_EINVAL },
+    { "acme:error:badNonce",                     APR_EGENERAL },
+    { "acme:error:badSignatureAlgorithm",        APR_EINVAL },
+    { "acme:error:invalidContact",               APR_BADARG },
+    { "acme:error:unsupportedContact",           APR_EGENERAL },
+    { "acme:error:malformed",                    APR_EINVAL },
+    { "acme:error:rateLimited",                  APR_BADARG },
+    { "acme:error:rejectedIdentifier",           APR_BADARG },
+    { "acme:error:serverInternal",               APR_EGENERAL },
+    { "acme:error:unauthorized",                 APR_EACCES },
+    { "acme:error:unsupportedIdentifier",        APR_BADARG },
+    { "acme:error:userActionRequired",           APR_EAGAIN },
+    { "acme:error:badRevocationReason",          APR_EINVAL },
+    { "acme:error:caa",                          APR_EGENERAL },
+    { "acme:error:dns",                          APR_EGENERAL },
+    { "acme:error:connection",                   APR_EGENERAL },
+    { "acme:error:tls",                          APR_EGENERAL },
+    { "acme:error:incorrectResponse",            APR_EGENERAL },
 };
 
 static apr_status_t problem_status_get(const char *type) {
     int i;
-    
+
+    if (strstr(type, "urn:ietf:params:") == type) {
+        type += strlen("urn:ietf:params:");
+    }
+    else if (strstr(type, "urn:") == type) {
+        type += strlen("urn:");
+    }
+     
     for(i = 0; i < (sizeof(Problems)/sizeof(Problems[0])); ++i) {
         if (!apr_strnatcasecmp(type, Problems[i].type)) {
             return Problems[i].rv;
@@ -237,6 +264,21 @@ static md_acme_req *md_acme_req_create(md_acme *acme, const char *url)
     return req;
 }
  
+apr_status_t md_acme_req_body_init(md_acme_req *req, md_json *jpayload, md_pkey *key)
+{
+    const char *payload = md_json_writep(jpayload, MD_JSON_FMT_COMPACT, req->pool);
+    if (payload) {
+        size_t payload_len = strlen(payload);
+        
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+                      "acct payload(len=%d): %s", payload_len, payload);
+        return md_jws_sign(&req->req_json, req->pool, payload, payload_len,
+                           req->prot_hdrs, key, NULL);
+    }
+    return APR_ENOMEM;
+} 
+
+
 static apr_status_t inspect_problem(md_acme_req *req, const md_http_response *res)
 {
     const char *ctype;
