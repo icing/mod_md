@@ -18,6 +18,7 @@
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_file_io.h>
+#include <apr_tables.h>
 
 #include "md_util.h"
 
@@ -163,5 +164,316 @@ const char *md_util_base64url_encode(const char *data,
     }
     *p++ = '\0';
     return enc;
+}
+
+/*******************************************************************************
+ * link header handling 
+ ******************************************************************************/
+
+typedef struct {
+    const char *s;
+    apr_size_t slen;
+    int i;
+    int link_start;
+    apr_size_t link_len;
+    int pn_start;
+    apr_size_t pn_len;
+    int pv_start;
+    apr_size_t pv_len;
+} link_ctx;
+
+static int attr_char(char c) 
+{
+    switch (c) {
+        case '!':
+        case '#':
+        case '$':
+        case '&':
+        case '+':
+        case '-':
+        case '.':
+        case '^':
+        case '_':
+        case '`':
+        case '|':
+        case '~':
+            return 1;
+        default:
+            return apr_isalnum(c);
+    }
+}
+
+static int ptoken_char(char c) 
+{
+    switch (c) {
+        case '!':
+        case '#':
+        case '$':
+        case '&':
+        case '\'':
+        case '(':
+        case ')':
+        case '*':
+        case '+':
+        case '-':
+        case '.':
+        case '/':
+        case ':':
+        case '<':
+        case '=':
+        case '>':
+        case '?':
+        case '@':
+        case '[':
+        case ']':
+        case '^':
+        case '_':
+        case '`':
+        case '{':
+        case '|':
+        case '}':
+        case '~':
+            return 1;
+        default:
+            return apr_isalnum(c);
+    }
+}
+
+static int skip_ws(link_ctx *ctx)
+{
+    char c;
+    while (ctx->i < ctx->slen 
+           && (((c = ctx->s[ctx->i]) == ' ') || (c == '\t'))) {
+        ++ctx->i;
+    }
+    return (ctx->i < ctx->slen);
+}
+
+static int skip_nonws(link_ctx *ctx)
+{
+    char c;
+    while (ctx->i < ctx->slen 
+           && (((c = ctx->s[ctx->i]) != ' ') && (c != '\t'))) {
+        ++ctx->i;
+    }
+    return (ctx->i < ctx->slen);
+}
+
+static int find_chr(link_ctx *ctx, char c, int *pidx)
+{
+    int j;
+    for (j = ctx->i; j < ctx->slen; ++j) {
+        if (ctx->s[j] == c) {
+            *pidx = j;
+            return 1;
+        }
+    } 
+    return 0;
+}
+
+static int read_chr(link_ctx *ctx, char c)
+{
+    if (ctx->i < ctx->slen && ctx->s[ctx->i] == c) {
+        ++ctx->i;
+        return 1;
+    }
+    return 0;
+}
+
+static int skip_qstring(link_ctx *ctx)
+{
+    if (skip_ws(ctx) && read_chr(ctx, '\"')) {
+        int end;
+        if (find_chr(ctx, '\"', &end)) {
+            ctx->i = end + 1;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int skip_ptoken(link_ctx *ctx)
+{
+    if (skip_ws(ctx)) {
+        int i;
+        for (i = ctx->i; i < ctx->slen && ptoken_char(ctx->s[i]); ++i) {
+            /* nop */
+        }
+        if (i > ctx->i) {
+            ctx->i = i;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
+static int read_link(link_ctx *ctx)
+{
+    ctx->link_start = ctx->link_len = 0;
+    if (skip_ws(ctx) && read_chr(ctx, '<')) {
+        int end;
+        if (find_chr(ctx, '>', &end)) {
+            ctx->link_start = ctx->i;
+            ctx->link_len = end - ctx->link_start;
+            ctx->i = end + 1;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int skip_pname(link_ctx *ctx)
+{
+    if (skip_ws(ctx)) {
+        int i;
+        for (i = ctx->i; i < ctx->slen && attr_char(ctx->s[i]); ++i) {
+            /* nop */
+        }
+        if (i > ctx->i) {
+            ctx->i = i;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int skip_pvalue(link_ctx *ctx)
+{
+    if (skip_ws(ctx) && read_chr(ctx, '=')) {
+        ctx->pv_start = ctx->i;
+        if (skip_qstring(ctx) || skip_ptoken(ctx)) {
+            ctx->pv_len = ctx->i - ctx->pv_start;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int skip_param(link_ctx *ctx)
+{
+    if (skip_ws(ctx) && read_chr(ctx, ';')) {
+        ctx->pn_start = ctx->i;
+        ctx->pn_len = 0;
+        if (skip_pname(ctx)) {
+            ctx->pn_len = ctx->i - ctx->pn_start;
+            ctx->pv_len = 0;
+            skip_pvalue(ctx); /* value is optional */
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int pv_contains(link_ctx *ctx, const char *s)
+{
+    int pvstart = ctx->pv_start;
+    apr_size_t pvlen = ctx->pv_len;
+    
+    if (ctx->s[pvstart] == '\"' && pvlen > 1) {
+        ++pvstart;
+        pvlen -= 2;
+    }
+    if (pvlen > 0) {
+        apr_size_t slen = strlen(s);
+        link_ctx pvctx;
+        int i;
+        
+        memset(&pvctx, 0, sizeof(pvctx));
+        pvctx.s = ctx->s + pvstart;
+        pvctx.slen = pvlen;
+
+        for (i = 0; i < pvctx.slen; i = pvctx.i) {
+            skip_nonws(&pvctx);
+            if ((pvctx.i - i) == slen && !strncmp(s, pvctx.s + i, slen)) {
+                return 1;
+            }
+            skip_ws(&pvctx);
+        }
+    }
+    return 0;
+}
+
+/* RFC 5988 <https://tools.ietf.org/html/rfc5988#section-6.2.1>
+  Link           = "Link" ":" #link-value
+  link-value     = "<" URI-Reference ">" *( ";" link-param )
+  link-param     = ( ( "rel" "=" relation-types )
+                 | ( "anchor" "=" <"> URI-Reference <"> )
+                 | ( "rev" "=" relation-types )
+                 | ( "hreflang" "=" Language-Tag )
+                 | ( "media" "=" ( MediaDesc | ( <"> MediaDesc <"> ) ) )
+                 | ( "title" "=" quoted-string )
+                 | ( "title*" "=" ext-value )
+                 | ( "type" "=" ( media-type | quoted-mt ) )
+                 | ( link-extension ) )
+  link-extension = ( parmname [ "=" ( ptoken | quoted-string ) ] )
+                 | ( ext-name-star "=" ext-value )
+  ext-name-star  = parmname "*" ; reserved for RFC2231-profiled
+                                ; extensions.  Whitespace NOT
+                                ; allowed in between.
+  ptoken         = 1*ptokenchar
+  ptokenchar     = "!" | "#" | "$" | "%" | "&" | "'" | "("
+                 | ")" | "*" | "+" | "-" | "." | "/" | DIGIT
+                 | ":" | "<" | "=" | ">" | "?" | "@" | ALPHA
+                 | "[" | "]" | "^" | "_" | "`" | "{" | "|"
+                 | "}" | "~"
+  media-type     = type-name "/" subtype-name
+  quoted-mt      = <"> media-type <">
+  relation-types = relation-type
+                 | <"> relation-type *( 1*SP relation-type ) <">
+  relation-type  = reg-rel-type | ext-rel-type
+  reg-rel-type   = LOALPHA *( LOALPHA | DIGIT | "." | "-" )
+  ext-rel-type   = URI
+  
+  and from <https://tools.ietf.org/html/rfc5987>
+  parmname      = 1*attr-char
+  attr-char     = ALPHA / DIGIT
+                   / "!" / "#" / "$" / "&" / "+" / "-" / "."
+                   / "^" / "_" / "`" / "|" / "~"
+ */
+
+typedef struct {
+    apr_pool_t *pool;
+    const char *relation;
+    const char *url;
+} find_ctx;
+
+static int find_url(void *baton, const char *key, const char *value)
+{
+    find_ctx *outer = baton;
+    
+    if (!apr_strnatcasecmp("link", key)) {
+        link_ctx ctx;
+        
+        memset(&ctx, 0, sizeof(ctx));
+        ctx.s = value;
+        ctx.slen = (int)strlen(value);
+        
+        while (read_link(&ctx)) {
+            while (skip_param(&ctx)) {
+                if (ctx.pn_len == 3 && !strncmp("rel", ctx.s + ctx.pn_start, 3)
+                    && pv_contains(&ctx, outer->relation)) {
+                    /* this is the link relation we are looking for */
+                    outer->url = apr_pstrndup(outer->pool, ctx.s + ctx.link_start, ctx.link_len);
+                    return 0;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+const char *md_link_find_relation(const apr_table_t *headers, 
+                                  apr_pool_t *pool, const char *relation)
+{
+    find_ctx ctx;
+    
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.pool = pool;
+    ctx.relation = relation;
+    
+    apr_table_do(find_url, &ctx, headers, NULL);
+    
+    return ctx.url;
 }
 

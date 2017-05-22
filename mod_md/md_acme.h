@@ -93,8 +93,8 @@ typedef apr_status_t md_acme_req_init_cb(md_acme_req *req, void *baton);
 /**
  * Request callback on a successfull response (HTTP response code 2xx).
  */
-typedef void md_acme_req_success_cb(md_acme *acme, const char *location, 
-                                    struct md_json *body, void *baton);
+typedef apr_status_t md_acme_req_success_cb(md_acme *acme, const apr_table_t *headers, 
+                                            struct md_json *body, void *baton);
 
 struct md_acme_req {
     md_acme *acme;                 /* the ACME server to talk to */

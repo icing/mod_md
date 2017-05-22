@@ -276,7 +276,6 @@ static apr_status_t md_acme_req_done(md_acme_req *req)
 static apr_status_t on_response(const md_http_response *res)
 {
     md_acme_req *req = res->req->baton;
-    const char *location;
     apr_status_t rv = res->rv;
     
     if (rv != APR_SUCCESS) {
@@ -289,16 +288,6 @@ static apr_status_t on_response(const md_http_response *res)
     
     /* TODO: Redirect Handling? */
     if (res->status >= 200 && res->status < 300) {
-        location = apr_table_get(req->resp_hdrs, "location");
-        if (!location) {
-            if (res->status == 201) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EINVAL, req->pool, 
-                              "201 response without location header");
-                return APR_EINVAL;
-            }
-            location = req->url;
-        }
-        
         rv = md_json_read_http(&req->resp_json, req->pool, res);
         if (rv != APR_SUCCESS) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, req->pool, 
@@ -313,8 +302,7 @@ static apr_status_t on_response(const md_http_response *res)
         }
     
         if (req->on_success) {
-            req->rv = rv;
-            req->on_success(req->acme, location, req->resp_json, req->baton);
+            req->rv = req->on_success(req->acme, req->resp_hdrs, req->resp_json, req->baton);
         }
     }
     else {

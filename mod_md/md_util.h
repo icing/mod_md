@@ -30,4 +30,7 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
 
 const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme);
 
+const char *md_link_find_relation(const apr_table_t *headers, 
+                                  apr_pool_t *pool, const char *relation);
+
 #endif /* md_util_h */

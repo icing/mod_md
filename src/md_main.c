@@ -107,7 +107,8 @@ void log_print(const char *file, int line, md_log_level_t level,
     }
 }
 
-static apr_status_t acme_newreg(md_acme *acme, apr_array_header_t *contacts) 
+static apr_status_t acme_newreg(md_acme *acme, apr_array_header_t *contacts, 
+                                const char *agreed_tos) 
 {
     md_http *http;
     apr_status_t rv;
@@ -116,13 +117,14 @@ static apr_status_t acme_newreg(md_acme *acme, apr_array_header_t *contacts)
     md_json *json;
     md_acme_acct *acct;
     
+    
     rv = md_acme_setup(acme);
     if (rv != APR_SUCCESS) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "contacting %s", acme->url);
         return rv;
     }
     
-    rv = md_acme_register(&acct, acme, contacts);
+    rv = md_acme_register(&acct, acme, contacts, agreed_tos);
     
     if (rv == APR_SUCCESS) {
         fprintf(stdout, "registered: %s\n", acct->url);
@@ -234,6 +236,7 @@ int main(int argc, const char **argv)
     apr_getopt_t *os;
     int opt, do_run = 1, i;
     const char *optarg, *ca_url = NULL, **cpp, *cmd, *ca_path = NULL;
+    const char *agreed_tos;
     
     md_log_set(log_is_level, log_print, NULL);
     
@@ -302,7 +305,7 @@ int main(int argc, const char **argv)
                 if (apr_is_empty_array(contacts)) {
                     usage("newreg needs at least one contact email as argument");
                 }
-                rv = acme_newreg(acme, contacts);
+                rv = acme_newreg(acme, contacts, agreed_tos);
             }
             else if (!strcmp("delreg", cmd)) {
                 for (i = os->ind + 1; i < argc; ++i) {

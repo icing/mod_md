@@ -31,7 +31,8 @@ struct md_acme_acct {
 
     const char *url;                /* url of the accunt, once registered */
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
-
+    const char *tos;                /* terms of service */
+    
     struct md_pkey *key;            /* private key of account for JWS */
     
     struct md_json *registration;   /* data from server registration */
@@ -45,7 +46,7 @@ struct md_acme_acct {
  * @param contacts list of contact uris, at least one
  */
 apr_status_t md_acme_register(struct md_acme_acct **pacct, md_acme *acme, 
-                              apr_array_header_t *contacts);
+                              apr_array_header_t *contacts, const char *agreed_tos);
 
 /**
  * Unregister/delete the account at the ACME server. Will remove

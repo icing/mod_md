@@ -78,15 +78,25 @@ static apr_status_t on_init_authz(md_acme_req *req, void *baton)
     return APR_ENOMEM;
 } 
 
-static void on_success_authz(md_acme *acme, const char *location, md_json *body, void *baton)
+static apr_status_t on_success_authz(md_acme *acme, const apr_table_t *hdrs, md_json *body, void *baton)
 {
     md_acme_authz *authz = baton;
     md_acme_acct *acct = authz->acct;
+    const char *location;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, acct->pool, 
-                  "authz_new success: url=%s\n%s", location, 
-                  md_json_writep(body, MD_JSON_FMT_INDENT, acct->pool));
-    authz->url = apr_pstrdup(acct->pool, location);
+    location = apr_table_get(hdrs, "location");
+    if (!location) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, acct->pool, 
+                      "authz_new success: url=%s\n%s", location, 
+                      md_json_writep(body, MD_JSON_FMT_INDENT, acct->pool));
+        authz->url = apr_pstrdup(acct->pool, location);
+        return APR_SUCCESS;
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EINVAL, acct->pool, 
+                      "new authz without location header");
+        return APR_EINVAL;
+    }
 }
 
 apr_status_t md_acme_authz_register(struct md_acme_authz **pauthz, const char *domain, 
