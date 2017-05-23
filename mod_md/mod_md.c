@@ -39,33 +39,6 @@ AP_DECLARE_MODULE(md) = {
 };
 
 
-static md_ca_t *find_or_add_ca(apr_array_header_t *cas, const md_config *config,
-                               apr_pool_t *p)
-{
-    md_ca_t *ca = NULL, **pca;
-    const char *url = md_config_var_get(config, MD_CONFIG_CA_URL);
-    const char *proto = md_config_var_get(config, MD_CONFIG_CA_PROTO);
-    int i;
-    
-    ap_assert(url);
-    ap_assert(proto);
-    
-    for (i = 0; i < cas->nelts; ++i) {
-        ca = APR_ARRAY_IDX(cas, i, md_ca_t*);
-        if (strcmp(url, ca->url) == 0 && strcmp(proto, ca->proto) == 0) {
-            return ca;
-        }
-    }
-    
-    ca = apr_pcalloc(p, sizeof(*ca));
-    ca->url = url;
-    ca->proto = proto;
-    pca= (md_ca_t **)apr_array_push(cas);
-    *pca = ca;
-
-    return ca;
-}
-
 /* The module initialization. Called once as apache hook, before any multi
  * processing (threaded or not) happens. It is typically at least called twice, 
  * see
@@ -87,7 +60,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     server_rec *s;
     md_config *config;
     apr_array_header_t *mds;
-    apr_array_header_t *cas;
     int i, j, k;
     md_t *md, *nmd, **pmd;
     const char *domain, *name;
@@ -113,7 +85,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
      * and compile the global list.
      */
     mds = apr_array_make(p, 5, sizeof(const md_t *));
-    cas = apr_array_make(p, 5, sizeof(const md_ca_t *));
     for (s = base_server; s; s = s->next) {
         config = (md_config *)md_config_sget(s);
         
@@ -137,7 +108,9 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
             
             if (nmd) {
                 /* new managed domain not seen before */
-                nmd->ca = find_or_add_ca(cas, config, p);
+                nmd->ca_url = md_config_var_get(config, MD_CONFIG_CA_URL);
+                nmd->ca_proto = md_config_var_get(config, MD_CONFIG_CA_PROTO);
+                
                 pmd = (md_t **)apr_array_push(mds);
                 *pmd = nmd;
             }
@@ -149,8 +122,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     }
     
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
-                 "found %d Managed Domains against %d CAs in configuration",
-                 mds->nelts, cas->nelts);
+                 "found %d Managed Domains", mds->nelts);
                  
     memset(&r, 0, sizeof(r));
     for (i = 0; i < mds->nelts; ++i) {

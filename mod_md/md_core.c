@@ -21,6 +21,7 @@
 #include <apr_time.h>
 
 #include "md.h"
+#include "md_util.h"
 
 
 static int ap_array_str_case_index(const apr_array_header_t *array, 
@@ -68,6 +69,21 @@ int md_names_overlap(const md_t *md1, const md_t *md2)
     return md_common_name(md1, md2) != NULL;
 }
 
+md_t *md_create_empty(apr_pool_t *p)
+{
+    md_t *md = apr_pcalloc(p, sizeof(*md));
+    if (md) {
+        md->domains = apr_array_make(p, 5, sizeof(const char *));
+        md->chain = apr_array_make(p, 5, sizeof(void *));
+        if (md->domains && md->chain) {
+            md->state = MD_S_INCOMPLETE;
+            md->defn_name = "unknown";
+            md->defn_line_number = 0;
+        }
+    }
+    return md;
+}
+
 const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[])
 {
     md_t *md;
@@ -79,16 +95,16 @@ const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[])
         return "needs at least one name";
     }
 
-    md = apr_pcalloc(p, sizeof(*md));
-    md->domains = apr_array_make(p, argc, sizeof(const char *));
-    md->defn_name = "unknown";
-    md->defn_line_number = 0;
-   
+    md = md_create_empty(p);
+    if (!md) {
+        return "not enough memory";
+    }
+    
     for (i = 0; i < argc; ++i) {
         name = argv[i];
-        /* TODO: some dns sanity check on the name? */
         if (ap_array_str_case_index(md->domains, name, 0) < 0) {
             np = (const char **)apr_array_push(md->domains);
+            md_util_str_tolower(apr_pstrdup(p, name));
             *np = name;
         }
         if (!md->name) {

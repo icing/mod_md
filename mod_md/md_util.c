@@ -19,11 +19,55 @@
 #include <apr_strings.h>
 #include <apr_file_io.h>
 #include <apr_tables.h>
+#include <apr_time.h>
 
 #include "md_util.h"
 
 /**************************************************************************************************/
-/* small things */
+/* pool utils */
+
+apr_status_t md_util_pool_do(md_util_action *cb, void *baton, apr_pool_t *p)
+{
+    apr_pool_t *ptemp;
+    apr_status_t rv = apr_pool_create(&ptemp, p);
+    if (APR_SUCCESS == rv) {
+        rv = cb(baton, p, ptemp);
+        
+        apr_pool_destroy(ptemp);
+    }
+    return rv;
+}
+ 
+apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, ...)
+{
+    apr_pool_t *ptemp;
+    va_list ap;
+    apr_status_t rv;
+    
+    rv = apr_pool_create(&ptemp, p);
+    if (APR_SUCCESS == rv) {
+        va_start(ap, p);
+        rv = cb(baton, p, ptemp, ap);
+        va_end(ap);
+        
+        apr_pool_destroy(ptemp);
+    }
+    return rv;
+}
+ 
+/**************************************************************************************************/
+/* string related */
+
+void md_util_str_tolower(char *s)
+{
+    while (*s) {
+        *s = apr_tolower(*s);
+        ++s;
+    }
+}
+
+/**************************************************************************************************/
+/* file system related */
 
 apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode)
 {
@@ -57,6 +101,71 @@ const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_schem
     }
     return apr_psprintf(p, "%s:%s", def_scheme, s);
 }
+
+apr_status_t md_util_is_dir(const char *path, apr_pool_t *pool)
+{
+    apr_finfo_t info;
+    apr_status_t rv = apr_stat(&info, path, APR_FINFO_TYPE, pool);
+    if (rv == APR_SUCCESS) {
+        rv = (info.filetype == APR_DIR)? APR_SUCCESS : APR_EINVAL;
+    }
+    return rv;
+}
+
+apr_status_t md_util_path_merge(const char **ppath, apr_pool_t *p, ...)
+{
+    const char *segment, *path;
+    va_list ap;
+    apr_status_t rv = APR_SUCCESS;
+    
+    va_start(ap, p);
+    path = va_arg(ap, char *);
+    while (path && APR_SUCCESS == rv && (segment = va_arg(ap, char *))) {
+        rv = apr_filepath_merge((char **)&path, path, segment, APR_FILEPATH_SECUREROOT , p);
+    }
+    va_end(ap);
+    
+    *ppath = (APR_SUCCESS == rv)? (path? path : "") : NULL;
+    return rv;
+}
+
+apr_status_t md_util_freplace(const char *path, const char *name, apr_pool_t *p, 
+                              md_util_file_cb *write_cb, void *baton)
+{
+    apr_status_t rv;
+    apr_file_t *f;
+    const char *tmp, *fpath;
+    int i, max;
+    
+    rv = md_util_path_merge(&tmp, p, path, apr_psprintf(p, "%s.tmp", name), NULL);
+    rv = md_util_path_merge(&fpath, p, path, name, NULL);
+    
+    i = 0; max = 20;
+creat:
+    while (i < max && APR_EEXIST == (rv = md_util_fcreatex(&f, tmp, p))) {
+        ++i;
+        apr_sleep(apr_time_msec(50));
+    } 
+    if (APR_EEXIST == rv 
+        && APR_SUCCESS == (rv = apr_file_remove(tmp, p))
+        && max <= 20) {
+        max *= 2;
+        goto creat;
+    }
+    
+    if (APR_SUCCESS == rv) {
+        rv = write_cb(baton, f, p);
+        apr_file_close(f);
+        
+        if (APR_SUCCESS == rv) {
+            rv = apr_file_rename(tmp, fpath, p);
+            if (APR_SUCCESS != rv) {
+                apr_file_remove(tmp, p);
+            }
+        }
+    }
+    return rv;
+}                            
 
 /* base64 url encoding ****************************************************************************/
 

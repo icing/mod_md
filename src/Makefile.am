@@ -28,11 +28,13 @@ a2md_SOURCES = \
     ../mod_md/md_acme_acct.c \
     ../mod_md/md_acme_authz.c \
     ../mod_md/md_acme_cert.c \
+    ../mod_md/md_core.c \
     ../mod_md/md_crypt.c \
     ../mod_md/md_http.c \
     ../mod_md/md_json.c \
     ../mod_md/md_jws.c \
     ../mod_md/md_log.c \
+    ../mod_md/md_store.c \
     ../mod_md/md_util.c
 
 

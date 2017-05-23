@@ -31,6 +31,7 @@
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_store.h"
 #include "md_util.h"
 #include "mod_md.h"
 #include "md_version.h"
@@ -68,6 +69,8 @@ static void usage(const char *msg)
         }
     }
     fprintf(stderr, "  using one of the following commands:\n");
+    fprintf(stderr, "  \tadd domain...\n");
+    fprintf(stderr, "  \t\tadd a new set of domains\n");
     fprintf(stderr, "  \tnewreg contact...\n");
     fprintf(stderr, "  \t\tregister a new account with contact email(s)\n");
     fprintf(stderr, "  \tdelreg url\n");
@@ -172,7 +175,7 @@ static apr_status_t acct_agree_tos(md_acme *acme, const char *acct_url, const ch
         fprintf(stdout, "agreed terms-of-service: %s\n", acct->url);
     }
     else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "agreement to terms-of-service");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "agree to terms-of-service %s", tos);
     }
     return rv;
 }
@@ -226,7 +229,7 @@ static apr_status_t acme_newauthz(md_acme_acct *acct, const char *domain)
     rv = md_acme_authz_register(&authz, domain, acct); 
     
     if (rv == APR_SUCCESS) {
-        fprintf(stdout, "new authz for %s: %s\n", domain, authz->url);
+        fprintf(stdout, "authz: %s %s\n", domain, authz->url);
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "register new authz");
@@ -269,15 +272,16 @@ static int pool_abort(int rv)
     exit(1);
 }
 
-int main(int argc, const char **argv)
+int main(int argc, const char *const *argv)
 {
     apr_allocator_t *allocator;
     apr_status_t rv;
     apr_pool_t *pool;
     md_acme *acme;
+    md_store_t *store;
     apr_getopt_t *os;
     int opt, do_run = 1, i;
-    const char *optarg, *ca_url = NULL, **cpp, *cmd, *ca_path = NULL;
+    const char *optarg, *ca_url = NULL, **cpp, *cmd, *base_dir = NULL;
     const char *tos;
     
     md_log_set(log_is_level, log_print, NULL);
@@ -297,7 +301,7 @@ int main(int argc, const char **argv)
                 ca_url = optarg;
                 break;
             case 'd':
-                ca_path = optarg;
+                base_dir = optarg;
                 break;
             case 'q':
                 if (active_level > 0) {
@@ -325,7 +329,7 @@ int main(int argc, const char **argv)
         usage(NULL);
         return 2;
     }
-    if (!ca_url && !ca_path) {
+    if (!ca_url && !base_dir) {
         usage("either ACME url or a local directory needs to be specified");
         return 1;
     }
@@ -337,15 +341,34 @@ int main(int argc, const char **argv)
         }
         
         md_acme_init(pool);
-        rv = md_acme_create(&acme, pool, ca_url, ca_path);
+
+        rv = base_dir? md_store_fs_init(&store, pool, base_dir) : APR_SUCCESS;
         if (rv == APR_SUCCESS) {
+            rv = md_acme_create(&acme, pool, ca_url, base_dir);
+        }
         
-            cmd = os->argv[os->ind];
-            if (!strcmp("newreg", cmd)) {
+        if (rv == APR_SUCCESS) {
+            i = os->ind;
+            argv = os->argv + i;
+            argc -= i;
+            
+            cmd = argv[0];
+            if (!strcmp("add", cmd)) {
+                md_t *md;
+                const char *err;
+                
+                err = md_create(&md, pool, argc - 1, (char *const*)argv+1);
+                if (!err) {
+                    md->ca_url = ca_url;
+                    md->ca_proto = "ACME";
+                    rv = md_store_save_md(store, md);
+                } 
+            }
+            else if (!strcmp("newreg", cmd)) {
                 apr_array_header_t *contacts = apr_array_make(pool, 5, sizeof(const char *));
-                for (i = os->ind + 1; i < argc; ++i) {
+                for (i = 1; i < argc; ++i) {
                     cpp = (const char **)apr_array_push(contacts);
-                    *cpp = md_util_schemify(pool, os->argv[i], "mailto");
+                    *cpp = md_util_schemify(pool, argv[i], "mailto");
                 }
                 if (apr_is_empty_array(contacts)) {
                     usage("newreg needs at least one contact email as argument");
@@ -353,16 +376,16 @@ int main(int argc, const char **argv)
                 rv = acme_newreg(acme, contacts, tos);
             }
             else if (!strcmp("delreg", cmd)) {
-                for (i = os->ind + 1; i < argc; ++i) {
-                    rv = acme_delreg(acme, os->argv[i]);
+                for (i = 1; i < argc; ++i) {
+                    rv = acme_delreg(acme, argv[i]);
                     if (rv != APR_SUCCESS) {
                         break;
                     }
                 }
             }
             else if (!strcmp("agree", cmd)) {
-                for (i = os->ind + 1; i < argc; ++i) {
-                    rv = acct_agree_tos(acme, os->argv[i], tos);
+                for (i = 1; i < argc; ++i) {
+                    rv = acct_agree_tos(acme, argv[i], tos);
                     if (rv != APR_SUCCESS) {
                         break;
                     }
@@ -372,20 +395,19 @@ int main(int argc, const char **argv)
                 const char *s;
                 md_acme_acct *acct;
                 
-                i = os->ind + 1;
-                if (i >= argc) {
+                if (1 >= argc) {
                     usage(NULL);
                     return 1;
                 }
-                s = os->argv[i];
+                s = argv[1];
                 acct = md_acme_acct_get(acme, s);
                 if (!acct) {
                     fprintf(stderr, "unknown account: %s\n", s);
                     return 1;
                 }
                 
-                for (i = os->ind + 2; i < argc; ++i) {
-                    rv = acme_newauthz(acct, os->argv[i]);
+                for (i = 2; i < argc; ++i) {
+                    rv = acme_newauthz(acct, argv[i]);
                     if (rv != APR_SUCCESS) {
                         break;
                     }

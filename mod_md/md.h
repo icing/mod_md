@@ -16,20 +16,11 @@
 #ifndef mod_md_md_h
 #define mod_md_md_h
 
-typedef enum {
-    MD_CA_S_UNKNOWN,                /* CA state is unknown */
-    MD_CA_S_LIVE,                   /* CA has been talked to successfully */
-    MD_CA_S_ERR,                    /* CA had error in communication */
-} md_ca_state_t;
+#define MD_PROTO_ACME       "ACME"
 
-typedef struct md_ca_t md_ca_t;
-
-struct md_ca_t {
-    const char *url;                /* url of CA certificate service */
-    const char *proto;              /* protocol used vs CA (e.g. ACME) */
-};
-
-#define md_ca_state_get_cb(ca)      ca->state_get(ca)
+struct apr_hash_t;
+struct md_pkey;
+struct X509;
 
 typedef enum {
     MD_S_INCOMPLETE,                /* MD is missing data, e.g. certificates */
@@ -37,18 +28,31 @@ typedef enum {
     MD_S_EXPIRED,                   /* MD has all data, but (part of) is expired */
 } md_state_t;
 
-typedef struct md_t {
+typedef struct md_t md_t;
+struct md_t {
     const char         *name;       /* unique name of this MD */
     apr_array_header_t *domains;    /* all DNS names this MD includes */
-    const md_ca_t      *ca;         /* CA handing out certificates for this MD */
+    const char *ca_url;             /* url of CA certificate service */
+    const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     md_state_t state;               /* state of this MD */
 
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
-} md_t;
+    
+    struct md_pkey *pkey;
+    struct X509 *cert;
+    apr_array_header_t *chain;      /* list of X509* */
+};
+
+#define MD_KEY_CA       "ca"
+#define MD_KEY_DOMAINS  "domains"
+#define MD_KEY_NAME     "name"
+#define MD_KEY_PROTO    "proto"
+#define MD_KEY_URL      "url"
+#define MD_KEY_URL      "url"
 
 /**
- * Determine if the Managed Domain conotains a specific domain.
+ * Determine if the Managed Domain contains a specific domain name.
  */
 int md_contains(const md_t *md, const char *domain);
 
@@ -56,17 +60,41 @@ int md_contains(const md_t *md, const char *domain);
  * Determine if the names of the two managed domains overlap.
  */
 int md_names_overlap(const md_t *md1, const md_t *md2);
- 
+
 /**
  * Get one common domain name of the two managed domains or NULL.
  */
 const char *md_common_name(const md_t *md1, const md_t *md2);
 
 /**
+ * Create and empty md record, structures initialized.
+ */
+md_t *md_create_empty(apr_pool_t *p);
+
+/**
  * Create a managed domain, given a list of domain names.
  */
-const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[]);
+const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const *argv);
 
 md_t *md_clone(apr_pool_t *p, md_t *src);
+
+typedef struct md_reg md_reg;
+struct md_reg {
+    apr_pool_t *p;
+    struct apr_hash_t *mds;
+    struct apr_hash_t *cas;
+};
+
+apr_status_t md_reg_init(apr_pool_t *p);
+
+apr_status_t md_reg_add(md_reg *reg, md_t *md);
+
+md_t *md_reg_find(md_reg *reg, const char *domain);
+
+md_t *md_reg_get(md_reg *reg, const char *name);
+
+typedef int md_reg_do_cb(void *baton, md_reg *reg, md_t *md);
+
+apr_status_t md_reg_do(md_reg_do_cb *cb, void *baton, md_reg *reg);
 
 #endif /* mod_md_md_h */

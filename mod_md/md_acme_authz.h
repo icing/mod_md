@@ -40,7 +40,7 @@ struct md_acme_authz {
 };
 
 apr_status_t md_acme_authz_register(struct md_acme_authz **pauthz, const char *domain, 
-                                    md_acme_acct *acct); 
+                                    md_acme_acct *acct);
 
 
 #endif /* md_acme_authz_h */

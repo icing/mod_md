@@ -72,10 +72,9 @@ static apr_status_t on_success_authz(md_acme *acme, const apr_table_t *hdrs, md_
 {
     md_acme_authz *authz = baton;
     md_acme_acct *acct = authz->acct;
-    const char *location;
+    const char *location = apr_table_get(hdrs, "location");
     
-    location = apr_table_get(hdrs, "location");
-    if (!location) {
+    if (location) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, acct->pool, 
                       "authz_new success: url=%s\n%s", location, 
                       md_json_writep(body, MD_JSON_FMT_INDENT, acct->pool));
