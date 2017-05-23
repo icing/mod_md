@@ -282,7 +282,7 @@ int main(int argc, const char *const *argv)
     apr_getopt_t *os;
     int opt, do_run = 1, i;
     const char *optarg, *ca_url = NULL, **cpp, *cmd, *base_dir = NULL;
-    const char *tos;
+    const char *tos = NULL;
     
     md_log_set(log_is_level, log_print, NULL);
     

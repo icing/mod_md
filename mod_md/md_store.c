@@ -109,16 +109,6 @@ static void fs_destroy(md_store_t *store)
     s_fs->s.p = NULL;
 }
 
-static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds)
-{
-    return APR_ENOTIMPL;
-}
-
-static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds)
-{
-    return APR_ENOTIMPL;
-}
-
 static apr_status_t pfs_load_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
@@ -149,18 +139,6 @@ static apr_status_t pfs_load_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     return rv;
 }
 
-static apr_status_t fs_load_md(md_store_t *store, md_t **pmd, const char *name)
-{
-    md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_load_md, s_fs, s_fs->p, pmd, name, NULL);
-}
-
-static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
-{
-    md_json *json = baton;
-    return md_json_writef(json, MD_JSON_FMT_INDENT, f);
-}
-
 static apr_status_t pfs_save_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
@@ -179,10 +157,26 @@ static apr_status_t pfs_save_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
             md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
             md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
             
-            rv = md_util_freplace(fpath, FS_FN_MD_JSON, ptemp, write_json, json);
+            rv = md_json_freplace(json, ptemp, fpath, FS_FN_MD_JSON);
         }
     }
     return rv;
+}
+
+static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds)
+{
+    return APR_ENOTIMPL;
+}
+
+static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds)
+{
+    return APR_ENOTIMPL;
+}
+
+static apr_status_t fs_load_md(md_store_t *store, md_t **pmd, const char *name)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_load_md, s_fs, s_fs->p, pmd, name, NULL);
 }
 
 static apr_status_t fs_save_md(md_store_t *store, md_t *md)
