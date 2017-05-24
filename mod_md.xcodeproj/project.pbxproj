@@ -7,14 +7,15 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		B2BCAB761ECD8FB0002F4EB9 /* test_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_regs.py; sourceTree = "<group>"; };
 		B2BCAB771ECF2A2E002F4EB9 /* md_acme_authz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
 		B2BCAB781ECF2A2E002F4EB9 /* md_acme_authz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
-		B2BCAB791ED31D75002F4EB9 /* test_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_tos.py; sourceTree = "<group>"; };
-		B2BCAB7A1ED32B54002F4EB9 /* test_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_authz.py; sourceTree = "<group>"; };
 		B2BCAB7B1ED42C8E002F4EB9 /* md_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B2BCAB7C1ED42C8E002F4EB9 /* md_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store.h; sourceTree = "<group>"; };
-		B2BCAB7D1ED46C6C002F4EB9 /* test_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_store.py; sourceTree = "<group>"; };
+		B2BCAB7E1ED5B77E002F4EB9 /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
+		B2BCAB7F1ED5B77E002F4EB9 /* test_0100_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0100_regs.py; sourceTree = "<group>"; };
+		B2BCAB801ED5B77E002F4EB9 /* test_0200_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_tos.py; sourceTree = "<group>"; };
+		B2BCAB811ED5B77E002F4EB9 /* test_0300_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0300_authz.py; sourceTree = "<group>"; };
+		B2BCAB821ED5B77E002F4EB9 /* test_1001_configs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_1001_configs.py; sourceTree = "<group>"; };
 		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -38,7 +39,6 @@
 		B2D309DF1EBB676C007BECC8 /* md.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md.h; sourceTree = "<group>"; };
 		B2D309E01EBB6C38007BECC8 /* md_core.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_core.c; sourceTree = "<group>"; };
 		B2D309F71EC1AD26007BECC8 /* test.ini.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.ini.in; sourceTree = "<group>"; };
-		B2D309F81EC1AD26007BECC8 /* test_configs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_configs.py; sourceTree = "<group>"; };
 		B2D31AEC1EC1B506007BECC8 /* mime.types */ = {isa = PBXFileReference; lastKnownFileType = text; path = mime.types; sourceTree = "<group>"; };
 		B2D31AED1EC1B506007BECC8 /* test.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.conf; sourceTree = "<group>"; };
 		B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = modules.conf.in; sourceTree = "<group>"; };
@@ -144,13 +144,13 @@
 		B2D309EF1EC1AD26007BECC8 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				B2BCAB7E1ED5B77E002F4EB9 /* test_0001_store.py */,
+				B2BCAB7F1ED5B77E002F4EB9 /* test_0100_regs.py */,
+				B2BCAB801ED5B77E002F4EB9 /* test_0200_tos.py */,
+				B2BCAB811ED5B77E002F4EB9 /* test_0300_authz.py */,
+				B2BCAB821ED5B77E002F4EB9 /* test_1001_configs.py */,
 				B2D31AEA1EC1B506007BECC8 /* conf */,
-				B2BCAB7A1ED32B54002F4EB9 /* test_authz.py */,
 				B2D31AF51EC1B80D007BECC8 /* test_configs_data */,
-				B2D309F81EC1AD26007BECC8 /* test_configs.py */,
-				B2BCAB761ECD8FB0002F4EB9 /* test_regs.py */,
-				B2BCAB7D1ED46C6C002F4EB9 /* test_store.py */,
-				B2BCAB791ED31D75002F4EB9 /* test_tos.py */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
 			);
 			path = test;

@@ -140,6 +140,33 @@ static json_t *select_parent(const char **child_key, int create, md_json *json, 
     return j;
 }
 
+static apr_status_t select_add(json_t *val, md_json *json, va_list ap)
+{
+    const char *key;
+    json_t *j, *aj;
+    
+    j = select_parent(&key, 1, json, ap);
+    
+    if (!j || !json_is_object(j)) {
+        json_decref(val);
+        return APR_EINVAL;
+    }
+    
+    aj = json_object_get(j, key);
+    if (!aj) {
+        aj = json_array();
+        json_object_set_new(j, key, aj);
+    }
+    
+    if (!json_is_array(aj)) {
+        json_decref(val);
+        return APR_EINVAL;
+    }
+
+    json_array_append(aj, val);
+    return APR_SUCCESS;
+}
+
 static apr_status_t select_set(json_t *val, md_json *json, va_list ap)
 {
     const char *key;
@@ -224,6 +251,31 @@ apr_status_t md_json_setn(double value, md_json *json, ...)
 }
 
 /**************************************************************************************************/
+/* longs */
+
+long md_json_getl(md_json *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+    return (long)((j && json_is_number(j))? json_integer_value(j) : 0L);
+}
+
+apr_status_t md_json_setl(long value, md_json *json, ...)
+{
+    va_list ap;
+    apr_status_t rv;
+    
+    va_start(ap, json);
+    rv = select_set_new(json_integer(value), json, ap);
+    va_end(ap);
+    return rv;
+}
+
+/**************************************************************************************************/
 /* strings */
 
 const char *md_json_gets(md_json *json, ...)
@@ -236,6 +288,18 @@ const char *md_json_gets(md_json *json, ...)
     va_end(ap);
 
     return (j && json_is_string(j))? json_string_value(j) : NULL;
+}
+
+const char *md_json_dups(apr_pool_t *p, md_json *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+
+    return (j && json_is_string(j))? apr_pstrdup(p, json_string_value(j)) : NULL;
 }
 
 apr_status_t md_json_sets(const char *value, md_json *json, ...)
@@ -278,6 +342,18 @@ apr_status_t md_json_setj(md_json *value, md_json *json, ...)
     va_end(ap);
     return rv;
 }
+
+apr_status_t md_json_addj(md_json *value, md_json *json, ...)
+{
+    va_list ap;
+    apr_status_t rv;
+    
+    va_start(ap, json);
+    rv = select_add(value->j, json, ap);
+    va_end(ap);
+    return rv;
+}
+
 
 /**************************************************************************************************/
 /* arrays / objects */
@@ -399,6 +475,31 @@ apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...)
             if (json_is_string(val)) {
                 np =(const char **)apr_array_push(a);
                 *np = json_string_value(val);
+            }
+        }
+        return APR_SUCCESS;
+    }
+    return APR_ENOENT;
+}
+
+apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+
+    if (j && json_is_array(j)) {
+        const char **np;
+        size_t index;
+        json_t *val;
+        
+        json_array_foreach(j, index, val) {
+            if (json_is_string(val)) {
+                np =(const char **)apr_array_push(a);
+                *np = apr_pstrdup(p, json_string_value(val));
             }
         }
         return APR_SUCCESS;

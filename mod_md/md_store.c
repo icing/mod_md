@@ -38,9 +38,9 @@ void md_store_destroy(md_store_t *store)
     if (store->destroy) store->destroy(store);
 }
 
-apr_status_t md_store_load(md_store_t *store, apr_hash_t *mds)
+apr_status_t md_store_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p)
 {
-    return store->load(store, mds);
+    return store->load(store, mds, p);
 }
 
 apr_status_t md_store_save(md_store_t *store, apr_hash_t *mds)
@@ -48,9 +48,9 @@ apr_status_t md_store_save(md_store_t *store, apr_hash_t *mds)
     return store->save(store, mds);
 }
 
-apr_status_t md_store_load_md(md_store_t *store, md_t **pmd, const char *name)
+apr_status_t md_store_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p)
 {
-    return store->load_md(store, pmd, name);
+    return store->load_md(pmd, store, name, p);
 }
 
 apr_status_t md_store_save_md(md_store_t *store, md_t *md)
@@ -76,9 +76,9 @@ struct md_store_fs_t {
 #define FS_FN_MD_JSON      "md.json"
 
 static void fs_destroy(md_store_t *store);
-static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds);
+static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p);
 static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds);
-static apr_status_t fs_load_md(md_store_t *store, md_t **pmd, const char *name);
+static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p);
 static apr_status_t fs_save_md(md_store_t *store, md_t *md);
 
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
@@ -119,17 +119,11 @@ static apr_status_t pfs_md_readf(md_t **pmd, const char *fpath, apr_pool_t *p, a
     *pmd = NULL;
     rv = md_json_readf(&json, ptemp, fpath);
     if (APR_SUCCESS == rv) {
-        md_t *md = md_create_empty(ptemp);
+        md_t *md = md_from_json(json, p);
         if (md) {
-            md->name = md_json_gets(json, MD_KEY_NAME, NULL);            
-            md_json_getsa(md->domains, json, MD_KEY_DOMAINS, NULL);
-            md->ca_proto = md_json_gets(json, MD_KEY_CA, MD_KEY_PROTO, NULL);
-            md->ca_url = md_json_gets(json, MD_KEY_CA, MD_KEY_URL, NULL);
-            md->defn_name = fpath;
-
-            if ((*pmd = md_clone(p, md))) {  /* bring into perm pool */
-                return APR_SUCCESS;
-            }
+            md->defn_name = apr_pstrdup(p, fpath);
+            *pmd = md;
+            return APR_SUCCESS;
         }
         return APR_ENOMEM;
     }
@@ -141,13 +135,8 @@ static apr_status_t pfs_md_writef(md_t *md, const char *dir, const char *name, a
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, p))) {
-        md_json *json = md_json_create(p);
+        md_json *json = md_to_json(md, p);
         if (json) {
-            md_json_sets(md->name, json, MD_KEY_NAME, NULL);
-            md_json_setsa(md->domains, json, MD_KEY_DOMAINS, NULL);
-            md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
-            md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
-            
             return md_json_freplace(json, p, dir, name);
         }
         return APR_ENOMEM;
@@ -224,7 +213,7 @@ static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     return rv;
 }
 
-static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds)
+static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     md_load_ctx ctx;
@@ -232,7 +221,7 @@ static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds)
     ctx.s_fs = s_fs;
     ctx.mds = mds;
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, s_fs->p, "loading all mds in %s", s_fs->base);
-    return md_util_files_do(add_md, &ctx, s_fs->p, s_fs->base, 
+    return md_util_files_do(add_md, &ctx, p, s_fs->base, 
                             FS_DN_DOMAINS, "*", FS_FN_MD_JSON, NULL);
 }
 
@@ -241,10 +230,10 @@ static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds)
     return APR_ENOTIMPL;
 }
 
-static apr_status_t fs_load_md(md_store_t *store, md_t **pmd, const char *name)
+static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_load_md, s_fs, s_fs->p, pmd, name, NULL);
+    return md_util_pool_vdo(pfs_load_md, s_fs, p, pmd, name, NULL);
 }
 
 static apr_status_t fs_save_md(md_store_t *store, md_t *md)

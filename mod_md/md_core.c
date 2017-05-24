@@ -21,6 +21,7 @@
 #include <apr_time.h>
 
 #include "md.h"
+#include "md_json.h"
 #include "md_log.h"
 #include "md_util.h"
 
@@ -100,18 +101,59 @@ const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[])
     return NULL;   
 }
 
+md_t *md_copy(apr_pool_t *p, md_t *src)
+{
+    md_t *md;
+    
+    md = apr_pcalloc(p, sizeof(*md));
+    if (md) {
+        memcpy(md, src, sizeof(*md));
+        md->domains = apr_array_copy(p, src->domains);
+    }    
+    return md;   
+}
+
 md_t *md_clone(apr_pool_t *p, md_t *src)
 {
     md_t *md;
     
     md = apr_pcalloc(p, sizeof(*md));
-    md->state = src->state;
-    md->name = apr_pstrdup(p, src->name);
-    md->domains = md_array_str_clone(p, src->domains);
-    if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
-    if (src->ca_proto) md->ca_proto = apr_pstrdup(p, src->ca_proto);
-    if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
-    md->defn_line_number = src->defn_line_number;
-    
+    if (md) {
+        md->state = src->state;
+        md->name = apr_pstrdup(p, src->name);
+        md->domains = md_array_str_clone(p, src->domains);
+        if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
+        if (src->ca_proto) md->ca_proto = apr_pstrdup(p, src->ca_proto);
+        if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
+        md->defn_line_number = src->defn_line_number;
+    }    
     return md;   
+}
+
+md_json *md_to_json(const md_t *md, apr_pool_t *p)
+{
+    md_json *json = md_json_create(p);
+    if (json) {
+        md_json_sets(md->name, json, MD_KEY_NAME, NULL);
+        md_json_setsa(md->domains, json, MD_KEY_DOMAINS, NULL);
+        md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
+        md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
+        md_json_setl(md->state, json, MD_KEY_STATE, NULL);
+        return json;
+    }
+    return NULL;
+}
+
+md_t *md_from_json(md_json *json, apr_pool_t *p)
+{
+    md_t *md = md_create_empty(p);
+    if (md) {
+        md->name = md_json_dups(p, json, MD_KEY_NAME, NULL);            
+        md_json_dupsa(md->domains, p, json, MD_KEY_DOMAINS, NULL);
+        md->ca_proto = md_json_dups(p, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
+        md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
+        md->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);
+        return md;
+    }
+    return NULL;
 }

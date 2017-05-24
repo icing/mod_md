@@ -239,9 +239,28 @@ typedef struct md_cmd_ctx {
 
     md_acme *acme;
     const char *tos;
+    
+    md_json *json_out;
 } md_cmd_ctx;
 
 typedef apr_status_t md_cmd_fn(md_cmd_ctx *ctx, int argc, const char *const *argv);
+
+static void print_md(md_cmd_ctx *ctx, const md_t *md)
+{
+    if (ctx->json_out) {
+        md_json *json = md_to_json(md, ctx->p);
+        md_json_addj(json, ctx->json_out, "output", NULL);
+    }
+    else {
+        int i;
+        fprintf(stdout, "md: %s [", md->name);
+        for (i = 0; i < md->domains->nelts; ++i) {
+            const char *domain = APR_ARRAY_IDX(md->domains, i, const char*);
+            fprintf(stdout, "%s%s", (i? ", " : ""), domain);
+        }
+        fprintf(stdout, "]\n");
+    }
+}
 
 static apr_status_t cmd_acme(md_cmd_ctx *ctx, int argc, const char *const *argv)
 {
@@ -318,7 +337,7 @@ static apr_status_t cmd_acme(md_cmd_ctx *ctx, int argc, const char *const *argv)
 
 static apr_status_t cmd_add(md_cmd_ctx *ctx, int argc, const char *const *argv) 
 {
-    md_t *md;
+    md_t *md, *nmd;
     const char *err;
     apr_status_t rv;
     
@@ -330,7 +349,10 @@ static apr_status_t cmd_add(md_cmd_ctx *ctx, int argc, const char *const *argv)
     md->ca_url = ctx->ca_url;
     md->ca_proto = "ACME";
     rv = md_store_save_md(ctx->store, md);
-    fprintf(stderr, "saved md: %s\n", md->name);
+    if (APR_SUCCESS == rv) {
+        md_store_load_md(&nmd, ctx->store, md->name, ctx->p);
+        print_md(ctx, nmd);
+    }
     return rv;
 }
 
@@ -351,7 +373,6 @@ static int md_name_cmp(const void *v1, const void *v2)
 
 static apr_status_t cmd_list(md_cmd_ctx *ctx, int argc, const char *const *argv)
 {
-    apr_status_t rv;
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
     int i, j;
     
@@ -360,14 +381,10 @@ static apr_status_t cmd_list(md_cmd_ctx *ctx, int argc, const char *const *argv)
     
     for (i = 0; i < mdlist->nelts; ++i) {
         const md_t *md = APR_ARRAY_IDX(mdlist, i, const md_t*);
-        fprintf(stdout, "md: %s [", md->name);
-        for (j = 0; j < md->domains->nelts; ++j) {
-            const char *domain = APR_ARRAY_IDX(md->domains, j, const char*);
-            fprintf(stdout, "%s%s", (j? ", " : ""), domain);
-        }
-        fprintf(stdout, "]\n");
+        print_md(ctx, md);
     }
-    return rv;
+
+    return APR_SUCCESS;
 }
 
 typedef struct md_cmd_t {
@@ -403,6 +420,7 @@ static apr_getopt_option_t Options [] = {
     { "acme", 'a', 1, "the url of the ACME server directory"},
     { "dir", 'd', 1, "directory for file data"},
     { "help", 'h', 0, "print usage information"},
+    { "json", 'j', 0, "produce json output"},
     { "quiet", 'q', 0, "produce less output"},
     { "terms", 't', 1, "you agree to the terms of services (url)" },
     { "verbose", 'v', 0, "produce more output" },
@@ -474,6 +492,9 @@ int main(int argc, const char *const *argv)
             case 'h':
                 do_usage = 1;
                 break;
+            case 'j':
+                ctx.json_out = md_json_create(ctx.p);
+                break;
             case 'q':
                 if (active_level > 0) {
                     --active_level;
@@ -532,7 +553,7 @@ int main(int argc, const char *const *argv)
             fprintf(stderr, "error %d creating store for: %s\n", rv, base_dir);
             return 1;
         }
-        if (APR_SUCCESS != (rv = md_store_load(ctx.store, ctx.mds))) {
+        if (APR_SUCCESS != (rv = md_store_load(ctx.store, ctx.mds, ctx.p))) {
             fprintf(stderr, "error loading store from: %s\n", base_dir);
             return 1;
         }
@@ -546,6 +567,11 @@ int main(int argc, const char *const *argv)
     }
     
     rv = cmd->fn(&ctx, argc, argv);
+    
+    if (ctx.json_out) {
+        md_json_setl(rv, ctx.json_out, "status", NULL);
+        fprintf(stdout, "%s\n", md_json_writep(ctx.json_out, MD_JSON_FMT_INDENT, ctx.p));
+    }
     
     return (rv == APR_SUCCESS)? 0 : 1;
 }

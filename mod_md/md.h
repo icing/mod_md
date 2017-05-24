@@ -19,6 +19,7 @@
 #define MD_PROTO_ACME       "ACME"
 
 struct apr_hash_t;
+struct md_json;
 struct md_pkey;
 struct X509;
 
@@ -49,6 +50,7 @@ struct md_t {
 #define MD_KEY_NAME     "name"
 #define MD_KEY_PROTO    "proto"
 #define MD_KEY_URL      "url"
+#define MD_KEY_STATE    "state"
 
 /**
  * Determine if the Managed Domain contains a specific domain name.
@@ -75,7 +77,11 @@ md_t *md_create_empty(apr_pool_t *p);
  */
 const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const *argv);
 
+struct md_json *md_to_json(const md_t *md, apr_pool_t *p);
+md_t *md_from_json(struct md_json *json, apr_pool_t *p);
+
 md_t *md_clone(apr_pool_t *p, md_t *src);
+md_t *md_copy(apr_pool_t *p, md_t *src);
 
 typedef struct md_reg md_reg;
 struct md_reg {

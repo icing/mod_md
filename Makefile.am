@@ -27,17 +27,14 @@ SERVER_DIR      = @SERVER_DIR@
 test: $(SERVER_DIR)/.test-setup
 	@cd test; py.test
 
-test-regs: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_regs.py
-
 test-store: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_store.py
+	@cd test; py.test test_0001_store.py
 
 test-tos: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_tos.py
+	@cd test; py.test test_0200_tos.py
 
 test-authz: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_authz.py
+	@cd test; py.test test_0300_authz.py
 
 $(SERVER_DIR)/.test-setup: test/conf/* \
 		$(SERVER_DIR)/conf/ssl/cert.pem

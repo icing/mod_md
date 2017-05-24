@@ -56,24 +56,23 @@ class TestStore:
 
     def test_001(self):
         # try add a single dns managed domain
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR ]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "greenbytes.de"
         args.extend([ "add", dns1 ])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
-        md_file = os.path.join(STORE_DIR, 'domains', dns1, 'md.json')
-        with open(md_file) as json_data:
-            md = json.load(json_data)
-            assert md['name'] == dns1
-            assert len(md['domains']) == 1 
-            assert md['domains'][0] == dns1
-            assert md['ca']['url'] == ACME_URL
-            assert md['ca']['proto'] == 'ACME'
+        jout = json.loads(outdata)
+        md = jout['output'][0]
+        assert md['name'] == dns1
+        assert len(md['domains']) == 1 
+        assert md['domains'][0] == dns1
+        assert md['ca']['url'] == ACME_URL
+        assert md['ca']['proto'] == 'ACME'
 
     def test_002(self):
         # try add > 1 dns managed domain
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR ]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "greenbytes2.de"
         dns2 = "www.greenbytes2.de"
         dns3 = "mail.greenbytes2.de"
@@ -81,13 +80,12 @@ class TestStore:
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
-        md_file = os.path.join(STORE_DIR, 'domains', dns1, 'md.json')
-        with open(md_file) as json_data:
-            md = json.load(json_data)
-            assert md['name'] == dns1
-            assert len(md['domains']) == 3 
-            assert md['domains'][0] == dns1
-            assert md['domains'][1] == dns2
-            assert md['domains'][2] == dns3
-            assert md['ca']['url'] == ACME_URL
-            assert md['ca']['proto'] == 'ACME'
+        jout = json.loads(outdata)
+        md = jout['output'][0]
+        assert md['name'] == dns1
+        assert len(md['domains']) == 3 
+        assert md['domains'][0] == dns1
+        assert md['domains'][1] == dns2
+        assert md['domains'][2] == dns3
+        assert md['ca']['url'] == ACME_URL
+        assert md['ca']['proto'] == 'ACME'

@@ -44,13 +44,19 @@ apr_status_t md_json_setb(int value, md_json *json, ...);
 double md_json_getn(md_json *json, ...);
 apr_status_t md_json_setn(double value, md_json *json, ...);
 
+/* long manipulation */
+long md_json_getl(md_json *json, ...);
+apr_status_t md_json_setl(long value, md_json *json, ...);
+
 /* string manipulation */
 const char *md_json_gets(md_json *json, ...);
+const char *md_json_dups(apr_pool_t *p, md_json *json, ...);
 apr_status_t md_json_sets(const char *s, md_json *json, ...);
 
 /* json manipulation */
 md_json *md_json_getj(md_json *json, ...);
 apr_status_t md_json_setj(md_json *value, md_json *json, ...);
+apr_status_t md_json_addj(md_json *value, md_json *json, ...);
 
 /* Array/Object manipulation */
 apr_status_t md_json_clr(md_json *json, ...);
@@ -62,6 +68,7 @@ apr_status_t md_json_sets_dict(apr_table_t *dict, md_json *json, ...);
 
 /* Manipulating String Arrays */
 apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...);
+apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json *json, ...);
 apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...);
 
 /* serialization & parsing */
