@@ -69,33 +69,30 @@ md_t *md_create_empty(apr_pool_t *p)
     return md;
 }
 
-const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[])
+const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
 {
     md_t *md;
-    const char *name;
-    const char **np;
+    const char *domain, **np;
     int i;
     
-    if (!argc) {
-        return "needs at least one name";
+    if (domains->nelts <= 0) {
+        return "needs at least one domain name";
     }
-
+    
     md = md_create_empty(p);
     if (!md) {
         return "not enough memory";
     }
-    
-    for (i = 0; i < argc; ++i) {
-        name = argv[i];
-        if (md_array_str_case_index(md->domains, name, 0) < 0) {
+
+    for (i = 0; i < domains->nelts; ++i) {
+        domain = APR_ARRAY_IDX(domains, i, const char *);
+        if (md_array_str_case_index(md->domains, domain, 0) < 0) {
             np = (const char **)apr_array_push(md->domains);
-            md_util_str_tolower(apr_pstrdup(p, name));
-            *np = name;
-        }
-        if (!md->name) {
-            md->name = name;
+            md_util_str_tolower(apr_pstrdup(p, domain));
+            *np = domain;
         }
     }
+    md->name = APR_ARRAY_IDX(md->domains, 0, const char *);
  
     *pmd = md;
     return NULL;   

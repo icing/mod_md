@@ -26,6 +26,7 @@
 
 #include "md.h"
 #include "md_config.h"
+#include "md_util.h"
 #include "md_private.h"
 
 
@@ -91,15 +92,25 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
                                        int argc, char *const argv[])
 {
     md_config *config = (md_config *)md_config_sget(parms->server);
-    const char *err;
+    apr_array_header_t *domains = apr_array_make(parms->pool, 5, sizeof(const char *));
+    const char *err, *name, **np;
     md_t *md, **pmd;
-    
+    int i;
+
     err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
     if (err) {
         return err;
     }
     
-    err = md_create(&md, parms->pool, argc, argv);
+    for (i = 0; i < argc; ++i) {
+        name = argv[i];
+        if (md_array_str_case_index(domains, name, 0) < 0) {
+            np = (const char **)apr_array_push(domains);
+            md_util_str_tolower(apr_pstrdup(parms->pool, name));
+            *np = name;
+        }
+    }
+    err = md_create(&md, parms->pool, domains);
     if (err) {
         return err;
     }

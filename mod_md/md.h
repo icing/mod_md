@@ -75,7 +75,7 @@ md_t *md_create_empty(apr_pool_t *p);
 /**
  * Create a managed domain, given a list of domain names.
  */
-const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const *argv);
+const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains);
 
 struct md_json *md_to_json(const md_t *md, apr_pool_t *p);
 md_t *md_from_json(struct md_json *json, apr_pool_t *p);
