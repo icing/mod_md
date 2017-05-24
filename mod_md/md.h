@@ -49,7 +49,6 @@ struct md_t {
 #define MD_KEY_NAME     "name"
 #define MD_KEY_PROTO    "proto"
 #define MD_KEY_URL      "url"
-#define MD_KEY_URL      "url"
 
 /**
  * Determine if the Managed Domain contains a specific domain name.

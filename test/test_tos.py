@@ -54,12 +54,12 @@ def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
 
-class TestRegs:
+class TestToS:
 
     def test_001(self):
         # try register a new account with valid tos agreements
         args = [A2MD, "-a", ACME_URL, "--terms", ACME_TOS ]
-        args.extend(["newreg", "xx@example.org"])
+        args.extend(["acme", "newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -70,7 +70,7 @@ class TestRegs:
     def test_002(self):
         # try register a new account with invalid tos agreements
         args = [A2MD, "-a", ACME_URL, "--terms", ACME_TOS2 ]
-        args.extend(["newreg", "xx@example.org"])
+        args.extend(["acme", "newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 1
@@ -78,7 +78,7 @@ class TestRegs:
     def test_003(self):
         # register new account, agree to tos afterwards
         args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
-        args.extend(["newreg", "tmp@example.org"])
+        args.extend(["acme", "newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -86,7 +86,7 @@ class TestRegs:
         assert m
         acct = m.group(1)
         args = [A2MD, "-d", CA1_DIR]
-        args.extend(["agree", acct])
+        args.extend(["acme", "agree", acct])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0

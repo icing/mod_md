@@ -73,13 +73,13 @@ def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
 
-class TestRegs:
+class TestAuthz:
 
     def test_001(self):
         # register a new account, agree to tos, create auth resource
         domain = "www.test-example.org"
         args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR, "-t", ACME_TOS]
-        args.extend(["newreg", "tmp@example.org"])
+        args.extend(["acme", "newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -88,7 +88,7 @@ class TestRegs:
         acct = m.group(1)
 
         args = [A2MD, "-d", CA1_DIR]
-        args.extend(["authz", acct, domain])
+        args.extend(["acme", "authz", acct, domain])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0

@@ -21,29 +21,13 @@
 #include <apr_time.h>
 
 #include "md.h"
+#include "md_log.h"
 #include "md_util.h"
 
 
-static int ap_array_str_case_index(const apr_array_header_t *array, 
-                                   const char *s, int start)
-{
-    if (start >= 0) {
-        int i;
-        
-        for (i = start; i < array->nelts; i++) {
-            const char *p = APR_ARRAY_IDX(array, i, const char *);
-            if (!apr_strnatcasecmp(p, s)) {
-                return i;
-            }
-        }
-    }
-    
-    return -1;
-}
-
 int md_contains(const md_t *md, const char *domain)
 {
-   return ap_array_str_case_index(md->domains, domain, 0) >= 0;
+   return md_array_str_case_index(md->domains, domain, 0) >= 0;
 }
 
 const char *md_common_name(const md_t *md1, const md_t *md2)
@@ -102,7 +86,7 @@ const char *md_create(md_t **pmd, apr_pool_t *p, int argc, char *const argv[])
     
     for (i = 0; i < argc; ++i) {
         name = argv[i];
-        if (ap_array_str_case_index(md->domains, name, 0) < 0) {
+        if (md_array_str_case_index(md->domains, name, 0) < 0) {
             np = (const char **)apr_array_push(md->domains);
             md_util_str_tolower(apr_pstrdup(p, name));
             *np = name;
@@ -121,7 +105,13 @@ md_t *md_clone(apr_pool_t *p, md_t *src)
     md_t *md;
     
     md = apr_pcalloc(p, sizeof(*md));
+    md->state = src->state;
     md->name = apr_pstrdup(p, src->name);
-    md->domains = apr_array_copy(p, src->domains);
+    md->domains = md_array_str_clone(p, src->domains);
+    if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
+    if (src->ca_proto) md->ca_proto = apr_pstrdup(p, src->ca_proto);
+    if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
+    md->defn_line_number = src->defn_line_number;
+    
     return md;   
 }

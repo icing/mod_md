@@ -18,6 +18,7 @@
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_file_io.h>
+#include <apr_fnmatch.h>
 #include <apr_tables.h>
 #include <apr_time.h>
 
@@ -38,20 +39,27 @@ apr_status_t md_util_pool_do(md_util_action *cb, void *baton, apr_pool_t *p)
     return rv;
 }
  
-apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, ...)
+static apr_status_t pool_vado(md_util_vaction *cb, void *baton, apr_pool_t *p, va_list ap)
 {
     apr_pool_t *ptemp;
-    va_list ap;
     apr_status_t rv;
     
     rv = apr_pool_create(&ptemp, p);
     if (APR_SUCCESS == rv) {
-        va_start(ap, p);
         rv = cb(baton, p, ptemp, ap);
-        va_end(ap);
-        
         apr_pool_destroy(ptemp);
     }
+    return rv;
+}
+ 
+apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, ...)
+{
+    va_list ap;
+    apr_status_t rv;
+    
+    va_start(ap, p);
+    rv = pool_vado(cb, baton, p, ap);
+    va_end(ap);
     return rv;
 }
  
@@ -64,6 +72,39 @@ void md_util_str_tolower(char *s)
         *s = apr_tolower(*s);
         ++s;
     }
+}
+
+int md_array_str_case_index(const apr_array_header_t *array, const char *s, int start)
+{
+    if (start >= 0) {
+        int i;
+        
+        for (i = start; i < array->nelts; i++) {
+            const char *p = APR_ARRAY_IDX(array, i, const char *);
+            if (!apr_strnatcasecmp(p, s)) {
+                return i;
+            }
+        }
+    }
+    
+    return -1;
+}
+
+apr_array_header_t *md_array_str_clone(apr_pool_t *p, apr_array_header_t *src)
+{
+    apr_array_header_t *dest = apr_array_make(p, src->nelts, sizeof(const char*));
+    if (dest) {
+        int i;
+        for (i = 0; i < src->nelts; i++) {
+            const char *s = APR_ARRAY_IDX(src, i, const char *), **pd;
+            pd = (const char **)apr_array_push(dest);
+            *pd = apr_pstrdup(p, s); 
+            if (!*pd) {
+                return NULL;
+            }
+        }
+    }
+    return dest;
 }
 
 /**************************************************************************************************/
@@ -166,6 +207,98 @@ creat:
     }
     return rv;
 }                            
+
+typedef struct {
+    const char *path;
+    apr_array_header_t *patterns;
+    void *baton;
+    md_util_files_do_cb *cb;
+} md_util_fwalk_t;
+
+static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int depth, 
+                                 apr_pool_t *p, apr_pool_t *ptemp)
+{
+    apr_status_t rv = APR_SUCCESS;
+    const char *pattern, *npath;
+    apr_dir_t *d;
+    apr_finfo_t finfo;
+    int ndepth = depth + 1;
+
+    if (depth >= ctx->patterns->nelts) {
+        return APR_SUCCESS;
+    }
+    pattern = APR_ARRAY_IDX(ctx->patterns, depth, const char *);
+    
+    rv = apr_dir_open(&d, path, ptemp);
+    if (APR_SUCCESS != rv) {
+        return rv;
+    }
+    
+    while (APR_SUCCESS == rv
+           && APR_SUCCESS == (rv = apr_dir_read(&finfo, (APR_FINFO_TYPE|APR_FINFO_NAME), d))) {
+        if (strcmp(".", finfo.name) && strcmp("..", finfo.name) 
+            && APR_SUCCESS == apr_fnmatch(pattern, finfo.name, 0)) {
+            if (ndepth < ctx->patterns->nelts) {
+                if (APR_DIR == finfo.filetype) { 
+                    /* deeper and deeper, irgendwo in der tiefe leuchtet ein licht */
+                    rv = md_util_path_merge(&npath, ptemp, path, finfo.name, NULL);
+                    if (APR_SUCCESS == rv) {
+                        rv = match_and_do(ctx, npath, ndepth, p, ptemp);
+                    }
+                }
+            }
+            else {
+                rv = ctx->cb(ctx->baton, p, ptemp, path, &finfo);
+            }
+        }
+    }
+
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_SUCCESS;
+    }
+
+    apr_dir_close(d);
+    return rv;
+}
+
+static apr_status_t files_do_start(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_util_fwalk_t *ctx = baton;
+    const char *segment, **ps;
+
+    ctx->patterns = apr_array_make(ptemp, 5, sizeof(const char*));
+    if (!ctx->patterns) {
+        return APR_ENOMEM;
+    }
+    
+    segment = va_arg(ap, char *);
+    while (segment) {
+        ps = (const char **)apr_array_push(ctx->patterns);
+        *ps = segment;
+        segment = va_arg(ap, char *);
+    }
+    
+    return match_and_do(ctx, ctx->path, 0, p, ptemp);
+}
+
+apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *p, 
+                              const char *path, ...)
+{
+    apr_status_t rv;
+    va_list ap;
+    md_util_fwalk_t ctx;
+
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.path = path;
+    ctx.cb = cb;
+    ctx.baton = baton;
+    
+    va_start(ap, path);
+    rv = pool_vado(files_do_start, &ctx, p, ap);
+    va_end(ap);
+    
+    return rv;
+}
 
 /* base64 url encoding ****************************************************************************/
 

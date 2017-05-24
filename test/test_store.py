@@ -52,7 +52,7 @@ def setup_module(module):
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
-class TestRegs:
+class TestStore:
 
     def test_001(self):
         # try add a single dns managed domain

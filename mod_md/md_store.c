@@ -67,6 +67,7 @@ struct md_store_fs_t {
     
     apr_pool_t *p;          /* duplicate for convenience */
     const char *base;       /* base directory of store */
+    apr_hash_t *mds;
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
@@ -93,8 +94,9 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
         s_fs->s.save = fs_save;
         s_fs->s.load_md = fs_load_md;
         s_fs->s.save_md = fs_save_md;
+        s_fs->mds = apr_hash_make(p);
         
-        if (NULL == (s_fs->base = apr_pstrdup(p, path)) 
+        if (NULL == s_fs->mds || NULL == (s_fs->base = apr_pstrdup(p, path)) 
             || APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
         }
@@ -109,33 +111,63 @@ static void fs_destroy(md_store_t *store)
     s_fs->s.p = NULL;
 }
 
+static apr_status_t pfs_md_readf(md_t **pmd, const char *fpath, apr_pool_t *p, apr_pool_t *ptemp)
+{
+    md_json *json;
+    apr_status_t rv;
+    
+    *pmd = NULL;
+    rv = md_json_readf(&json, ptemp, fpath);
+    if (APR_SUCCESS == rv) {
+        md_t *md = md_create_empty(ptemp);
+        if (md) {
+            md->name = md_json_gets(json, MD_KEY_NAME, NULL);            
+            md_json_getsa(md->domains, json, MD_KEY_DOMAINS, NULL);
+            md->ca_proto = md_json_gets(json, MD_KEY_CA, MD_KEY_PROTO, NULL);
+            md->ca_url = md_json_gets(json, MD_KEY_CA, MD_KEY_URL, NULL);
+            md->defn_name = fpath;
+
+            if ((*pmd = md_clone(p, md))) {  /* bring into perm pool */
+                return APR_SUCCESS;
+            }
+        }
+        return APR_ENOMEM;
+    }
+    return rv;
+}
+
+static apr_status_t pfs_md_writef(md_t *md, const char *dir, const char *name, apr_pool_t *p)
+{
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, p))) {
+        md_json *json = md_json_create(p);
+        if (json) {
+            md_json_sets(md->name, json, MD_KEY_NAME, NULL);
+            md_json_setsa(md->domains, json, MD_KEY_DOMAINS, NULL);
+            md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
+            md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
+            
+            return md_json_freplace(json, p, dir, name);
+        }
+        return APR_ENOMEM;
+    }
+    return rv;
+}
+
 static apr_status_t pfs_load_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
     const char *fpath, *name;
-    md_t **pmd, *md = NULL;
+    md_t **pmd;
     apr_status_t rv;
     
     pmd = va_arg(ap, md_t **);
     name = va_arg(ap, const char *);
     rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, FS_FN_MD_JSON, NULL);
     if (APR_SUCCESS == rv) {
-        md_json *json;
-        
-        rv = md_json_readf(&json, ptemp, fpath);
-        if (APR_SUCCESS == rv) {
-            md_t *md = md_create_empty(p); /* from outside pool */
-            if (md) {
-                md->name = apr_pstrdup(p, name);
-                md->defn_name = apr_pstrdup(p, fpath);
-                
-                md_json_getsa(md->domains, json, MD_KEY_DOMAINS, NULL);
-                md->ca_proto = md_json_gets(json, MD_KEY_CA, MD_KEY_PROTO, NULL);
-                md->ca_url = md_json_gets(json, MD_KEY_CA, MD_KEY_URL, NULL);
-            }
-        }
+        rv = pfs_md_readf(pmd, fpath, p, ptemp);
     }
-    *pmd = (APR_SUCCESS == rv)? md : NULL;
     return rv;
 }
 
@@ -149,23 +181,59 @@ static apr_status_t pfs_save_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     md = va_arg(ap, md_t *);
     rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, md->name, NULL);
     if (APR_SUCCESS == rv) {
-        if (APR_SUCCESS == (rv = apr_dir_make_recursive(fpath, MD_FPROT_D_UONLY, ptemp))) {
-            md_json *json = md_json_create(ptemp);
-            
-            md_json_sets(md->name, json, MD_KEY_NAME, NULL);
-            md_json_setsa(md->domains, json, MD_KEY_DOMAINS, NULL);
-            md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
-            md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
-            
-            rv = md_json_freplace(json, ptemp, fpath, FS_FN_MD_JSON);
+        rv = pfs_md_writef(md, fpath, FS_FN_MD_JSON, ptemp);
+    }
+    return rv;
+}
+
+typedef struct {
+    md_store_fs_t *s_fs;
+    apr_hash_t *mds;
+} md_load_ctx;
+
+static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                           const char *dir, struct apr_finfo_t *info)
+{
+    md_load_ctx *ctx = baton;
+    const char *fpath;
+    apr_status_t rv;
+    md_t *md;
+    
+    rv = md_util_path_merge(&fpath, ptemp, dir, info->name, NULL);
+    if (APR_SUCCESS == rv) {
+        rv = pfs_md_readf(&md, fpath, p, ptemp);
+        if (APR_SUCCESS == rv) {
+            if (!md->name) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ptemp, 
+                              "md has no name, ignoring %s", fpath);
+                return APR_EINVAL;
+            }
+            if (apr_hash_get(ctx->mds, md->name, strlen(md->name))) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ptemp, 
+                              "md %s already loaded, ignoring %s", md->name, fpath);
+                return APR_EEXIST;
+            }
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, 
+                          "adding md %s from %s", md->name, fpath);
+            apr_hash_set(ctx->mds, md->name, strlen(md->name), md);
+            return APR_SUCCESS;
         }
     }
+    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ptemp, 
+                  "reading md from: %s/%s", dir, info->name);
     return rv;
 }
 
 static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds)
 {
-    return APR_ENOTIMPL;
+    md_store_fs_t *s_fs = FS_STORE(store);
+    md_load_ctx ctx;
+    
+    ctx.s_fs = s_fs;
+    ctx.mds = mds;
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, s_fs->p, "loading all mds in %s", s_fs->base);
+    return md_util_files_do(add_md, &ctx, s_fs->p, s_fs->base, 
+                            FS_DN_DOMAINS, "*", FS_FN_MD_JSON, NULL);
 }
 
 static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds)

@@ -57,7 +57,7 @@ class TestRegs:
     def test_001(self):
         # try register a new account
         args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "xx@example.org"])
+        args.extend(["acme", "newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -68,7 +68,7 @@ class TestRegs:
     def test_002(self):
         # register with varying length to check our base64 encoding
         args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "x@example.org"])
+        args.extend(["acme", "newreg", "x@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         p.communicate()
         assert p.wait() == 0
@@ -76,7 +76,7 @@ class TestRegs:
     def test_003(self):
         # register with varying length to check our base64 encoding
         args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "xxx@example.org"])
+        args.extend(["acme", "newreg", "xxx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         p.communicate()
         assert p.wait() == 0
@@ -84,7 +84,7 @@ class TestRegs:
     def test_004(self):
         # needs to fail on an invalid contact url
         args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "mehlto:xxx@example.org"])
+        args.extend(["acme", "newreg", "mehlto:xxx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         p.communicate()
         assert p.wait() == 1
@@ -92,7 +92,7 @@ class TestRegs:
     def test_010(self):
         # register and try delete an account, will fail without persistence
         args = [A2MD, "-a", ACME_URL]
-        args.extend(["newreg", "tmp@example.org"])
+        args.extend(["acme", "newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -108,7 +108,7 @@ class TestRegs:
     def test_012(self):
         # register and try delete an account with persistence
         args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
-        args.extend(["newreg", "tmp@example.org"])
+        args.extend(["acme", "newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -116,7 +116,7 @@ class TestRegs:
         assert m
         acct = m.group(1)
         args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
-        args.extend(["delreg", acct])
+        args.extend(["acme", "delreg", acct])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -124,7 +124,7 @@ class TestRegs:
     def test_013(self):
         # delete a persisted account without specifying url
         args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
-        args.extend(["newreg", "tmp@example.org"])
+        args.extend(["acme", "newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -132,7 +132,7 @@ class TestRegs:
         assert m
         acct = m.group(1)
         args = [A2MD, "-d", CA1_DIR]
-        args.extend(["delreg", acct])
+        args.extend(["acme", "delreg", acct])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0

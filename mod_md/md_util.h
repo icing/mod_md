@@ -34,10 +34,15 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /* string related */
 void md_util_str_tolower(char *s);
 
+int md_array_str_case_index(const apr_array_header_t *array, const char *s, int start);
+
+apr_array_header_t *md_array_str_clone(apr_pool_t *p, apr_array_header_t *array);
+
 /**************************************************************************************************/
 /* file system related */
 
 struct apr_file_t;
+struct apr_finfo_t;
 
 apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode);
 
@@ -51,6 +56,12 @@ typedef apr_status_t md_util_file_cb(void *baton, struct apr_file_t *f, apr_pool
 
 apr_status_t md_util_freplace(const char *path, const char *name, apr_pool_t *p, 
                               md_util_file_cb *write, void *baton);
+
+typedef apr_status_t md_util_files_do_cb(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                                         const char *dir, struct apr_finfo_t *info);
+
+apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *p, 
+                              const char *path, ...);
 
 /**************************************************************************************************/
 /* base64 url encodings */
