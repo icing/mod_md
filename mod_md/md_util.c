@@ -300,6 +300,11 @@ apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *
     return rv;
 }
 
+apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p)
+{
+    return APR_ENOTIMPL;
+}
+
 /* base64 url encoding ****************************************************************************/
 
 static const int BASE64URL_UINT6[] = {

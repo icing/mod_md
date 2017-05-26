@@ -58,6 +58,11 @@ apr_status_t md_store_save_md(md_store_t *store, md_t *md)
     return store->save_md(store, md);
 }
 
+apr_status_t md_store_remove_md(md_store_t *store, const char *name, int force)
+{
+    return store->remove_md(store, name, force);
+}
+
 /**************************************************************************************************/
 /* file system based implementation */
 
@@ -80,6 +85,7 @@ static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p);
 static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds);
 static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p);
 static apr_status_t fs_save_md(md_store_t *store, md_t *md);
+static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force);
 
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
 {
@@ -94,6 +100,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
         s_fs->s.save = fs_save;
         s_fs->s.load_md = fs_load_md;
         s_fs->s.save_md = fs_save_md;
+        s_fs->s.remove_md = fs_remove_md;
         s_fs->mds = apr_hash_make(p);
         
         if (NULL == s_fs->mds || NULL == (s_fs->base = apr_pstrdup(p, path)) 
@@ -175,6 +182,52 @@ static apr_status_t pfs_save_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     return rv;
 }
 
+static apr_status_t pfs_remove_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *path, *name;
+    apr_status_t rv;
+    int force;
+    apr_finfo_t info;
+    
+    name = va_arg(ap, const char*);
+    force = va_arg(ap, int);
+    
+    rv = md_util_path_merge(&path, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL);
+    if (APR_SUCCESS != rv) {
+        return rv;
+    }
+    
+    if (APR_SUCCESS != (rv = apr_stat(&info, path, APR_FINFO_TYPE, ptemp))) {
+        if (APR_ENOENT == rv) {
+            if (force) {
+                return APR_SUCCESS;
+            }
+            fprintf(stderr, "managed domain does not exist: %s\n", name);
+            return rv;
+        }
+        fprintf(stderr, "error %d accessing managed domain: %s\n", rv, name);
+        return rv;
+    }
+    
+    switch (info.filetype) {
+        case APR_DIR: /* how it should be */
+            /* TODO: check if there is important data, such as keys or certificates. Only
+             * remove the md when forced in such cases. */
+            rv = md_util_ftree_remove(path, ptemp);
+            break;
+        default:      /* how did that get here? suspicious */
+            if (!force) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, 
+                              "remove md %s: not a directory at %s", name, path);
+                return APR_EINVAL;
+            }
+            rv = apr_file_remove(path, ptemp);
+            break;
+    }
+    return rv;
+}
+
 typedef struct {
     md_store_fs_t *s_fs;
     apr_hash_t *mds;
@@ -240,4 +293,10 @@ static apr_status_t fs_save_md(md_store_t *store, md_t *md)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     return md_util_pool_vdo(pfs_save_md, s_fs, s_fs->p, md, NULL);
+}
+
+static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_remove_md, s_fs, s_fs->p, name, force, NULL);
 }

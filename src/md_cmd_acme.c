@@ -53,8 +53,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         *cpp = md_util_schemify(ctx->p, ctx->argv[i], "mailto");
     }
     if (apr_is_empty_array(contacts)) {
-        usage(cmd, "newreg needs at least one contact email as argument");
-        return APR_EGENERAL;
+        return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
     rv = md_acme_register(&acct, ctx->acme, contacts, ctx->tos);
@@ -213,8 +212,7 @@ static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     int i;
     
     if (ctx->argc <= 0) {
-        usage(cmd, NULL);
-        return APR_EGENERAL;
+        return usage(cmd, NULL);
     }
     s = ctx->argv[0];
     acct = md_acme_acct_get(ctx->acme, s);

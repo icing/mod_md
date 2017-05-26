@@ -66,6 +66,8 @@ typedef apr_status_t md_util_files_do_cb(void *baton, apr_pool_t *p, apr_pool_t 
 apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *p, 
                               const char *path, ...);
 
+apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p);
+
 /**************************************************************************************************/
 /* base64 url encodings */
 const char *md_util_base64url_encode(const char *data, 

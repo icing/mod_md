@@ -46,7 +46,7 @@ apr_getopt_option_t MD_NoOptions [] = {
     { NULL, 0, 0, NULL }
 };
 
-void usage(const md_cmd_t *cmd, const char *msg) 
+apr_status_t usage(const md_cmd_t *cmd, const char *msg) 
 {
     const apr_getopt_option_t *opt;
     int i;
@@ -82,6 +82,27 @@ void usage(const md_cmd_t *cmd, const char *msg)
     exit(msg? 1 : 2);
 }
 
+static apr_status_t md_cmd_ctx_init(md_cmd_ctx *ctx, apr_pool_t *p, 
+                                    int argc, const char *const *argv)
+{
+    ctx->p = p;
+    ctx->argc = argc;
+    ctx->argv = argv;
+    ctx->options = apr_table_make(p, 5);
+    
+    return ctx->options? APR_SUCCESS : APR_ENOMEM;
+}
+
+void md_cmd_ctx_set_option(md_cmd_ctx *ctx, const char *key, const char *value)
+{
+    apr_table_setn(ctx->options, key, value);
+}
+
+int md_cmd_ctx_has_option(md_cmd_ctx *ctx, const char *option)
+{
+    return NULL != apr_table_get(ctx->options, option);
+}
+
 static const md_cmd_t *find_cmd(const md_cmd_t **cmds, const char *name) 
 {
     int i;
@@ -108,20 +129,20 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     apr_getopt_init(&os, ctx->p, ctx->argc, ctx->argv);
     while ((rv = apr_getopt_long(os, cmd->opts, &opt, &optarg)) == APR_SUCCESS) {
         if (!cmd->opt_fn) {
-            usage(cmd, NULL);
+            return usage(cmd, NULL);
         }
         else if (APR_SUCCESS != (rv = cmd->opt_fn(ctx, opt, optarg))) {
-            usage(cmd, NULL);
+            return usage(cmd, NULL);
         }
     }
     if (rv != APR_EOF) {
-        usage(cmd, NULL);
+        return usage(cmd, NULL);
     }
     
-    if (ctx->do_usage) {
-        usage(cmd, NULL);
+    if (md_cmd_ctx_has_option(ctx, "help")) {
+        return usage(cmd, NULL);
     }
-    if (ctx->do_version) {
+    if (md_cmd_ctx_has_option(ctx, "version")) {
         fprintf(stdout, "version: %s\n", MOD_MD_VERSION);
         exit(0);
     }
@@ -169,7 +190,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         const md_cmd_t *sub_cmd;
         
         if (!ctx->argc) {
-            usage(cmd, "sub command is missing");
+            return usage(cmd, "sub command is missing");
         }
         
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "sub command %s", ctx->argv[0]);
@@ -251,6 +272,18 @@ static int pool_abort(int rv)
     exit(1);
 }
 
+apr_array_header_t *md_cmd_gather_args(md_cmd_ctx *ctx, int index)
+{
+    const char **ps;
+    int i;
+    
+    apr_array_header_t *args = apr_array_make(ctx->p, 5, sizeof(const char *));
+    for (i = index; i < ctx->argc; ++i) {
+        ps = (const char **)apr_array_push(args);
+        *ps = ctx->argv[i];
+    }
+    return args;
+}
 
 /**************************************************************************************************/
 /* command: main() */
@@ -265,7 +298,7 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
             ctx->base_dir = optarg;
             break;
         case 'h':
-            ctx->do_usage = 1;
+            md_cmd_ctx_set_option(ctx, "help", "1");
             break;
         case 'j':
             ctx->json_out = md_json_create(ctx->p);
@@ -281,7 +314,7 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
             }
             break;
         case 'V':
-            ctx->do_version = 1;
+            md_cmd_ctx_set_option(ctx, "version", "1");
             break;
         case 't':
             ctx->tos = optarg;
@@ -322,7 +355,7 @@ int main(int argc, const char *const *argv)
 {
     apr_allocator_t *allocator;
     apr_status_t rv;
-    apr_pool_t *pool;
+    apr_pool_t *p;
     int i;
     apr_hash_t *mds;
     md_cmd_ctx ctx;
@@ -332,22 +365,20 @@ int main(int argc, const char *const *argv)
     md_log_set(log_is_level, log_print, NULL);
     
     apr_allocator_create(&allocator);
-    rv = apr_pool_create_ex(&ctx.p, NULL, pool_abort, allocator);
+    rv = apr_pool_create_ex(&p, NULL, pool_abort, allocator);
     if (rv != APR_SUCCESS) {
         fprintf(stderr, "error initializing pool\n");
         return 1;
     }
     
-    md_acme_init(ctx.p);
-    
-    ctx.argc = argc;
-    ctx.argv = argv;
+    md_acme_init(p);
+    md_cmd_ctx_init(&ctx, p, argc, argv);
     
     rv = cmd_process(&ctx, &MainCmd);
     
     if (ctx.json_out) {
         md_json_setl(rv, ctx.json_out, "status", NULL);
-        fprintf(stdout, "%s\n", md_json_writep(ctx.json_out, MD_JSON_FMT_INDENT, ctx.p));
+        fprintf(stdout, "%s\n", md_json_writep(ctx.json_out, MD_JSON_FMT_INDENT, p));
     }
     
     return (rv == APR_SUCCESS)? 0 : 1;

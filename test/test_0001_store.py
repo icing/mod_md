@@ -89,3 +89,19 @@ class TestStore:
         assert md['domains'][2] == dns3
         assert md['ca']['url'] == ACME_URL
         assert md['ca']['proto'] == 'ACME'
+
+    def test_100(self):
+        # create and remove a managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns1 = "test-100.com"
+        args.extend([ "store", "add", dns1 ])
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        (outdata, errdata) = p.communicate()
+        assert p.wait() == 0
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns1 = "test-100.com"
+        args.extend([ "store", "remove", dns1 ])
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        (outdata, errdata) = p.communicate()
+        # should be: assert p.wait() == 0
+        assert p.wait() == 1

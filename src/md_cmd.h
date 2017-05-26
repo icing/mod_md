@@ -17,6 +17,7 @@
 #define md_cmd_h
 
 struct apr_getopt_option_t;
+struct apr_table_t;
 
 typedef struct md_opts md_opts;
 typedef struct md_cmd_ctx  md_cmd_ctx;
@@ -35,8 +36,7 @@ struct md_cmd_ctx {
     md_reg_t *reg;
     md_acme *acme;
 
-    int do_usage;
-    int do_version;
+    struct apr_table_t *options;
     
     const char *tos;
 
@@ -45,6 +45,11 @@ struct md_cmd_ctx {
     int argc;
     const char *const *argv;
 };
+
+int md_cmd_ctx_has_option(md_cmd_ctx *ctx, const char *key);
+
+void md_cmd_ctx_set_option(md_cmd_ctx *ctx, const char *key, const char *value);
+
 
 /* needs */
 #define MD_CTX_NONE            0x0000
@@ -71,7 +76,9 @@ extern apr_getopt_option_t MD_NoOptions[];
 
 #define TOS_DEFAULT     "https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf"
 
-void usage(const md_cmd_t *cmd, const char *msg);
+apr_status_t usage(const md_cmd_t *cmd, const char *msg);
+
+apr_array_header_t *md_cmd_gather_args(md_cmd_ctx *ctx, int index);
 
 void md_cmd_print_md(md_cmd_ctx *ctx, const md_t *md);
 
