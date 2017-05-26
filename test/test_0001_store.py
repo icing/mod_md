@@ -58,7 +58,7 @@ class TestStore:
         # try add a single dns managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "greenbytes.de"
-        args.extend([ "add", dns1 ])
+        args.extend([ "store", "add", dns1 ])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0
@@ -76,7 +76,7 @@ class TestStore:
         dns1 = "greenbytes2.de"
         dns2 = "www.greenbytes2.de"
         dns3 = "mail.greenbytes2.de"
-        args.extend([ "add", dns1, dns2, dns3 ])
+        args.extend([ "store", "add", dns1, dns2, dns3 ])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
         assert p.wait() == 0

@@ -22,8 +22,10 @@ LDFLAGS = -lapr-1 -laprutil-1  -lcurl -lssl -lcrypto
 
 bin_PROGRAMS = a2md
 
-a2md_SOURCES = \
+OBJECTS = \
     md_main.c \
+    md_cmd_acme.c \
+    md_cmd_store.c \
     ../mod_md/md_acme.c \
     ../mod_md/md_acme_acct.c \
     ../mod_md/md_acme_authz.c \
@@ -38,4 +40,7 @@ a2md_SOURCES = \
     ../mod_md/md_store.c \
     ../mod_md/md_util.c
 
+HFILES = \
+    md_cmd.h
 
+a2md_SOURCES = $(HFILES) $(OBJECTS)

@@ -18,6 +18,11 @@
 		B2BCAB821ED5B77E002F4EB9 /* test_1001_configs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_1001_configs.py; sourceTree = "<group>"; };
 		B2BCAB831ED82F6F002F4EB9 /* md_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_reg.c; sourceTree = "<group>"; };
 		B2BCAB841ED82F6F002F4EB9 /* md_reg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_reg.h; sourceTree = "<group>"; };
+		B2BCAB851ED84A42002F4EB9 /* md_cmd_acme.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_acme.c; sourceTree = "<group>"; };
+		B2BCAB861ED84A42002F4EB9 /* md_cmd_acme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_acme.h; sourceTree = "<group>"; };
+		B2BCAB871ED84A86002F4EB9 /* md_cmd_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_store.c; sourceTree = "<group>"; };
+		B2BCAB881ED84A86002F4EB9 /* md_cmd_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_store.h; sourceTree = "<group>"; };
+		B2BCAB891ED84ABE002F4EB9 /* md_cmd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd.h; sourceTree = "<group>"; };
 		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -204,7 +209,12 @@
 			isa = PBXGroup;
 			children = (
 				B2D31B071EC33CBE007BECC8 /* Makefile.am */,
+				B2BCAB851ED84A42002F4EB9 /* md_cmd_acme.c */,
+				B2BCAB861ED84A42002F4EB9 /* md_cmd_acme.h */,
+				B2BCAB871ED84A86002F4EB9 /* md_cmd_store.c */,
+				B2BCAB881ED84A86002F4EB9 /* md_cmd_store.h */,
 				B2D31B081EC33D77007BECC8 /* md_main.c */,
+				B2BCAB891ED84ABE002F4EB9 /* md_cmd.h */,
 			);
 			path = src;
 			sourceTree = SOURCE_ROOT;
