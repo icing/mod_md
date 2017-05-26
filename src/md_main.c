@@ -31,12 +31,18 @@
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_reg.h"
 #include "md_store.h"
 #include "md_util.h"
 #include "mod_md.h"
 #include "md_version.h"
 
 #define TOS_DEFAULT     "https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf"
+
+#define MD_CTX_NONE            0x0000
+#define MD_CTX_STORE           0x0001
+#define MD_CTX_REG             (0x0002 & MD_CTX_STORE)
+#define MD_CTX_ACME            0x0004
 
 /**************************************************************************************************/
 /* command infrastructure */
@@ -50,17 +56,19 @@ typedef apr_status_t md_cmd_do_fn(md_cmd_ctx *ctx, const md_cmd_t *cmd);
 
 struct md_cmd_ctx {
     apr_pool_t *p;
+    
     const char *base_dir;
     const char *ca_url;
+    
     md_store_t *store;
-    apr_hash_t *mds;
+    md_reg_t *reg;
+    md_acme *acme;
 
     int do_usage;
     int do_version;
     
-    md_acme *acme;
     const char *tos;
-    
+
     md_json *json_out;
     
     int argc;
@@ -68,18 +76,17 @@ struct md_cmd_ctx {
 };
 
 struct md_cmd_t {
-    const char *name;
-    int needs_store;
-    int needs_acme;
+    const char *name;                   /* command name */
+    int needs;                          /* command needs: store, reg, acme etc. */
     
-    md_cmd_opt_fn *opt_fn;
-    md_cmd_do_fn *do_fn;
+    md_cmd_opt_fn *opt_fn;              /* callback for options handling */
+    md_cmd_do_fn *do_fn;                /* callback for executing the command */
     
-    const apr_getopt_option_t *opts;
-    const md_cmd_t **sub_cmds;
+    const apr_getopt_option_t *opts;    /* options definitions */
+    const md_cmd_t **sub_cmds;          /* sub commands of this command or NULL */
     
-    const char *synopsis;
-    const char *description;
+    const char *synopsis;               /* command line synopsis for this command */
+    const char *description;            /* textual description of this command */
 };
 
 static apr_getopt_option_t NoOptions [] = {
@@ -171,7 +178,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "args remaining: %d", ctx->argc);
                    
-    if (cmd->needs_store && !ctx->store) {
+    if (cmd->needs & MD_CTX_STORE && !ctx->store) {
         if (!ctx->base_dir) {
             fprintf(stderr, "need store directory for command: %s\n", cmd->name);
             return APR_EINVAL;
@@ -180,12 +187,18 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             fprintf(stderr, "error %d creating store for: %s\n", rv, ctx->base_dir);
             return APR_EINVAL;
         }
-        if (APR_SUCCESS != (rv = md_store_load(ctx->store, ctx->mds, ctx->p))) {
-            fprintf(stderr, "error loading store from: %s\n", ctx->base_dir);
+    }
+    if (cmd->needs & MD_CTX_REG && !ctx->reg) {
+        if (!ctx->store) {
+            fprintf(stderr, "need store for registry: %s\n", cmd->name);
+            return APR_EINVAL;
+        }
+        if (APR_SUCCESS != (rv = md_reg_init(&ctx->reg, ctx->p, ctx->store))) {
+            fprintf(stderr, "error %d creating registry from store: %s\n", rv, ctx->base_dir);
             return APR_EINVAL;
         }
     }
-    if (cmd->needs_acme && !ctx->acme) {
+    if (cmd->needs & MD_CTX_ACME && !ctx->acme) {
         rv = md_acme_create(&ctx->acme, ctx->p, ctx->ca_url, ctx->base_dir);
         if (APR_SUCCESS != rv) {
             fprintf(stderr, "error creating acme instance %s (%s)\n", 
@@ -318,7 +331,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeNewregCmd = {
-    "newreg", 0, 1, 
+    "newreg", MD_CTX_ACME, 
     NULL, cmd_acme_newreg, NoOptions, NULL,
     "newreg contact-uri [contact-uri...]",
     "register a new account at ACME server with give contact uri (email)",
@@ -375,7 +388,7 @@ static apr_status_t cmd_acme_agree(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeAgreeCmd = {
-    "agree", 0, 1, 
+    "agree", MD_CTX_ACME, 
     NULL, cmd_acme_agree, NoOptions, NULL,
     "agree account",
     "agree to ACME terms of service",
@@ -424,7 +437,7 @@ static apr_status_t cmd_acme_delreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeDelregCmd = {
-    "delreg", 0, 1, 
+    "delreg", MD_CTX_ACME, 
     NULL, cmd_acme_delreg, NoOptions, NULL,
     "delreg account",
     "delete an existing ACME account",
@@ -481,7 +494,7 @@ static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeAuthzCmd = {
-    "authz", 0, 1, 
+    "authz", MD_CTX_ACME, 
     NULL, cmd_acme_authz, NoOptions, NULL,
     "authz account domain",
     "request a new authorization for an account and domain",
@@ -521,7 +534,7 @@ static apr_status_t cmd_acme_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeListCmd = {
-    "list", 0, 1, 
+    "list", MD_CTX_ACME, 
     NULL, cmd_acme_list, NoOptions, NULL,
     "list",
     "list all known ACME accounts",
@@ -540,7 +553,7 @@ static const md_cmd_t *AcmeSubCmds[] = {
 };
 
 static md_cmd_t AcmeCmd = {
-    "acme", 0, 1,  
+    "acme", MD_CTX_ACME,  
     NULL, NULL, NoOptions, AcmeSubCmds,
     "acme cmd [opts] [args]", 
     "play with the ACME server", 
@@ -578,7 +591,7 @@ static apr_status_t cmd_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AddCmd = {
-    "add", 1, 0, 
+    "add", MD_CTX_STORE, 
     NULL, cmd_add, NoOptions, NULL,
     "add dns [dns2...]",
     "add a new managed domain 'dns' with all the additional domain names",
@@ -605,11 +618,18 @@ static int md_name_cmp(const void *v1, const void *v2)
 static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
+    apr_hash_t *mds = apr_hash_make(ctx->p);
+    apr_status_t rv;
     int i, j;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
+    rv = md_store_load(ctx->store, mds, ctx->p);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "loading store");
+        return rv;
+    }
     
-    apr_hash_do(list_add_md, mdlist, ctx->mds);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
+    apr_hash_do(list_add_md, mdlist, mds);
     qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "mds loaded: %d", mdlist->nelts);
@@ -622,7 +642,7 @@ static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t ListCmd = {
-    "list", 1, 0, 
+    "list", MD_CTX_STORE, 
     NULL, cmd_list, NoOptions, NULL,
     "list",
     "list all managed domains in the store"
@@ -634,9 +654,17 @@ static md_cmd_t ListCmd = {
 static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
+    apr_hash_t *mds = apr_hash_make(ctx->p);
+    apr_status_t rv;
     int i, j;
     
-    apr_hash_do(list_add_md, mdlist, ctx->mds);
+    rv = md_store_load(ctx->store, mds, ctx->p);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "loading store");
+        return rv;
+    }
+    
+    apr_hash_do(list_add_md, mdlist, mds);
     qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     
     for (i = 0; i < mdlist->nelts; ++i) {
@@ -648,7 +676,7 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t UpdateCmd = {
-    "update", 1, 0, 
+    "update", MD_CTX_STORE, 
     NULL, cmd_list, NoOptions, NULL,
     "update",
     "update a managed domain in the store"
@@ -715,7 +743,8 @@ static apr_getopt_option_t MainOptions [] = {
 };
 
 static md_cmd_t MainCmd = {
-    "a2md", 0, 0, main_opts, NULL,
+    "a2md", MD_CTX_NONE, 
+    main_opts, NULL,
     MainOptions, MainSubCmds,
     "a2md [options] cmd [cmd options] [args]", 
     "Show and manipulate Apache Manged Domains", 
@@ -743,7 +772,6 @@ int main(int argc, const char *const *argv)
     
     md_acme_init(ctx.p);
     
-    ctx.mds = apr_hash_make(ctx.p);
     ctx.argc = argc;
     ctx.argv = argv;
     

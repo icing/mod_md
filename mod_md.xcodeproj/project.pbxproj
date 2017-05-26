@@ -16,6 +16,8 @@
 		B2BCAB801ED5B77E002F4EB9 /* test_0200_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_tos.py; sourceTree = "<group>"; };
 		B2BCAB811ED5B77E002F4EB9 /* test_0300_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0300_authz.py; sourceTree = "<group>"; };
 		B2BCAB821ED5B77E002F4EB9 /* test_1001_configs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_1001_configs.py; sourceTree = "<group>"; };
+		B2BCAB831ED82F6F002F4EB9 /* md_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_reg.c; sourceTree = "<group>"; };
+		B2BCAB841ED82F6F002F4EB9 /* md_reg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_reg.h; sourceTree = "<group>"; };
 		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -128,6 +130,8 @@
 				B2D31B191EC9EBC2007BECC8 /* md_log.c */,
 				B2D31B1A1EC9EBC2007BECC8 /* md_log.h */,
 				B2D309DE1EBB6600007BECC8 /* md_private.h */,
+				B2BCAB831ED82F6F002F4EB9 /* md_reg.c */,
+				B2BCAB841ED82F6F002F4EB9 /* md_reg.h */,
 				B2BCAB7B1ED42C8E002F4EB9 /* md_store.c */,
 				B2BCAB7C1ED42C8E002F4EB9 /* md_store.h */,
 				B2D31B131EC5F1EA007BECC8 /* md_util.c */,

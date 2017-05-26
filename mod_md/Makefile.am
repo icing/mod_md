@@ -33,6 +33,7 @@ OBJECTS = \
     md_json.c \
     md_jws.c \
     md_log.c \
+    md_reg.c \
     md_store.c \
     md_util.c \
     mod_md.c
@@ -48,6 +49,7 @@ HFILES = \
     md_json.h \
     md_jws.h \
     md_log.h \
+    md_reg.h \
     md_store.h \
     md_util.h \
     md.h \

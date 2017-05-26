@@ -34,6 +34,7 @@ a2md_SOURCES = \
     ../mod_md/md_json.c \
     ../mod_md/md_jws.c \
     ../mod_md/md_log.c \
+    ../mod_md/md_reg.c \
     ../mod_md/md_store.c \
     ../mod_md/md_util.c
 

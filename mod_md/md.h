@@ -18,6 +18,7 @@
 
 #define MD_PROTO_ACME       "ACME"
 
+struct apr_array_header_t;
 struct apr_hash_t;
 struct md_json;
 struct md_pkey;
@@ -32,7 +33,7 @@ typedef enum {
 typedef struct md_t md_t;
 struct md_t {
     const char         *name;       /* unique name of this MD */
-    apr_array_header_t *domains;    /* all DNS names this MD includes */
+    struct apr_array_header_t *domains; /* all DNS names this MD includes */
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     md_state_t state;               /* state of this MD */
@@ -42,7 +43,7 @@ struct md_t {
     
     struct md_pkey *pkey;
     struct X509 *cert;
-    apr_array_header_t *chain;      /* list of X509* */
+    struct apr_array_header_t *chain;      /* list of X509* */
 };
 
 #define MD_KEY_CA       "ca"
@@ -60,7 +61,7 @@ int md_contains(const md_t *md, const char *domain);
 /**
  * Determine if the names of the two managed domains overlap.
  */
-int md_names_overlap(const md_t *md1, const md_t *md2);
+int md_domains_overlap(const md_t *md1, const md_t *md2);
 
 /**
  * Get one common domain name of the two managed domains or NULL.
@@ -75,31 +76,24 @@ md_t *md_create_empty(apr_pool_t *p);
 /**
  * Create a managed domain, given a list of domain names.
  */
-const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains);
+const char *md_create(md_t **pmd, apr_pool_t *p, struct apr_array_header_t *domains);
 
+/** 
+ * Convert the managed domain into a JSON representation and vice versa. 
+ *
+ * This reads and writes the following information: name, domains, ca_url, ca_proto and state.
+ */
 struct md_json *md_to_json(const md_t *md, apr_pool_t *p);
 md_t *md_from_json(struct md_json *json, apr_pool_t *p);
 
+/**
+ * Deep copy an md record into another pool.
+ */
 md_t *md_clone(apr_pool_t *p, md_t *src);
+
+/**
+ * Shallow copy an md record into another pool.
+ */
 md_t *md_copy(apr_pool_t *p, md_t *src);
-
-typedef struct md_reg md_reg;
-struct md_reg {
-    apr_pool_t *p;
-    struct apr_hash_t *mds;
-    struct apr_hash_t *cas;
-};
-
-apr_status_t md_reg_init(apr_pool_t *p);
-
-apr_status_t md_reg_add(md_reg *reg, md_t *md);
-
-md_t *md_reg_find(md_reg *reg, const char *domain);
-
-md_t *md_reg_get(md_reg *reg, const char *name);
-
-typedef int md_reg_do_cb(void *baton, md_reg *reg, md_t *md);
-
-apr_status_t md_reg_do(md_reg_do_cb *cb, void *baton, md_reg *reg);
 
 #endif /* mod_md_md_h */

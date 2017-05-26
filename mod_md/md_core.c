@@ -49,7 +49,7 @@ const char *md_common_name(const md_t *md1, const md_t *md2)
     return NULL;
 }
 
-int md_names_overlap(const md_t *md1, const md_t *md2)
+int md_domains_overlap(const md_t *md1, const md_t *md2)
 {
     return md_common_name(md1, md2) != NULL;
 }

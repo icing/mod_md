@@ -18,6 +18,9 @@
 
 #include <stdio.h>
 
+struct apr_array_header_t;
+struct apr_table_t;
+
 #define MD_FPROT_F_UONLY      (APR_FPROT_UREAD|APR_FPROT_UWRITE)
 #define MD_FPROT_D_UONLY      (APR_FPROT_UREAD|APR_FPROT_UWRITE|APR_FPROT_UEXECUTE)
 
@@ -34,9 +37,9 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /* string related */
 void md_util_str_tolower(char *s);
 
-int md_array_str_case_index(const apr_array_header_t *array, const char *s, int start);
+int md_array_str_case_index(const struct apr_array_header_t *array, const char *s, int start);
 
-apr_array_header_t *md_array_str_clone(apr_pool_t *p, apr_array_header_t *array);
+struct apr_array_header_t *md_array_str_clone(apr_pool_t *p, struct apr_array_header_t *array);
 
 /**************************************************************************************************/
 /* file system related */
@@ -74,7 +77,7 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
 /* http/url related */
 const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme);
 
-const char *md_link_find_relation(const apr_table_t *headers, 
+const char *md_link_find_relation(const struct apr_table_t *headers, 
                                   apr_pool_t *pool, const char *relation);
 
 #endif /* md_util_h */
