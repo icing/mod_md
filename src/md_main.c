@@ -36,6 +36,7 @@
 #include "md_version.h"
 #include "md_cmd.h"
 #include "md_cmd_acme.h"
+#include "md_cmd_reg.h"
 #include "md_cmd_store.h"
 
 
@@ -152,7 +153,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "args remaining: %d", ctx->argc);
                    
-    if (cmd->needs & MD_CTX_STORE && !ctx->store) {
+    if (cmd->needs & (MD_CTX_STORE|MD_CTX_REG) && !ctx->store) {
         if (!ctx->base_dir) {
             fprintf(stderr, "need store directory for command: %s\n", cmd->name);
             return APR_EINVAL;
@@ -327,6 +328,8 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
 
 static const md_cmd_t *MainSubCmds[] = {
     &MD_AcmeCmd,
+    &MD_RegAddCmd,
+    &MD_RegListCmd,
     &MD_StoreCmd,
     NULL
 };

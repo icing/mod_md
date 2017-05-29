@@ -25,9 +25,11 @@ struct md_pkey;
 struct X509;
 
 typedef enum {
-    MD_S_INCOMPLETE,                /* MD is missing data, e.g. certificates */
-    MD_S_COMPLETE,                  /* MD has all data, can go live */
-    MD_S_EXPIRED,                   /* MD has all data, but (part of) is expired */
+    MD_S_UNKNOWN,                   /* MD has not been analysed yet */
+    MD_S_INCOMPLETE,                /* MD is missing necessary information, can go live */
+    MD_S_VALID,                     /* MD has all necessary information, can go live */
+    MD_S_INACTIVE,                  /* MD is inactive, not to go live and not 
+                                          to be processed futher */
 } md_state_t;
 
 typedef struct md_t md_t;
@@ -37,6 +39,7 @@ struct md_t {
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     md_state_t state;               /* state of this MD */
+    int proto_state;                /* state of renewal process, protocol specific */
 
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
@@ -62,6 +65,16 @@ int md_contains(const md_t *md, const char *domain);
  * Determine if the names of the two managed domains overlap.
  */
 int md_domains_overlap(const md_t *md1, const md_t *md2);
+
+/**
+ * Determine if the domain names are equal.
+ */
+int md_equal_domains(const md_t *md1, const md_t *md2);
+
+/**
+ * Determine if the domains in md1 contain all domains of md2.
+ */
+int md_contains_domains(const md_t *md1, const md_t *md2);
 
 /**
  * Get one common domain name of the two managed domains or NULL.

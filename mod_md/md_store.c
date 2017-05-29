@@ -273,7 +273,7 @@ static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p)
     
     ctx.s_fs = s_fs;
     ctx.mds = mds;
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, s_fs->p, "loading all mds in %s", s_fs->base);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, s_fs->p, "loading all mds in %s", s_fs->base);
     return md_util_files_do(add_md, &ctx, p, s_fs->base, 
                             FS_DN_DOMAINS, "*", FS_FN_MD_JSON, NULL);
 }

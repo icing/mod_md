@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		B20333301EDC527B00E5BE7E /* md_cmd_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_reg.c; sourceTree = "<group>"; };
+		B20333311EDC527B00E5BE7E /* md_cmd_reg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_reg.h; sourceTree = "<group>"; };
 		B2BCAB771ECF2A2E002F4EB9 /* md_acme_authz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
 		B2BCAB781ECF2A2E002F4EB9 /* md_acme_authz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
 		B2BCAB7B1ED42C8E002F4EB9 /* md_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
@@ -211,10 +213,12 @@
 				B2D31B071EC33CBE007BECC8 /* Makefile.am */,
 				B2BCAB851ED84A42002F4EB9 /* md_cmd_acme.c */,
 				B2BCAB861ED84A42002F4EB9 /* md_cmd_acme.h */,
+				B20333301EDC527B00E5BE7E /* md_cmd_reg.c */,
+				B20333311EDC527B00E5BE7E /* md_cmd_reg.h */,
 				B2BCAB871ED84A86002F4EB9 /* md_cmd_store.c */,
 				B2BCAB881ED84A86002F4EB9 /* md_cmd_store.h */,
-				B2D31B081EC33D77007BECC8 /* md_main.c */,
 				B2BCAB891ED84ABE002F4EB9 /* md_cmd.h */,
+				B2D31B081EC33D77007BECC8 /* md_main.c */,
 			);
 			path = src;
 			sourceTree = SOURCE_ROOT;

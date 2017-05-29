@@ -69,6 +69,37 @@ md_t *md_create_empty(apr_pool_t *p)
     return md;
 }
 
+int md_equal_domains(const md_t *md1, const md_t *md2)
+{
+    int i;
+    if (md1->domains->nelts == md2->domains->nelts) {
+        for (i = 0; i < md1->domains->nelts; ++i) {
+            const char *name1 = APR_ARRAY_IDX(md1->domains, i, const char*);
+            if (!md_contains(md2, name1)) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    return 0;
+}
+
+int md_contains_domains(const md_t *md1, const md_t *md2)
+{
+    int i;
+    if (md1->domains->nelts >= md2->domains->nelts) {
+        for (i = 0; i < md2->domains->nelts; ++i) {
+            const char *name2 = APR_ARRAY_IDX(md2->domains, i, const char*);
+            if (!md_contains(md1, name2)) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    return 0;
+}
+
+
 const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
 {
     md_t *md;

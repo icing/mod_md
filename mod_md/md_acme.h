@@ -25,12 +25,12 @@ struct md_t;
 struct md_acme_acct;
 
 typedef enum {
-    MD_ACME_S_UNKNOWN,
-    MD_ACME_S_PENDING,
-    MD_ACME_AUTHZ_S_PROCESSING,
-    MD_ACME_AUTHZ_S_VALID,
-    MD_ACME_AUTHZ_S_INVALID,
-    MD_ACME_AUTHZ_S_REVOKED,
+    MD_ACME_S_UNKNOWN,              /* MD has not been analysed yet */
+    MD_ACME_S_REGISTERED,           /* MD is registered at CA, but not more */
+    MD_ACME_S_CHALLENGED,           /* MD challenge information for all domains is known */
+    MD_ACME_S_VALIDATED,            /* MD domains have been validated */
+    MD_ACME_S_CERTIFIED,            /* MD has valid certificate */
+    MD_ACME_S_DENIED,               /* MD domains (at least one) have been denied by CA */
 } md_acme_state_t;
 
 typedef struct md_acme md_acme;

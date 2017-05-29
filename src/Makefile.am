@@ -25,6 +25,7 @@ bin_PROGRAMS = a2md
 OBJECTS = \
     md_main.c \
     md_cmd_acme.c \
+    md_cmd_reg.c \
     md_cmd_store.c \
     ../mod_md/md_acme.c \
     ../mod_md/md_acme_acct.c \

@@ -27,6 +27,9 @@
 #include "md_store.h"
 #include "md_util.h"
 
+/**************************************************************************************************/
+/* life cycle */
+
 apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *store)
 {
     md_reg_t *reg;
@@ -46,37 +49,12 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     return rv;
 }
 
-apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
-{
-    return APR_ENOTIMPL;
-}
+/**************************************************************************************************/
+/* lookup */
 
 const md_t *md_reg_get(const md_reg_t *reg, const char *name)
 {
     return apr_hash_get(reg->mds, name, strlen(name));
-}
-
-typedef struct {
-    const md_reg_t *reg;
-    md_reg_do_cb *cb;
-    void *baton;
-    const void *result;
-} reg_do_ctx;
-
-static int md_hash_do(void *baton, const void *key, apr_ssize_t klen, const void *value)
-{
-    reg_do_ctx *ctx = baton;
-    return ctx->cb(ctx->baton, ctx->reg, value);
-}
-
-int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg)
-{
-    reg_do_ctx ctx;
-    
-    ctx.reg = reg;
-    ctx.cb = cb;
-    ctx.baton = baton;
-    return apr_hash_do(md_hash_do, &ctx, reg->mds);
 }
 
 typedef struct {
@@ -109,26 +87,96 @@ const md_t *md_reg_find(const md_reg_t *reg, const char *domain)
 typedef struct {
     const md_t *md_checked;
     const md_t *md;
+    const char *s;
 } find_overlap_ctx;
 
 static int find_overlap(void *baton, const md_reg_t *reg, const md_t *md)
 {
     find_overlap_ctx *ctx = baton;
+    const char *overlap;
     
-    if (md_domains_overlap(ctx->md_checked, md)) {
+    if ((overlap = md_common_name(ctx->md_checked, md))) {
         ctx->md = md;
+        ctx->s = overlap;
         return 0;
     }
     return 1;
 }
 
-const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md)
+const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md, const char **pdomain)
 {
     find_overlap_ctx ctx;
     
     ctx.md_checked = md;
     ctx.md = NULL;
+    ctx.s = NULL;
     
     md_reg_do(find_overlap, &ctx, reg);
+    if (pdomain && ctx.s) {
+        *pdomain = ctx.s;
+    }
     return ctx.md;
 }
+
+/**************************************************************************************************/
+/* iteration */
+
+typedef struct {
+    const md_reg_t *reg;
+    md_reg_do_cb *cb;
+    void *baton;
+    const void *result;
+} reg_do_ctx;
+
+static int md_hash_do(void *baton, const void *key, apr_ssize_t klen, const void *value)
+{
+    reg_do_ctx *ctx = baton;
+    return ctx->cb(ctx->baton, ctx->reg, value);
+}
+
+int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg)
+{
+    reg_do_ctx ctx;
+    
+    ctx.reg = reg;
+    ctx.cb = cb;
+    ctx.baton = baton;
+    return apr_hash_do(md_hash_do, &ctx, reg->mds);
+}
+
+/**************************************************************************************************/
+/* manipulation */
+
+apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
+{
+    const md_t *other;
+    const char *domain;
+    apr_status_t rv;
+    
+    other = md_reg_find_overlap(reg, md, &domain);
+    if (NULL != other) {
+        if (md_contains_domains(other, md)) {
+            if (md_equal_domains(md, other)) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EEXIST, reg->p, 
+                              "adding md %s has no effect. It already exists as %s", 
+                              md->name, other->name);
+                return APR_EEXIST;
+            }
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EEXIST, reg->p, 
+                          "adding md %s has no effect. All its domains are already in md %s", 
+                          md->name, other->name);
+            return APR_EEXIST;
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
+                      "adding md %s denied. It shares domain '%s' names with md %s", 
+                      md->name, domain, other->name);
+        return APR_EINVAL;
+    }
+    rv = md_store_save_md(reg->store, md);
+    if (APR_SUCCESS == rv) {
+        md_t *mine = md_clone(reg->p, md);
+        apr_hash_set(reg->mds, mine->name, strlen(mine->name), mine);
+    }
+    return rv;
+}
+

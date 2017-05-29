@@ -54,7 +54,7 @@ void md_cmd_ctx_set_option(md_cmd_ctx *ctx, const char *key, const char *value);
 /* needs */
 #define MD_CTX_NONE            0x0000
 #define MD_CTX_STORE           0x0001
-#define MD_CTX_REG             (0x0002 & MD_CTX_STORE)
+#define MD_CTX_REG             0x0002
 #define MD_CTX_ACME            0x0004
 
 struct md_cmd_t {

@@ -54,7 +54,7 @@ const md_t *md_reg_find(const md_reg_t *reg, const char *domain);
  * name. There may be more than one existing md that overlaps. It is not defined
  * which one will be returned. 
  */
-const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md);
+const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md, const char **pdomain);
 
 /**
  * Get the md with the given unique name. NULL if it does not exist.
