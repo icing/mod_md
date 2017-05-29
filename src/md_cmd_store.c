@@ -86,6 +86,7 @@ static apr_status_t cmd_remove(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         name = ctx->argv[i];
         rv = md_store_remove_md(ctx->store, name, md_cmd_ctx_has_option(ctx, "force"));
         if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "removing md %s", name);
             break;
         }
     }
@@ -107,6 +108,7 @@ static apr_status_t opts_remove(md_cmd_ctx *ctx, int option, const char *optarg)
 
 static apr_getopt_option_t RemoveOptions [] = {
     { "force",    'f', 0, "force removal, be silent about missing domains"},
+    { NULL }
 };
 
 static md_cmd_t RemoveCmd = {

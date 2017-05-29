@@ -60,13 +60,20 @@ typedef apr_status_t md_util_file_cb(void *baton, struct apr_file_t *f, apr_pool
 apr_status_t md_util_freplace(const char *path, const char *name, apr_pool_t *p, 
                               md_util_file_cb *write, void *baton);
 
-typedef apr_status_t md_util_files_do_cb(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+typedef apr_status_t md_util_fdo_cb(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
                                          const char *dir, struct apr_finfo_t *info);
-
-apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *p, 
+                                         
+apr_status_t md_util_files_do(md_util_fdo_cb *cb, void *baton, apr_pool_t *p, 
                               const char *path, ...);
 
+/**
+ * Depth first traversal of directory tree starting at path.
+ */
+apr_status_t md_util_tree_do(md_util_fdo_cb *cb, void *baton, apr_pool_t *p, 
+                             const char *path, int follow_links);
+
 apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p);
+
 
 /**************************************************************************************************/
 /* base64 url encodings */

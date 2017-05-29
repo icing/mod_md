@@ -22,6 +22,7 @@
 #include <apr_tables.h>
 #include <apr_time.h>
 
+#include "md_log.h"
 #include "md_util.h"
 
 /**************************************************************************************************/
@@ -211,8 +212,9 @@ creat:
 typedef struct {
     const char *path;
     apr_array_header_t *patterns;
+    apr_int32_t fwanted;
     void *baton;
-    md_util_files_do_cb *cb;
+    md_util_fdo_cb *cb;
 } md_util_fwalk_t;
 
 static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int depth, 
@@ -235,7 +237,7 @@ static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int dep
     }
     
     while (APR_SUCCESS == rv
-           && APR_SUCCESS == (rv = apr_dir_read(&finfo, (APR_FINFO_TYPE|APR_FINFO_NAME), d))) {
+           && APR_SUCCESS == (rv = apr_dir_read(&finfo, ctx->fwanted, d))) {
         if (strcmp(".", finfo.name) && strcmp("..", finfo.name) 
             && APR_SUCCESS == apr_fnmatch(pattern, finfo.name, 0)) {
             if (ndepth < ctx->patterns->nelts) {
@@ -281,7 +283,7 @@ static apr_status_t files_do_start(void *baton, apr_pool_t *p, apr_pool_t *ptemp
     return match_and_do(ctx, ctx->path, 0, p, ptemp);
 }
 
-apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *p, 
+apr_status_t md_util_files_do(md_util_fdo_cb *cb, void *baton, apr_pool_t *p,
                               const char *path, ...)
 {
     apr_status_t rv;
@@ -290,6 +292,7 @@ apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *
 
     memset(&ctx, 0, sizeof(ctx));
     ctx.path = path;
+    ctx.fwanted = (APR_FINFO_TYPE|APR_FINFO_NAME);
     ctx.cb = cb;
     ctx.baton = baton;
     
@@ -300,9 +303,117 @@ apr_status_t md_util_files_do(md_util_files_do_cb *cb, void *baton, apr_pool_t *
     return rv;
 }
 
+static apr_status_t tree_do(void *baton, apr_pool_t *p, apr_pool_t *ptemp)
+{
+    md_util_fwalk_t *ctx = baton;
+
+    apr_status_t rv = APR_SUCCESS;
+    const char *dpath = ctx->path;
+    apr_dir_t *d;
+    apr_finfo_t finfo;
+
+    rv = apr_dir_open(&d, dpath, ptemp);
+    while (APR_SUCCESS == rv) {
+        rv = apr_dir_read(&finfo, ctx->fwanted, d);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "dir_read(%s) ->%s", 
+                      ctx->path, finfo.name);
+        if (APR_INCOMPLETE == rv) {
+            if (!strcmp(".", finfo.name) || !strcmp("..", finfo.name)) {
+                rv = APR_SUCCESS;
+                continue;
+            }
+            break;
+        }
+        
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "wanted=%x, valid=%x, type=%x for %s/%s", 
+                      ctx->fwanted, (finfo.valid & ctx->fwanted), finfo.filetype,  
+                      ctx->path, finfo.name);
+        if ((APR_SUCCESS == rv) && strcmp(".", finfo.name) && strcmp("..", finfo.name)) {
+            if (APR_DIR == finfo.filetype) { 
+                rv = md_util_path_merge(&ctx->path, ptemp, dpath, finfo.name, NULL);
+                if (APR_SUCCESS == rv) {
+                    rv = tree_do(ctx, p, ptemp);
+                }
+            }
+            
+            rv = ctx->cb(ctx->baton, p, ptemp, dpath, &finfo);
+        }
+    }
+
+        
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_SUCCESS;
+    }
+
+    apr_dir_close(d);
+    ctx->path = dpath;
+    
+    return rv;
+}
+
+static apr_status_t tree_start_do(void *baton, apr_pool_t *p, apr_pool_t *ptemp)
+{
+    md_util_fwalk_t *ctx = baton;
+    apr_finfo_t info;
+    apr_status_t rv;
+
+    rv = apr_stat(&info, ctx->path, ctx->fwanted, ptemp);
+    if (rv == APR_SUCCESS) {
+        rv = (info.filetype == APR_DIR)? APR_SUCCESS : APR_EINVAL;
+    }
+
+    if (rv == APR_SUCCESS) {
+        rv = tree_do(ctx, p, ptemp);
+    }
+     
+    if (APR_SUCCESS == rv) {
+        rv = ctx->cb(ctx->baton, p, ptemp, ctx->path, &info);
+    }
+    return rv;
+}
+
+apr_status_t md_util_tree_do(md_util_fdo_cb *cb, void *baton, apr_pool_t *p, 
+                             const char *path, int follow_links)
+{
+    apr_status_t rv;
+    md_util_fwalk_t ctx;
+
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.path = path;
+    /*ctx.fwanted = (APR_FINFO_TYPE|APR_FINFO_NAME);*/
+    ctx.fwanted = (APR_FINFO_TYPE);
+    if (!follow_links) {
+        ctx.fwanted |= APR_FINFO_LINK;
+    }
+    ctx.cb = cb;
+    ctx.baton = baton;
+    
+    rv = md_util_pool_do(tree_start_do, &ctx, p);
+    
+    return rv;
+}
+
+static apr_status_t rm_cb(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                          const char *path, apr_finfo_t *finfo)
+{
+    apr_status_t rv;
+    const char *fpath;
+    
+    rv = md_util_path_merge(&fpath, ptemp, path, finfo->name, NULL);
+    if (APR_SUCCESS == rv) {
+        if (APR_DIR == finfo->filetype) {
+            rv = apr_dir_remove(fpath, ptemp);
+        }
+        else {
+            /*rv = apr_file_remove(fpath, ptemp);*/
+        }
+    }
+    return rv;
+}
+
 apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p)
 {
-    return APR_ENOTIMPL;
+    return md_util_tree_do(rm_cb, NULL, p, path, 1);
 }
 
 /* base64 url encoding ****************************************************************************/

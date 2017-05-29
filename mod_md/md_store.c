@@ -198,15 +198,16 @@ static apr_status_t pfs_remove_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
         return rv;
     }
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "start remove of md %s", name);
     if (APR_SUCCESS != (rv = apr_stat(&info, path, APR_FINFO_TYPE, ptemp))) {
         if (APR_ENOENT == rv) {
             if (force) {
                 return APR_SUCCESS;
             }
-            fprintf(stderr, "managed domain does not exist: %s\n", name);
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "removing md %s", name);
             return rv;
         }
-        fprintf(stderr, "error %d accessing managed domain: %s\n", rv, name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "removing md %s", name);
         return rv;
     }
     
@@ -214,6 +215,7 @@ static apr_status_t pfs_remove_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
         case APR_DIR: /* how it should be */
             /* TODO: check if there is important data, such as keys or certificates. Only
              * remove the md when forced in such cases. */
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "remove tree at %s", path);
             rv = md_util_ftree_remove(path, ptemp);
             break;
         default:      /* how did that get here? suspicious */
