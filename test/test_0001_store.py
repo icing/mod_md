@@ -103,5 +103,4 @@ class TestStore:
         args.extend([ "store", "remove", dns1 ])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
-        # should be: assert p.wait() == 0
-        assert p.wait() == 1
+        assert p.wait() == 0

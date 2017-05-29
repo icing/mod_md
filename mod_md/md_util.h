@@ -17,6 +17,7 @@
 #define mod_md_md_util_h
 
 #include <stdio.h>
+#include <apr_file_io.h>
 
 struct apr_array_header_t;
 struct apr_table_t;
@@ -61,7 +62,8 @@ apr_status_t md_util_freplace(const char *path, const char *name, apr_pool_t *p,
                               md_util_file_cb *write, void *baton);
 
 typedef apr_status_t md_util_fdo_cb(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
-                                         const char *dir, struct apr_finfo_t *info);
+                                         const char *dir, const char *name, 
+                                         apr_filetype_e ftype);
                                          
 apr_status_t md_util_files_do(md_util_fdo_cb *cb, void *baton, apr_pool_t *p, 
                               const char *path, ...);

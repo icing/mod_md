@@ -204,10 +204,8 @@ static apr_status_t pfs_remove_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
             if (force) {
                 return APR_SUCCESS;
             }
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "removing md %s", name);
             return rv;
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "removing md %s", name);
         return rv;
     }
     
@@ -215,7 +213,7 @@ static apr_status_t pfs_remove_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
         case APR_DIR: /* how it should be */
             /* TODO: check if there is important data, such as keys or certificates. Only
              * remove the md when forced in such cases. */
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "remove tree at %s", path);
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "remove tree: %s", path);
             rv = md_util_ftree_remove(path, ptemp);
             break;
         default:      /* how did that get here? suspicious */
@@ -236,14 +234,14 @@ typedef struct {
 } md_load_ctx;
 
 static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
-                           const char *dir, struct apr_finfo_t *info)
+                           const char *dir, const char *name, apr_filetype_e ftype)
 {
     md_load_ctx *ctx = baton;
     const char *fpath;
     apr_status_t rv;
     md_t *md;
     
-    rv = md_util_path_merge(&fpath, ptemp, dir, info->name, NULL);
+    rv = md_util_path_merge(&fpath, ptemp, dir, name, NULL);
     if (APR_SUCCESS == rv) {
         rv = pfs_md_readf(&md, fpath, p, ptemp);
         if (APR_SUCCESS == rv) {
@@ -264,7 +262,7 @@ static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
         }
     }
     md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ptemp, 
-                  "reading md from: %s/%s", dir, info->name);
+                  "reading md from: %s/%s", dir, name);
     return rv;
 }
 
