@@ -54,6 +54,16 @@ def teardown_module(module):
 
 class TestStore:
 
+    def test_env_001(self):
+        # verify expected binary version
+        args = [A2MD, "-V"]
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        (outdata, errdata) = p.communicate()
+        assert p.wait() == 0
+        print "process output: %s" % outdata
+        m = re.match("version: %s-git$" % config.get('global', 'a2md_version'), outdata)
+        assert m
+
     def test_001(self):
         # try add a single dns managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]

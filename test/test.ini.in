@@ -1,6 +1,7 @@
 # test configuration
 
 [global]
+a2md_version = @PACKAGE_VERSION@
 prefix = @PREFIX@
 server_name = @SERVER_NAME@
 server_dir = @SERVER_DIR@
