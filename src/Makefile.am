@@ -18,7 +18,7 @@ ACLOCAL_AMFLAGS = -I m4
 AUTOMAKE_OPTIONS = foreign
 
 CFLAGS  = -g -I ../mod_md
-LDFLAGS = -lapr-1 -laprutil-1  -lcurl -lssl -lcrypto
+LDFLAGS = @LDFLAGS@ -lapr-1 -laprutil-1  -lcurl -lssl -lcrypto
 
 bin_PROGRAMS = a2md
 
