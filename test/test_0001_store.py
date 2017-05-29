@@ -23,6 +23,14 @@ ACME_URL = config.get('acme', 'url')
 WEBROOT = config.get('global', 'server_dir')
 STORE_DIR = os.path.join(WEBROOT, 'md') 
 
+def exec_sub(args):
+    print "execute: ", " ".join(args)
+    p = subprocess.Popen(args, stdout=subprocess.PIPE)
+    (outdata, errdata) = p.communicate()
+    assert p.wait() == 0
+    print "result:  ", outdata
+    return outdata
+
 def check_live(url, timeout):
     server = urlparse(url)
     try_until = time.time() + timeout
@@ -57,10 +65,7 @@ class TestStore:
     def test_env_001(self):
         # verify expected binary version
         args = [A2MD, "-V"]
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
-        print "process output: %s" % outdata
+        outdata = exec_sub(args)
         m = re.match("version: %s-git$" % config.get('global', 'a2md_version'), outdata)
         assert m
 
@@ -69,9 +74,7 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "greenbytes.de"
         args.extend([ "store", "add", dns1 ])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = exec_sub(args)
         jout = json.loads(outdata)
         md = jout['output'][0]
         assert md['name'] == dns1
@@ -87,9 +90,7 @@ class TestStore:
         dns2 = "www.greenbytes2.de"
         dns3 = "mail.greenbytes2.de"
         args.extend([ "store", "add", dns1, dns2, dns3 ])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = exec_sub(args)
         jout = json.loads(outdata)
         md = jout['output'][0]
         assert md['name'] == dns1
@@ -105,12 +106,10 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
         args.extend([ "store", "add", dns1 ])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = exec_sub(args)
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
         args.extend([ "store", "remove", dns1 ])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = exec_sub(args)
+        jout = json.loads(outdata)
+        assert 'output' not in jout
