@@ -152,6 +152,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->domains = md_array_str_clone(p, src->domains);
         if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
         if (src->ca_proto) md->ca_proto = apr_pstrdup(p, src->ca_proto);
+        if (src->ca_account) md->ca_proto = apr_pstrdup(p, src->ca_account);
         if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
         md->defn_line_number = src->defn_line_number;
     }    
@@ -164,6 +165,7 @@ md_json *md_to_json(const md_t *md, apr_pool_t *p)
     if (json) {
         md_json_sets(md->name, json, MD_KEY_NAME, NULL);
         md_json_setsa(md->domains, json, MD_KEY_DOMAINS, NULL);
+        md_json_sets(md->ca_account, json, MD_KEY_CA, MD_KEY_ACCOUNT, NULL);
         md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
         md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
@@ -178,6 +180,7 @@ md_t *md_from_json(md_json *json, apr_pool_t *p)
     if (md) {
         md->name = md_json_dups(p, json, MD_KEY_NAME, NULL);            
         md_json_dupsa(md->domains, p, json, MD_KEY_DOMAINS, NULL);
+        md->ca_account = md_json_dups(p, json, MD_KEY_CA, MD_KEY_ACCOUNT, NULL);
         md->ca_proto = md_json_dups(p, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
         md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);

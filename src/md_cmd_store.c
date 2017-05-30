@@ -122,37 +122,17 @@ static md_cmd_t RemoveCmd = {
 /**************************************************************************************************/
 /* command: store list */
 
-static int list_add_md(void *baton, const void *key, apr_ssize_t klen, const void *val)
-{
-    apr_array_header_t *mdlist = baton;
-    md_t **pmd;
-    
-    pmd = (md_t **)apr_array_push(mdlist);
-    *pmd = (md_t*)val;
-    return 1;
-}
-
-static int md_name_cmp(const void *v1, const void *v2)
-{
-    return - strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
-}
-
 static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
-    apr_hash_t *mds = apr_hash_make(ctx->p);
     apr_status_t rv;
     int i, j;
     
-    rv = md_store_load(ctx->store, mds, ctx->p);
+    rv = md_store_load(ctx->store, mdlist, ctx->p);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "loading store");
         return rv;
     }
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
-    apr_hash_do(list_add_md, mdlist, mds);
-    qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "mds loaded: %d", mdlist->nelts);
     for (i = 0; i < mdlist->nelts; ++i) {

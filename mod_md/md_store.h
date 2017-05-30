@@ -16,15 +16,16 @@
 #ifndef mod_md_md_store_h
 #define mod_md_md_store_h
 
-struct apr_hash_t;
+struct apr_array_header_t;
 struct md_t;
 
 typedef struct md_store_t md_store_t;
 
 typedef void md_store_destroy_cb(md_store_t *store);
 
-typedef apr_status_t md_store_load_cb(md_store_t *store, struct apr_hash_t *mds, apr_pool_t *p);
-typedef apr_status_t md_store_save_cb(md_store_t *store, struct apr_hash_t *mds);
+typedef apr_status_t md_store_load_cb(md_store_t *store, 
+                                      struct apr_array_header_t *mds, apr_pool_t *p);
+typedef apr_status_t md_store_save_cb(md_store_t *store, struct apr_array_header_t *mds);
 
 typedef apr_status_t md_store_load_md_cb(struct md_t **pmd, md_store_t *store, 
                                          const char *name, apr_pool_t *p);
@@ -45,8 +46,8 @@ struct md_store_t {
 
 void md_store_destroy(md_store_t *store);
 
-apr_status_t md_store_load(md_store_t *store, struct apr_hash_t *mds, apr_pool_t *p);
-apr_status_t md_store_save(md_store_t *store, struct apr_hash_t *mds);
+apr_status_t md_store_load(md_store_t *store, struct apr_array_header_t *mds, apr_pool_t *p);
+apr_status_t md_store_save(md_store_t *store, struct apr_array_header_t *mds);
 
 apr_status_t md_store_load_md(struct md_t **pmd, md_store_t *store, 
                               const char *name, apr_pool_t *p);

@@ -34,13 +34,24 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
 {
     md_reg_t *reg;
     apr_status_t rv;
+    apr_array_header_t *mds;
     
     reg = apr_pcalloc(p, sizeof(*reg));
     reg->p = p;
     reg->store = store;
     reg->mds = apr_hash_make(p);
     
-    rv = md_store_load(reg->store, reg->mds, reg->p);
+    mds = apr_array_make(p, 5, sizeof(md_t *));
+    if (APR_SUCCESS == (rv = md_store_load(reg->store, mds, reg->p))) {
+        md_t *md;
+        int i;
+        
+        for (i = 0; i < mds->nelts; ++i) {
+            md = APR_ARRAY_IDX(mds, i, md_t*);
+            apr_hash_set(reg->mds, md->name, strlen(md->name), md);
+        }
+    }
+    
     *preg = (rv == APR_SUCCESS)? reg : NULL;
     return rv;
 }
@@ -181,27 +192,48 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     md_reg_t *reg = baton;
     apr_status_t rv = APR_SUCCESS;
     const char *name;
-    const md_t *md;
-    int fields, changed = 0;
+    const md_t *md, *updates;
+    int fields;
     md_t *nmd;
     
     name = va_arg(ap, const char *);
-    md = va_arg(ap, const md_t *);
+    updates = va_arg(ap, const md_t *);
     fields = va_arg(ap, int);
     
     if (NULL == (md = md_reg_get(reg, name))) {
         return APR_ENOENT;
     }
+    
     nmd = md_copy(ptemp, md);
     if (MD_UPD_DOMAINS & fields) {
+        nmd->domains = updates->domains;
+        if (!nmd->domains || nmd->domains->nelts <= 0) {
+            rv = APR_EINVAL;
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, ptemp, 
+                          "denied update on domains with empty list: %s", name);
+        } 
     }
     if (MD_UPD_CA_URL & fields) {
+        nmd->ca_url = updates->ca_url;
+        if (!nmd->ca_url) {
+            rv = APR_EINVAL;
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, ptemp, 
+                          "denied update to remove CA URL: %s", name); 
+        }
     }
     if (MD_UPD_CA_PROTO & fields) {
+        nmd->ca_proto = updates->ca_proto;
+        if (!nmd->ca_proto) {
+            rv = APR_EINVAL;
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, ptemp, 
+                          "denied update to remove CA protocol: %s", name); 
+        }
     }
     
-    if (changed) {
-        rv = md_store_save_md(reg->store, nmd, 0);
+    if (fields 
+        && APR_SUCCESS == (rv = md_store_save_md(reg->store, nmd, 0))
+        && APR_SUCCESS == (rv = md_store_load_md(&nmd, reg->store, name, p))) {
+        apr_hash_set(reg->mds, nmd->name, strlen(nmd->name), nmd);
     }
     return rv;
 }

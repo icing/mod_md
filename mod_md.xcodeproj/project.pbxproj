@@ -9,15 +9,16 @@
 /* Begin PBXFileReference section */
 		B20333301EDC527B00E5BE7E /* md_cmd_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_reg.c; sourceTree = "<group>"; };
 		B20333311EDC527B00E5BE7E /* md_cmd_reg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_reg.h; sourceTree = "<group>"; };
+		B20333361EDDA82300E5BE7E /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
+		B20333371EDDA82300E5BE7E /* test_0100_acme_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0100_acme_regs.py; sourceTree = "<group>"; };
+		B20333381EDDA82300E5BE7E /* test_0200_acme_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_acme_tos.py; sourceTree = "<group>"; };
+		B20333391EDDA82300E5BE7E /* test_0300_acme_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0300_acme_authz.py; sourceTree = "<group>"; };
+		B203333A1EDDA82300E5BE7E /* test_0400_add.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0400_add.py; sourceTree = "<group>"; };
+		B203333B1EDDA82300E5BE7E /* test_1001_configs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_1001_configs.py; sourceTree = "<group>"; };
 		B2BCAB771ECF2A2E002F4EB9 /* md_acme_authz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
 		B2BCAB781ECF2A2E002F4EB9 /* md_acme_authz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
 		B2BCAB7B1ED42C8E002F4EB9 /* md_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B2BCAB7C1ED42C8E002F4EB9 /* md_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store.h; sourceTree = "<group>"; };
-		B2BCAB7E1ED5B77E002F4EB9 /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
-		B2BCAB7F1ED5B77E002F4EB9 /* test_0100_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0100_regs.py; sourceTree = "<group>"; };
-		B2BCAB801ED5B77E002F4EB9 /* test_0200_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_tos.py; sourceTree = "<group>"; };
-		B2BCAB811ED5B77E002F4EB9 /* test_0300_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0300_authz.py; sourceTree = "<group>"; };
-		B2BCAB821ED5B77E002F4EB9 /* test_1001_configs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_1001_configs.py; sourceTree = "<group>"; };
 		B2BCAB831ED82F6F002F4EB9 /* md_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_reg.c; sourceTree = "<group>"; };
 		B2BCAB841ED82F6F002F4EB9 /* md_reg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_reg.h; sourceTree = "<group>"; };
 		B2BCAB851ED84A42002F4EB9 /* md_cmd_acme.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_acme.c; sourceTree = "<group>"; };
@@ -155,11 +156,12 @@
 		B2D309EF1EC1AD26007BECC8 /* test */ = {
 			isa = PBXGroup;
 			children = (
-				B2BCAB7E1ED5B77E002F4EB9 /* test_0001_store.py */,
-				B2BCAB7F1ED5B77E002F4EB9 /* test_0100_regs.py */,
-				B2BCAB801ED5B77E002F4EB9 /* test_0200_tos.py */,
-				B2BCAB811ED5B77E002F4EB9 /* test_0300_authz.py */,
-				B2BCAB821ED5B77E002F4EB9 /* test_1001_configs.py */,
+				B20333361EDDA82300E5BE7E /* test_0001_store.py */,
+				B20333371EDDA82300E5BE7E /* test_0100_acme_regs.py */,
+				B20333381EDDA82300E5BE7E /* test_0200_acme_tos.py */,
+				B20333391EDDA82300E5BE7E /* test_0300_acme_authz.py */,
+				B203333A1EDDA82300E5BE7E /* test_0400_add.py */,
+				B203333B1EDDA82300E5BE7E /* test_1001_configs.py */,
 				B2D31AEA1EC1B506007BECC8 /* conf */,
 				B2D31AF51EC1B80D007BECC8 /* test_configs_data */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,

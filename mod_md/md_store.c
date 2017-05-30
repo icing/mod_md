@@ -38,12 +38,12 @@ void md_store_destroy(md_store_t *store)
     if (store->destroy) store->destroy(store);
 }
 
-apr_status_t md_store_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p)
+apr_status_t md_store_load(md_store_t *store, apr_array_header_t *mds, apr_pool_t *p)
 {
     return store->load(store, mds, p);
 }
 
-apr_status_t md_store_save(md_store_t *store, apr_hash_t *mds)
+apr_status_t md_store_save(md_store_t *store, apr_array_header_t *mds)
 {
     return store->save(store, mds);
 }
@@ -72,7 +72,6 @@ struct md_store_fs_t {
     
     apr_pool_t *p;          /* duplicate for convenience */
     const char *base;       /* base directory of store */
-    apr_hash_t *mds;
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
@@ -81,8 +80,8 @@ struct md_store_fs_t {
 #define FS_FN_MD_JSON      "md.json"
 
 static void fs_destroy(md_store_t *store);
-static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p);
-static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds);
+static apr_status_t fs_load(md_store_t *store, apr_array_header_t *mds, apr_pool_t *p);
+static apr_status_t fs_save(md_store_t *store, apr_array_header_t *mds);
 static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p);
 static apr_status_t fs_save_md(md_store_t *store, md_t *md, int create);
 static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force);
@@ -100,10 +99,9 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.load_md = fs_load_md;
     s_fs->s.save_md = fs_save_md;
     s_fs->s.remove_md = fs_remove_md;
-    s_fs->mds = apr_hash_make(p);
+    s_fs->base = apr_pstrdup(p, path);
     
-    if (NULL == s_fs->mds || NULL == (s_fs->base = apr_pstrdup(p, path)) 
-        || APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
+    if (APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
     }
     *pstore = (rv == APR_SUCCESS)? &(s_fs->s) : NULL;
@@ -229,7 +227,7 @@ static apr_status_t pfs_remove_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
 
 typedef struct {
     md_store_fs_t *s_fs;
-    apr_hash_t *mds;
+    apr_array_header_t *mds;
 } md_load_ctx;
 
 static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
@@ -238,7 +236,7 @@ static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     md_load_ctx *ctx = baton;
     const char *fpath;
     apr_status_t rv;
-    md_t *md;
+    md_t *md, **pmd;
     
     rv = md_util_path_merge(&fpath, ptemp, dir, name, NULL);
     if (APR_SUCCESS == rv) {
@@ -249,14 +247,10 @@ static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
                               "md has no name, ignoring %s", fpath);
                 return APR_EINVAL;
             }
-            if (apr_hash_get(ctx->mds, md->name, strlen(md->name))) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ptemp, 
-                              "md %s already loaded, ignoring %s", md->name, fpath);
-                return APR_EEXIST;
-            }
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, 
                           "adding md %s from %s", md->name, fpath);
-            apr_hash_set(ctx->mds, md->name, strlen(md->name), md);
+            pmd = (md_t **)apr_array_push(ctx->mds);
+            *pmd = md;
             return APR_SUCCESS;
         }
     }
@@ -265,19 +259,29 @@ static apr_status_t add_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     return rv;
 }
 
-static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p)
+static int md_name_cmp(const void *v1, const void *v2)
+{
+    return - strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
+}
+
+static apr_status_t fs_load(md_store_t *store, apr_array_header_t *mds, apr_pool_t *p)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     md_load_ctx ctx;
+    apr_status_t rv;
     
     ctx.s_fs = s_fs;
     ctx.mds = mds;
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, s_fs->p, "loading all mds in %s", s_fs->base);
-    return md_util_files_do(add_md, &ctx, p, s_fs->base, 
-                            FS_DN_DOMAINS, "*", FS_FN_MD_JSON, NULL);
+    
+    rv = md_util_files_do(add_md, &ctx, p, s_fs->base, FS_DN_DOMAINS, "*", FS_FN_MD_JSON, NULL);
+    if (APR_SUCCESS == rv) {
+        qsort(mds->elts, mds->nelts, sizeof(md_t *), md_name_cmp);
+    }
+    return rv;                        
 }
 
-static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds)
+static apr_status_t fs_save(md_store_t *store, apr_array_header_t *mds)
 {
     return APR_ENOTIMPL;
 }

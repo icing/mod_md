@@ -27,6 +27,7 @@ struct md_acme_acct;
 typedef enum {
     MD_ACME_S_UNKNOWN,              /* MD has not been analysed yet */
     MD_ACME_S_REGISTERED,           /* MD is registered at CA, but not more */
+    MD_ACME_S_TOS_ACCEPTED,         /* Terms of Service were accepted by account holder */
     MD_ACME_S_CHALLENGED,           /* MD challenge information for all domains is known */
     MD_ACME_S_VALIDATED,            /* MD domains have been validated */
     MD_ACME_S_CERTIFIED,            /* MD has valid certificate */

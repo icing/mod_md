@@ -36,10 +36,13 @@ typedef struct md_t md_t;
 struct md_t {
     const char         *name;       /* unique name of this MD */
     struct apr_array_header_t *domains; /* all DNS names this MD includes */
-    const char *ca_url;             /* url of CA certificate service */
-    const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
+
     md_state_t state;               /* state of this MD */
     int proto_state;                /* state of renewal process, protocol specific */
+
+    const char *ca_url;             /* url of CA certificate service */
+    const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
+    const char *ca_account;         /* account used at CA */
 
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
@@ -51,10 +54,11 @@ struct md_t {
 
 #define MD_KEY_CA       "ca"
 #define MD_KEY_DOMAINS  "domains"
+#define MD_KEY_STATE    "state"
 #define MD_KEY_NAME     "name"
 #define MD_KEY_PROTO    "proto"
 #define MD_KEY_URL      "url"
-#define MD_KEY_STATE    "state"
+#define MD_KEY_ACCOUNT  "account"
 
 /**
  * Determine if the Managed Domain contains a specific domain name.
