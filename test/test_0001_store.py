@@ -365,3 +365,34 @@ class TestStore:
         args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "update", dns ])
         exec_sub_err(args, 1)
+
+    # update domains, throw away md name
+    def test_406(self):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns1 = "test-100.com"
+        args.extend([ "store", "add", dns1 ])
+        outdata = exec_sub(args)
+        jout1 = json.loads(outdata)
+        # override domains list
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns1, "domains" ])
+        dns2 = "greenbytes.com"
+        args.extend([ dns2 ])
+        outdata = exec_sub(args)
+        jout2 = json.loads(outdata)
+        assert len(jout2['output']) == 1
+        jout1['output'][0]['domains'] = [ dns2 ]
+        assert jout1 == jout2
+
+    # update domains with empty dns list
+    def test_407(self):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns1 = "test-100.com"
+        args.extend([ "store", "add", dns1 ])
+        exec_sub(args)
+        # override domains list
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns1, "domains" ])
+        exec_sub_err(args, 1)
