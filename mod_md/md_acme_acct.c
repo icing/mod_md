@@ -40,17 +40,12 @@ static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, md_acme *acme
     md_acme_acct *acct;
     
     acct = apr_pcalloc(p, sizeof(*acct));
-    if (!acct) {
-        if (pkey) {
-            md_crypt_pkey_free(pkey);
-        }
-        return APR_ENOMEM;
-    }
 
     acct->name = name;
     acct->pool = p;
     acct->acme = acme;
     acct->key = pkey;
+    
     if (!contacts || apr_is_empty_array(contacts)) {
         acct->contacts = apr_array_make(p, 5, sizeof(const char *));
     }
@@ -235,16 +230,13 @@ static apr_status_t on_init_acct_new(md_acme_req *req, void *baton)
     md_json *jpayload;
 
     jpayload = md_json_create(req->pool);
-    if (jpayload) {
-        md_json_sets("new-reg", jpayload, "resource", NULL);
-        md_json_setsa(acct->contacts, jpayload, "contact", NULL);
-        if (acct->tos) {
-            md_json_sets(acct->tos, jpayload, "agreement", NULL);
-        }
-        
-        return md_acme_req_body_init(req, jpayload, acct->key);
+    md_json_sets("new-reg", jpayload, "resource", NULL);
+    md_json_setsa(acct->contacts, jpayload, "contact", NULL);
+    if (acct->tos) {
+        md_json_sets(acct->tos, jpayload, "agreement", NULL);
     }
-    return APR_ENOMEM;
+    
+    return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
 static apr_status_t on_success_acct_upd(md_acme *acme, const apr_table_t *hdrs, 
@@ -329,13 +321,10 @@ static apr_status_t on_init_acct_upd(md_acme_req *req, void *baton)
     md_json *jpayload;
 
     jpayload = md_json_create(req->pool);
-    if (jpayload) {
-        md_json_sets("reg", jpayload, "resource", NULL);
-        md_json_sets(acct->tos, jpayload, "agreement", NULL);
-        
-        return md_acme_req_body_init(req, jpayload, acct->key);
-    }
-    return APR_ENOMEM;
+    md_json_sets("reg", jpayload, "resource", NULL);
+    md_json_sets(acct->tos, jpayload, "agreement", NULL);
+    
+    return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
 apr_status_t md_acme_acct_agree_tos(md_acme_acct *acct, const char *agreed_tos)
@@ -396,13 +385,10 @@ static apr_status_t on_init_acct_del(md_acme_req *req, void *baton)
     md_json *jpayload;
 
     jpayload = md_json_create(req->pool);
-    if (jpayload) {
-        md_json_sets("reg", jpayload, "resource", NULL);
-        md_json_setb(1, jpayload, "delete", NULL);
-        
-        return md_acme_req_body_init(req, jpayload, acct->key);
-    }
-    return APR_ENOMEM;
+    md_json_sets("reg", jpayload, "resource", NULL);
+    md_json_setb(1, jpayload, "delete", NULL);
+    
+    return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
 static apr_status_t on_success_acct_del(md_acme *acme, const apr_table_t *hdrs, md_json *body, void *baton)

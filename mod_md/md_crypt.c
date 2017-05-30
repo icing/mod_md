@@ -56,15 +56,11 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
     return APR_SUCCESS;
 }
 
-static apr_status_t make_pkey(md_pkey **ppkey, apr_pool_t *p) 
+static md_pkey *make_pkey(apr_pool_t *p) 
 {
     md_pkey *pkey = apr_pcalloc(p, sizeof(*pkey));
-    if (!pkey) {
-        return APR_ENOMEM;
-    }
     pkey->pool = p;
-    *ppkey = pkey;
-    return APR_SUCCESS;
+    return pkey;
 }
 
 void md_crypt_pkey_free(md_pkey *pkey)
@@ -81,10 +77,7 @@ apr_status_t md_crypt_pkey_load(md_pkey **ppkey, apr_pool_t *p, const char *fnam
     FILE *f;
     apr_status_t rv;
     
-    if (make_pkey(ppkey, p) != APR_SUCCESS) {
-        return APR_ENOMEM;
-    }
-    
+    *ppkey =  make_pkey(p);
     rv = md_util_fopen(&f, fname, "r");
     if (rv == APR_SUCCESS) {
         rv = APR_EINVAL;
@@ -147,10 +140,7 @@ apr_status_t md_crypt_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits)
     EVP_PKEY_CTX *ctx = NULL;
     apr_status_t rv;
     
-    if (make_pkey(ppkey, p) != APR_SUCCESS) {
-        return APR_ENOMEM;
-    }
-    
+    *ppkey = make_pkey(p);
     ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     if (ctx 
         && EVP_PKEY_keygen_init(ctx) >= 0

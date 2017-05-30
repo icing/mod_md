@@ -102,11 +102,11 @@ md_t *md_from_json(struct md_json *json, apr_pool_t *p);
 /**
  * Deep copy an md record into another pool.
  */
-md_t *md_clone(apr_pool_t *p, md_t *src);
+md_t *md_clone(apr_pool_t *p, const md_t *src);
 
 /**
  * Shallow copy an md record into another pool.
  */
-md_t *md_copy(apr_pool_t *p, md_t *src);
+md_t *md_copy(apr_pool_t *p, const md_t *src);
 
 #endif /* mod_md_md_h */

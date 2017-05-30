@@ -89,19 +89,12 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
     apr_status_t rv;
     
     acme = apr_pcalloc(p, sizeof(*acme));
-    if (acme) {
-        acme->url = url;
-        acme->path = path;
-        acme->pool = p;
-        acme->pkey_bits = 4096;
-        acme->accounts = apr_hash_make(acme->pool);
-    }
+    acme->url = url;
+    acme->path = path;
+    acme->pool = p;
+    acme->pkey_bits = 4096;
+    acme->accounts = apr_hash_make(acme->pool);
     
-    if (!acme || !acme->accounts) {
-        *pacme = NULL;
-        return APR_ENOMEM;
-    }
-
     if (acme->path) {
         char *acct_path, *ca_file;
         md_json *jca;
@@ -267,15 +260,12 @@ static md_acme_req *md_acme_req_create(md_acme *acme, const char *url)
 apr_status_t md_acme_req_body_init(md_acme_req *req, md_json *jpayload, md_pkey *key)
 {
     const char *payload = md_json_writep(jpayload, MD_JSON_FMT_COMPACT, req->pool);
-    if (payload) {
-        size_t payload_len = strlen(payload);
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
-                      "acct payload(len=%d): %s", payload_len, payload);
-        return md_jws_sign(&req->req_json, req->pool, payload, payload_len,
-                           req->prot_hdrs, key, NULL);
-    }
-    return APR_ENOMEM;
+    size_t payload_len = strlen(payload);
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+                  "acct payload(len=%d): %s", payload_len, payload);
+    return md_jws_sign(&req->req_json, req->pool, payload, payload_len,
+                       req->prot_hdrs, key, NULL);
 } 
 
 
@@ -379,10 +369,6 @@ static apr_status_t md_acme_req_send(md_acme_req *req)
     
         if (req->req_json) {
             body = md_json_writep(req->req_json, MD_JSON_FMT_INDENT, req->pool);
-            if (!body) {
-                rv = APR_ENOMEM;
-                goto out;
-            }
         }
         
         if (body && md_log_is_level(req->pool, MD_LOG_TRACE2)) {
@@ -398,7 +384,7 @@ static apr_status_t md_acme_req_send(md_acme_req *req)
         req = NULL;
         md_http_await(acme->http, id);
     }
-out:
+
     if (req) {
         md_acme_req_done(req);
     }
@@ -414,13 +400,10 @@ apr_status_t md_acme_req_do(md_acme *acme, const char *url,
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, acme->pool, "add acme req: %s", url);
     req = md_acme_req_create(acme, url);
-    if (req) {
-        req->on_init = on_init;
-        req->on_success = on_success;
-        req->baton = baton;
+    req->on_init = on_init;
+    req->on_success = on_success;
+    req->baton = baton;
     
-        return md_acme_req_send(req);
-    }
-    return APR_ENOMEM;
+    return md_acme_req_send(req);
 }
 

@@ -129,7 +129,7 @@ const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
     return NULL;   
 }
 
-md_t *md_copy(apr_pool_t *p, md_t *src)
+md_t *md_copy(apr_pool_t *p, const md_t *src)
 {
     md_t *md;
     
@@ -141,7 +141,7 @@ md_t *md_copy(apr_pool_t *p, md_t *src)
     return md;   
 }
 
-md_t *md_clone(apr_pool_t *p, md_t *src)
+md_t *md_clone(apr_pool_t *p, const md_t *src)
 {
     md_t *md;
     

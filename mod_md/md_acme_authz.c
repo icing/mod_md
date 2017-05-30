@@ -38,14 +38,12 @@ static apr_status_t authz_create(md_acme_authz **pauthz, apr_pool_t *p,
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "generating new authz for %s", domain);
     
     authz = apr_pcalloc(p, sizeof(*authz));
-    if (authz) {
-        authz->domain = apr_pstrdup(p, domain);
-        authz->acct = acct;
-        authz->challenges = apr_array_make(p, 5, sizeof(md_acme_challenge *));
-    }
+    authz->domain = apr_pstrdup(p, domain);
+    authz->acct = acct;
+    authz->challenges = apr_array_make(p, 5, sizeof(md_acme_challenge *));
     *pauthz = authz;
       
-    return (authz && authz->challenges)? APR_SUCCESS : APR_ENOMEM;
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/
@@ -58,14 +56,11 @@ static apr_status_t on_init_authz(md_acme_req *req, void *baton)
     md_json *jpayload;
 
     jpayload = md_json_create(req->pool);
-    if (jpayload) {
-        md_json_sets("new-authz", jpayload, "resource", NULL);
-        md_json_sets("dns", jpayload, "identifier", "type", NULL);
-        md_json_sets(authz->domain, jpayload, "identifier", "value", NULL);
-        
-        return md_acme_req_body_init(req, jpayload, acct->key);
-    }
-    return APR_ENOMEM;
+    md_json_sets("new-authz", jpayload, "resource", NULL);
+    md_json_sets("dns", jpayload, "identifier", "type", NULL);
+    md_json_sets(authz->domain, jpayload, "identifier", "value", NULL);
+    
+    return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
 static apr_status_t on_success_authz(md_acme *acme, const apr_table_t *hdrs, md_json *body, void *baton)

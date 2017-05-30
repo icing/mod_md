@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 
+#include <assert.h>
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_buckets.h>
@@ -60,12 +61,15 @@ static md_json *json_create(apr_pool_t *pool, json_t *j)
     md_json *json;
     
     (void)init_dummy;
-    json = apr_pcalloc(pool, sizeof(*json));
-    if (json == NULL) {
-        json_decref(j);
-        return NULL;
-    }
     
+    if (!j) {
+        apr_abortfunc_t abfn = apr_pool_abort_get(pool);
+        if (abfn) {
+            abfn(APR_ENOMEM);
+        }
+        assert(j != NULL); /* failsafe in case abort is unset */
+    }
+    json = apr_pcalloc(pool, sizeof(*json));
     json->p = pool;
     json->j = j;
     apr_pool_cleanup_register(pool, json, json_pool_cleanup, apr_pool_cleanup_null);
@@ -632,7 +636,7 @@ apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, 
         return APR_EINVAL;
     }
     *pjson = json_create(pool, j);
-    return *pjson? APR_SUCCESS : APR_ENOMEM;
+    return APR_SUCCESS;
 }
 
 static size_t load_cb(void *data, size_t max_len, void *baton)
@@ -688,7 +692,7 @@ apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, apr_bucket_brigade
         return APR_EINVAL;
     }
     *pjson = json_create(pool, j);
-    return *pjson? APR_SUCCESS : APR_ENOMEM;
+    return APR_SUCCESS;
 }
 
 static size_t load_file_cb(void *data, size_t max_len, void *baton)
@@ -721,7 +725,7 @@ apr_status_t md_json_readf(md_json **pjson, apr_pool_t *p, const char *fpath)
             *pjson = json_create(p, j);
         }
         apr_file_close(f);
-        return *pjson? APR_SUCCESS : (j? APR_ENOMEM : APR_EINVAL);
+        return *pjson? APR_SUCCESS : APR_EINVAL;
     }
     return rv;
 }

@@ -90,23 +90,21 @@ static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force)
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
 {
     md_store_fs_t *s_fs;
-    apr_status_t rv = APR_ENOMEM;
+    apr_status_t rv = APR_SUCCESS;
     
     s_fs = apr_pcalloc(p, sizeof(*s_fs));
-    if (s_fs) {
-        s_fs->p = s_fs->s.p = p;
-        s_fs->s.destroy = fs_destroy;
-        s_fs->s.load = fs_load;
-        s_fs->s.save = fs_save;
-        s_fs->s.load_md = fs_load_md;
-        s_fs->s.save_md = fs_save_md;
-        s_fs->s.remove_md = fs_remove_md;
-        s_fs->mds = apr_hash_make(p);
-        
-        if (NULL == s_fs->mds || NULL == (s_fs->base = apr_pstrdup(p, path)) 
-            || APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
-        }
+    s_fs->p = s_fs->s.p = p;
+    s_fs->s.destroy = fs_destroy;
+    s_fs->s.load = fs_load;
+    s_fs->s.save = fs_save;
+    s_fs->s.load_md = fs_load_md;
+    s_fs->s.save_md = fs_save_md;
+    s_fs->s.remove_md = fs_remove_md;
+    s_fs->mds = apr_hash_make(p);
+    
+    if (NULL == s_fs->mds || NULL == (s_fs->base = apr_pstrdup(p, path)) 
+        || APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
     }
     *pstore = (rv == APR_SUCCESS)? &(s_fs->s) : NULL;
     return rv;
@@ -127,12 +125,9 @@ static apr_status_t pfs_md_readf(md_t **pmd, const char *fpath, apr_pool_t *p, a
     rv = md_json_readf(&json, ptemp, fpath);
     if (APR_SUCCESS == rv) {
         md_t *md = md_from_json(json, p);
-        if (md) {
-            md->defn_name = apr_pstrdup(p, fpath);
-            *pmd = md;
-            return APR_SUCCESS;
-        }
-        return APR_ENOMEM;
+        md->defn_name = apr_pstrdup(p, fpath);
+        *pmd = md;
+        return APR_SUCCESS;
     }
     return rv;
 }
@@ -146,10 +141,6 @@ static apr_status_t pfs_md_writef(md_t *md, const char *dir, const char *name, a
     if (APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, p))) {
         if (APR_SUCCESS == (rv = md_util_path_merge(&fpath, p, dir, name, NULL))) {
             md_json *json = md_to_json(md, p);
-            if (!json) {
-                return APR_ENOMEM;
-            }
-            
             return (create? md_json_fcreatex(json, p, MD_JSON_FMT_INDENT, fpath)
                     : md_json_freplace(json, p, MD_JSON_FMT_INDENT, fpath));
         }

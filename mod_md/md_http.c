@@ -136,10 +136,6 @@ apr_status_t md_http_create(struct md_http **phttp, apr_pool_t *p)
     }
     
     http = apr_pcalloc(p, sizeof(*http));
-    if (!http) {
-        return APR_ENOMEM;
-    }
-    
     http->pool = p;
     http->bucket_alloc = apr_bucket_alloc_create(p);
     if (!http->bucket_alloc) {
@@ -178,10 +174,6 @@ static apr_status_t req_create(md_http_request **preq, md_http *http,
     }
     
     req = apr_pcalloc(pool, sizeof(*req));
-    if (!req) {
-        return APR_ENOMEM;
-    }
-    
     req->id = next_req_id++;
     req->pool = pool; 
     req->http = http;
@@ -217,10 +209,6 @@ static int curlify_headers(void *baton, const char *key, const char *value)
         return 0;
     }
     s = apr_psprintf(ctx->req->pool, "%s: %s", key, value);
-    if (!s) {
-        ctx->rv = APR_ENOMEM;
-        return 0;
-    }
     ctx->hdrs = curl_slist_append(ctx->hdrs, s);
     return 1;
 }

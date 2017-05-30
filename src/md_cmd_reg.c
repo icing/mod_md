@@ -112,3 +112,90 @@ md_cmd_t MD_RegListCmd = {
     "list all managed domains"
 };
 
+/**************************************************************************************************/
+/* command: store update */
+
+static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
+{
+    const char *name;
+    const md_t *md;
+    md_t *nmd;
+    apr_status_t rv = APR_SUCCESS;
+    int i, j, fields;
+    
+    if (ctx->argc <= 0) {
+        return usage(cmd, "needs md name");
+    }
+    name = ctx->argv[0];
+    
+    md = md_reg_get(ctx->reg, name);
+    if (NULL == md) {
+        fprintf(stderr, "managed domain not found: %s\n", name);
+        return APR_ENOENT;
+    }
+
+    /* update what */
+    fields = 0;
+    nmd = md_copy(ctx->p, md);
+    if (NULL == md) {
+        return APR_ENOMEM;
+    }
+    
+    if (ctx->ca_url && (nmd->ca_url == NULL || strcmp(ctx->ca_url, nmd->ca_url))) {
+        nmd->ca_url = ctx->ca_url;
+        fields |= MD_UPD_CA_URL;
+    }
+    
+    if (ctx->argc > 1) {
+        const char *aspect = ctx->argv[1];
+        
+        if (!strcmp("domains", aspect)) {
+            nmd->domains = md_cmd_gather_args(ctx, 2);
+            
+            if (apr_is_empty_array(nmd->domains)) {
+                fprintf(stderr, "update domains needs at least 1 domain name as parameter\n");
+                return APR_EGENERAL;
+            }
+            fields |= MD_UPD_DOMAINS;
+        }
+        if (!strcmp("ca", aspect)) {
+            if (ctx->argc <= 2) {
+                usage(cmd, "update name ca <url> [proto]");
+                return APR_EINVAL;
+            }
+            nmd->ca_url = ctx->argv[2];
+            fields |= MD_UPD_CA_URL;
+            if (ctx->argc > 3) {
+                nmd->ca_proto = ctx->argv[3];
+                fields |= MD_UPD_CA_PROTO;
+            }
+        }
+        else {
+            fprintf(stderr, "unknown update aspect: %s\n", aspect);
+            return APR_ENOTIMPL;
+        }
+    }
+
+    if (fields) {
+        if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, md->name, nmd, fields))) {
+            md = md_reg_get(ctx->reg, md->name);
+        }
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "no changes necessary");
+    }
+
+    if (APR_SUCCESS == rv) {
+        md_cmd_print_md(ctx, md);
+    }
+    return rv;
+}
+
+md_cmd_t MD_RegUpdateCmd = {
+    "update", MD_CTX_REG, 
+    NULL, cmd_reg_update, MD_NoOptions, NULL,
+    "update name [ 'aspect' args ]",
+    "update a managed domain's properties."
+};
+
+

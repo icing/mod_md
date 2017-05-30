@@ -33,18 +33,14 @@
 apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *store)
 {
     md_reg_t *reg;
-    apr_status_t rv = APR_ENOMEM;
+    apr_status_t rv;
     
     reg = apr_pcalloc(p, sizeof(*reg));
-    if (reg) {
-        reg->p = p;
-        reg->store = store;
-        reg->mds = apr_hash_make(p);
-        
-        if (reg->mds) {
-            rv = md_store_load(reg->store, reg->mds, reg->p);
-        }
-    }
+    reg->p = p;
+    reg->store = store;
+    reg->mds = apr_hash_make(p);
+    
+    rv = md_store_load(reg->store, reg->mds, reg->p);
     *preg = (rv == APR_SUCCESS)? reg : NULL;
     return rv;
 }
@@ -76,7 +72,7 @@ static int find_domain(void *baton, const md_reg_t *reg, const md_t *md)
 const md_t *md_reg_find(const md_reg_t *reg, const char *domain)
 {
     find_domain_ctx ctx;
-    
+
     ctx.domain = domain;
     ctx.md = NULL;
     
@@ -178,5 +174,40 @@ apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
         apr_hash_set(reg->mds, mine->name, strlen(mine->name), mine);
     }
     return rv;
+}
+
+static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_reg_t *reg = baton;
+    apr_status_t rv = APR_SUCCESS;
+    const char *name;
+    const md_t *md;
+    int fields, changed = 0;
+    md_t *nmd;
+    
+    name = va_arg(ap, const char *);
+    md = va_arg(ap, const md_t *);
+    fields = va_arg(ap, int);
+    
+    if (NULL == (md = md_reg_get(reg, name))) {
+        return APR_ENOENT;
+    }
+    nmd = md_copy(ptemp, md);
+    if (MD_UPD_DOMAINS & fields) {
+    }
+    if (MD_UPD_CA_URL & fields) {
+    }
+    if (MD_UPD_CA_PROTO & fields) {
+    }
+    
+    if (changed) {
+        rv = md_store_save_md(reg->store, nmd, 0);
+    }
+    return rv;
+}
+
+apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int fields)
+{
+    return md_util_pool_vdo(p_md_update, reg, reg->p, name, md, fields, NULL);
 }
 

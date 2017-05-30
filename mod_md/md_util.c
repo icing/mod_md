@@ -179,10 +179,7 @@ apr_status_t md_util_freplace(const char *fpath, apr_pool_t *p,
     const char *tmp;
     int i, max;
     
-    if (NULL == (tmp = apr_psprintf(p, "%s.tmp", fpath))) {
-        return APR_ENOMEM;
-    }
-
+    tmp = apr_psprintf(p, "%s.tmp", fpath);
     i = 0; max = 20;
 creat:
     while (i < max && APR_EEXIST == (rv = md_util_fcreatex(&f, tmp, p))) {
@@ -272,9 +269,6 @@ static apr_status_t files_do_start(void *baton, apr_pool_t *p, apr_pool_t *ptemp
     const char *segment, **ps;
 
     ctx->patterns = apr_array_make(ptemp, 5, sizeof(const char*));
-    if (!ctx->patterns) {
-        return APR_ENOMEM;
-    }
     
     segment = va_arg(ap, char *);
     while (segment) {

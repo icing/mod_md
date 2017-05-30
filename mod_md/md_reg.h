@@ -73,5 +73,17 @@ typedef int md_reg_do_cb(void *baton, const md_reg_t *reg, const md_t *md);
  */
 int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg);
 
+/**
+ * Bitmask for fields that are updated.
+ */
+#define MD_UPD_DOMAINS      0x0001
+#define MD_UPD_CA_URL       0x0002
+#define MD_UPD_CA_PROTO     0x0004
+
+/**
+ * Update the given fields for the managed domain. Take the new
+ * values from the given md, all other values remain unchanged.
+ */
+apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int fields);
 
 #endif /* mod_md_md_reg_h */

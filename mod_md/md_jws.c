@@ -35,57 +35,46 @@ apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
                          struct apr_table_t *protected, 
                          struct md_pkey *pkey, const char *key_id)
 {
-    md_json *msg;
+    md_json *msg, *jprotected;
     const char *prot64, *pay64, *sign64, *sign, *prot;
-    apr_status_t rv = APR_ENOMEM;
+    apr_status_t rv;
 
-    prot = NULL;
     *pmsg = NULL;
     
     msg = md_json_create(p);
-    if (msg) {
-        md_json *jprotected = md_json_create(p);
-        if (jprotected) {
-            md_json_sets("RS256", jprotected, "alg", NULL);
-            if (key_id) {
-                md_json_sets(key_id, jprotected, "kid", NULL);
-            }
-            else {
-                md_json_sets(md_crypt_pkey_get_rsa_e64(pkey, p), jprotected, "jwk", "e", NULL);
-                md_json_sets("RSA", jprotected, "jwk", "kty", NULL);
-                md_json_sets(md_crypt_pkey_get_rsa_n64(pkey, p), jprotected, "jwk", "n", NULL);
-            }
-            apr_table_do(header_set, jprotected, protected, NULL);
-            prot = md_json_writep(jprotected, MD_JSON_FMT_COMPACT, p);
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "protected: %s", prot); 
-        }
-    }
-    
-    if (prot) {
-        prot64 = md_util_base64url_encode(prot, strlen(prot), p);
-        if (prot64) {
-            md_json_sets(prot64, msg, "protected", NULL);
-            pay64 = md_util_base64url_encode(payload, len, p);
-            if (pay64) {
-                md_json_sets(pay64, msg, "payload", NULL);
-                sign = apr_psprintf(p, "%s.%s", prot64, pay64);
-                if (sign) {
-                    rv = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
-                    if (rv == APR_SUCCESS) {
-                        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
-                                      "jws pay64=%s\nprot64=%s\nsign64=%s", pay64, prot64, sign64);
 
-                        md_json_sets(sign64, msg, "signature", NULL);
-                        *pmsg = msg;
-                        rv = APR_SUCCESS;
-                    }
-                }
-            }
-        }
+    jprotected = md_json_create(p);
+    md_json_sets("RS256", jprotected, "alg", NULL);
+    if (key_id) {
+        md_json_sets(key_id, jprotected, "kid", NULL);
     }
+    else {
+        md_json_sets(md_crypt_pkey_get_rsa_e64(pkey, p), jprotected, "jwk", "e", NULL);
+        md_json_sets("RSA", jprotected, "jwk", "kty", NULL);
+        md_json_sets(md_crypt_pkey_get_rsa_n64(pkey, p), jprotected, "jwk", "n", NULL);
+    }
+    apr_table_do(header_set, jprotected, protected, NULL);
+    prot = md_json_writep(jprotected, MD_JSON_FMT_COMPACT, p);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "protected: %s", prot); 
     
-    if (rv != APR_SUCCESS) {
+    prot64 = md_util_base64url_encode(prot, strlen(prot), p);
+    md_json_sets(prot64, msg, "protected", NULL);
+    pay64 = md_util_base64url_encode(payload, len, p);
+    
+    md_json_sets(pay64, msg, "payload", NULL);
+    sign = apr_psprintf(p, "%s.%s", prot64, pay64);
+
+    rv = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
+    if (rv == APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
+                      "jws pay64=%s\nprot64=%s\nsign64=%s", pay64, prot64, sign64);
+        
+        md_json_sets(sign64, msg, "signature", NULL);
+    }
+    else {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "jwk signed message");
     } 
+    
+    *pmsg = (APR_SUCCESS == rv)? msg : NULL;
     return rv;
 }
