@@ -43,6 +43,11 @@ int md_array_str_case_index(const struct apr_array_header_t *array, const char *
 struct apr_array_header_t *md_array_str_clone(apr_pool_t *p, struct apr_array_header_t *array);
 
 /**************************************************************************************************/
+/* dns name check */
+
+int md_util_is_dns_name(apr_pool_t *p, const char *hostname, int need_fqdn);
+
+/**************************************************************************************************/
 /* file system related */
 
 struct apr_file_t;

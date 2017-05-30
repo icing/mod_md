@@ -42,7 +42,7 @@ def teardown_module(module):
     print("teardown_module: %s" % module.__name__)
 
 
-class TestStore:
+class TestReg:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -149,7 +149,7 @@ class TestStore:
         args.extend([dns])
         outdata = exec_sub(args)
         jout1 = json.loads(outdata)
-        assert len(jout['output']) == 1
+        assert len(jout1['output']) == 1
         md = jout1['output'][0]
         assert md['name'] == dns
         assert md['domains'] == [ dns ]

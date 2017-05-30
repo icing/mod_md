@@ -419,6 +419,50 @@ apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p)
     return rv;
 }
 
+/* DNS name checks ********************************************************************************/
+
+int md_util_is_dns_name(apr_pool_t *p, const char *hostname, int need_fqdn)
+{
+    char c, last = 0;
+    const char *cp = hostname;
+    int dots = 0;
+    
+    /* Since we use the names in certificates, we need pure ASCII domain names
+     * and IDN need to be converted to unicode. */
+    while ((c = *cp++)) {
+        switch (c) {
+            case '.':
+                if (last == '.') {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, "dns name with ..: %s", 
+                                  hostname);
+                    return 0;
+                }
+                ++dots;
+                break;
+            case '-':
+                break;
+            default:
+                if (!apr_isalnum(c)) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, "dns invalid char %c: %s", 
+                                  c, hostname);
+                    return 0;
+                }
+                break;
+        }
+        last = c;
+    }
+    
+    if (last == '.') { /* DNS names may end with '.' */
+        --dots;
+    }
+    if (need_fqdn && dots <= 0) { /* do not accept just top level domains */
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, "not a FQDN: %s", hostname);
+        return 0;
+    }
+    return 1; /* empty string not allowed */
+}
+
+
 /* base64 url encoding ****************************************************************************/
 
 static const int BASE64URL_UINT6[] = {

@@ -79,6 +79,8 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg);
 #define MD_UPD_DOMAINS      0x0001
 #define MD_UPD_CA_URL       0x0002
 #define MD_UPD_CA_PROTO     0x0004
+#define MD_UPD_CA_ACCOUNT   0x0008
+#define MD_UPD_ALL          0x7FFF
 
 /**
  * Update the given fields for the managed domain. Take the new

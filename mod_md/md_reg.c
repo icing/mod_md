@@ -20,6 +20,7 @@
 #include <apr_lib.h>
 #include <apr_hash.h>
 #include <apr_strings.h>
+#include <apr_uri.h>
 
 #include "md.h"
 #include "md_log.h"
@@ -53,6 +54,121 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     }
     
     *preg = (rv == APR_SUCCESS)? reg : NULL;
+    return rv;
+}
+
+/**************************************************************************************************/
+/* iteration */
+
+typedef struct {
+    const md_reg_t *reg;
+    md_reg_do_cb *cb;
+    void *baton;
+    const char *exclude;
+    const void *result;
+} reg_do_ctx;
+
+static int md_hash_do(void *baton, const void *key, apr_ssize_t klen, const void *value)
+{
+    reg_do_ctx *ctx = baton;
+    const md_t *md = value;
+    
+    if (!ctx->exclude || strcmp(ctx->exclude, md->name)) {
+        return ctx->cb(ctx->baton, ctx->reg, md);
+    }
+    return 1;
+}
+
+static int reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg, const char *exclude)
+{
+    reg_do_ctx ctx;
+    
+    ctx.reg = reg;
+    ctx.cb = cb;
+    ctx.baton = baton;
+    ctx.exclude = exclude;
+    return apr_hash_do(md_hash_do, &ctx, reg->mds);
+}
+
+
+int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg)
+{
+    return reg_do(cb, baton, reg, NULL);
+}
+
+/**************************************************************************************************/
+/* checks */
+
+static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, int fields)
+{
+    apr_status_t rv = APR_SUCCESS;
+    
+    if (MD_UPD_DOMAINS & fields) {
+        const md_t *other;
+        const char *domain;
+        int i;
+        
+        if (!md->domains || md->domains->nelts <= 0) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, p, 
+                          "empty domain list: %s", md->name);
+            rv = APR_EINVAL; goto out;
+        }
+        
+        for (i = 0; i < md->domains->nelts; ++i) {
+            domain = APR_ARRAY_IDX(md->domains, i, const char *);
+            if (!md_util_is_dns_name(p, domain, 1)) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                              "md %s with invalid domain name: %s", md->name, domain);
+                rv = APR_EINVAL; goto out;
+            }
+        }
+
+        if (NULL != (other = md_reg_find_overlap(reg, md, &domain))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                          "md %s shares domain '%s' with md %s", 
+                          md->name, domain, other->name);
+            rv = APR_EINVAL; goto out;
+        }
+    }
+    
+    if ((MD_UPD_CA_URL & fields) && md->ca_url) { /* setting to empty is ok */
+        apr_uri_t uri;
+        
+        if (APR_SUCCESS != (rv = apr_uri_parse(p, md->ca_url, &uri))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                          "parsing CA url for %s: %s", md->name, md->ca_url);
+            goto out;
+        }
+        if (!uri.scheme) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                          "CA url for %s without scheme: %s", md->name, md->ca_url);
+            rv = APR_EINVAL; goto out;
+        }
+        if (!uri.hostname) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                          "CA url for %s without hostname: %s", md->name, md->ca_url);
+            rv = APR_EINVAL; goto out;
+        }
+        else if (!md_util_is_dns_name(p, uri.hostname, 0)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                          "CA url for %s invalid hostname: %s", md->name, md->ca_url);
+            rv = APR_EINVAL; goto out;
+        }
+        if (uri.port_str && (uri.port == 0 || uri.port > 65353)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                          "CA url for %s invalid port: %s", md->name, md->ca_url);
+            rv = APR_EINVAL; goto out;
+        }
+    }
+    
+    if ((MD_UPD_CA_PROTO & fields) && md->ca_proto) { /* setting to empty is ok */
+        /* Do we want to restrict this to "known" protocols? */
+    }
+    
+    if ((MD_UPD_CA_ACCOUNT & fields) && md->ca_account) { /* setting to empty is ok */
+        /* hmm, in case we know the protocol, some checks could be done */
+    }
+out:
     return rv;
 }
 
@@ -118,7 +234,7 @@ const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md, const char 
     ctx.md = NULL;
     ctx.s = NULL;
     
-    md_reg_do(find_overlap, &ctx, reg);
+    reg_do(find_overlap, &ctx, reg, md->name);
     if (pdomain && ctx.s) {
         *pdomain = ctx.s;
     }
@@ -126,62 +242,16 @@ const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md, const char 
 }
 
 /**************************************************************************************************/
-/* iteration */
-
-typedef struct {
-    const md_reg_t *reg;
-    md_reg_do_cb *cb;
-    void *baton;
-    const void *result;
-} reg_do_ctx;
-
-static int md_hash_do(void *baton, const void *key, apr_ssize_t klen, const void *value)
-{
-    reg_do_ctx *ctx = baton;
-    return ctx->cb(ctx->baton, ctx->reg, value);
-}
-
-int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg)
-{
-    reg_do_ctx ctx;
-    
-    ctx.reg = reg;
-    ctx.cb = cb;
-    ctx.baton = baton;
-    return apr_hash_do(md_hash_do, &ctx, reg->mds);
-}
-
-/**************************************************************************************************/
 /* manipulation */
 
 apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
 {
-    const md_t *other;
-    const char *domain;
+    md_t *mine;
     apr_status_t rv;
     
-    other = md_reg_find_overlap(reg, md, &domain);
-    if (NULL != other) {
-        if (md_contains_domains(other, md)) {
-            if (md_equal_domains(md, other)) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EEXIST, reg->p, 
-                              "adding md %s has no effect. It already exists as %s", 
-                              md->name, other->name);
-                return APR_EEXIST;
-            }
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EEXIST, reg->p, 
-                          "adding md %s has no effect. All its domains are already in md %s", 
-                          md->name, other->name);
-            return APR_EEXIST;
-        }
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
-                      "adding md %s denied. It shares domain '%s' names with md %s", 
-                      md->name, domain, other->name);
-        return APR_EINVAL;
-    }
-    rv = md_store_save_md(reg->store, md, 1);
-    if (APR_SUCCESS == rv) {
-        md_t *mine = md_clone(reg->p, md);
+    if (APR_SUCCESS == (rv = check_values(reg, reg->p, md, MD_UPD_ALL))
+        && APR_SUCCESS == (rv = md_store_save_md(reg->store, md, 1))
+        && APR_SUCCESS == (rv = md_store_load_md(&mine, reg->store, md->name, reg->p))) {
         apr_hash_set(reg->mds, mine->name, strlen(mine->name), mine);
     }
     return rv;
@@ -204,30 +274,19 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         return APR_ENOENT;
     }
     
+    if (APR_SUCCESS != (rv = check_values(reg, ptemp, updates, fields))) {
+        return rv;
+    }
+    
     nmd = md_copy(ptemp, md);
     if (MD_UPD_DOMAINS & fields) {
         nmd->domains = updates->domains;
-        if (!nmd->domains || nmd->domains->nelts <= 0) {
-            rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, ptemp, 
-                          "denied update on domains with empty list: %s", name);
-        } 
     }
     if (MD_UPD_CA_URL & fields) {
         nmd->ca_url = updates->ca_url;
-        if (!nmd->ca_url) {
-            rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, ptemp, 
-                          "denied update to remove CA URL: %s", name); 
-        }
     }
     if (MD_UPD_CA_PROTO & fields) {
         nmd->ca_proto = updates->ca_proto;
-        if (!nmd->ca_proto) {
-            rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, ptemp, 
-                          "denied update to remove CA protocol: %s", name); 
-        }
     }
     
     if (fields 
