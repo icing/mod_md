@@ -147,26 +147,6 @@ class TestStore:
         assert md['ca']['proto'] == 'ACME'
         assert md['state'] == 0
 
-    # add with invalid DNS
-    @pytest.mark.parametrize("invalidDNS", [
-        ("tld"), ("white sp.ace")
-    ])
-    def test_105(self, invalidDNS):
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
-        args.extend([ "store", "add"])
-        args.extend([ invalidDNS ])
-        exec_sub_err(args, 1)
-
-    # add with invalid ACME URL
-    @pytest.mark.parametrize("invalidURL", [
-        ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
-    ])
-    def test_106(self, invalidURL):
-        args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
-        dns = "greenbytes.de"
-        args.extend([ "store", "add", dns ])
-        exec_sub_err(args, 1)
-
     # --------- store list ---------
 
     # list empty store
@@ -332,37 +312,6 @@ class TestStore:
     def test_403(self):
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns = "test-100.com"
-        args.extend([ "store", "update", dns ])
-        exec_sub_err(args, 1)
-
-    # update with invalid DNS
-    @pytest.mark.parametrize("invalidDNS", [
-        ("tld"), ("white sp.ace")
-    ])
-    def test_404(self, invalidDNS):
-        # setup: store managed domain
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
-        dns = "test-100.com"
-        args.extend([ "store", "add", dns ])
-        exec_sub(args)
-        # update with invalid DNS
-        args = [A2MD, "-d", STORE_DIR, "-j" ]
-        args.extend([ "store", "update", dns, "domains"])
-        args.extend([ invalidDNS ])
-        exec_sub_err(args, 1)
-
-    # update with invalid ACME URL
-    @pytest.mark.parametrize("invalidURL", [
-        ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
-    ])
-    def test_405(self, invalidURL):
-        # setup: store managed domain
-        args = [A2MD, "-d", STORE_DIR, "-j" ]
-        dns = "test-100.com"
-        args.extend([ "store", "add", dns ])
-        exec_sub(args)
-        # update with invalid DNS
-        args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "update", dns ])
         exec_sub_err(args, 1)
 
