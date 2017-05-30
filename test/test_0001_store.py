@@ -161,7 +161,7 @@ class TestStore:
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
     ])
-    def test_105(self, invalidURL):
+    def test_106(self, invalidURL):
         args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "store", "add", dns ])
