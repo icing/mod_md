@@ -172,7 +172,7 @@ apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
                       md->name, domain, other->name);
         return APR_EINVAL;
     }
-    rv = md_store_save_md(reg->store, md);
+    rv = md_store_save_md(reg->store, md, 1);
     if (APR_SUCCESS == rv) {
         md_t *mine = md_clone(reg->p, md);
         apr_hash_set(reg->mds, mine->name, strlen(mine->name), mine);

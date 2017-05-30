@@ -53,9 +53,9 @@ apr_status_t md_store_load_md(md_t **pmd, md_store_t *store, const char *name, a
     return store->load_md(pmd, store, name, p);
 }
 
-apr_status_t md_store_save_md(md_store_t *store, md_t *md)
+apr_status_t md_store_save_md(md_store_t *store, md_t *md, int create)
 {
-    return store->save_md(store, md);
+    return store->save_md(store, md, create);
 }
 
 apr_status_t md_store_remove_md(md_store_t *store, const char *name, int force)
@@ -84,7 +84,7 @@ static void fs_destroy(md_store_t *store);
 static apr_status_t fs_load(md_store_t *store, apr_hash_t *mds, apr_pool_t *p);
 static apr_status_t fs_save(md_store_t *store, apr_hash_t *mds);
 static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p);
-static apr_status_t fs_save_md(md_store_t *store, md_t *md);
+static apr_status_t fs_save_md(md_store_t *store, md_t *md, int create);
 static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force);
 
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
@@ -137,16 +137,22 @@ static apr_status_t pfs_md_readf(md_t **pmd, const char *fpath, apr_pool_t *p, a
     return rv;
 }
 
-static apr_status_t pfs_md_writef(md_t *md, const char *dir, const char *name, apr_pool_t *p)
+static apr_status_t pfs_md_writef(md_t *md, const char *dir, const char *name, apr_pool_t *p,
+                                  int create)
 {
+    const char *fpath;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, p))) {
-        md_json *json = md_to_json(md, p);
-        if (json) {
-            return md_json_freplace(json, p, dir, name);
+        if (APR_SUCCESS == (rv = md_util_path_merge(&fpath, p, dir, name, NULL))) {
+            md_json *json = md_to_json(md, p);
+            if (!json) {
+                return APR_ENOMEM;
+            }
+            
+            return (create? md_json_fcreatex(json, p, MD_JSON_FMT_INDENT, fpath)
+                    : md_json_freplace(json, p, MD_JSON_FMT_INDENT, fpath));
         }
-        return APR_ENOMEM;
     }
     return rv;
 }
@@ -172,12 +178,14 @@ static apr_status_t pfs_save_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     md_store_fs_t *s_fs = baton;
     const char *fpath;
     md_t *md;
+    int create;
     apr_status_t rv;
     
     md = va_arg(ap, md_t *);
+    create = va_arg(ap, int);
     rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, md->name, NULL);
     if (APR_SUCCESS == rv) {
-        rv = pfs_md_writef(md, fpath, FS_FN_MD_JSON, ptemp);
+        rv = pfs_md_writef(md, fpath, FS_FN_MD_JSON, ptemp, create);
     }
     return rv;
 }
@@ -289,10 +297,10 @@ static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, 
     return md_util_pool_vdo(pfs_load_md, s_fs, p, pmd, name, NULL);
 }
 
-static apr_status_t fs_save_md(md_store_t *store, md_t *md)
+static apr_status_t fs_save_md(md_store_t *store, md_t *md, int create)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_save_md, s_fs, s_fs->p, md, NULL);
+    return md_util_pool_vdo(pfs_save_md, s_fs, s_fs->p, md, create, NULL);
 }
 
 static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force)

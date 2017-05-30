@@ -76,7 +76,7 @@ apr_status_t md_json_writeb(md_json *json, md_json_fmt_t fmt, struct apr_bucket_
 const char *md_json_writep(md_json *json, md_json_fmt_t fmt, apr_pool_t *pool);
 apr_status_t md_json_writef(md_json *json, md_json_fmt_t fmt, struct apr_file_t *f);
 apr_status_t md_json_fcreatex(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
-apr_status_t md_json_freplace(md_json *json, apr_pool_t *p, const char *dir, const char *name);
+apr_status_t md_json_freplace(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
 
 apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, struct apr_bucket_brigade *bb);
 apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, size_t data_len);

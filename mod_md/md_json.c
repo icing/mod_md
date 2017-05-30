@@ -603,15 +603,23 @@ apr_status_t md_json_fcreatex(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, c
     return rv;
 }
 
+typedef struct {
+    md_json *json;
+    md_json_fmt_t fmt;
+} j_write_ctx;
+
 static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
 {
-    md_json *json = baton;
-    return md_json_writef(json, MD_JSON_FMT_INDENT, f);
+    j_write_ctx *ctx = baton;
+    return md_json_writef(ctx->json, ctx->fmt, f);
 }
 
-apr_status_t md_json_freplace(md_json *json, apr_pool_t *p, const char *dir, const char *name)
+apr_status_t md_json_freplace(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
 {
-    return md_util_freplace(dir, name, p, write_json, json);
+    j_write_ctx ctx;
+    ctx.json = json;
+    ctx.fmt = fmt;
+    return md_util_freplace(fpath, p, write_json, &ctx);
 }
 
 apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, size_t data_len)

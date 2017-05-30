@@ -19,9 +19,9 @@
 struct apr_array_header_t;
 
 
-#define MD_STATE_INCOMPLETE     0x0
-#define MD_STATE_LIVE           0x1
-#define MD_STATE_EXPIRED        0x2
+#define MD_INCOMPLETE     0x0
+#define MD_LIVE           0x1
+#define MD_EXPIRED        0x2
 
 /**
  * Get the status of the Managed Domain that contains the given DNS name.

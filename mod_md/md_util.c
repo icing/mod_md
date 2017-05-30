@@ -171,17 +171,18 @@ apr_status_t md_util_path_merge(const char **ppath, apr_pool_t *p, ...)
     return rv;
 }
 
-apr_status_t md_util_freplace(const char *path, const char *name, apr_pool_t *p, 
+apr_status_t md_util_freplace(const char *fpath, apr_pool_t *p, 
                               md_util_file_cb *write_cb, void *baton)
 {
     apr_status_t rv;
     apr_file_t *f;
-    const char *tmp, *fpath;
+    const char *tmp;
     int i, max;
     
-    rv = md_util_path_merge(&tmp, p, path, apr_psprintf(p, "%s.tmp", name), NULL);
-    rv = md_util_path_merge(&fpath, p, path, name, NULL);
-    
+    if (NULL == (tmp = apr_psprintf(p, "%s.tmp", fpath))) {
+        return APR_ENOMEM;
+    }
+
     i = 0; max = 20;
 creat:
     while (i < max && APR_EEXIST == (rv = md_util_fcreatex(&f, tmp, p))) {

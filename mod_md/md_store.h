@@ -27,8 +27,8 @@ typedef apr_status_t md_store_load_cb(md_store_t *store, struct apr_hash_t *mds,
 typedef apr_status_t md_store_save_cb(md_store_t *store, struct apr_hash_t *mds);
 
 typedef apr_status_t md_store_load_md_cb(struct md_t **pmd, md_store_t *store, 
-    const char *name, apr_pool_t *p);
-typedef apr_status_t md_store_save_md_cb(md_store_t *store, struct md_t *md);
+                                         const char *name, apr_pool_t *p);
+typedef apr_status_t md_store_save_md_cb(md_store_t *store, struct md_t *md, int create);
 typedef apr_status_t md_store_remove_md_cb(md_store_t *store, const char *name, int force);
 
 struct md_store_t {
@@ -50,7 +50,7 @@ apr_status_t md_store_save(md_store_t *store, struct apr_hash_t *mds);
 
 apr_status_t md_store_load_md(struct md_t **pmd, md_store_t *store, 
                               const char *name, apr_pool_t *p);
-apr_status_t md_store_save_md(md_store_t *store, struct md_t *md);
+apr_status_t md_store_save_md(md_store_t *store, struct md_t *md, int create);
 
 apr_status_t md_store_remove_md(md_store_t *store, const char *name, int force);
 

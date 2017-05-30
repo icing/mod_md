@@ -58,7 +58,7 @@ apr_status_t md_util_is_dir(const char *path, apr_pool_t *pool);
 
 typedef apr_status_t md_util_file_cb(void *baton, struct apr_file_t *f, apr_pool_t *p);
 
-apr_status_t md_util_freplace(const char *path, const char *name, apr_pool_t *p, 
+apr_status_t md_util_freplace(const char *fpath, apr_pool_t *p, 
                               md_util_file_cb *write, void *baton);
 
 typedef apr_status_t md_util_fdo_cb(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 

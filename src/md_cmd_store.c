@@ -54,7 +54,7 @@ static apr_status_t cmd_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     md->ca_url = ctx->ca_url;
     md->ca_proto = "ACME";
     
-    rv = md_store_save_md(ctx->store, md);
+    rv = md_store_save_md(ctx->store, md, 1);
     if (APR_SUCCESS == rv) {
         md_store_load_md(&nmd, ctx->store, md->name, ctx->p);
         md_cmd_print_md(ctx, nmd);
@@ -134,7 +134,7 @@ static int list_add_md(void *baton, const void *key, apr_ssize_t klen, const voi
 
 static int md_name_cmp(const void *v1, const void *v2)
 {
-    return strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
+    return - strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
 }
 
 static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
@@ -222,7 +222,7 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     
     if (changed) {
-        rv = md_store_save_md(ctx->store, md);
+        rv = md_store_save_md(ctx->store, md, 0);
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "no changes necessary");

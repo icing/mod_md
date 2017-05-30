@@ -142,7 +142,10 @@ class TestStore:
     # list two managed domains
     def test_201(self):
         # setup: add managed domains
-        dnslist = [ [ "test-100.com", "test-101.com", "test-102.com" ], ["greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"] ]
+        dnslist = [ 
+            [ "test-100.com", "test-101.com", "test-102.com" ], 
+            [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"] 
+        ]
         for dns in dnslist:
             args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "store", "add" ]
             args.extend(dns)
