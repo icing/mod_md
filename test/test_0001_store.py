@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
+import pytest
 
 from ConfigParser import SafeConfigParser
 from datetime import datetime
@@ -122,18 +123,55 @@ class TestStore:
     # add existing domain 
     def test_103(self):
         # setup: add domain
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "store", "add"]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "add"])
         dns = "greenbytes.de"
         args.extend([dns])
         exec_sub(args)
         # add same domain again
         outdata = exec_sub_err(args, 1)
 
+    # add without CA URL
+    def test_104(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "add"])
+        dns = "greenbytes.de"
+        args.extend([dns])
+        outdata = exec_sub(args)
+        jout = json.loads(outdata)
+        assert len(jout['output']) == 1
+        md = jout['output'][0]
+        assert md['name'] == dns
+        assert md['domains'] == [ dns ]
+        assert "url" not in md['ca']
+        assert md['ca']['proto'] == 'ACME'
+        assert md['state'] == 0
+
+    # add with invalid DNS
+    @pytest.mark.parametrize("invalidDNS", [
+        ("tld"), ("white sp.ace")
+    ])
+    def test_105(self, invalidDNS):
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "add"])
+        args.extend([ invalidDNS ])
+        exec_sub_err(args, 1)
+
+    # add with invalid ACME URL
+    @pytest.mark.parametrize("invalidURL", [
+        ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
+    ])
+    def test_106(self, invalidURL):
+        args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
+        dns = "greenbytes.de"
+        args.extend([ "store", "add", dns ])
+        exec_sub_err(args, 1)
+
     # --------- store list ---------
 
     # list empty store
     def test_200(self):
-        args = [A2MD, "-d", STORE_DIR, "-j", "store", "list" ]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "store", "list" ]
         outdata = exec_sub(args)
         jout = json.loads(outdata)
         assert 'output' not in jout
@@ -169,13 +207,19 @@ class TestStore:
     # remove managed domain
     def test_300(self):
         # setup: store managed domain
-        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "test-100.com"
         args.extend([ "store", "add", dns ])
-        outdata = exec_sub(args)
+        exec_sub(args)
         # remove managed domain
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "remove", dns ])
+        outdata = exec_sub(args)
+        jout = json.loads(outdata)
+        assert 'output' not in jout
+        assert jout['status'] == 0
+        # list store content
+        args = [A2MD, "-d", STORE_DIR, "-j", "store", "list" ]
         outdata = exec_sub(args)
         jout = json.loads(outdata)
         assert 'output' not in jout
@@ -184,7 +228,7 @@ class TestStore:
     # remove from list of managed domains 
     def test_301(self):
         # setup: add several managed domains
-        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = [ "test-100.com", "test-101.com", "test-102.com" ]
         args.extend([ "store", "add"])
         args.extend(dns1)
@@ -194,13 +238,20 @@ class TestStore:
         args.extend([ "store", "add" ])
         args.extend(dns2)
         outdata = exec_sub(args)
+        jout1 = json.loads(outdata)
         # remove managed domain
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "remove", "test-100.com" ])
         outdata = exec_sub(args)
-        jout = json.loads(outdata)
-        assert 'output' not in jout
-        assert jout['status'] == 0
+        jout2 = json.loads(outdata)
+        assert 'output' not in jout2
+        assert jout2['status'] == 0
+        # list store content
+        args = [A2MD, "-d", STORE_DIR, "-j", "store", "list" ]
+        outdata = exec_sub(args)
+        jout2 = json.loads(outdata)
+        assert len(jout2['output']) == 1
+        assert jout1 == jout2
 
     # remove nonexisting managed domain
     def test_302(self):
@@ -222,3 +273,126 @@ class TestStore:
         jout = json.loads(outdata)
         assert 'output' not in jout
         assert jout['status'] == 0
+
+    # --------- store update ---------
+
+    # null change
+    def test_400(self):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns = "test-100.com"
+        args.extend([ "store", "add", dns ])
+        outdata = exec_sub(args)
+        jout1 = json.loads(outdata)
+        # update without change
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns])
+        outdata = exec_sub(args)
+        jout2 = json.loads(outdata)
+        assert len(jout2['output']) == 1
+        assert jout1 == jout2
+
+    # add dns to managed domain
+    def test_401(self):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns1 = "test-100.com"
+        args.extend([ "store", "add", dns1 ])
+        outdata = exec_sub(args)
+        jout1 = json.loads(outdata)
+        # add second dns
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        dns2 = [ dns1, "test-101.com" ]
+        args.extend([ "store", "update", dns1, "domains"])
+        args.extend(dns2)
+        outdata = exec_sub(args)
+        jout2 = json.loads(outdata)
+        assert len(jout2['output']) == 1
+        jout1['output'][0]['domains'] = dns2
+        assert jout2 == jout1
+
+    # change CA URL
+    def test_402(self):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns = "test-100.com"
+        args.extend([ "store", "add", dns ])
+        outdata = exec_sub(args)
+        jout1 = json.loads(outdata)
+        # change CA URL
+        args = [A2MD, "-a", "https://foo.com/", "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns])
+        outdata = exec_sub(args)
+        jout2 = json.loads(outdata)
+        assert len(jout2['output']) == 1
+        jout1['output'][0]['ca']['url'] = "https://foo.com/"
+        assert jout2 == jout1
+
+    # update nonexisting managed domain
+    def test_403(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        dns = "test-100.com"
+        args.extend([ "store", "update", dns ])
+        exec_sub_err(args, 1)
+
+    # update with invalid DNS
+    @pytest.mark.parametrize("invalidDNS", [
+        ("tld"), ("white sp.ace")
+    ])
+    def test_404(self, invalidDNS):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns = "test-100.com"
+        args.extend([ "store", "add", dns ])
+        exec_sub(args)
+        # update with invalid DNS
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns, "domains"])
+        args.extend([ invalidDNS ])
+        exec_sub_err(args, 1)
+
+    # update with invalid ACME URL
+    @pytest.mark.parametrize("invalidURL", [
+        ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
+    ])
+    def test_405(self, invalidURL):
+        # setup: store managed domain
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        dns = "test-100.com"
+        args.extend([ "store", "add", dns ])
+        exec_sub(args)
+        # update with invalid DNS
+        args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns ])
+        exec_sub_err(args, 1)
+
+    # update domains, throw away md name
+    def test_406(self):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns1 = "test-100.com"
+        args.extend([ "store", "add", dns1 ])
+        outdata = exec_sub(args)
+        jout1 = json.loads(outdata)
+        # override domains list
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns1, "domains" ])
+        dns2 = "greenbytes.com"
+        args.extend([ dns2 ])
+        outdata = exec_sub(args)
+        jout2 = json.loads(outdata)
+        assert len(jout2['output']) == 1
+        jout1['output'][0]['domains'] = [ dns2 ]
+        assert jout1 == jout2
+
+    # update domains with empty dns list
+    def test_407(self):
+        # setup: store managed domain
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
+        dns1 = "test-100.com"
+        args.extend([ "store", "add", dns1 ])
+        exec_sub(args)
+        # override domains list
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "store", "update", dns1, "domains" ])
+        exec_sub_err(args, 1)
