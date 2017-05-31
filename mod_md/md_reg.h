@@ -88,4 +88,8 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg);
  */
 apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int fields);
 
+apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md);
+
+apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early);
+
 #endif /* mod_md_md_reg_h */

@@ -33,8 +33,8 @@
 static int initialized;
 
 struct md_pkey {
-    EVP_PKEY   *pkey;
     apr_pool_t *pool;
+    EVP_PKEY   *pkey;
 };
 
 apr_status_t md_crypt_init(apr_pool_t *pool)
@@ -56,6 +56,9 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
     return APR_SUCCESS;
 }
 
+/**************************************************************************************************/
+/* private keys */
+
 static md_pkey *make_pkey(apr_pool_t *p) 
 {
     md_pkey *pkey = apr_pcalloc(p, sizeof(*pkey));
@@ -63,45 +66,51 @@ static md_pkey *make_pkey(apr_pool_t *p)
     return pkey;
 }
 
-void md_crypt_pkey_free(md_pkey *pkey)
+static apr_status_t pkey_cleanup(void *data)
 {
+    md_pkey *pkey = data;
     if (pkey->pkey) {
         EVP_PKEY_free(pkey->pkey);
         pkey->pkey = NULL;
     }
-    
+    return APR_SUCCESS;
 }
 
-apr_status_t md_crypt_pkey_load(md_pkey **ppkey, apr_pool_t *p, const char *fname)
+void md_pkey_free(md_pkey *pkey)
+{
+    pkey_cleanup(pkey);
+}
+
+apr_status_t md_pkey_load(md_pkey **ppkey, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
+    md_pkey *pkey;
     
-    *ppkey =  make_pkey(p);
+    pkey =  make_pkey(p);
     rv = md_util_fopen(&f, fname, "r");
     if (rv == APR_SUCCESS) {
         rv = APR_EINVAL;
-        (*ppkey)->pkey = PEM_read_PrivateKey(f, NULL, NULL, NULL);
-        if ((*ppkey)->pkey != NULL) {
+        pkey->pkey = PEM_read_PrivateKey(f, NULL, NULL, NULL);
+        if (pkey->pkey != NULL) {
             rv = APR_SUCCESS;
+            apr_pool_cleanup_register(p, pkey, pkey_cleanup, apr_pool_cleanup_null);
         }
         fclose(f);
     }
 
-    if (rv != APR_SUCCESS) {
-        *ppkey = NULL;
-    }
+    *ppkey = (APR_SUCCESS == rv)? pkey : NULL;
     return rv;
 }
 
-apr_status_t md_crypt_pkey_load_rsa(md_pkey **ppkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_load_rsa(md_pkey **ppkey, apr_pool_t *p, const char *fname)
 {
     apr_status_t rv;
     
-    if ((rv = md_crypt_pkey_load(ppkey, p, fname)) == APR_SUCCESS) {
+    if ((rv = md_pkey_load(ppkey, p, fname)) == APR_SUCCESS) {
         if (EVP_PKEY_id((*ppkey)->pkey) != EVP_PKEY_RSA) {
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "key is not RSA: %s", fname); 
-            md_crypt_pkey_free(*ppkey);
+            md_pkey_free(*ppkey);
             *ppkey = NULL;
             rv = APR_EINVAL;
         }
@@ -109,7 +118,7 @@ apr_status_t md_crypt_pkey_load_rsa(md_pkey **ppkey, apr_pool_t *p, const char *
     return rv;
 }
 
-apr_status_t md_crypt_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
@@ -135,7 +144,7 @@ apr_status_t md_crypt_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname)
     return rv;
 }
 
-apr_status_t md_crypt_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits)
+apr_status_t md_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits)
 {
     EVP_PKEY_CTX *ctx = NULL;
     apr_status_t rv;
@@ -188,7 +197,7 @@ static const char *bn64(const BIGNUM *b, apr_pool_t *p)
     return NULL;
 }
 
-const char *md_crypt_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p)
+const char *md_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p)
 {
     const BIGNUM *e;
     RSA *rsa = EVP_PKEY_get1_RSA(pkey->pkey);
@@ -200,7 +209,7 @@ const char *md_crypt_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p)
     return bn64(e, p);
 }
 
-const char *md_crypt_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p)
+const char *md_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p)
 {
     const BIGNUM *n;
     RSA *rsa = EVP_PKEY_get1_RSA(pkey->pkey);
@@ -252,3 +261,65 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey *pkey, apr_pool_t *p,
     return rv;
 }
 
+/**************************************************************************************************/
+/* certificates */
+
+struct md_cert {
+    apr_pool_t *pool;
+    X509 *x509;
+};
+
+static md_cert *make_cert(apr_pool_t *p) 
+{
+    md_cert *cert = apr_pcalloc(p, sizeof(*cert));
+    cert->pool = p;
+    return cert;
+}
+
+static apr_status_t cert_cleanup(void *data)
+{
+    md_cert *cert = data;
+    if (cert->x509) {
+        /* TODO */
+        cert->x509 = NULL;
+    }
+    return APR_SUCCESS;
+}
+
+void md_cert_free(md_cert *cert)
+{
+    cert_cleanup(cert);
+}
+
+apr_status_t md_cert_load(md_cert **pcert, apr_pool_t *p, const char *fname)
+{
+    FILE *f;
+    apr_status_t rv;
+    md_cert *cert;
+    
+    cert =  make_cert(p);
+    rv = md_util_fopen(&f, fname, "r");
+    if (rv == APR_SUCCESS) {
+        rv = APR_EINVAL;
+        cert->x509 = PEM_read_X509(f, NULL, NULL, NULL);
+        if (cert->x509 != NULL) {
+            rv = APR_SUCCESS;
+            apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
+        }
+        fclose(f);
+    }
+
+    *pcert = (APR_SUCCESS == rv)? cert : NULL;
+    return rv;
+}
+
+
+apr_status_t md_cert_save(md_cert *cert, apr_pool_t *p, const char *fname)
+{
+    return APR_ENOTIMPL;
+}
+
+md_cert_state_t md_cert_state_get(md_cert *cert)
+{
+    return cert->x509? MD_CERT_VALID : MD_CERT_UNKNOWN;
+}

@@ -23,6 +23,7 @@
 #include <apr_uri.h>
 
 #include "md.h"
+#include "md_crypt.h"
 #include "md_log.h"
 #include "md_reg.h"
 #include "md_store.h"
@@ -47,12 +48,15 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
         md_t *md;
         int i;
         
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "reg: %d mds loaded", mds->nelts);
         for (i = 0; i < mds->nelts; ++i) {
             md = APR_ARRAY_IDX(mds, i, md_t*);
             apr_hash_set(reg->mds, md->name, strlen(md->name), md);
         }
+
+        rv = md_reg_states_init(reg, 0);
     }
-    
+
     *preg = (rv == APR_SUCCESS)? reg : NULL;
     return rv;
 }
@@ -173,6 +177,92 @@ out:
 }
 
 /**************************************************************************************************/
+/* state assessment */
+
+static apr_status_t state_init(const md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, md_t *md)
+{
+    md_state_t state = MD_S_UNKNOWN;
+    md_cert *cert;
+    md_cert_state_t cert_state;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = md_store_load_cert(&cert, reg->store, md->name, ptemp))
+        && APR_SUCCESS == (rv = md_store_load_pkey(NULL, reg->store, md->name, ptemp))) {
+        /* check if valid */
+        switch ((cert_state = md_cert_state_get(cert))) {
+            case MD_CERT_VALID:
+                state = MD_S_VALID;
+                break;
+            case MD_CERT_EXPIRED:
+                state = MD_S_INCOMPLETE;
+                break;
+            default:
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
+                              "md %s has unexpcted certificae state: %d", md->name, cert_state);
+                rv = APR_ENOTIMPL;
+                break;
+        }
+    }
+    else if (APR_ENOENT == rv) {
+        state = MD_S_INCOMPLETE;
+        rv = APR_SUCCESS;
+    }
+    /* break the constness, ugly but effective */
+    ((md_t *)md)->state = state;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, "md{%s}{state}: %d", md->name, state);
+    
+    return rv;
+}
+
+static apr_status_t state_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_reg_t *reg = baton;
+    md_t *md = va_arg(ap, md_t *);
+    
+    return state_init(reg, p, ptemp, md);
+}
+
+apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md)
+{
+    return md_util_pool_vdo(state_vinit, reg, reg->p, md, NULL);
+}
+
+typedef struct {
+    apr_pool_t *p;
+    apr_pool_t *ptemp;
+    int fail_early;
+    apr_status_t rv;
+} init_ctx;
+
+static int state_ctx_init(void *baton, const md_reg_t *reg, const md_t *md)
+{
+    init_ctx *ctx = baton;
+    
+    ctx->rv = state_init(reg, ctx->p, ctx->ptemp, (md_t*)md);
+    return (!ctx->fail_early || (APR_SUCCESS == ctx->rv))? 1 : 0;
+}
+
+static apr_status_t states_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_reg_t *reg = baton;
+    init_ctx ctx;
+    
+    ctx.p = p;
+    ctx.ptemp = ptemp;
+    ctx.fail_early = va_arg(ap, int);
+    ctx.rv = APR_SUCCESS;
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, "initializing all md states");
+    md_reg_do(state_ctx_init, &ctx, reg);
+    return ctx.rv;
+}
+
+apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early)
+{
+    return md_util_pool_vdo(states_vinit, reg, reg->p, fail_early, NULL);
+}
+
+/**************************************************************************************************/
 /* lookup */
 
 const md_t *md_reg_get(const md_reg_t *reg, const char *name)
@@ -253,6 +343,8 @@ apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
         && APR_SUCCESS == (rv = md_store_save_md(reg->store, md, 1))
         && APR_SUCCESS == (rv = md_store_load_md(&mine, reg->store, md->name, reg->p))) {
         apr_hash_set(reg->mds, mine->name, strlen(mine->name), mine);
+        
+        rv = md_reg_state_init(reg, mine);
     }
     return rv;
 }
@@ -293,6 +385,8 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         && APR_SUCCESS == (rv = md_store_save_md(reg->store, nmd, 0))
         && APR_SUCCESS == (rv = md_store_load_md(&nmd, reg->store, name, p))) {
         apr_hash_set(reg->mds, nmd->name, strlen(nmd->name), nmd);
+
+        rv = md_reg_state_init(reg, nmd);
     }
     return rv;
 }

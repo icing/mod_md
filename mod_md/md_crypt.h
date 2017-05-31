@@ -16,23 +16,37 @@
 #ifndef mod_md_md_crypt_h
 #define mod_md_md_crypt_h
 
+typedef struct md_cert md_cert;
 typedef struct md_pkey md_pkey;
 
 apr_status_t md_crypt_init(apr_pool_t *pool);
 
-apr_status_t md_crypt_pkey_load(md_pkey **ppkey, apr_pool_t *p, const char *fname);
-apr_status_t md_crypt_pkey_load_rsa(md_pkey **ppkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_load(md_pkey **ppkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_load_rsa(md_pkey **ppkey, apr_pool_t *p, const char *fname);
 
-void md_crypt_pkey_free(md_pkey *pkey);
+void md_pkey_free(md_pkey *pkey);
 
-apr_status_t md_crypt_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname);
 
-apr_status_t md_crypt_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits);
+apr_status_t md_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits);
 
-const char *md_crypt_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p);
-const char *md_crypt_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p);
+const char *md_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p);
+const char *md_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p);
 
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
+
+typedef enum {
+    MD_CERT_UNKNOWN,
+    MD_CERT_VALID,
+    MD_CERT_EXPIRED
+} md_cert_state_t;
+
+void md_cert_free(md_cert *cert);
+
+apr_status_t md_cert_load(md_cert **pcert, apr_pool_t *p, const char *fname);
+apr_status_t md_cert_save(md_cert *cert, apr_pool_t *p, const char *fname);
+
+md_cert_state_t md_cert_state_get(md_cert *cert);
 
 #endif /* md_crypt_h */

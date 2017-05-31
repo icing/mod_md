@@ -121,27 +121,10 @@ apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode)
     return APR_SUCCESS;
 }
 
-
 apr_status_t md_util_fcreatex(apr_file_t **pf, const char *fn, apr_pool_t *p)
 {
     return apr_file_open(pf, fn, (APR_FOPEN_WRITE|APR_FOPEN_CREATE|APR_FOPEN_EXCL),
                          MD_FPROT_F_UONLY, p);
-}
-
-const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme)
-{
-    const char *cp = s;
-    while (*cp) {
-        if (*cp == ':') {
-            /* could be an url scheme, leave unchanged */
-            return s;
-        }
-        else if (!apr_isalnum(*cp)) {
-            break;
-        }
-        ++cp;
-    }
-    return apr_psprintf(p, "%s:%s", def_scheme, s);
 }
 
 apr_status_t md_util_is_dir(const char *path, apr_pool_t *pool)
@@ -150,6 +133,16 @@ apr_status_t md_util_is_dir(const char *path, apr_pool_t *pool)
     apr_status_t rv = apr_stat(&info, path, APR_FINFO_TYPE, pool);
     if (rv == APR_SUCCESS) {
         rv = (info.filetype == APR_DIR)? APR_SUCCESS : APR_EINVAL;
+    }
+    return rv;
+}
+
+apr_status_t md_util_is_file(const char *path, apr_pool_t *pool)
+{
+    apr_finfo_t info;
+    apr_status_t rv = apr_stat(&info, path, APR_FINFO_TYPE, pool);
+    if (rv == APR_SUCCESS) {
+        rv = (info.filetype == APR_REG)? APR_SUCCESS : APR_EINVAL;
     }
     return rv;
 }
@@ -462,6 +455,21 @@ int md_util_is_dns_name(apr_pool_t *p, const char *hostname, int need_fqdn)
     return 1; /* empty string not allowed */
 }
 
+const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme)
+{
+    const char *cp = s;
+    while (*cp) {
+        if (*cp == ':') {
+            /* could be an url scheme, leave unchanged */
+            return s;
+        }
+        else if (!apr_isalnum(*cp)) {
+            break;
+        }
+        ++cp;
+    }
+    return apr_psprintf(p, "%s:%s", def_scheme, s);
+}
 
 /* base64 url encoding ****************************************************************************/
 

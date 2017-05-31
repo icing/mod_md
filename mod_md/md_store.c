@@ -25,6 +25,7 @@
 #include <apr_strings.h>
 
 #include "md.h"
+#include "md_crypt.h"
 #include "md_log.h"
 #include "md_json.h"
 #include "md_store.h"
@@ -63,6 +64,31 @@ apr_status_t md_store_remove_md(md_store_t *store, const char *name, int force)
     return store->remove_md(store, name, force);
 }
 
+apr_status_t md_store_load_cert(struct md_cert **pcert, md_store_t *store, 
+                                const char *name, apr_pool_t *p)
+{
+    return store->load_cert(pcert, store, name, p);
+}
+
+apr_status_t md_store_save_cert(md_store_t *store, const char *name,
+                                           struct md_cert *cert, int create)
+{
+    return store->save_cert(store, name, cert, create);
+}
+
+apr_status_t md_store_load_pkey(struct md_pkey **ppkey, md_store_t *store, 
+                                const char *name, apr_pool_t *p)
+{
+    return store->load_pkey(ppkey, store, name, p);
+}
+
+apr_status_t md_store_save_pkey(md_store_t *store, const char *name,
+                                struct md_pkey *pkey, int create)
+{
+    return store->save_pkey(store, name, pkey, create);
+}
+
+
 /**************************************************************************************************/
 /* file system based implementation */
 
@@ -78,6 +104,8 @@ struct md_store_fs_t {
 
 #define FS_DN_DOMAINS      "domains"
 #define FS_FN_MD_JSON      "md.json"
+#define FS_FN_CERT_PEM     "cert.pem"
+#define FS_FN_PKEY_PEM     "privkey.pem"
 
 static void fs_destroy(md_store_t *store);
 static apr_status_t fs_load(md_store_t *store, apr_array_header_t *mds, apr_pool_t *p);
@@ -85,6 +113,12 @@ static apr_status_t fs_save(md_store_t *store, apr_array_header_t *mds);
 static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p);
 static apr_status_t fs_save_md(md_store_t *store, md_t *md, int create);
 static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force);
+static apr_status_t fs_load_cert(md_cert **pcert, md_store_t *store, 
+                                 const char *name, apr_pool_t *p);
+static apr_status_t fs_save_cert(md_store_t *store, const char *name, md_cert *cert, int create);
+static apr_status_t fs_load_pkey(md_pkey **ppkey, md_store_t *store, 
+                                 const char *name, apr_pool_t *p);
+static apr_status_t fs_save_pkey(md_store_t *store, const char *name, md_pkey *pkey, int create);
 
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
 {
@@ -96,9 +130,17 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.destroy = fs_destroy;
     s_fs->s.load = fs_load;
     s_fs->s.save = fs_save;
+
     s_fs->s.load_md = fs_load_md;
     s_fs->s.save_md = fs_save_md;
     s_fs->s.remove_md = fs_remove_md;
+
+    s_fs->s.load_cert = fs_load_cert;
+    s_fs->s.save_cert = fs_save_cert;
+
+    s_fs->s.load_pkey = fs_load_pkey;
+    s_fs->s.save_pkey = fs_save_pkey;
+
     s_fs->base = apr_pstrdup(p, path);
     
     if (APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
@@ -302,4 +344,114 @@ static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     return md_util_pool_vdo(pfs_remove_md, s_fs, s_fs->p, name, force, NULL);
+}
+
+/**************************************************************************************************/
+/* fs cert handling */
+
+static apr_status_t pfs_load_cert(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *fpath, *name;
+    md_cert **pcert;
+    apr_status_t rv;
+    
+    pcert = va_arg(ap, md_cert **);
+    name = va_arg(ap, const char *);
+    
+    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, FS_FN_CERT_PEM, NULL);
+    if (APR_SUCCESS == rv) {
+        rv = md_cert_load(pcert, p, fpath);
+    }
+    return rv;
+}
+
+static apr_status_t fs_load_cert(md_cert **pcert, md_store_t *store, 
+                                 const char *name, apr_pool_t *p)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_load_cert, s_fs, p, pcert, name, NULL);
+}
+
+static apr_status_t pfs_save_cert(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *fpath, *name;
+    md_cert *cert;
+    int create;
+    apr_status_t rv;
+    
+    name = va_arg(ap, const char *);
+    cert = va_arg(ap, md_cert *);
+    create = va_arg(ap, int);
+    
+    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL);
+    if (APR_SUCCESS == rv) {
+        rv = md_cert_save(cert, ptemp, fpath);
+    }
+    return rv;
+}
+
+
+static apr_status_t fs_save_cert(md_store_t *store, const char *name, md_cert *cert, int create)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_save_cert, s_fs, s_fs->p, name, cert, create, NULL);
+}
+
+/**************************************************************************************************/
+/* fs pkey handling */
+
+static apr_status_t pfs_load_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *fpath, *name;
+    md_pkey **ppkey;
+    apr_status_t rv;
+    
+    ppkey = va_arg(ap, md_pkey **);
+    name = va_arg(ap, const char *);
+    
+    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, FS_FN_CERT_PEM, NULL);
+    if (APR_SUCCESS == rv) {
+        rv = md_pkey_load(ppkey, p, fpath);
+    }
+    return rv;
+}
+
+static apr_status_t pfs_save_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *fpath, *name;
+    md_pkey *pkey;
+    int create;
+    apr_status_t rv;
+    
+    name = va_arg(ap, const char *);
+    pkey = va_arg(ap, md_pkey *);
+    create = va_arg(ap, int);
+    
+    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL);
+    if (APR_SUCCESS == rv) {
+        if (pkey) {
+            rv = md_pkey_save(pkey, ptemp, fpath);
+        }
+        else {
+            rv = md_util_is_file(fpath, ptemp);
+        }
+    }
+    return rv;
+}
+
+static apr_status_t fs_load_pkey(md_pkey **ppkey, md_store_t *store, 
+                                 const char *name, apr_pool_t *p)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_load_pkey, s_fs, p, ppkey, name, NULL);
+}
+
+static apr_status_t fs_save_pkey(md_store_t *store, const char *name, md_pkey *pkey, int create)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_save_pkey, s_fs, s_fs->p, name, pkey, create, NULL);
 }

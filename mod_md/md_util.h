@@ -60,6 +60,7 @@ apr_status_t md_util_fcreatex(struct apr_file_t **pf, const char *fn, apr_pool_t
 apr_status_t md_util_path_merge(const char **ppath, apr_pool_t *p, ...);
 
 apr_status_t md_util_is_dir(const char *path, apr_pool_t *pool);
+apr_status_t md_util_is_file(const char *path, apr_pool_t *pool);
 
 typedef apr_status_t md_util_file_cb(void *baton, struct apr_file_t *f, apr_pool_t *p);
 

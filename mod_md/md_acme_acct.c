@@ -65,7 +65,7 @@ static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, md_acme *ac
     md_pkey *pkey;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "generating new account key"); 
-    rv = md_crypt_pkey_gen_rsa(&pkey, p, key_bits);
+    rv = md_pkey_gen_rsa(&pkey, p, key_bits);
     if (rv == APR_SUCCESS) {
         rv = acct_make(pacct, p, acme, NULL, contacts, pkey);
     }
@@ -75,7 +75,7 @@ static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, md_acme *ac
 static void md_acme_acct_free(md_acme_acct *acct)
 {
     if (acct->key) {
-        md_crypt_pkey_free(acct->key);
+        md_pkey_free(acct->key);
         acct->key = NULL;
     }
 }
@@ -150,7 +150,7 @@ static apr_status_t acct_save(md_acme_acct *acct, md_acme *acme)
     }
     
     if (APR_SUCCESS == rv) {
-        rv = md_crypt_pkey_save(acct->key, ptemp, key_path);
+        rv = md_pkey_save(acct->key, ptemp, key_path);
     }
     
     apr_pool_destroy(ptemp);
@@ -172,7 +172,7 @@ static apr_status_t acct_load(md_acme_acct **pacct, md_acme *acme, const char *n
         return rv;
     }   
      
-    rv = md_crypt_pkey_load_rsa(&pkey, acme->pool, key_path);
+    rv = md_pkey_load_rsa(&pkey, acme->pool, key_path);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "loading key: %s", name);
         return rv;

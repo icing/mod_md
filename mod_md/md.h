@@ -30,6 +30,7 @@ typedef enum {
     MD_S_VALID,                     /* MD has all necessary information, can go live */
     MD_S_INACTIVE,                  /* MD is inactive, not to go live and not 
                                           to be processed futher */
+    MD_S_ERROR,                     /* MD data is flawed, unable to be processed as is */ 
 } md_state_t;
 
 typedef struct md_t md_t;

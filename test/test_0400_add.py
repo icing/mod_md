@@ -78,7 +78,7 @@ class TestReg:
         assert md['domains'][0] == dns
         assert md['ca']['url'] == ACME_URL
         assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 0
+        assert md['state'] == 1
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
         outdata = exec_sub(args)
@@ -99,7 +99,7 @@ class TestReg:
         assert md['domains'] == dns
         assert md['ca']['url'] == ACME_URL
         assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 0
+        assert md['state'] == 1
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
         outdata = exec_sub(args)
@@ -128,7 +128,7 @@ class TestReg:
         assert md['domains'] == dns2
         assert md['ca']['url'] == ACME_URL
         assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 0
+        assert md['state'] == 1
 
     # add existing domain 
     def test_103(self):
@@ -155,7 +155,7 @@ class TestReg:
         assert md['domains'] == [ dns ]
         assert "url" not in md['ca']
         assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 0
+        assert md['state'] == 1
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
         outdata = exec_sub(args)
@@ -215,4 +215,4 @@ class TestReg:
             assert md['domains'] == dnslist[i]
             assert md['ca']['url'] == ACME_URL
             assert md['ca']['proto'] == 'ACME'
-            assert md['state'] == 0
+            assert md['state'] == 1

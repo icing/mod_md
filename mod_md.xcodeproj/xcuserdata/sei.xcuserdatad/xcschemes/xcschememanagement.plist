@@ -4,7 +4,17 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
-		<key>mod_h2 make.xcscheme</key>
+		<key>a2md.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>1</integer>
+		</dict>
+		<key>mod_md test.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
+		<key>mod_md.xcscheme</key>
 		<dict>
 			<key>orderHint</key>
 			<integer>0</integer>
@@ -12,6 +22,21 @@
 	</dict>
 	<key>SuppressBuildableAutocreation</key>
 	<dict>
+		<key>B203333C1EDEC7FE00E5BE7E</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>B20333401EDECB1D00E5BE7E</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>B20333441EDECBE000E5BE7E</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
 		<key>B2546D8A1A7F76FA0033A875</key>
 		<dict>
 			<key>primary</key>
