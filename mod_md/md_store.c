@@ -39,55 +39,59 @@ void md_store_destroy(md_store_t *store)
     if (store->destroy) store->destroy(store);
 }
 
-apr_status_t md_store_load(md_store_t *store, apr_array_header_t *mds, apr_pool_t *p)
+apr_status_t md_store_load_mds(apr_array_header_t *mds, md_store_t *store, apr_pool_t *p)
 {
-    return store->load(store, mds, p);
-}
-
-apr_status_t md_store_save(md_store_t *store, apr_array_header_t *mds)
-{
-    return store->save(store, mds);
+    return store->load_mds(mds, store, p);
 }
 
 apr_status_t md_store_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p)
 {
-    return store->load_md(pmd, store, name, p);
+    return store->load_value((void**)pmd, store, name, MD_STORE_V_MD, p);
 }
 
 apr_status_t md_store_save_md(md_store_t *store, md_t *md, int create)
 {
-    return store->save_md(store, md, create);
+    return store->save_value(store, md->name, MD_STORE_V_MD, md, create);
 }
 
 apr_status_t md_store_remove_md(md_store_t *store, const char *name, int force)
 {
-    return store->remove_md(store, name, force);
+    return store->remove_value(store, name, MD_STORE_V_MD, force);
 }
 
 apr_status_t md_store_load_cert(struct md_cert **pcert, md_store_t *store, 
                                 const char *name, apr_pool_t *p)
 {
-    return store->load_cert(pcert, store, name, p);
+    return store->load_value((void**)pcert, store, name, MD_STORE_V_CERT, p);
 }
 
-apr_status_t md_store_save_cert(md_store_t *store, const char *name,
-                                           struct md_cert *cert, int create)
+apr_status_t md_store_save_cert(md_store_t *store, const char *name, struct md_cert *cert)
 {
-    return store->save_cert(store, name, cert, create);
+    return store->save_value(store, name, MD_STORE_V_CERT, cert, 0);
 }
 
 apr_status_t md_store_load_pkey(struct md_pkey **ppkey, md_store_t *store, 
                                 const char *name, apr_pool_t *p)
 {
-    return store->load_pkey(ppkey, store, name, p);
+    return store->load_value((void**)ppkey, store, name, MD_STORE_V_PKEY, p);
 }
 
-apr_status_t md_store_save_pkey(md_store_t *store, const char *name,
-                                struct md_pkey *pkey, int create)
+apr_status_t md_store_save_pkey(md_store_t *store, const char *name, struct md_pkey *pkey)
 {
-    return store->save_pkey(store, name, pkey, create);
+    return store->save_value(store, name, MD_STORE_V_PKEY, pkey, 0);
 }
 
+apr_status_t md_store_load_chain(struct apr_array_header_t **pchain, md_store_t *store, 
+                                const char *name, apr_pool_t *p)
+{
+    return store->load_value((void**)pchain, store, name, MD_STORE_V_CHAIN, p);
+}
+
+apr_status_t md_store_save_chain(md_store_t *store, const char *name,
+                                 struct apr_array_header_t *chain)
+{
+    return store->save_value(store, name, MD_STORE_V_CHAIN, chain, 0);
+}
 
 /**************************************************************************************************/
 /* file system based implementation */
@@ -102,23 +106,16 @@ struct md_store_fs_t {
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
 
-#define FS_DN_DOMAINS      "domains"
-#define FS_FN_MD_JSON      "md.json"
-#define FS_FN_CERT_PEM     "cert.pem"
-#define FS_FN_PKEY_PEM     "privkey.pem"
-
 static void fs_destroy(md_store_t *store);
-static apr_status_t fs_load(md_store_t *store, apr_array_header_t *mds, apr_pool_t *p);
-static apr_status_t fs_save(md_store_t *store, apr_array_header_t *mds);
-static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p);
-static apr_status_t fs_save_md(md_store_t *store, md_t *md, int create);
-static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force);
-static apr_status_t fs_load_cert(md_cert **pcert, md_store_t *store, 
-                                 const char *name, apr_pool_t *p);
-static apr_status_t fs_save_cert(md_store_t *store, const char *name, md_cert *cert, int create);
-static apr_status_t fs_load_pkey(md_pkey **ppkey, md_store_t *store, 
-                                 const char *name, apr_pool_t *p);
-static apr_status_t fs_save_pkey(md_store_t *store, const char *name, md_pkey *pkey, int create);
+static apr_status_t fs_load_mds(apr_array_header_t *mds, md_store_t *store, apr_pool_t *p);
+
+static apr_status_t fs_load_value(void **pvalue, md_store_t *store, const char *name, 
+                                  md_store_vtype_t vtype, apr_pool_t *p);
+static apr_status_t fs_save_value(md_store_t *store, const char *name, 
+                                  md_store_vtype_t vtype, void *value, int create);
+static apr_status_t fs_remove_value(md_store_t *store, const char *name, 
+                                    md_store_vtype_t vtype, int force);
+
 
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
 {
@@ -128,18 +125,11 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs = apr_pcalloc(p, sizeof(*s_fs));
     s_fs->p = s_fs->s.p = p;
     s_fs->s.destroy = fs_destroy;
-    s_fs->s.load = fs_load;
-    s_fs->s.save = fs_save;
+    s_fs->s.load_mds = fs_load_mds;
 
-    s_fs->s.load_md = fs_load_md;
-    s_fs->s.save_md = fs_save_md;
-    s_fs->s.remove_md = fs_remove_md;
-
-    s_fs->s.load_cert = fs_load_cert;
-    s_fs->s.save_cert = fs_save_cert;
-
-    s_fs->s.load_pkey = fs_load_pkey;
-    s_fs->s.save_pkey = fs_save_pkey;
+    s_fs->s.load_value = fs_load_value;
+    s_fs->s.save_value= fs_save_value;
+    s_fs->s.remove_value = fs_remove_value;
 
     s_fs->base = apr_pstrdup(p, path);
     
@@ -188,81 +178,155 @@ static apr_status_t pfs_md_writef(md_t *md, const char *dir, const char *name, a
     return rv;
 }
 
-static apr_status_t pfs_load_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+#define FS_DN_DOMAINS      "domains"
+#define FS_FN_MD_JSON      "md.json"
+#define FS_FN_CERT_PEM     "cert.pem"
+#define FS_FN_PKEY_PEM     "privkey.pem"
+#define FS_FN_CHAIN_PEM    "chain.pem"
+
+static const char *VTYPE_FNAME[] = {
+    FS_FN_MD_JSON,
+    FS_FN_CERT_PEM,
+    FS_FN_PKEY_PEM,
+    FS_FN_CHAIN_PEM,
+};
+
+static const char *vtype_filename(int vtype)
+{
+    if (vtype < sizeof(VTYPE_FNAME)/sizeof(VTYPE_FNAME[0])) {
+        return VTYPE_FNAME[vtype];
+    }
+    return "UNKNOWN";
+}
+
+static apr_status_t pfs_load_value(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
-    const char *fpath, *name;
-    md_t **pmd;
+    const char *fpath, *name, *filename;
+    md_store_vtype_t vtype;
+    void **pvalue;
     apr_status_t rv;
     
-    pmd = va_arg(ap, md_t **);
+    pvalue= va_arg(ap, void **);
     name = va_arg(ap, const char *);
-    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, FS_FN_MD_JSON, NULL);
+    vtype = va_arg(ap, int);    
+    filename = vtype_filename(vtype);
+    
+    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, filename, NULL);
     if (APR_SUCCESS == rv) {
-        rv = pfs_md_readf(pmd, fpath, p, ptemp);
+        if (pvalue != NULL) {
+            switch (vtype) {
+                case MD_STORE_V_MD:
+                    rv = pfs_md_readf((md_t **)pvalue, fpath, p, ptemp);
+                    break;
+                case MD_STORE_V_CERT:
+                    rv = md_cert_load((md_cert **)pvalue, p, fpath);
+                    break;
+                case MD_STORE_V_PKEY:
+                    rv = md_pkey_load((md_pkey **)pvalue, p, fpath);
+                    break;
+                case MD_STORE_V_CHAIN:
+                default:
+                    return APR_ENOTIMPL;
+            }
+        }
+        else { /* check for existence only */
+            rv = md_util_is_file(fpath, ptemp);
+        }
     }
     return rv;
 }
 
-static apr_status_t pfs_save_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+static apr_status_t pfs_save_value(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
-    const char *fpath;
-    md_t *md;
+    const char *dir, *fpath, *name, *filename;
+    md_store_vtype_t vtype;
+    void *value;
     int create;
     apr_status_t rv;
     
-    md = va_arg(ap, md_t *);
+    name = va_arg(ap, const char*);
+    vtype = va_arg(ap, int);
+    value = va_arg(ap, md_t *);
     create = va_arg(ap, int);
-    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, md->name, NULL);
-    if (APR_SUCCESS == rv) {
-        rv = pfs_md_writef(md, fpath, FS_FN_MD_JSON, ptemp, create);
+    filename = vtype_filename(vtype);
+    
+    if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL))
+        && APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, filename, NULL))) {
+        switch (vtype) {
+            case MD_STORE_V_MD:
+                rv = pfs_md_writef((md_t*)value, dir, FS_FN_MD_JSON, ptemp, create);
+                break;
+            case MD_STORE_V_CERT:
+                rv = md_cert_save((md_cert *)value, ptemp, fpath);
+                break;
+            case MD_STORE_V_PKEY:
+                rv = md_pkey_save((md_pkey*)value, ptemp, fpath);
+                break;
+            case MD_STORE_V_CHAIN:
+            default:
+                return APR_ENOTIMPL;
+        }
     }
     return rv;
 }
 
-static apr_status_t pfs_remove_md(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+static apr_status_t pfs_remove_value(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
-    const char *path, *name;
+    const char *dir, *name, *fpath, *filename;
     apr_status_t rv;
     int force;
     apr_finfo_t info;
+    md_store_vtype_t vtype;
     
     name = va_arg(ap, const char*);
+    vtype = va_arg(ap, int);
     force = va_arg(ap, int);
+    filename = vtype_filename(vtype);
     
-    rv = md_util_path_merge(&path, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL);
-    if (APR_SUCCESS != rv) {
-        return rv;
-    }
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "start remove of md %s", name);
-    if (APR_SUCCESS != (rv = apr_stat(&info, path, APR_FINFO_TYPE, ptemp))) {
-        if (APR_ENOENT == rv) {
-            if (force) {
+    if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL))
+        && APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, filename, NULL))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "start remove of md %s", name);
+
+        if (APR_SUCCESS != (rv = apr_stat(&info, dir, APR_FINFO_TYPE, ptemp))) {
+            if (APR_ENOENT == rv && force) {
                 return APR_SUCCESS;
             }
             return rv;
         }
-        return rv;
-    }
     
-    switch (info.filetype) {
-        case APR_DIR: /* how it should be */
-            /* TODO: check if there is important data, such as keys or certificates. Only
-             * remove the md when forced in such cases. */
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "remove tree: %s", path);
-            rv = md_util_ftree_remove(path, ptemp);
-            break;
-        default:      /* how did that get here? suspicious */
-            if (!force) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, 
-                              "remove md %s: not a directory at %s", name, path);
-                return APR_EINVAL;
-            }
-            rv = apr_file_remove(path, ptemp);
-            break;
+        switch (vtype) {
+            case MD_STORE_V_MD:
+                switch (info.filetype) {
+                    case APR_DIR: /* how it should be */
+                        /* TODO: check if there is important data, such as keys or certificates. 
+                         * Only remove the md when forced in such cases. */
+                        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "remove tree: %s", dir);
+                        rv = md_util_ftree_remove(dir, ptemp);
+                        break;
+                    default:      /* how did that get here? suspicious */
+                        if (!force) {
+                            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, 
+                                          "remove md %s: not a directory at %s", name, dir);
+                            return APR_EINVAL;
+                        }
+                        rv = apr_file_remove(dir, ptemp);
+                        break;
+                }
+                break;
+            case MD_STORE_V_CERT:
+            case MD_STORE_V_PKEY:
+            case MD_STORE_V_CHAIN:
+                rv = apr_file_remove(fpath, ptemp);
+                if (APR_ENOENT == rv && force) {
+                    rv = APR_SUCCESS;
+                }
+                break;
+            default:
+                return APR_ENOTIMPL;
+        }
     }
     return rv;
 }
@@ -306,7 +370,7 @@ static int md_name_cmp(const void *v1, const void *v2)
     return - strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
 }
 
-static apr_status_t fs_load(md_store_t *store, apr_array_header_t *mds, apr_pool_t *p)
+static apr_status_t fs_load_mds(apr_array_header_t *mds, md_store_t *store, apr_pool_t *p)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     md_load_ctx ctx;
@@ -323,135 +387,24 @@ static apr_status_t fs_load(md_store_t *store, apr_array_header_t *mds, apr_pool
     return rv;                        
 }
 
-static apr_status_t fs_save(md_store_t *store, apr_array_header_t *mds)
-{
-    return APR_ENOTIMPL;
-}
-
-static apr_status_t fs_load_md(md_t **pmd, md_store_t *store, const char *name, apr_pool_t *p)
+static apr_status_t fs_load_value(void **pvalue, md_store_t *store, const char *name, 
+                                  md_store_vtype_t vtype, apr_pool_t *p)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_load_md, s_fs, p, pmd, name, NULL);
+    return md_util_pool_vdo(pfs_load_value, s_fs, p, pvalue, name, vtype, NULL);
 }
 
-static apr_status_t fs_save_md(md_store_t *store, md_t *md, int create)
+static apr_status_t fs_save_value(md_store_t *store, const char *name, md_store_vtype_t vtype,
+                                  void *value, int create)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_save_md, s_fs, s_fs->p, md, create, NULL);
+    return md_util_pool_vdo(pfs_save_value, s_fs, s_fs->p, name, vtype, value, create, NULL);
 }
 
-static apr_status_t fs_remove_md(md_store_t *store, const char *name, int force)
+static apr_status_t fs_remove_value(md_store_t *store, const char *name, 
+                                    md_store_vtype_t vtype, int force)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_remove_md, s_fs, s_fs->p, name, force, NULL);
+    return md_util_pool_vdo(pfs_remove_value, s_fs, s_fs->p, name, vtype, force, NULL);
 }
 
-/**************************************************************************************************/
-/* fs cert handling */
-
-static apr_status_t pfs_load_cert(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_store_fs_t *s_fs = baton;
-    const char *fpath, *name;
-    md_cert **pcert;
-    apr_status_t rv;
-    
-    pcert = va_arg(ap, md_cert **);
-    name = va_arg(ap, const char *);
-    
-    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, FS_FN_CERT_PEM, NULL);
-    if (APR_SUCCESS == rv) {
-        rv = md_cert_load(pcert, p, fpath);
-    }
-    return rv;
-}
-
-static apr_status_t fs_load_cert(md_cert **pcert, md_store_t *store, 
-                                 const char *name, apr_pool_t *p)
-{
-    md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_load_cert, s_fs, p, pcert, name, NULL);
-}
-
-static apr_status_t pfs_save_cert(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_store_fs_t *s_fs = baton;
-    const char *fpath, *name;
-    md_cert *cert;
-    int create;
-    apr_status_t rv;
-    
-    name = va_arg(ap, const char *);
-    cert = va_arg(ap, md_cert *);
-    create = va_arg(ap, int);
-    
-    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL);
-    if (APR_SUCCESS == rv) {
-        rv = md_cert_save(cert, ptemp, fpath);
-    }
-    return rv;
-}
-
-
-static apr_status_t fs_save_cert(md_store_t *store, const char *name, md_cert *cert, int create)
-{
-    md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_save_cert, s_fs, s_fs->p, name, cert, create, NULL);
-}
-
-/**************************************************************************************************/
-/* fs pkey handling */
-
-static apr_status_t pfs_load_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_store_fs_t *s_fs = baton;
-    const char *fpath, *name;
-    md_pkey **ppkey;
-    apr_status_t rv;
-    
-    ppkey = va_arg(ap, md_pkey **);
-    name = va_arg(ap, const char *);
-    
-    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, FS_FN_CERT_PEM, NULL);
-    if (APR_SUCCESS == rv) {
-        rv = md_pkey_load(ppkey, p, fpath);
-    }
-    return rv;
-}
-
-static apr_status_t pfs_save_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_store_fs_t *s_fs = baton;
-    const char *fpath, *name;
-    md_pkey *pkey;
-    int create;
-    apr_status_t rv;
-    
-    name = va_arg(ap, const char *);
-    pkey = va_arg(ap, md_pkey *);
-    create = va_arg(ap, int);
-    
-    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, FS_DN_DOMAINS, name, NULL);
-    if (APR_SUCCESS == rv) {
-        if (pkey) {
-            rv = md_pkey_save(pkey, ptemp, fpath);
-        }
-        else {
-            rv = md_util_is_file(fpath, ptemp);
-        }
-    }
-    return rv;
-}
-
-static apr_status_t fs_load_pkey(md_pkey **ppkey, md_store_t *store, 
-                                 const char *name, apr_pool_t *p)
-{
-    md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_load_pkey, s_fs, p, ppkey, name, NULL);
-}
-
-static apr_status_t fs_save_pkey(md_store_t *store, const char *name, md_pkey *pkey, int create)
-{
-    md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_save_pkey, s_fs, s_fs->p, name, pkey, create, NULL);
-}

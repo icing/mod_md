@@ -22,7 +22,6 @@ struct apr_array_header_t;
 struct apr_hash_t;
 struct md_json;
 struct md_pkey;
-struct X509;
 
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
@@ -47,10 +46,6 @@ struct md_t {
 
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
-    
-    struct md_pkey *pkey;
-    struct X509 *cert;
-    struct apr_array_header_t *chain;      /* list of X509* */
 };
 
 #define MD_KEY_CA       "ca"

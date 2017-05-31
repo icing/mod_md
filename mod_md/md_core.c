@@ -59,12 +59,8 @@ md_t *md_create_empty(apr_pool_t *p)
     md_t *md = apr_pcalloc(p, sizeof(*md));
     if (md) {
         md->domains = apr_array_make(p, 5, sizeof(const char *));
-        md->chain = apr_array_make(p, 5, sizeof(void *));
-        if (md->domains && md->chain) {
-            md->state = MD_S_UNKNOWN;
-            md->defn_name = "unknown";
-            md->defn_line_number = 0;
-        }
+        md->defn_name = "unknown";
+        md->defn_line_number = 0;
     }
     return md;
 }

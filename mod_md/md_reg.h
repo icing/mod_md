@@ -17,7 +17,11 @@
 #define mod_md_md_reg_h
 
 struct apr_hash_t;
-struct md_store;
+struct apr_array_header_t;
+struct md_store_t;
+struct md_pkey;
+struct md_cert;
+struct X509;
 
 /**
  * A registry for managed domains with a md_store_t as persistence.
@@ -25,10 +29,11 @@ struct md_store;
  */
 typedef struct md_reg_t md_reg_t;
 
-struct md_reg_t {
-    apr_pool_t *p;
-    struct md_store_t *store;
-    struct apr_hash_t *mds;
+typedef struct md_creds_t md_creds_t;
+struct md_creds_t {
+    struct md_cert *cert;
+    struct md_pkey *pkey;
+    struct apr_array_header_t *chain;      /* list of md_cert* */
 };
 
 /**
@@ -88,8 +93,22 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg);
  */
 apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int fields);
 
+/**
+ * Initialize the state of the md (again), based on current properties and current
+ * state of the store.
+ */
 apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md);
 
+/**
+ * Initialize all mds (again), based on current properties and current
+ * state of the store.
+ */
 apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early);
+
+/**
+ * Get the credentials available for the managed domain md. Returns APR_ENOENT
+ * when none is available. The returned values are immutable. 
+ */
+apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md_t *md);
 
 #endif /* mod_md_md_reg_h */

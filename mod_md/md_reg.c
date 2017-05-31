@@ -29,6 +29,13 @@
 #include "md_store.h"
 #include "md_util.h"
 
+struct md_reg_t {
+    apr_pool_t *p;
+    struct md_store_t *store;
+    struct apr_hash_t *mds;
+    struct apr_hash_t *creds;
+};
+
 /**************************************************************************************************/
 /* life cycle */
 
@@ -42,9 +49,10 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg->p = p;
     reg->store = store;
     reg->mds = apr_hash_make(p);
+    reg->creds = apr_hash_make(p);
     
     mds = apr_array_make(p, 5, sizeof(md_t *));
-    if (APR_SUCCESS == (rv = md_store_load(reg->store, mds, reg->p))) {
+    if (APR_SUCCESS == (rv = md_store_load_mds(mds, reg->store, reg->p))) {
         md_t *md;
         int i;
         
@@ -396,3 +404,52 @@ apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int 
     return md_util_pool_vdo(p_md_update, reg, reg->p, name, md, fields, NULL);
 }
 
+/**************************************************************************************************/
+/* certificate related */
+
+static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_reg_t *reg = baton;
+    apr_status_t rv;
+    md_cert *cert;
+    md_pkey *pkey;
+    apr_array_header_t *chain;
+    md_creds_t *creds, **pcreds;
+    const md_t *md;
+    
+    pcreds = va_arg(ap, md_creds_t **);
+    md = va_arg(ap, const md_t *);
+    
+    if (APR_SUCCESS == (rv = md_store_load_cert(&cert, reg->store, md->name, p))
+        && APR_SUCCESS == (rv = md_store_load_pkey(&pkey, reg->store, md->name, p))) {
+        
+        chain = apr_array_make(p, 5, sizeof(md_cert*));
+        rv = md_store_load_chain(&chain, reg->store, md->name, p);
+        if (APR_ENOENT == rv) {
+            /* no chain available, hmm, unusual, but could be? */
+            rv = APR_SUCCESS;
+        }
+        
+        creds = apr_pcalloc(p, sizeof(*creds));
+        creds->cert = cert;
+        creds->pkey = pkey;
+        creds->chain = chain;
+    }
+    *pcreds = (APR_SUCCESS == rv)? creds : NULL;
+    return rv;
+}
+
+apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md_t *md)
+{
+    apr_status_t rv = APR_ENOENT;
+    md_creds_t *creds;
+    
+    creds = apr_hash_get(reg->creds, md->name, strlen(md->name));
+    if (!creds) {
+        if (APR_SUCCESS == (rv = md_util_pool_vdo(creds_load, reg, reg->p, &creds, md, NULL))) {
+            apr_hash_set(reg->creds, md->name, strlen(md->name), creds);
+        }
+    }
+    *pcreds = (APR_SUCCESS == rv)? creds : NULL;
+    return rv;
+}
