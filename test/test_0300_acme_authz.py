@@ -17,7 +17,7 @@ config = SafeConfigParser()
 config.read('test.ini')
 PREFIX = config.get('global', 'prefix')
 
-A2MD = os.path.join(PREFIX, 'bin', 'a2md')
+A2MD = config.get('global', 'a2md_bin')
 ACME_URL = config.get('acme', 'url')
 ACME_TOS = config.get('acme', 'tos')
 ACME_TOS2 = config.get('acme', 'tos2')

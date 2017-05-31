@@ -22,9 +22,11 @@ dist_doc_DATA   = README README.md LICENSE
 
 .PHONY: test
 
+src/a2md: all
+
 SERVER_DIR      = @SERVER_DIR@
 
-test: $(SERVER_DIR)/.test-setup
+test: $(SERVER_DIR)/.test-setup src/a2md
 	@cd test; py.test
 
 test-store: $(SERVER_DIR)/.test-setup
