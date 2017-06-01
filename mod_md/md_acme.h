@@ -18,9 +18,9 @@
 
 struct apr_array_header_t;
 struct apr_hash_t;
-struct md_http;
-struct md_json;
-struct md_pkey;
+struct md_http_t;
+struct md_json_t;
+struct md_pkey_t;
 struct md_t;
 struct md_acme_acct;
 
@@ -45,7 +45,7 @@ struct md_acme {
     const char *new_reg;
     const char *revoke_cert;
     
-    struct md_http *http;
+    struct md_http_t *http;
     struct apr_hash_t *accounts;
     
     const char *nonce;
@@ -95,7 +95,7 @@ typedef apr_status_t md_acme_req_init_cb(md_acme_req *req, void *baton);
  * Request callback on a successfull response (HTTP response code 2xx).
  */
 typedef apr_status_t md_acme_req_success_cb(md_acme *acme, const apr_table_t *headers, 
-                                            struct md_json *body, void *baton);
+                                            struct md_json_t *body, void *baton);
 
 struct md_acme_req {
     md_acme *acme;                 /* the ACME server to talk to */
@@ -103,10 +103,10 @@ struct md_acme_req {
     
     const char *url;               /* url to POST the request to */
     apr_table_t *prot_hdrs;        /* JWS headers needing protection (nonce) */
-    struct md_json *req_json;      /* JSON to be POSTed in request body */
+    struct md_json_t *req_json;      /* JSON to be POSTed in request body */
 
     apr_table_t *resp_hdrs;        /* HTTP response headers */
-    struct md_json *resp_json;     /* JSON response body recevied */
+    struct md_json_t *resp_json;     /* JSON response body recevied */
     
     apr_status_t rv;               /* status of request */
     
@@ -129,7 +129,8 @@ apr_status_t md_acme_req_do(md_acme *acme, const char *url,
                             md_acme_req_success_cb *on_success,
                             void *baton);
 
-apr_status_t md_acme_req_body_init(md_acme_req *req, struct md_json *jpayload, struct md_pkey *key);
+apr_status_t md_acme_req_body_init(md_acme_req *req, struct md_json_t *jpayload, 
+                                   struct md_pkey_t *key);
 
 
 #endif /* md_acme_h */

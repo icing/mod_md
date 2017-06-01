@@ -26,16 +26,16 @@
 
 static int header_set(void *data, const char *key, const char *val)
 {
-    md_json_sets(val, (md_json*)data, key, NULL);
+    md_json_sets(val, (md_json_t *)data, key, NULL);
     return 1;
 }
 
-apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
+apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
                          const char *payload, size_t len, 
                          struct apr_table_t *protected, 
-                         struct md_pkey *pkey, const char *key_id)
+                         struct md_pkey_t *pkey, const char *key_id)
 {
-    md_json *msg, *jprotected;
+    md_json_t *msg, *jprotected;
     const char *prot64, *pay64, *sign64, *sign, *prot;
     apr_status_t rv;
 

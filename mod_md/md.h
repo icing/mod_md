@@ -20,15 +20,14 @@
 
 struct apr_array_header_t;
 struct apr_hash_t;
-struct md_json;
-struct md_pkey;
+struct md_json_t;
+struct md_pkey_t;
 
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
     MD_S_INCOMPLETE,                /* MD is missing necessary information, can go live */
-    MD_S_VALID,                     /* MD has all necessary information, can go live */
-    MD_S_INACTIVE,                  /* MD is inactive, not to go live and not 
-                                          to be processed futher */
+    MD_S_COMPLETE,                  /* MD has all necessary information, can go live */
+    MD_S_INACTIVE,                  /* MD is inactive, not to go live */
     MD_S_ERROR,                     /* MD data is flawed, unable to be processed as is */ 
 } md_state_t;
 
@@ -96,8 +95,8 @@ const char *md_create(md_t **pmd, apr_pool_t *p, struct apr_array_header_t *doma
  *
  * This reads and writes the following information: name, domains, ca_url, ca_proto and state.
  */
-struct md_json *md_to_json(const md_t *md, apr_pool_t *p);
-md_t *md_from_json(struct md_json *json, apr_pool_t *p);
+struct md_json_t *md_to_json (const md_t *md, apr_pool_t *p);
+md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
 
 /**
  * Deep copy an md record into another pool.

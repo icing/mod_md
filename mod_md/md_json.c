@@ -27,7 +27,7 @@
 #include "md_http.h"
 #include "md_util.h"
 
-struct md_json {
+struct md_json_t {
     apr_pool_t *p;
     json_t *j;
 };
@@ -49,16 +49,16 @@ static void init_dummy()
 
 static apr_status_t json_pool_cleanup(void *data)
 {
-    md_json *json = data;
+    md_json_t *json = data;
     if (json) {
         md_json_destroy(json);
     }
     return APR_SUCCESS;
 }
 
-static md_json *json_create(apr_pool_t *pool, json_t *j)
+static md_json_t *json_create(apr_pool_t *pool, json_t *j)
 {
-    md_json *json;
+    md_json_t *json;
     
     (void)init_dummy;
     
@@ -77,12 +77,12 @@ static md_json *json_create(apr_pool_t *pool, json_t *j)
     return json;
 }
 
-md_json *md_json_create(apr_pool_t *pool)
+md_json_t *md_json_create(apr_pool_t *pool)
 {
     return json_create(pool, json_object());
 }
 
-void md_json_destroy(md_json *json)
+void md_json_destroy(md_json_t *json)
 {
     if (json && json->j) {
         json_decref(json->j);
@@ -90,12 +90,12 @@ void md_json_destroy(md_json *json)
     }
 }
 
-md_json *md_json_copy(apr_pool_t *pool, md_json *json)
+md_json_t *md_json_copy(apr_pool_t *pool, md_json_t *json)
 {
     return json_create(pool, json_copy(json->j));
 }
 
-md_json *md_json_clone(apr_pool_t *pool, md_json *json)
+md_json_t *md_json_clone(apr_pool_t *pool, md_json_t *json)
 {
     return json_create(pool, json_deep_copy(json->j));
 }
@@ -104,7 +104,7 @@ md_json *md_json_clone(apr_pool_t *pool, md_json *json)
 /* selectors */
 
 
-static json_t *select(md_json *json, va_list ap)
+static json_t *select(md_json_t *json, va_list ap)
 {
     json_t *j;
     const char *key;
@@ -118,7 +118,7 @@ static json_t *select(md_json *json, va_list ap)
     return j;
 }
 
-static json_t *select_parent(const char **child_key, int create, md_json *json, va_list ap)
+static json_t *select_parent(const char **child_key, int create, md_json_t *json, va_list ap)
 {
     const char *key, *next;
     json_t *j, *jn;
@@ -144,7 +144,7 @@ static json_t *select_parent(const char **child_key, int create, md_json *json, 
     return j;
 }
 
-static apr_status_t select_add(json_t *val, md_json *json, va_list ap)
+static apr_status_t select_add(json_t *val, md_json_t *json, va_list ap)
 {
     const char *key;
     json_t *j, *aj;
@@ -171,7 +171,7 @@ static apr_status_t select_add(json_t *val, md_json *json, va_list ap)
     return APR_SUCCESS;
 }
 
-static apr_status_t select_set(json_t *val, md_json *json, va_list ap)
+static apr_status_t select_set(json_t *val, md_json_t *json, va_list ap)
 {
     const char *key;
     json_t *j;
@@ -187,7 +187,7 @@ static apr_status_t select_set(json_t *val, md_json *json, va_list ap)
     return APR_SUCCESS;
 }
 
-static apr_status_t select_set_new(json_t *val, md_json *json, va_list ap)
+static apr_status_t select_set_new(json_t *val, md_json_t *json, va_list ap)
 {
     const char *key;
     json_t *j;
@@ -206,7 +206,7 @@ static apr_status_t select_set_new(json_t *val, md_json *json, va_list ap)
 /**************************************************************************************************/
 /* booleans */
 
-int md_json_getb(md_json *json, ...)
+int md_json_getb(md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -218,7 +218,7 @@ int md_json_getb(md_json *json, ...)
     return j? json_is_true(j) : 0;
 }
 
-apr_status_t md_json_setb(int value, md_json *json, ...)
+apr_status_t md_json_setb(int value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -232,7 +232,7 @@ apr_status_t md_json_setb(int value, md_json *json, ...)
 /**************************************************************************************************/
 /* numbers */
 
-double md_json_getn(md_json *json, ...)
+double md_json_getn(md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -243,7 +243,7 @@ double md_json_getn(md_json *json, ...)
     return (j && json_is_number(j))? json_number_value(j) : 0.0;
 }
 
-apr_status_t md_json_setn(double value, md_json *json, ...)
+apr_status_t md_json_setn(double value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -257,7 +257,7 @@ apr_status_t md_json_setn(double value, md_json *json, ...)
 /**************************************************************************************************/
 /* longs */
 
-long md_json_getl(md_json *json, ...)
+long md_json_getl(md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -268,7 +268,7 @@ long md_json_getl(md_json *json, ...)
     return (long)((j && json_is_number(j))? json_integer_value(j) : 0L);
 }
 
-apr_status_t md_json_setl(long value, md_json *json, ...)
+apr_status_t md_json_setl(long value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -282,7 +282,7 @@ apr_status_t md_json_setl(long value, md_json *json, ...)
 /**************************************************************************************************/
 /* strings */
 
-const char *md_json_gets(md_json *json, ...)
+const char *md_json_gets(md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -294,7 +294,7 @@ const char *md_json_gets(md_json *json, ...)
     return (j && json_is_string(j))? json_string_value(j) : NULL;
 }
 
-const char *md_json_dups(apr_pool_t *p, md_json *json, ...)
+const char *md_json_dups(apr_pool_t *p, md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -306,7 +306,7 @@ const char *md_json_dups(apr_pool_t *p, md_json *json, ...)
     return (j && json_is_string(j))? apr_pstrdup(p, json_string_value(j)) : NULL;
 }
 
-apr_status_t md_json_sets(const char *value, md_json *json, ...)
+apr_status_t md_json_sets(const char *value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -320,7 +320,7 @@ apr_status_t md_json_sets(const char *value, md_json *json, ...)
 /**************************************************************************************************/
 /* json itself */
 
-md_json *md_json_getj(md_json *json, ...)
+md_json_t *md_json_getj(md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -336,7 +336,7 @@ md_json *md_json_getj(md_json *json, ...)
     return NULL;
 }
 
-apr_status_t md_json_setj(md_json *value, md_json *json, ...)
+apr_status_t md_json_setj(md_json_t *value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -347,7 +347,7 @@ apr_status_t md_json_setj(md_json *value, md_json *json, ...)
     return rv;
 }
 
-apr_status_t md_json_addj(md_json *value, md_json *json, ...)
+apr_status_t md_json_addj(md_json_t *value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -362,7 +362,7 @@ apr_status_t md_json_addj(md_json *value, md_json *json, ...)
 /**************************************************************************************************/
 /* arrays / objects */
 
-apr_status_t md_json_clr(md_json *json, ...)
+apr_status_t md_json_clr(md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -380,7 +380,7 @@ apr_status_t md_json_clr(md_json *json, ...)
     return APR_SUCCESS;
 }
 
-apr_status_t md_json_del(md_json *json, ...)
+apr_status_t md_json_del(md_json_t *json, ...)
 {
     const char *key;
     json_t *j;
@@ -399,7 +399,7 @@ apr_status_t md_json_del(md_json *json, ...)
 /**************************************************************************************************/
 /* object strings */
 
-apr_status_t md_json_gets_dict(apr_table_t *dict, md_json *json, ...)
+apr_status_t md_json_gets_dict(apr_table_t *dict, md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -430,7 +430,7 @@ static int object_set(void *data, const char *key, const char *val)
     return 1;
 }
  
-apr_status_t md_json_sets_dict(apr_table_t *dict, md_json *json, ...)
+apr_status_t md_json_sets_dict(apr_table_t *dict, md_json_t *json, ...)
 {
     json_t *nj, *j;
     va_list ap;
@@ -461,7 +461,7 @@ apr_status_t md_json_sets_dict(apr_table_t *dict, md_json *json, ...)
 /**************************************************************************************************/
 /* array strings */
 
-apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...)
+apr_status_t md_json_getsa(apr_array_header_t *a, md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -486,7 +486,7 @@ apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...)
     return APR_ENOENT;
 }
 
-apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json *json, ...)
+apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -511,7 +511,7 @@ apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json *json, 
     return APR_ENOENT;
 }
 
-apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...)
+apr_status_t md_json_setsa(apr_array_header_t *a, md_json_t *json, ...)
 {
     json_t *nj, *j;
     va_list ap;
@@ -555,14 +555,14 @@ static int dump_cb(const char *buffer, size_t len, void *baton)
     return (rv == APR_SUCCESS)? 0 : -1;
 }
 
-apr_status_t md_json_writeb(md_json *json, md_json_fmt_t fmt, apr_bucket_brigade *bb)
+apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, apr_bucket_brigade *bb)
 {
     size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
     int rv = json_dump_callback(json->j, dump_cb, bb, flags);
     return rv? APR_EGENERAL : APR_SUCCESS;
 }
 
-const char *md_json_writep(md_json *json, md_json_fmt_t fmt, apr_pool_t *pool)
+const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *pool)
 {
     size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
     size_t jlen = json_dumpb(json->j, NULL, 0, flags);
@@ -587,14 +587,14 @@ static int fdump_cb(const char *buffer, size_t blen, void *baton)
     return (APR_SUCCESS == rv)? 0 : -1;
 }
 
-apr_status_t md_json_writef(md_json *json, md_json_fmt_t fmt, apr_file_t *f)
+apr_status_t md_json_writef(md_json_t *json, md_json_fmt_t fmt, apr_file_t *f)
 {
     size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
     int rv = json_dump_callback(json->j, fdump_cb, f, flags);
     return rv? APR_EGENERAL : APR_SUCCESS;
 }
 
-apr_status_t md_json_fcreatex(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
+apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
 {
     apr_status_t rv;
     apr_file_t *f;
@@ -608,7 +608,7 @@ apr_status_t md_json_fcreatex(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, c
 }
 
 typedef struct {
-    md_json *json;
+    md_json_t *json;
     md_json_fmt_t fmt;
 } j_write_ctx;
 
@@ -618,7 +618,7 @@ static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
     return md_json_writef(ctx->json, ctx->fmt, f);
 }
 
-apr_status_t md_json_freplace(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
+apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
 {
     j_write_ctx ctx;
     ctx.json = json;
@@ -626,7 +626,7 @@ apr_status_t md_json_freplace(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, c
     return md_util_freplace(fpath, p, write_json, &ctx);
 }
 
-apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, size_t data_len)
+apr_status_t md_json_readd(md_json_t **pjson, apr_pool_t *pool, const char *data, size_t data_len)
 {
     json_error_t error;
     json_t *j;
@@ -682,7 +682,7 @@ static size_t load_cb(void *data, size_t max_len, void *baton)
     return read_len;
 }
 
-apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, apr_bucket_brigade *bb)
+apr_status_t md_json_readb(md_json_t **pjson, apr_pool_t *pool, apr_bucket_brigade *bb)
 {
     json_error_t error;
     json_t *j;
@@ -711,7 +711,7 @@ static size_t load_file_cb(void *data, size_t max_len, void *baton)
     return (size_t)-1;
 }
 
-apr_status_t md_json_readf(md_json **pjson, apr_pool_t *p, const char *fpath)
+apr_status_t md_json_readf(md_json_t **pjson, apr_pool_t *p, const char *fpath)
 {
     apr_file_t *f;
     json_t *j;
@@ -733,7 +733,7 @@ apr_status_t md_json_readf(md_json **pjson, apr_pool_t *p, const char *fpath)
 /**************************************************************************************************/
 /* http get */
 
-apr_status_t md_json_read_http(md_json **pjson, apr_pool_t *pool, const md_http_response *res)
+apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, const md_http_response_t *res)
 {
     apr_status_t rv = APR_EINVAL;
     if (res->rv == APR_SUCCESS) {
@@ -748,17 +748,17 @@ apr_status_t md_json_read_http(md_json **pjson, apr_pool_t *pool, const md_http_
 typedef struct {
     apr_status_t rv;
     apr_pool_t *pool;
-    md_json *json;
+    md_json_t *json;
 } resp_data;
 
-static apr_status_t json_resp_cb(const md_http_response *res)
+static apr_status_t json_resp_cb(const md_http_response_t *res)
 {
     resp_data *resp = res->req->baton;
     return md_json_read_http(&resp->json, resp->pool, res);
 }
 
-apr_status_t md_json_http_get(md_json **pjson, apr_pool_t *pool,
-                              struct md_http *http, const char *url)
+apr_status_t md_json_http_get(md_json_t **pjson, apr_pool_t *pool,
+                              struct md_http_t *http, const char *url)
 {
     long req_id;
     apr_status_t rv;

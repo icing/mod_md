@@ -17,11 +17,11 @@
 #define mod_md_md_jws_h
 
 struct apr_table_t;
-struct md_json;
-struct md_pkey;
+struct md_json_t;
+struct md_pkey_t;
 
-apr_status_t md_jws_sign(md_json **pmsg, apr_pool_t *p,
+apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
                          const char *payload, size_t len, struct apr_table_t *protected, 
-                         struct md_pkey *pkey, const char *key_id);
+                         struct md_pkey_t *pkey, const char *key_id);
 
 #endif /* md_jws_h */

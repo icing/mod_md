@@ -17,8 +17,8 @@
 #define mod_md_md_store_h
 
 struct apr_array_header_t;
-struct md_cert;
-struct md_pkey;
+struct md_cert_t;
+struct md_pkey_t;
 struct md_t;
 
 typedef struct md_store_t md_store_t;
@@ -64,13 +64,13 @@ apr_status_t md_store_load_md(struct md_t **pmd, md_store_t *store,
 apr_status_t md_store_save_md(md_store_t *store, struct md_t *md, int create);
 apr_status_t md_store_remove_md(md_store_t *store, const char *name, int force);
 
-apr_status_t md_store_load_cert(struct md_cert **pcert, md_store_t *store, 
+apr_status_t md_store_load_cert(struct md_cert_t **pcert, md_store_t *store, 
                                 const char *name, apr_pool_t *p);
-apr_status_t md_store_save_cert(md_store_t *store, const char *name, struct md_cert *cert);
+apr_status_t md_store_save_cert(md_store_t *store, const char *name, struct md_cert_t *cert);
 
-apr_status_t md_store_load_pkey(struct md_pkey **ppkey, md_store_t *store, 
+apr_status_t md_store_load_pkey(struct md_pkey_t **ppkey, md_store_t *store, 
                                 const char *name, apr_pool_t *p);
-apr_status_t md_store_save_pkey(md_store_t *store, const char *name, struct md_pkey *pkey);
+apr_status_t md_store_save_pkey(md_store_t *store, const char *name, struct md_pkey_t *pkey);
 
 apr_status_t md_store_load_chain(struct apr_array_header_t **pchain, md_store_t *store, 
                                 const char *name, apr_pool_t *p);

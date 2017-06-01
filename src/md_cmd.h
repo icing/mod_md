@@ -18,6 +18,7 @@
 
 struct apr_getopt_option_t;
 struct apr_table_t;
+struct md_json_t;
 
 typedef struct md_opts md_opts;
 typedef struct md_cmd_ctx  md_cmd_ctx;
@@ -40,7 +41,7 @@ struct md_cmd_ctx {
     
     const char *tos;
 
-    md_json *json_out;
+    struct md_json_t *json_out;
     
     int argc;
     const char *const *argv;

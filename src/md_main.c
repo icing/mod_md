@@ -256,7 +256,7 @@ void md_cmd_print_md(md_cmd_ctx *ctx, const md_t *md)
 {
     assert(md);
     if (ctx->json_out) {
-        md_json *json = md_to_json(md, ctx->p);
+        md_json_t *json = md_to_json(md, ctx->p);
         fprintf(stderr, "adding md %s\n", md->name);
         md_json_addj(json, ctx->json_out, "output", NULL);
     }

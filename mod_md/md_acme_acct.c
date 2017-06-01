@@ -62,7 +62,7 @@ static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, md_acme *ac
                                 apr_array_header_t *contacts, int key_bits)
 {
     apr_status_t rv;
-    md_pkey *pkey;
+    md_pkey_t *pkey;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "generating new account key"); 
     rv = md_pkey_gen_rsa(&pkey, p, key_bits);
@@ -103,7 +103,7 @@ static apr_status_t acct_save(md_acme_acct *acct, md_acme *acme)
 {
     apr_pool_t *ptemp;
     const char *name, *data_path, *key_path;
-    md_json *jacct;
+    md_json_t *jacct;
     int i;
     apr_file_t *f = NULL;
     apr_status_t rv;
@@ -159,9 +159,9 @@ static apr_status_t acct_save(md_acme_acct *acct, md_acme *acme)
 
 static apr_status_t acct_load(md_acme_acct **pacct, md_acme *acme, const char *name)
 {
-    md_json *json;
+    md_json_t *json;
     apr_status_t rv;
-    md_pkey *pkey;
+    md_pkey_t *pkey;
     const char *data_path, *key_path;
     apr_array_header_t *contacts;
     const char *url;
@@ -227,7 +227,7 @@ static apr_status_t acct_load(md_acme_acct **pacct, md_acme *acme, const char *n
 static apr_status_t on_init_acct_new(md_acme_req *req, void *baton)
 {
     md_acme_acct *acct = baton;
-    md_json *jpayload;
+    md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
     md_json_sets("new-reg", jpayload, "resource", NULL);
@@ -240,7 +240,7 @@ static apr_status_t on_init_acct_new(md_acme_req *req, void *baton)
 } 
 
 static apr_status_t on_success_acct_upd(md_acme *acme, const apr_table_t *hdrs, 
-                                        md_json *body, void *baton)
+                                        md_json_t *body, void *baton)
 {
     md_acme_acct *acct = baton;
     apr_status_t rv;
@@ -318,7 +318,7 @@ apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme,
 static apr_status_t on_init_acct_upd(md_acme_req *req, void *baton)
 {
     md_acme_acct *acct = baton;
-    md_json *jpayload;
+    md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
     md_json_sets("reg", jpayload, "resource", NULL);
@@ -382,7 +382,7 @@ md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s)
 static apr_status_t on_init_acct_del(md_acme_req *req, void *baton)
 {
     md_acme_acct *acct = baton;
-    md_json *jpayload;
+    md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
     md_json_sets("reg", jpayload, "resource", NULL);
@@ -391,7 +391,7 @@ static apr_status_t on_init_acct_del(md_acme_req *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_acct_del(md_acme *acme, const apr_table_t *hdrs, md_json *body, void *baton)
+static apr_status_t on_success_acct_del(md_acme *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
 {
     md_acme_acct *acct = baton;
     

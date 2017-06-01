@@ -80,12 +80,12 @@ static md_cmd_t AcmeNewregCmd = {
 
 static apr_status_t acct_agree_tos(md_acme *acme, const char *acct_url, const char *tos) 
 {
-    md_http *http;
+    md_http_t *http;
     md_acme_acct *acct;
     apr_status_t rv;
     long req_id;
     const char *data;
-    md_json *json;
+    md_json_t *json;
     
     acct = md_acme_acct_get(acme, acct_url);
     if (!acct) {
@@ -137,12 +137,12 @@ static md_cmd_t AcmeAgreeCmd = {
 
 static apr_status_t acme_delreg(md_acme *acme, const char *acct_url) 
 {
-    md_http *http;
+    md_http_t *http;
     md_acme_acct *acct;
     apr_status_t rv;
     long req_id;
     const char *data;
-    md_json *json;
+    md_json_t *json;
     
     acct = md_acme_acct_get(acme, acct_url);
     if (!acct) {
@@ -190,7 +190,7 @@ static apr_status_t acme_newauthz(md_acme_acct *acct, const char *domain)
     apr_status_t rv;
     long req_id;
     const char *data;
-    md_json *json;
+    md_json_t *json;
     md_acme_authz *authz;
     
     rv = md_acme_authz_register(&authz, domain, acct); 
@@ -244,7 +244,7 @@ static int acct_print(void *baton, const void *key, apr_ssize_t klen, const void
 {
     apr_pool_t *pool = baton;
     const md_acme_acct *acct = value;
-    md_json *json;
+    md_json_t *json;
     
     json = md_json_create(pool);
     md_json_sets(acct->name, json, "name", NULL);
@@ -256,12 +256,12 @@ static int acct_print(void *baton, const void *key, apr_ssize_t klen, const void
 
 static apr_status_t cmd_acme_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
-    md_http *http;
+    md_http_t *http;
     md_acme_acct *acct;
     apr_status_t rv;
     long req_id;
     const char *data;
-    md_json *json;
+    md_json_t *json;
     
     fprintf(stdout, "ACME server at %s\n", ctx->acme->url);
     fprintf(stdout, "accounts: %d\n", apr_hash_count(ctx->acme->accounts));

@@ -73,7 +73,7 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
 /* iteration */
 
 typedef struct {
-    const md_reg_t *reg;
+    md_reg_t *reg;
     md_reg_do_cb *cb;
     void *baton;
     const char *exclude;
@@ -91,7 +91,7 @@ static int md_hash_do(void *baton, const void *key, apr_ssize_t klen, const void
     return 1;
 }
 
-static int reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg, const char *exclude)
+static int reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, const char *exclude)
 {
     reg_do_ctx ctx;
     
@@ -103,7 +103,7 @@ static int reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg, const char
 }
 
 
-int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg)
+int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg)
 {
     return reg_do(cb, baton, reg, NULL);
 }
@@ -187,29 +187,14 @@ out:
 /**************************************************************************************************/
 /* state assessment */
 
-static apr_status_t state_init(const md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, md_t *md)
+static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, const md_t *md)
 {
     md_state_t state = MD_S_UNKNOWN;
-    md_cert *cert;
-    md_cert_state_t cert_state;
+    const md_creds_t *creds;
     apr_status_t rv;
-    
-    if (APR_SUCCESS == (rv = md_store_load_cert(&cert, reg->store, md->name, ptemp))
-        && APR_SUCCESS == (rv = md_store_load_pkey(NULL, reg->store, md->name, ptemp))) {
-        /* check if valid */
-        switch ((cert_state = md_cert_state_get(cert))) {
-            case MD_CERT_VALID:
-                state = MD_S_VALID;
-                break;
-            case MD_CERT_EXPIRED:
-                state = MD_S_INCOMPLETE;
-                break;
-            default:
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
-                              "md %s has unexpcted certificae state: %d", md->name, cert_state);
-                rv = APR_ENOTIMPL;
-                break;
-        }
+
+    if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, md))) {
+        state = MD_S_COMPLETE;
     }
     else if (APR_ENOENT == rv) {
         state = MD_S_INCOMPLETE;
@@ -242,7 +227,7 @@ typedef struct {
     apr_status_t rv;
 } init_ctx;
 
-static int state_ctx_init(void *baton, const md_reg_t *reg, const md_t *md)
+static int state_ctx_init(void *baton, md_reg_t *reg, const md_t *md)
 {
     init_ctx *ctx = baton;
     
@@ -283,7 +268,7 @@ typedef struct {
     const md_t *md;
 } find_domain_ctx;
 
-static int find_domain(void *baton, const md_reg_t *reg, const md_t *md)
+static int find_domain(void *baton, md_reg_t *reg, const md_t *md)
 {
     find_domain_ctx *ctx = baton;
     
@@ -294,7 +279,7 @@ static int find_domain(void *baton, const md_reg_t *reg, const md_t *md)
     return 1;
 }
 
-const md_t *md_reg_find(const md_reg_t *reg, const char *domain)
+const md_t *md_reg_find(md_reg_t *reg, const char *domain)
 {
     find_domain_ctx ctx;
 
@@ -311,7 +296,7 @@ typedef struct {
     const char *s;
 } find_overlap_ctx;
 
-static int find_overlap(void *baton, const md_reg_t *reg, const md_t *md)
+static int find_overlap(void *baton, md_reg_t *reg, const md_t *md)
 {
     find_overlap_ctx *ctx = baton;
     const char *overlap;
@@ -324,7 +309,7 @@ static int find_overlap(void *baton, const md_reg_t *reg, const md_t *md)
     return 1;
 }
 
-const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md, const char **pdomain)
+const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain)
 {
     find_overlap_ctx ctx;
     
@@ -411,11 +396,12 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
 {
     md_reg_t *reg = baton;
     apr_status_t rv;
-    md_cert *cert;
-    md_pkey *pkey;
+    md_cert_t *cert;
+    md_pkey_t *pkey;
     apr_array_header_t *chain;
     md_creds_t *creds, **pcreds;
     const md_t *md;
+    md_cert_state_t cert_state;
     
     pcreds = va_arg(ap, md_creds_t **);
     md = va_arg(ap, const md_t *);
@@ -423,7 +409,7 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     if (APR_SUCCESS == (rv = md_store_load_cert(&cert, reg->store, md->name, p))
         && APR_SUCCESS == (rv = md_store_load_pkey(&pkey, reg->store, md->name, p))) {
         
-        chain = apr_array_make(p, 5, sizeof(md_cert*));
+        chain = apr_array_make(p, 5, sizeof(md_cert_t*));
         rv = md_store_load_chain(&chain, reg->store, md->name, p);
         if (APR_ENOENT == rv) {
             /* no chain available, hmm, unusual, but could be? */
@@ -434,6 +420,21 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
         creds->cert = cert;
         creds->pkey = pkey;
         creds->chain = chain;
+        
+        /* check if valid */
+        switch ((cert_state = md_cert_state_get(creds->cert))) {
+            case MD_CERT_VALID:
+                creds->expired = 0;
+                break;
+            case MD_CERT_EXPIRED:
+                creds->expired = 1;
+                break;
+            default:
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
+                              "md %s has unexpcted certificae state: %d", md->name, cert_state);
+                rv = APR_ENOTIMPL;
+                break;
+        }
     }
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;
     return rv;

@@ -19,74 +19,74 @@
 struct apr_bucket_brigade;
 struct apr_file_t;
 
-struct md_http;
-struct md_http_response;
+struct md_http_t;
+struct md_http_response_t;
 
 
-typedef struct md_json md_json;
+typedef struct md_json_t md_json_t;
 
 typedef enum {
     MD_JSON_FMT_COMPACT,
     MD_JSON_FMT_INDENT,
 } md_json_fmt_t;
 
-md_json *md_json_create(apr_pool_t *pool);
-void md_json_destroy(md_json *json);
+md_json_t *md_json_create(apr_pool_t *pool);
+void md_json_destroy(md_json_t *json);
 
-md_json *md_json_copy(apr_pool_t *pool, md_json *json);
-md_json *md_json_clone(apr_pool_t *pool, md_json *json);
+md_json_t *md_json_copy(apr_pool_t *pool, md_json_t *json);
+md_json_t *md_json_clone(apr_pool_t *pool, md_json_t *json);
 
 /* boolean manipulation */
-int md_json_getb(md_json *json, ...);
-apr_status_t md_json_setb(int value, md_json *json, ...);
+int md_json_getb(md_json_t *json, ...);
+apr_status_t md_json_setb(int value, md_json_t *json, ...);
 
 /* number manipulation */
-double md_json_getn(md_json *json, ...);
-apr_status_t md_json_setn(double value, md_json *json, ...);
+double md_json_getn(md_json_t *json, ...);
+apr_status_t md_json_setn(double value, md_json_t *json, ...);
 
 /* long manipulation */
-long md_json_getl(md_json *json, ...);
-apr_status_t md_json_setl(long value, md_json *json, ...);
+long md_json_getl(md_json_t *json, ...);
+apr_status_t md_json_setl(long value, md_json_t *json, ...);
 
 /* string manipulation */
-const char *md_json_gets(md_json *json, ...);
-const char *md_json_dups(apr_pool_t *p, md_json *json, ...);
-apr_status_t md_json_sets(const char *s, md_json *json, ...);
+const char *md_json_gets(md_json_t *json, ...);
+const char *md_json_dups(apr_pool_t *p, md_json_t *json, ...);
+apr_status_t md_json_sets(const char *s, md_json_t *json, ...);
 
 /* json manipulation */
-md_json *md_json_getj(md_json *json, ...);
-apr_status_t md_json_setj(md_json *value, md_json *json, ...);
-apr_status_t md_json_addj(md_json *value, md_json *json, ...);
+md_json_t *md_json_getj(md_json_t *json, ...);
+apr_status_t md_json_setj(md_json_t *value, md_json_t *json, ...);
+apr_status_t md_json_addj(md_json_t *value, md_json_t *json, ...);
 
 /* Array/Object manipulation */
-apr_status_t md_json_clr(md_json *json, ...);
-apr_status_t md_json_del(md_json *json, ...);
+apr_status_t md_json_clr(md_json_t *json, ...);
+apr_status_t md_json_del(md_json_t *json, ...);
 
 /* Manipulating Object String values */
-apr_status_t md_json_gets_dict(apr_table_t *dict, md_json *json, ...);
-apr_status_t md_json_sets_dict(apr_table_t *dict, md_json *json, ...);
+apr_status_t md_json_gets_dict(apr_table_t *dict, md_json_t *json, ...);
+apr_status_t md_json_sets_dict(apr_table_t *dict, md_json_t *json, ...);
 
 /* Manipulating String Arrays */
-apr_status_t md_json_getsa(apr_array_header_t *a, md_json *json, ...);
-apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json *json, ...);
-apr_status_t md_json_setsa(apr_array_header_t *a, md_json *json, ...);
+apr_status_t md_json_getsa(apr_array_header_t *a, md_json_t *json, ...);
+apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json_t *json, ...);
+apr_status_t md_json_setsa(apr_array_header_t *a, md_json_t *json, ...);
 
 /* serialization & parsing */
-apr_status_t md_json_writeb(md_json *json, md_json_fmt_t fmt, struct apr_bucket_brigade *bb);
-const char *md_json_writep(md_json *json, md_json_fmt_t fmt, apr_pool_t *pool);
-apr_status_t md_json_writef(md_json *json, md_json_fmt_t fmt, struct apr_file_t *f);
-apr_status_t md_json_fcreatex(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
-apr_status_t md_json_freplace(md_json *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
+apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, struct apr_bucket_brigade *bb);
+const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *pool);
+apr_status_t md_json_writef(md_json_t *json, md_json_fmt_t fmt, struct apr_file_t *f);
+apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
+apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
 
-apr_status_t md_json_readb(md_json **pjson, apr_pool_t *pool, struct apr_bucket_brigade *bb);
-apr_status_t md_json_readd(md_json **pjson, apr_pool_t *pool, const char *data, size_t data_len);
-apr_status_t md_json_readf(md_json **pjson, apr_pool_t *pool, const char *fpath);
+apr_status_t md_json_readb(md_json_t **pjson, apr_pool_t *pool, struct apr_bucket_brigade *bb);
+apr_status_t md_json_readd(md_json_t **pjson, apr_pool_t *pool, const char *data, size_t data_len);
+apr_status_t md_json_readf(md_json_t **pjson, apr_pool_t *pool, const char *fpath);
 
 
 /* http retrieval */
-apr_status_t md_json_http_get(md_json **pjson, apr_pool_t *pool,
-                              struct md_http *http, const char *url);
-apr_status_t md_json_read_http(md_json **pjson, apr_pool_t *pool, 
-                               const struct md_http_response *res);
+apr_status_t md_json_http_get(md_json_t **pjson, apr_pool_t *pool,
+                              struct md_http_t *http, const char *url);
+apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, 
+                               const struct md_http_response_t *res);
 
 #endif /* md_json_h */

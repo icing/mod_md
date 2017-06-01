@@ -97,7 +97,7 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
     
     if (acme->path) {
         char *acct_path, *ca_file;
-        md_json *jca;
+        md_json_t *jca;
         
         rv = apr_filepath_merge(&acct_path, acme->path, MD_DIRNAME_ACCOUNTS, 
                                 APR_FILEPATH_SECUREROOTTEST, acme->pool);
@@ -176,7 +176,7 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
 apr_status_t md_acme_setup(md_acme *acme)
 {
     apr_status_t rv;
-    md_json *json;
+    md_json_t *json;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "get directory from %s", acme->url);
     
@@ -207,7 +207,7 @@ static void req_update_nonce(md_acme_req *req)
     }
 }
 
-static apr_status_t http_update_nonce(const md_http_response *res)
+static apr_status_t http_update_nonce(const md_http_response_t *res)
 {
     if (res->headers) {
         const char *nonce = apr_table_get(res->headers, "Replay-Nonce");
@@ -257,7 +257,7 @@ static md_acme_req *md_acme_req_create(md_acme *acme, const char *url)
     return req;
 }
  
-apr_status_t md_acme_req_body_init(md_acme_req *req, md_json *jpayload, md_pkey *key)
+apr_status_t md_acme_req_body_init(md_acme_req *req, md_json_t *jpayload, md_pkey_t *key)
 {
     const char *payload = md_json_writep(jpayload, MD_JSON_FMT_COMPACT, req->pool);
     size_t payload_len = strlen(payload);
@@ -269,10 +269,10 @@ apr_status_t md_acme_req_body_init(md_acme_req *req, md_json *jpayload, md_pkey 
 } 
 
 
-static apr_status_t inspect_problem(md_acme_req *req, const md_http_response *res)
+static apr_status_t inspect_problem(md_acme_req *req, const md_http_response_t *res)
 {
     const char *ctype;
-    md_json *problem;
+    md_json_t *problem;
     
     ctype = apr_table_get(req->resp_hdrs, "content-type");
     if (ctype && !strcmp(ctype, "application/problem+json")) {
@@ -305,7 +305,7 @@ static apr_status_t md_acme_req_done(md_acme_req *req)
     return rv;
 }
 
-static apr_status_t on_response(const md_http_response *res)
+static apr_status_t on_response(const md_http_response_t *res)
 {
     md_acme_req *req = res->req->baton;
     apr_status_t rv = res->rv;

@@ -20,8 +20,8 @@
 #include <apr_tables.h>
 #include <apr_time.h>
 
-#include "md.h"
 #include "md_json.h"
+#include "md.h"
 #include "md_log.h"
 #include "md_util.h"
 
@@ -155,9 +155,9 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
     return md;   
 }
 
-md_json *md_to_json(const md_t *md, apr_pool_t *p)
+md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
 {
-    md_json *json = md_json_create(p);
+    md_json_t *json = md_json_create(p);
     if (json) {
         md_json_sets(md->name, json, MD_KEY_NAME, NULL);
         md_json_setsa(md->domains, json, MD_KEY_DOMAINS, NULL);
@@ -170,7 +170,7 @@ md_json *md_to_json(const md_t *md, apr_pool_t *p)
     return NULL;
 }
 
-md_t *md_from_json(md_json *json, apr_pool_t *p)
+md_t *md_from_json(md_json_t *json, apr_pool_t *p)
 {
     md_t *md = md_create_empty(p);
     if (md) {

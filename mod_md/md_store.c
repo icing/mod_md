@@ -59,24 +59,24 @@ apr_status_t md_store_remove_md(md_store_t *store, const char *name, int force)
     return store->remove_value(store, name, MD_STORE_V_MD, force);
 }
 
-apr_status_t md_store_load_cert(struct md_cert **pcert, md_store_t *store, 
+apr_status_t md_store_load_cert(struct md_cert_t **pcert, md_store_t *store, 
                                 const char *name, apr_pool_t *p)
 {
     return store->load_value((void**)pcert, store, name, MD_STORE_V_CERT, p);
 }
 
-apr_status_t md_store_save_cert(md_store_t *store, const char *name, struct md_cert *cert)
+apr_status_t md_store_save_cert(md_store_t *store, const char *name, struct md_cert_t *cert)
 {
     return store->save_value(store, name, MD_STORE_V_CERT, cert, 0);
 }
 
-apr_status_t md_store_load_pkey(struct md_pkey **ppkey, md_store_t *store, 
+apr_status_t md_store_load_pkey(struct md_pkey_t **ppkey, md_store_t *store, 
                                 const char *name, apr_pool_t *p)
 {
     return store->load_value((void**)ppkey, store, name, MD_STORE_V_PKEY, p);
 }
 
-apr_status_t md_store_save_pkey(md_store_t *store, const char *name, struct md_pkey *pkey)
+apr_status_t md_store_save_pkey(md_store_t *store, const char *name, struct md_pkey_t *pkey)
 {
     return store->save_value(store, name, MD_STORE_V_PKEY, pkey, 0);
 }
@@ -148,7 +148,7 @@ static void fs_destroy(md_store_t *store)
 
 static apr_status_t pfs_md_readf(md_t **pmd, const char *fpath, apr_pool_t *p, apr_pool_t *ptemp)
 {
-    md_json *json;
+    md_json_t *json;
     apr_status_t rv;
     
     *pmd = NULL;
@@ -170,7 +170,7 @@ static apr_status_t pfs_md_writef(md_t *md, const char *dir, const char *name, a
     
     if (APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, p))) {
         if (APR_SUCCESS == (rv = md_util_path_merge(&fpath, p, dir, name, NULL))) {
-            md_json *json = md_to_json(md, p);
+            md_json_t *json = md_to_json(md, p);
             return (create? md_json_fcreatex(json, p, MD_JSON_FMT_INDENT, fpath)
                     : md_json_freplace(json, p, MD_JSON_FMT_INDENT, fpath));
         }
@@ -220,10 +220,10 @@ static apr_status_t pfs_load_value(void *baton, apr_pool_t *p, apr_pool_t *ptemp
                     rv = pfs_md_readf((md_t **)pvalue, fpath, p, ptemp);
                     break;
                 case MD_STORE_V_CERT:
-                    rv = md_cert_load((md_cert **)pvalue, p, fpath);
+                    rv = md_cert_load((md_cert_t **)pvalue, p, fpath);
                     break;
                 case MD_STORE_V_PKEY:
-                    rv = md_pkey_load((md_pkey **)pvalue, p, fpath);
+                    rv = md_pkey_load((md_pkey_t **)pvalue, p, fpath);
                     break;
                 case MD_STORE_V_CHAIN:
                     rv = md_cert_load_chain((apr_array_header_t **)pvalue, p, fpath);
@@ -261,10 +261,10 @@ static apr_status_t pfs_save_value(void *baton, apr_pool_t *p, apr_pool_t *ptemp
                 rv = pfs_md_writef((md_t*)value, dir, FS_FN_MD_JSON, ptemp, create);
                 break;
             case MD_STORE_V_CERT:
-                rv = md_cert_save((md_cert *)value, ptemp, fpath);
+                rv = md_cert_save((md_cert_t *)value, ptemp, fpath);
                 break;
             case MD_STORE_V_PKEY:
-                rv = md_pkey_save((md_pkey*)value, ptemp, fpath);
+                rv = md_pkey_save((md_pkey_t *)value, ptemp, fpath);
                 break;
             case MD_STORE_V_CHAIN:
                 rv = md_cert_save_chain((apr_array_header_t*)value, ptemp, fpath);

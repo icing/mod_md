@@ -17,8 +17,8 @@
 #define mod_md_md_acme_acct_h
 
 struct md_acme_req;
-struct md_json;
-struct md_pkey;
+struct md_json_t;
+struct md_pkey_t;
 
 /** 
  * An ACME account at an ACME server.
@@ -34,9 +34,9 @@ struct md_acme_acct {
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
     const char *tos;                /* terms of service */
     
-    struct md_pkey *key;            /* private key of account for JWS */
+    struct md_pkey_t *key;          /* private key of account for JWS */
     
-    struct md_json *registration;   /* data from server registration */
+    struct md_json_t *registration;   /* data from server registration */
 };
 
 /**

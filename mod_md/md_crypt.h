@@ -18,24 +18,24 @@
 
 struct apr_array_header_t;
 
-typedef struct md_cert md_cert;
-typedef struct md_pkey md_pkey;
+typedef struct md_cert_t md_cert_t;
+typedef struct md_pkey_t md_pkey_t;
 
 apr_status_t md_crypt_init(apr_pool_t *pool);
 
-apr_status_t md_pkey_load(md_pkey **ppkey, apr_pool_t *p, const char *fname);
-apr_status_t md_pkey_load_rsa(md_pkey **ppkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_load(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_load_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
 
-void md_pkey_free(md_pkey *pkey);
+void md_pkey_free(md_pkey_t *pkey);
 
-apr_status_t md_pkey_save(md_pkey *pkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_save(md_pkey_t *pkey, apr_pool_t *p, const char *fname);
 
-apr_status_t md_pkey_gen_rsa(md_pkey **ppkey, apr_pool_t *p, int bits);
+apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, int bits);
 
-const char *md_pkey_get_rsa_e64(md_pkey *pkey, apr_pool_t *p);
-const char *md_pkey_get_rsa_n64(md_pkey *pkey, apr_pool_t *p);
+const char *md_pkey_get_rsa_e64(md_pkey_t *pkey, apr_pool_t *p);
+const char *md_pkey_get_rsa_n64(md_pkey_t *pkey, apr_pool_t *p);
 
-apr_status_t md_crypt_sign64(const char **psign64, md_pkey *pkey, apr_pool_t *p, 
+apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
 
 typedef enum {
@@ -44,12 +44,12 @@ typedef enum {
     MD_CERT_EXPIRED
 } md_cert_state_t;
 
-void md_cert_free(md_cert *cert);
+void md_cert_free(md_cert_t *cert);
 
-apr_status_t md_cert_load(md_cert **pcert, apr_pool_t *p, const char *fname);
-apr_status_t md_cert_save(md_cert *cert, apr_pool_t *p, const char *fname);
+apr_status_t md_cert_load(md_cert_t **pcert, apr_pool_t *p, const char *fname);
+apr_status_t md_cert_save(md_cert_t *cert, apr_pool_t *p, const char *fname);
 
-md_cert_state_t md_cert_state_get(md_cert *cert);
+md_cert_state_t md_cert_state_get(md_cert_t *cert);
 
 apr_status_t md_cert_load_chain(struct apr_array_header_t **pcerts, 
                                 apr_pool_t *p, const char *fname);

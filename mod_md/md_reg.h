@@ -19,8 +19,8 @@
 struct apr_hash_t;
 struct apr_array_header_t;
 struct md_store_t;
-struct md_pkey;
-struct md_cert;
+struct md_pkey_t;
+struct md_cert_t;
 struct X509;
 
 /**
@@ -31,9 +31,10 @@ typedef struct md_reg_t md_reg_t;
 
 typedef struct md_creds_t md_creds_t;
 struct md_creds_t {
-    struct md_cert *cert;
-    struct md_pkey *pkey;
+    struct md_cert_t *cert;
+    struct md_pkey_t *pkey;
     struct apr_array_header_t *chain;      /* list of md_cert* */
+    int expired;
 };
 
 /**
@@ -52,14 +53,14 @@ apr_status_t md_reg_add(md_reg_t *reg, md_t *md);
  * Find the md, if any, that contains the given domain name. 
  * NULL if none found.
  */
-const md_t *md_reg_find(const md_reg_t *reg, const char *domain);
+const md_t *md_reg_find(md_reg_t *reg, const char *domain);
 
 /**
  * Find one md, which domain names overlap with the given md and that has a different
  * name. There may be more than one existing md that overlaps. It is not defined
  * which one will be returned. 
  */
-const md_t *md_reg_find_overlap(const md_reg_t *reg, const md_t *md, const char **pdomain);
+const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain);
 
 /**
  * Get the md with the given unique name. NULL if it does not exist.
@@ -69,14 +70,14 @@ const md_t *md_reg_get(const md_reg_t *reg, const char *name);
 /**
  * Callback invoked for every md in the registry. If 0 is returned, iteration stops.
  */
-typedef int md_reg_do_cb(void *baton, const md_reg_t *reg, const md_t *md);
+typedef int md_reg_do_cb(void *baton, md_reg_t *reg, const md_t *md);
 
 /**
  * Invoke callback for all mds in this registry. Order is not guarantueed.
  * If the callback returns 0, iteration stops. Returns 0 if iteration was
  * aborted.
  */
-int md_reg_do(md_reg_do_cb *cb, void *baton, const md_reg_t *reg);
+int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg);
 
 /**
  * Bitmask for fields that are updated.

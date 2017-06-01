@@ -53,7 +53,7 @@ static apr_status_t on_init_authz(md_acme_req *req, void *baton)
 {
     md_acme_authz *authz = baton;
     md_acme_acct *acct = authz->acct;
-    md_json *jpayload;
+    md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
     md_json_sets("new-authz", jpayload, "resource", NULL);
@@ -63,7 +63,7 @@ static apr_status_t on_init_authz(md_acme_req *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_authz(md_acme *acme, const apr_table_t *hdrs, md_json *body, void *baton)
+static apr_status_t on_success_authz(md_acme *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
 {
     md_acme_authz *authz = baton;
     md_acme_acct *acct = authz->acct;
