@@ -194,11 +194,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
     apr_status_t rv;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, md))) {
-        state = MD_S_COMPLETE;
-    }
-    else if (APR_ENOENT == rv) {
-        state = MD_S_INCOMPLETE;
-        rv = APR_SUCCESS;
+        state = (creds->cert && creds->pkey)? MD_S_COMPLETE : MD_S_INCOMPLETE;
     }
     /* break the constness, ugly but effective */
     ((md_t *)md)->state = state;
@@ -392,6 +388,11 @@ apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int 
 /**************************************************************************************************/
 /* certificate related */
 
+static int ok_or_noent(apr_status_t rv) 
+{
+    return (APR_SUCCESS == rv || APR_ENOENT == rv);
+}
+
 static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
@@ -406,34 +407,30 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     pcreds = va_arg(ap, md_creds_t **);
     md = va_arg(ap, const md_t *);
     
-    if (APR_SUCCESS == (rv = md_store_load_cert(&cert, reg->store, md->name, p))
-        && APR_SUCCESS == (rv = md_store_load_pkey(&pkey, reg->store, md->name, p))) {
-        
-        chain = apr_array_make(p, 5, sizeof(md_cert_t*));
-        rv = md_store_load_chain(&chain, reg->store, md->name, p);
-        if (APR_ENOENT == rv) {
-            /* no chain available, hmm, unusual, but could be? */
-            rv = APR_SUCCESS;
-        }
-        
+    if (ok_or_noent(rv = md_store_load_cert(&cert, reg->store, md->name, p))
+        && ok_or_noent(rv = md_store_load_pkey(&pkey, reg->store, md->name, p))
+        && ok_or_noent(rv = md_store_load_chain(&chain, reg->store, md->name, p))) {
+        rv = APR_SUCCESS;
+            
         creds = apr_pcalloc(p, sizeof(*creds));
         creds->cert = cert;
         creds->pkey = pkey;
         creds->chain = chain;
         
-        /* check if valid */
-        switch ((cert_state = md_cert_state_get(creds->cert))) {
-            case MD_CERT_VALID:
-                creds->expired = 0;
-                break;
-            case MD_CERT_EXPIRED:
-                creds->expired = 1;
-                break;
-            default:
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
-                              "md %s has unexpcted certificae state: %d", md->name, cert_state);
-                rv = APR_ENOTIMPL;
-                break;
+        if (creds->cert) {
+            switch ((cert_state = md_cert_state_get(creds->cert))) {
+                case MD_CERT_VALID:
+                    creds->expired = 0;
+                    break;
+                case MD_CERT_EXPIRED:
+                    creds->expired = 1;
+                    break;
+                default:
+                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
+                                  "md %s has unexpcted certificae state: %d", md->name, cert_state);
+                    rv = APR_ENOTIMPL;
+                    break;
+            }
         }
     }
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;

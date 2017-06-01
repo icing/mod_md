@@ -22,10 +22,10 @@ mod_md_la_CPPFLAGS = -std=c99 -D_GNU_SOURCE -Werror
 mod_md_la_LDFLAGS  = -module
 
 OBJECTS = \
-    md_acme.c \
-    md_acme_acct.c \
-    md_acme_authz.c \
-    md_acme_cert.c \
+    acme/md_acme.c \
+    acme/md_acme_acct.c \
+    acme/md_acme_authz.c \
+    acme/md_acme_cert.c \
     md_config.c \
     md_core.c \
     md_crypt.c \
@@ -39,10 +39,10 @@ OBJECTS = \
     mod_md.c
 
 HFILES = \
-    md_acme.h \
-    md_acme_acct.h \
-    md_acme_authz.h \
-    md_acme_cert.h \
+    acme/md_acme.h \
+    acme/md_acme_acct.h \
+    acme/md_acme_authz.h \
+    acme/md_acme_cert.h \
     md_config.h \
     md_crypt.h \
     md_http.h \

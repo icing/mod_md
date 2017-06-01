@@ -27,10 +27,10 @@ OBJECTS = \
     md_cmd_acme.c \
     md_cmd_reg.c \
     md_cmd_store.c \
-    ../mod_md/md_acme.c \
-    ../mod_md/md_acme_acct.c \
-    ../mod_md/md_acme_authz.c \
-    ../mod_md/md_acme_cert.c \
+    ../mod_md/acme/md_acme.c \
+    ../mod_md/acme/md_acme_acct.c \
+    ../mod_md/acme/md_acme_authz.c \
+    ../mod_md/acme/md_acme_cert.c \
     ../mod_md/md_core.c \
     ../mod_md/md_crypt.c \
     ../mod_md/md_http.c \

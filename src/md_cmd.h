@@ -19,6 +19,9 @@
 struct apr_getopt_option_t;
 struct apr_table_t;
 struct md_json_t;
+struct md_store_t;
+struct md_ref_t;
+struct md_acme_t;
 
 typedef struct md_opts md_opts;
 typedef struct md_cmd_ctx  md_cmd_ctx;
@@ -33,9 +36,9 @@ struct md_cmd_ctx {
     const char *base_dir;
     const char *ca_url;
     
-    md_store_t *store;
-    md_reg_t *reg;
-    md_acme_t *acme;
+    struct md_store_t *store;
+    struct md_reg_t *reg;
+    struct md_acme_t *acme;
 
     struct apr_table_t *options;
     

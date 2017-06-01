@@ -14,6 +14,7 @@
  */
 
 #include <stdio.h>
+
 #include <apr_lib.h>
 #include <apr_file_info.h>
 #include <apr_file_io.h>
@@ -22,13 +23,14 @@
 #include <apr_strings.h>
 #include <apr_tables.h>
 
+#include "../md_json.h"
+#include "../md_log.h"
+#include "../md_jws.h"
+#include "../md_util.h"
+
 #include "md_acme.h"
 #include "md_acme_acct.h"
 #include "md_acme_authz.h"
-#include "md_json.h"
-#include "md_log.h"
-#include "md_jws.h"
-#include "md_util.h"
 
 static apr_status_t authz_create(md_acme_authz_t **pauthz, apr_pool_t *p, 
                                  const char *domain, md_acme_acct_t *acct)

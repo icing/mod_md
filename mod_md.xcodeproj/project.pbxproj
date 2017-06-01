@@ -15,8 +15,14 @@
 		B20333391EDDA82300E5BE7E /* test_0300_acme_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0300_acme_authz.py; sourceTree = "<group>"; };
 		B203333A1EDDA82300E5BE7E /* test_0400_add.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0400_add.py; sourceTree = "<group>"; };
 		B203333B1EDDA82300E5BE7E /* test_1001_configs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_1001_configs.py; sourceTree = "<group>"; };
-		B2BCAB771ECF2A2E002F4EB9 /* md_acme_authz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
-		B2BCAB781ECF2A2E002F4EB9 /* md_acme_authz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
+		B20333491EE03CBD00E5BE7E /* md_acme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme.c; sourceTree = "<group>"; };
+		B203334A1EE03CBD00E5BE7E /* md_acme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme.h; sourceTree = "<group>"; };
+		B203334B1EE03CBD00E5BE7E /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
+		B203334C1EE03CBD00E5BE7E /* md_acme_acct.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_acct.h; sourceTree = "<group>"; };
+		B203334D1EE03CBD00E5BE7E /* md_acme_authz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
+		B203334E1EE03CBD00E5BE7E /* md_acme_authz.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
+		B203334F1EE03CBD00E5BE7E /* md_acme_cert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_cert.c; sourceTree = "<group>"; };
+		B20333501EE03CBD00E5BE7E /* md_acme_cert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_cert.h; sourceTree = "<group>"; };
 		B2BCAB7B1ED42C8E002F4EB9 /* md_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B2BCAB7C1ED42C8E002F4EB9 /* md_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store.h; sourceTree = "<group>"; };
 		B2BCAB831ED82F6F002F4EB9 /* md_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_reg.c; sourceTree = "<group>"; };
@@ -73,12 +79,6 @@
 		B2D31B0A1EC34449007BECC8 /* md_http.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_http.h; sourceTree = "<group>"; };
 		B2D31B0B1EC473CC007BECC8 /* md_json.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_json.c; sourceTree = "<group>"; };
 		B2D31B0C1EC473CC007BECC8 /* md_json.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_json.h; sourceTree = "<group>"; };
-		B2D31B0D1EC5BE4B007BECC8 /* md_acme.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme.c; sourceTree = "<group>"; };
-		B2D31B0E1EC5BE4B007BECC8 /* md_acme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme.h; sourceTree = "<group>"; };
-		B2D31B0F1EC5D430007BECC8 /* md_acme_acct.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
-		B2D31B101EC5D430007BECC8 /* md_acme_acct.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_acct.h; sourceTree = "<group>"; };
-		B2D31B111EC5D483007BECC8 /* md_acme_cert.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_cert.c; sourceTree = "<group>"; };
-		B2D31B121EC5D483007BECC8 /* md_acme_cert.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_cert.h; sourceTree = "<group>"; };
 		B2D31B131EC5F1EA007BECC8 /* md_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_util.c; sourceTree = "<group>"; };
 		B2D31B141EC5F1EA007BECC8 /* md_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_util.h; sourceTree = "<group>"; };
 		B2D31B151EC5F945007BECC8 /* md_crypt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_crypt.c; sourceTree = "<group>"; };
@@ -90,6 +90,21 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		B20333481EE03CBD00E5BE7E /* acme */ = {
+			isa = PBXGroup;
+			children = (
+				B20333491EE03CBD00E5BE7E /* md_acme.c */,
+				B203334A1EE03CBD00E5BE7E /* md_acme.h */,
+				B203334B1EE03CBD00E5BE7E /* md_acme_acct.c */,
+				B203334C1EE03CBD00E5BE7E /* md_acme_acct.h */,
+				B203334D1EE03CBD00E5BE7E /* md_acme_authz.c */,
+				B203334E1EE03CBD00E5BE7E /* md_acme_authz.h */,
+				B203334F1EE03CBD00E5BE7E /* md_acme_cert.c */,
+				B20333501EE03CBD00E5BE7E /* md_acme_cert.h */,
+			);
+			path = acme;
+			sourceTree = "<group>";
+		};
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
@@ -115,15 +130,8 @@
 		B2D309AB1EBA2384007BECC8 /* mod_md */ = {
 			isa = PBXGroup;
 			children = (
+				B20333481EE03CBD00E5BE7E /* acme */,
 				B2D309D61EBA2384007BECC8 /* Makefile.am */,
-				B2D31B0F1EC5D430007BECC8 /* md_acme_acct.c */,
-				B2D31B101EC5D430007BECC8 /* md_acme_acct.h */,
-				B2BCAB771ECF2A2E002F4EB9 /* md_acme_authz.c */,
-				B2BCAB781ECF2A2E002F4EB9 /* md_acme_authz.h */,
-				B2D31B111EC5D483007BECC8 /* md_acme_cert.c */,
-				B2D31B121EC5D483007BECC8 /* md_acme_cert.h */,
-				B2D31B0D1EC5BE4B007BECC8 /* md_acme.c */,
-				B2D31B0E1EC5BE4B007BECC8 /* md_acme.h */,
 				B2D309DC1EBB5488007BECC8 /* md_config.c */,
 				B2D309DD1EBB5488007BECC8 /* md_config.h */,
 				B2D309E01EBB6C38007BECC8 /* md_core.c */,

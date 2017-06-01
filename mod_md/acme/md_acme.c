@@ -22,12 +22,12 @@
 
 #include "md_acme.h"
 #include "md_acme_acct.h"
-#include "md_crypt.h"
-#include "md_json.h"
-#include "md_jws.h"
-#include "md_http.h"
-#include "md_log.h"
-#include "md_util.h"
+#include "../md_crypt.h"
+#include "../md_json.h"
+#include "../md_jws.h"
+#include "../md_http.h"
+#include "../md_log.h"
+#include "../md_util.h"
 
 #define MD_DIRNAME_ACCOUNTS "accounts"
 #define MD_FILENAME_CA "ca.json"
