@@ -88,22 +88,25 @@ static apr_status_t on_success_authz(md_acme_t *acme, const apr_table_t *hdrs, m
 apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, const char *domain, 
                                     md_acme_acct_t *acct)
 {
-    md_acme_t *acme = acct->acme;
+    md_acme_t *acme;
     md_acme_authz_t *authz;
     apr_status_t rv;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new authz");
-    rv = authz_create(&authz, acme->pool, domain, acct);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "create new authz");
+    rv = authz_create(&authz, acct->pool, domain, acct);
     if (APR_SUCCESS != rv) {
         return rv;
     }
     
-    rv = md_acme_req_do(acme, acme->new_authz, on_init_authz, on_success_authz, authz);
-    if (APR_SUCCESS == rv) {
-        *pauthz = authz;
-        return APR_SUCCESS;
+     
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "agree to terms-of-service");
+    
+    if (APR_SUCCESS == (rv = md_acme_create(&acme, acct->pool, acct->ca_url, acct->store))
+        && APR_SUCCESS == (rv = md_acme_setup(acme))) {
+        
+        rv = md_acme_req_do(acme, acme->new_authz, on_init_authz, on_success_authz, authz);
     }
-    *pauthz = NULL;
+    *pauthz = (APR_SUCCESS == rv)? authz : NULL;
     return rv;
 } 
 

@@ -73,8 +73,7 @@ static int list_add_md(void *baton, md_reg_t *reg, const md_t *md)
     apr_array_header_t *mdlist = baton;
     const md_t **pmd;
     
-    pmd = (const md_t **)apr_array_push(mdlist);
-    *pmd = md;
+    APR_ARRAY_PUSH(mdlist, const md_t *) = md;
     return 1;
 }
 
@@ -193,6 +192,50 @@ md_cmd_t MD_RegUpdateCmd = {
     NULL, cmd_reg_update, MD_NoOptions, NULL,
     "update name [ 'aspect' args ]",
     "update a managed domain's properties."
+};
+
+/**************************************************************************************************/
+/* command: drive */
+
+static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
+{
+    apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
+    apr_hash_t *mds = apr_hash_make(ctx->p);
+    const md_t *md, **pmd;
+    apr_status_t rv;
+    int i, j;
+ 
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "drive do");
+    if (ctx->argc > 0) {
+        for (i = 0; i < ctx->argc; ++i) {
+            md = md_reg_get(ctx->reg, ctx->argv[i]);
+            if (!md) {
+                fprintf(stderr, "md not found: %s\n", ctx->argv[i]);
+                return APR_ENOENT;
+            }
+        }
+    }
+    else {
+        md_reg_do(list_add_md, mdlist, ctx->reg);
+        qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
+    }   
+    
+    rv = APR_SUCCESS;
+    for (i = 0; i < mdlist->nelts; ++i) {
+        const md_t *md = APR_ARRAY_IDX(mdlist, i, const md_t*);
+        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, ctx->p))) {
+            break;
+        }
+    }
+
+    return rv;
+}
+
+md_cmd_t MD_RegDriveCmd = {
+    "drive", MD_CTX_REG, 
+    NULL, cmd_reg_drive, MD_NoOptions, NULL,
+    "drive [md...]",
+    "drive all or the mentioned managed domains toward completeness"
 };
 
 

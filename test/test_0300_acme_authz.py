@@ -22,10 +22,7 @@ ACME_URL = config.get('acme', 'url')
 ACME_TOS = config.get('acme', 'tos')
 ACME_TOS2 = config.get('acme', 'tos2')
 WEBROOT = config.get('global', 'server_dir')
-ACME_DIR = os.path.join(WEBROOT, 'acme') 
-
-CA1_DIR = os.path.join(ACME_DIR, 'server1')
-CA2_DIR = os.path.join(ACME_DIR, 'server2')
+STORE_DIR = os.path.join(WEBROOT, 'md') 
 
 def check_live(url, timeout):
     server = urlparse(url)
@@ -78,7 +75,7 @@ class TestAuthz:
     def test_001(self):
         # register a new account, agree to tos, create auth resource
         domain = "www.test-example.org"
-        args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR, "-t", ACME_TOS]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-t", ACME_TOS]
         args.extend(["acme", "newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
@@ -87,7 +84,7 @@ class TestAuthz:
         assert m
         acct = m.group(1)
 
-        args = [A2MD, "-d", CA1_DIR]
+        args = [A2MD, "-d", STORE_DIR]
         args.extend(["acme", "authz", acct, domain])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()

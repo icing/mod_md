@@ -471,14 +471,12 @@ apr_status_t md_json_getsa(apr_array_header_t *a, md_json_t *json, ...)
     va_end(ap);
 
     if (j && json_is_array(j)) {
-        const char **np;
         size_t index;
         json_t *val;
         
         json_array_foreach(j, index, val) {
             if (json_is_string(val)) {
-                np =(const char **)apr_array_push(a);
-                *np = json_string_value(val);
+                APR_ARRAY_PUSH(a, const char *) = json_string_value(val);
             }
         }
         return APR_SUCCESS;
@@ -496,14 +494,12 @@ apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json_t *json
     va_end(ap);
 
     if (j && json_is_array(j)) {
-        const char **np;
         size_t index;
         json_t *val;
         
         json_array_foreach(j, index, val) {
             if (json_is_string(val)) {
-                np =(const char **)apr_array_push(a);
-                *np = apr_pstrdup(p, json_string_value(val));
+                APR_ARRAY_PUSH(a, const char *) = apr_pstrdup(p, json_string_value(val));
             }
         }
         return APR_SUCCESS;

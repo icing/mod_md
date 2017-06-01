@@ -99,7 +99,7 @@ int md_contains_domains(const md_t *md1, const md_t *md2)
 const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
 {
     md_t *md;
-    const char *domain, **np;
+    const char *domain;
     int i;
     
     if (domains->nelts <= 0) {
@@ -114,9 +114,7 @@ const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
     for (i = 0; i < domains->nelts; ++i) {
         domain = APR_ARRAY_IDX(domains, i, const char *);
         if (md_array_str_case_index(md->domains, domain, 0) < 0) {
-            np = (const char **)apr_array_push(md->domains);
-            md_util_str_tolower(apr_pstrdup(p, domain));
-            *np = domain;
+            APR_ARRAY_PUSH(md->domains, char *) = md_util_str_tolower(apr_pstrdup(p, domain));
         }
     }
     md->name = APR_ARRAY_IDX(md->domains, 0, const char *);

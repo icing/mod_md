@@ -61,7 +61,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     md_config *config;
     apr_array_header_t *mds;
     int i, j, k;
-    md_t *md, *nmd, **pmd;
+    md_t *md, *nmd;
     const char *domain, *name;
     request_rec r;
     apr_status_t rv = APR_SUCCESS;
@@ -111,8 +111,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                 nmd->ca_url = md_config_var_get(config, MD_CONFIG_CA_URL);
                 nmd->ca_proto = md_config_var_get(config, MD_CONFIG_CA_PROTO);
                 
-                pmd = (md_t **)apr_array_push(mds);
-                *pmd = nmd;
+                APR_ARRAY_PUSH(mds, md_t *) = nmd;
             }
         }
         

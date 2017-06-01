@@ -29,9 +29,13 @@
 #include "md_store.h"
 #include "md_util.h"
 
+#include "acme/md_acme.h"
+
 struct md_reg_t {
     apr_pool_t *p;
     struct md_store_t *store;
+    struct apr_hash_t *protos;
+
     struct apr_hash_t *mds;
     struct apr_hash_t *creds;
 };
@@ -48,21 +52,24 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg = apr_pcalloc(p, sizeof(*reg));
     reg->p = p;
     reg->store = store;
+    reg->protos = apr_hash_make(p);
     reg->mds = apr_hash_make(p);
     reg->creds = apr_hash_make(p);
     
-    mds = apr_array_make(p, 5, sizeof(md_t *));
-    if (APR_SUCCESS == (rv = md_store_load_mds(mds, reg->store, reg->p))) {
-        md_t *md;
-        int i;
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "reg: %d mds loaded", mds->nelts);
-        for (i = 0; i < mds->nelts; ++i) {
-            md = APR_ARRAY_IDX(mds, i, md_t*);
-            apr_hash_set(reg->mds, md->name, strlen(md->name), md);
+    if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, reg->p))) {
+        mds = apr_array_make(p, 5, sizeof(md_t *));
+        if (APR_SUCCESS == (rv = md_store_load_mds(mds, reg->store, reg->p))) {
+            md_t *md;
+            int i;
+            
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "reg: %d mds loaded", mds->nelts);
+            for (i = 0; i < mds->nelts; ++i) {
+                md = APR_ARRAY_IDX(mds, i, md_t*);
+                apr_hash_set(reg->mds, md->name, strlen(md->name), md);
+            }
+            
+            rv = md_reg_states_init(reg, 0);
         }
-
-        rv = md_reg_states_init(reg, 0);
     }
 
     *preg = (rv == APR_SUCCESS)? reg : NULL;
@@ -408,7 +415,7 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     md = va_arg(ap, const md_t *);
     
     if (ok_or_noent(rv = md_store_load_cert(&cert, reg->store, md->name, p))
-        && ok_or_noent(rv = md_store_load_pkey(&pkey, reg->store, md->name, p))
+        && ok_or_noent(rv = md_store_load_pkey(&pkey, reg->store, MD_SG_DOMAINS, md->name, p))
         && ok_or_noent(rv = md_store_load_chain(&chain, reg->store, md->name, p))) {
         rv = APR_SUCCESS;
             
@@ -450,4 +457,58 @@ apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md
     }
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;
     return rv;
+}
+
+/**************************************************************************************************/
+/* driving */
+
+static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_reg_t *reg = baton;
+    const md_proto_t *proto;
+    const md_t *md;
+    md_proto_driver_t *driver;
+    apr_status_t rv;
+    
+    proto = va_arg(ap, const md_proto_t *);
+    md = va_arg(ap, const md_t *);
+    
+    
+    driver = apr_pcalloc(ptemp, sizeof(*driver));
+    driver->proto = proto;
+    driver->p = ptemp;
+    driver->reg = reg;
+    driver->md = md;
+    
+    if (APR_SUCCESS == (rv = proto->init(driver))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
+                      "md %s driver run for proto %s", md->name, driver->proto->protocol);
+        while (APR_EAGAIN == (rv = proto->run(driver))) {
+            /* TODO: put some retry-after logic here, manage several drivers */
+        }
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
+                  "md %s driver done for proto %s", md->name, driver->proto->protocol);
+    return rv;
+}
+
+apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, apr_pool_t *p)
+{
+    const md_proto_t *proto;
+    
+    if (!md->ca_proto) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, reg->p, "md %s has no CA protocol", md->name);
+        ((md_t *)md)->state = MD_S_ERROR;
+        return APR_SUCCESS;
+    }
+    
+    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
+    if (!proto) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, reg->p, 
+                      "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
+        ((md_t *)md)->state = MD_S_ERROR;
+        return APR_SUCCESS;
+    }
+    
+    return md_util_pool_vdo(run_driver, reg, p, proto, md, NULL);
 }

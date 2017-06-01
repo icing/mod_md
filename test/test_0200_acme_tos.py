@@ -21,10 +21,7 @@ ACME_URL = config.get('acme', 'url')
 ACME_TOS = config.get('acme', 'tos')
 ACME_TOS2 = config.get('acme', 'tos2')
 WEBROOT = config.get('global', 'server_dir')
-ACME_DIR = os.path.join(WEBROOT, 'acme') 
-
-CA1_DIR = os.path.join(ACME_DIR, 'server1')
-CA2_DIR = os.path.join(ACME_DIR, 'server2')
+STORE_DIR = os.path.join(WEBROOT, 'md') 
 
 def check_live(url, timeout):
     server = urlparse(url)
@@ -58,7 +55,7 @@ class TestToS:
 
     def test_001(self):
         # try register a new account with valid tos agreements
-        args = [A2MD, "-a", ACME_URL, "--terms", ACME_TOS ]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS ]
         args.extend(["acme", "newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
@@ -69,7 +66,7 @@ class TestToS:
  
     def test_002(self):
         # try register a new account with invalid tos agreements
-        args = [A2MD, "-a", ACME_URL, "--terms", ACME_TOS2 ]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS2 ]
         args.extend(["acme", "newreg", "xx@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
@@ -77,7 +74,7 @@ class TestToS:
  
     def test_003(self):
         # register new account, agree to tos afterwards
-        args = [A2MD, "-a", ACME_URL, "-d", CA1_DIR]
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "tmp@example.org"])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
@@ -85,7 +82,7 @@ class TestToS:
         m = re.match("registered: (.*)$", outdata)
         assert m
         acct = m.group(1)
-        args = [A2MD, "-d", CA1_DIR]
+        args = [A2MD, "-d", STORE_DIR]
         args.extend(["acme", "agree", acct])
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
         (outdata, errdata) = p.communicate()

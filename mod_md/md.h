@@ -16,11 +16,10 @@
 #ifndef mod_md_md_h
 #define mod_md_md_h
 
-#define MD_PROTO_ACME       "ACME"
-
 struct apr_array_header_t;
 struct apr_hash_t;
 struct md_json_t;
+struct md_cert_t;
 struct md_pkey_t;
 
 typedef enum {
@@ -107,5 +106,16 @@ md_t *md_clone(apr_pool_t *p, const md_t *src);
  * Shallow copy an md record into another pool.
  */
 md_t *md_copy(apr_pool_t *p, const md_t *src);
+
+/**************************************************************************************************/
+/* domain credentials */
+
+typedef struct md_creds_t md_creds_t;
+struct md_creds_t {
+    struct md_cert_t *cert;
+    struct md_pkey_t *pkey;
+    struct apr_array_header_t *chain;      /* list of md_cert* */
+    int expired;
+};
 
 #endif /* mod_md_md_h */

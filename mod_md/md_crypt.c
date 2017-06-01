@@ -350,7 +350,7 @@ apr_status_t md_cert_load_chain(apr_array_header_t **pcerts, apr_pool_t *p, cons
     apr_status_t rv;
     apr_array_header_t *certs;
     X509 *x509;
-    md_cert_t *cert, **pcert;
+    md_cert_t *cert;
     unsigned long err;
     
     rv = md_util_fopen(&f, fname, "r");
@@ -359,11 +359,10 @@ apr_status_t md_cert_load_chain(apr_array_header_t **pcerts, apr_pool_t *p, cons
         
         ERR_clear_error();
         while (NULL != (x509 = PEM_read_X509(f, NULL, NULL, NULL))) {
-            
             cert = make_cert(p, x509);
-            pcert = (md_cert_t **)apr_array_push(certs);
-            *pcert = cert;
+            APR_ARRAY_PUSH(certs, md_cert_t *) = cert;
         }
+        
         if (cert->x509 != NULL) {
             rv = APR_SUCCESS;
             apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);

@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include <apr_lib.h>
@@ -22,15 +23,16 @@
 
 #include "md_acme.h"
 #include "md_acme_acct.h"
+#include "../md.h"
 #include "../md_crypt.h"
 #include "../md_json.h"
 #include "../md_jws.h"
 #include "../md_http.h"
 #include "../md_log.h"
+#include "../md_reg.h"
 #include "../md_util.h"
 
 #define MD_DIRNAME_ACCOUNTS "accounts"
-#define MD_FILENAME_CA "ca.json"
 
 typedef struct acme_problem_status_t acme_problem_status_t;
 
@@ -83,91 +85,21 @@ apr_status_t md_acme_init(apr_pool_t *p)
     return md_crypt_init(p);
 }
 
-apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url, const char *path)
+apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
+                            struct md_store_t *store)
 {
     md_acme_t *acme;
-    apr_status_t rv;
+    
+    if (!url) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "create ACME without url");
+        return APR_EINVAL;
+    }
     
     acme = apr_pcalloc(p, sizeof(*acme));
     acme->url = url;
-    acme->path = path;
     acme->pool = p;
+    acme->store = store;
     acme->pkey_bits = 4096;
-    acme->accounts = apr_hash_make(acme->pool);
-    
-    if (acme->path) {
-        char *acct_path, *ca_file;
-        md_json_t *jca;
-        
-        rv = apr_filepath_merge(&acct_path, acme->path, MD_DIRNAME_ACCOUNTS, 
-                                APR_FILEPATH_SECUREROOTTEST, acme->pool);
-        if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, 
-                          "invalid accounts path %s/%s", acme->path,  MD_DIRNAME_ACCOUNTS);
-            return rv;
-        }
-        
-        rv = apr_dir_make_recursive(acct_path, MD_FPROT_D_UONLY, acme->pool);
-        if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "mkdir %s", acme->path);
-            return rv;
-        }
-        acme->acct_path = acct_path;
-        
-        
-        rv = apr_filepath_merge(&ca_file, acme->path, MD_FILENAME_CA, 
-                                APR_FILEPATH_SECUREROOTTEST, acme->pool);
-        if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, 
-                          "invalid ca file path %s/%s", acme->path,  MD_FILENAME_CA);
-            return rv;
-        }
-        
-        rv = md_json_readf(&jca, acme->pool, ca_file);
-        if (APR_SUCCESS == rv) {
-            const char *ca_url = md_json_gets(jca, "url", NULL);
-            if (!ca_url) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, 
-                    "url not found in CA file %s", ca_file);
-                return APR_ENOENT;
-            }
-            else if (url && strcmp(ca_url, url)) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, 
-                    "url from CA file %s and given url differ: %s", ca_file, ca_url);
-                return APR_EINVAL;
-            }
-            else {
-                acme->url = ca_url;
-            }
-        }
-        else if (APR_STATUS_IS_ENOENT(rv)) {
-            if (!url) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, 
-                    "need the server url for initializing the CA in: %s", path);
-                return rv;
-            }
-        
-            jca = md_json_create(acme->pool);
-            md_json_sets(url, jca, "url", NULL);
-            rv = md_json_fcreatex(jca, acme->pool, MD_JSON_FMT_INDENT, ca_file);
-            if (APR_SUCCESS != rv) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "saving ca: %s", ca_file);
-                return rv;
-            }
-        }
-        else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->pool, "reading ca: %s", ca_file);
-            return rv;
-        }
-        
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, acme->pool,
-                      "scanning for existing accounts at %s", acme->acct_path);
-        rv = md_acme_acct_load(acme);
-        if (APR_SUCCESS != rv) {
-            return rv;
-        }
-    }
     
     *pacme = acme;
     return md_http_create(&acme->http, acme->pool);
@@ -178,6 +110,7 @@ apr_status_t md_acme_setup(md_acme_t *acme)
     apr_status_t rv;
     md_json_t *json;
     
+    assert(acme->url);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "get directory from %s", acme->url);
     
     rv = md_json_http_get(&json, acme->pool, acme->http, acme->url);
@@ -351,9 +284,15 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     apr_status_t rv;
     md_acme_t *acme = req->acme;
 
+    assert(acme->url);
+    
+    if (!acme->new_authz) {
+        if (APR_SUCCESS != (rv = md_acme_setup(acme))) {
+            return rv;
+        }
+    }
     if (!acme->nonce) {
-        rv = md_acme_new_nonce(acme);
-        if (rv != APR_SUCCESS) {
+        if (APR_SUCCESS != (rv = md_acme_new_nonce(acme))) {
             return rv;
         }
     }
@@ -407,3 +346,32 @@ apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
     return md_acme_req_send(req);
 }
 
+/**************************************************************************************************/
+/* protocol drivers */
+
+static apr_status_t acme_driver_init(md_proto_driver_t *driver)
+{
+    apr_status_t rv;
+    md_acme_t *acme;
+    
+    /* Find out where we're at with this managed domain */
+    if (APR_SUCCESS == (rv = md_acme_create(&acme, driver->p, driver->md->ca_url, driver->store))) {
+        
+    }
+    return rv;
+}
+
+static apr_status_t acme_driver_run(md_proto_driver_t *driver)
+{
+    return APR_ENOTIMPL;
+}
+
+static md_proto_t ACME_PROTO = {
+    MD_PROTO_ACME, acme_driver_init, acme_driver_run
+};
+ 
+apr_status_t md_acme_protos_add(apr_hash_t *protos, apr_pool_t *p)
+{
+    apr_hash_set(protos, MD_PROTO_ACME, sizeof(MD_PROTO_ACME)-1, &ACME_PROTO);
+    return APR_SUCCESS;
+}

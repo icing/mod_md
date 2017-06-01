@@ -36,7 +36,7 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 
 /**************************************************************************************************/
 /* string related */
-void md_util_str_tolower(char *s);
+char *md_util_str_tolower(char *s);
 
 int md_array_str_case_index(const struct apr_array_header_t *array, const char *s, int start);
 

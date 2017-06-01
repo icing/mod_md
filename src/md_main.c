@@ -152,7 +152,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "args remaining: %d", ctx->argc);
                    
-    if (cmd->needs & (MD_CTX_STORE|MD_CTX_REG) && !ctx->store) {
+    if (cmd->needs & (MD_CTX_STORE|MD_CTX_REG|MD_CTX_ACME) && !ctx->store) {
         if (!ctx->base_dir) {
             fprintf(stderr, "need store directory for command: %s\n", cmd->name);
             return APR_EINVAL;
@@ -173,7 +173,11 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         }
     }
     if (cmd->needs & MD_CTX_ACME && !ctx->acme) {
-        rv = md_acme_create(&ctx->acme, ctx->p, ctx->ca_url, ctx->base_dir);
+        if (!ctx->store) {
+            fprintf(stderr, "need store for ACME: %s\n", cmd->name);
+            return APR_EINVAL;
+        }
+        rv = md_acme_create(&ctx->acme, ctx->p, ctx->ca_url, ctx->store);
         if (APR_SUCCESS != rv) {
             fprintf(stderr, "error creating acme instance %s (%s)\n", 
                     ctx->ca_url, ctx->base_dir);
@@ -276,13 +280,11 @@ static int pool_abort(int rv)
 
 apr_array_header_t *md_cmd_gather_args(md_cmd_ctx *ctx, int index)
 {
-    const char **ps;
     int i;
     
     apr_array_header_t *args = apr_array_make(ctx->p, 5, sizeof(const char *));
     for (i = index; i < ctx->argc; ++i) {
-        ps = (const char **)apr_array_push(args);
-        *ps = ctx->argv[i];
+        APR_ARRAY_PUSH(args, const char *) = ctx->argv[i];
     }
     return args;
 }
@@ -330,6 +332,7 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
 static const md_cmd_t *MainSubCmds[] = {
     &MD_AcmeCmd,
     &MD_RegAddCmd,
+    &MD_RegDriveCmd,
     &MD_RegListCmd,
     &MD_StoreCmd,
     NULL

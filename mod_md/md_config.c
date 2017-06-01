@@ -63,7 +63,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     md_config *add = (md_config *)addv;
     md_config *n = (md_config *)apr_pcalloc(pool, sizeof(md_config));
     char *name = apr_pstrcat(pool, "merged[", add->name, ", ", base->name, "]", NULL);
-    md_t *md, **pmd;
+    md_t *md;
     int i;
     
     n->name = name;
@@ -73,8 +73,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     n->mds = apr_array_make(pool, add->mds->nelts, sizeof(const md_t *));
     for (i = 0; i < add->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(add->mds, i, md_t*);
-        pmd = (md_t **)apr_array_push(n->mds);
-        *pmd = md_clone(pool, md);
+        APR_ARRAY_PUSH(n->mds, md_t *) = md_clone(pool, md);
     }
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
@@ -93,8 +92,8 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
 {
     md_config *config = (md_config *)md_config_sget(parms->server);
     apr_array_header_t *domains = apr_array_make(parms->pool, 5, sizeof(const char *));
-    const char *err, *name, **np;
-    md_t *md, **pmd;
+    const char *err, *name;
+    md_t *md;
     int i;
 
     err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
@@ -105,9 +104,7 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
     for (i = 0; i < argc; ++i) {
         name = argv[i];
         if (md_array_str_case_index(domains, name, 0) < 0) {
-            np = (const char **)apr_array_push(domains);
-            md_util_str_tolower(apr_pstrdup(parms->pool, name));
-            *np = name;
+            APR_ARRAY_PUSH(domains, char *) = md_util_str_tolower(apr_pstrdup(parms->pool, name));
         }
     }
     err = md_create(&md, parms->pool, domains);
@@ -120,8 +117,7 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
         md->defn_line_number = parms->config_file->line_number;
     }
 
-    pmd = (md_t **)apr_array_push(config->mds);
-    *pmd = md;
+    APR_ARRAY_PUSH(config->mds, md_t *) = md;
 
     return NULL;
 }

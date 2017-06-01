@@ -67,12 +67,14 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /**************************************************************************************************/
 /* string related */
 
-void md_util_str_tolower(char *s)
+char *md_util_str_tolower(char *s)
 {
+    char *orig = s;
     while (*s) {
         *s = apr_tolower(*s);
         ++s;
     }
+    return orig;
 }
 
 int md_array_str_case_index(const apr_array_header_t *array, const char *s, int start)
@@ -97,12 +99,8 @@ apr_array_header_t *md_array_str_clone(apr_pool_t *p, apr_array_header_t *src)
     if (dest) {
         int i;
         for (i = 0; i < src->nelts; i++) {
-            const char *s = APR_ARRAY_IDX(src, i, const char *), **pd;
-            pd = (const char **)apr_array_push(dest);
-            *pd = apr_pstrdup(p, s); 
-            if (!*pd) {
-                return NULL;
-            }
+            const char *s = APR_ARRAY_IDX(src, i, const char *);
+            APR_ARRAY_PUSH(dest, const char *) = apr_pstrdup(p, s); 
         }
     }
     return dest;
@@ -259,14 +257,13 @@ static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int dep
 static apr_status_t files_do_start(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_util_fwalk_t *ctx = baton;
-    const char *segment, **ps;
+    const char *segment;
 
     ctx->patterns = apr_array_make(ptemp, 5, sizeof(const char*));
     
     segment = va_arg(ap, char *);
     while (segment) {
-        ps = (const char **)apr_array_push(ctx->patterns);
-        *ps = segment;
+        APR_ARRAY_PUSH(ctx->patterns, const char *) = segment;
         segment = va_arg(ap, char *);
     }
     

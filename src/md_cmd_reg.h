@@ -17,6 +17,7 @@
 #define md_cmd_reg_h
 
 extern md_cmd_t MD_RegAddCmd;
+extern md_cmd_t MD_RegDriveCmd;
 extern md_cmd_t MD_RegListCmd;
 
 #endif /* md_cmd_reg_h */

@@ -23,6 +23,11 @@ struct md_json_t;
 struct md_pkey_t;
 struct md_t;
 struct md_acme_acct;
+struct md_proto_t;
+
+
+#define MD_PROTO_ACME       "ACME"
+
 
 typedef enum {
     MD_ACME_S_UNKNOWN,              /* MD has not been analysed yet */
@@ -39,6 +44,7 @@ typedef struct md_acme_t md_acme_t;
 struct md_acme_t {
     const char *url;
     apr_pool_t *pool;
+    struct md_store_t *store;
     
     const char *new_authz;
     const char *new_cert;
@@ -46,13 +52,9 @@ struct md_acme_t {
     const char *revoke_cert;
     
     struct md_http_t *http;
-    struct apr_hash_t *accounts;
     
     const char *nonce;
     unsigned int pkey_bits;
-
-    const char *path;
-    const char *acct_path;
 };
 
 /**
@@ -68,9 +70,9 @@ apr_status_t md_acme_init(apr_pool_t *pool);
  * @param pacme   will hold the ACME server instance on success
  * @param p       pool to used
  * @param url     url of the server, optional if known at path
- * @param path    directory for file based persistence
  */
-apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url, const char *path);
+apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
+                            struct md_store_t *store);
 
 /**
  * Contact the ACME server and retrieve its directory information.
@@ -132,5 +134,6 @@ apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
 apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *jpayload, 
                                    struct md_pkey_t *key);
 
+apr_status_t md_acme_protos_add(apr_hash_t *protos, apr_pool_t *p);
 
 #endif /* md_acme_h */

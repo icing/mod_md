@@ -43,14 +43,12 @@
 static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_status_t rv = APR_SUCCESS;
-    const char **cpp;
     md_acme_acct_t *acct;
     int i;
     
     apr_array_header_t *contacts = apr_array_make(ctx->p, 5, sizeof(const char *));
     for (i = 0; i < ctx->argc; ++i) {
-        cpp = (const char **)apr_array_push(contacts);
-        *cpp = md_util_schemify(ctx->p, ctx->argv[i], "mailto");
+        APR_ARRAY_PUSH(contacts, const char *) = md_util_schemify(ctx->p, ctx->argv[i], "mailto");
     }
     if (apr_is_empty_array(contacts)) {
         return usage(cmd, "newreg needs at least one contact email as argument");
@@ -59,7 +57,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     rv = md_acme_register(&acct, ctx->acme, contacts, ctx->tos);
     
     if (rv == APR_SUCCESS) {
-        fprintf(stdout, "registered: %s\n", acct->url);
+        fprintf(stdout, "registered: %s\n", acct->id);
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "register new account");
@@ -78,7 +76,8 @@ static md_cmd_t AcmeNewregCmd = {
 /**************************************************************************************************/
 /* command: acme agree */
 
-static apr_status_t acct_agree_tos(md_acme_t *acme, const char *acct_url, const char *tos) 
+static apr_status_t acct_agree_tos(md_store_t *store, const char *name, 
+                                   const char *tos, apr_pool_t *p) 
 {
     md_http_t *http;
     md_acme_acct_t *acct;
@@ -87,27 +86,28 @@ static apr_status_t acct_agree_tos(md_acme_t *acme, const char *acct_url, const 
     const char *data;
     md_json_t *json;
     
-    acct = md_acme_acct_get(acme, acct_url);
-    if (!acct) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "unknown account: %s", acct_url);
-        return APR_ENOENT;
-    }
-    
-    if (!tos) {
-        tos = acct->tos;
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
         if (!tos) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, acme->pool, 
-                "terms-of-service not specified (--terms), using default %s", TOS_DEFAULT);
-            tos = TOS_DEFAULT;
+            tos = acct->tos;
+            if (!tos) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                              "terms-of-service not specified (--terms), using default %s", 
+                              TOS_DEFAULT);
+                tos = TOS_DEFAULT;
+            }
+        }
+        rv = md_acme_acct_agree_tos(acct, tos);
+        if (rv == APR_SUCCESS) {
+            fprintf(stdout, "agreed terms-of-service: %s\n", acct->url);
+        }
+        else {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "agree to terms-of-service %s", tos);
         }
     }
-    rv = md_acme_acct_agree_tos(acct, tos);
-    if (rv == APR_SUCCESS) {
-        fprintf(stdout, "agreed terms-of-service: %s\n", acct->url);
+    else if (APR_ENOENT == rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "unknown account: %s", name);
     }
-    else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "agree to terms-of-service %s", tos);
-    }
+
     return rv;
 }
 
@@ -117,7 +117,7 @@ static apr_status_t cmd_acme_agree(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     int i;
     
     for (i = 0; i < ctx->argc; ++i) {
-        rv = acct_agree_tos(ctx->acme, ctx->argv[i], ctx->tos);
+        rv = acct_agree_tos(ctx->store, ctx->argv[i], ctx->tos, ctx->p);
         if (rv != APR_SUCCESS) {
             break;
         }
@@ -126,7 +126,7 @@ static apr_status_t cmd_acme_agree(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeAgreeCmd = {
-    "agree", MD_CTX_ACME, 
+    "agree", MD_CTX_STORE, 
     NULL, cmd_acme_agree, MD_NoOptions, NULL,
     "agree account",
     "agree to ACME terms of service",
@@ -135,7 +135,7 @@ static md_cmd_t AcmeAgreeCmd = {
 /**************************************************************************************************/
 /* command: acme delreg */
 
-static apr_status_t acme_delreg(md_acme_t *acme, const char *acct_url) 
+static apr_status_t acme_delreg(md_store_t *store, const char *name, apr_pool_t *p) 
 {
     md_http_t *http;
     md_acme_acct_t *acct;
@@ -144,18 +144,20 @@ static apr_status_t acme_delreg(md_acme_t *acme, const char *acct_url)
     const char *data;
     md_json_t *json;
     
-    acct = md_acme_acct_get(acme, acct_url);
-    if (!acct) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "unknown account: %s", acct_url);
-        return APR_ENOENT;
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
+        rv = md_acme_acct_del(acct);
+        if (rv == APR_SUCCESS) {
+            fprintf(stdout, "deleted: %s\n", acct->url);
+        }
+        else {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "delete account");
+        }
     }
-    
-    rv = md_acme_acct_del(acct);
-    if (rv == APR_SUCCESS) {
-        fprintf(stdout, "deleted: %s\n", acct->url);
+    else if (APR_ENOENT == rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "unknown account: %s", name);
     }
     else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "delete account");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "loading account: %s", name);
     }
     return rv;
 }
@@ -166,7 +168,7 @@ static apr_status_t cmd_acme_delreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     int i;
     
     for (i = 0; i < ctx->argc; ++i) {
-        rv = acme_delreg(ctx->acme, ctx->argv[i]);
+        rv = acme_delreg(ctx->store, ctx->argv[i], ctx->p);
         if (rv != APR_SUCCESS) {
             break;
         }
@@ -175,7 +177,7 @@ static apr_status_t cmd_acme_delreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeDelregCmd = {
-    "delreg", MD_CTX_ACME, 
+    "delreg", MD_CTX_STORE, 
     NULL, cmd_acme_delreg, MD_NoOptions, NULL,
     "delreg account",
     "delete an existing ACME account",
@@ -186,7 +188,6 @@ static md_cmd_t AcmeDelregCmd = {
 
 static apr_status_t acme_newauthz(md_acme_acct_t *acct, const char *domain) 
 {
-    md_acme_t *acme = acct->acme;
     apr_status_t rv;
     long req_id;
     const char *data;
@@ -199,7 +200,7 @@ static apr_status_t acme_newauthz(md_acme_acct_t *acct, const char *domain)
         fprintf(stdout, "authz: %s %s\n", domain, authz->url);
     }
     else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->pool, "register new authz");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acct->pool, "register new authz");
     }
     return rv;
 }
@@ -215,66 +216,27 @@ static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, NULL);
     }
     s = ctx->argv[0];
-    acct = md_acme_acct_get(ctx->acme, s);
-    if (!acct) {
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, s, ctx->p))) {
+        for (i = 1; i < ctx->argc; ++i) {
+            rv = acme_newauthz(acct, ctx->argv[i]);
+            if (rv != APR_SUCCESS) {
+                break;
+            }
+        }
+    }
+    else if (APR_ENOENT == rv) {
         fprintf(stderr, "unknown account: %s\n", s);
         return APR_EGENERAL;
     }
     
-    for (i = 1; i < ctx->argc; ++i) {
-        rv = acme_newauthz(acct, ctx->argv[i]);
-        if (rv != APR_SUCCESS) {
-            break;
-        }
-    }
     return rv;
 }
 
 static md_cmd_t AcmeAuthzCmd = {
-    "authz", MD_CTX_ACME, 
+    "authz", MD_CTX_STORE, 
     NULL, cmd_acme_authz, MD_NoOptions, NULL,
     "authz account domain",
     "request a new authorization for an account and domain",
-};
-
-/**************************************************************************************************/
-/* command: acme list */
-
-static int acct_print(void *baton, const void *key, apr_ssize_t klen, const void *value)
-{
-    apr_pool_t *pool = baton;
-    const md_acme_acct_t *acct = value;
-    md_json_t *json;
-    
-    json = md_json_create(pool);
-    md_json_sets(acct->name, json, "name", NULL);
-    md_json_sets(acct->url, json, "url", NULL);
-    md_json_setsa(acct->contacts, json, "contact", NULL);
-    fprintf (stdout, "%s\n", md_json_writep(json, MD_JSON_FMT_INDENT, pool));
-    return 1;
-}
-
-static apr_status_t cmd_acme_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
-{
-    md_http_t *http;
-    md_acme_acct_t *acct;
-    apr_status_t rv;
-    long req_id;
-    const char *data;
-    md_json_t *json;
-    
-    fprintf(stdout, "ACME server at %s\n", ctx->acme->url);
-    fprintf(stdout, "accounts: %d\n", apr_hash_count(ctx->acme->accounts));
-    apr_hash_do(acct_print, ctx->p, ctx->acme->accounts);
-    
-    return rv;
-}
-
-static md_cmd_t AcmeListCmd = {
-    "list", MD_CTX_ACME, 
-    NULL, cmd_acme_list, MD_NoOptions, NULL,
-    "list",
-    "list all known ACME accounts",
 };
 
 /**************************************************************************************************/
@@ -285,12 +247,11 @@ static const md_cmd_t *AcmeSubCmds[] = {
     &AcmeDelregCmd,
     &AcmeAgreeCmd,
     &AcmeAuthzCmd,
-    &AcmeListCmd,
     NULL
 };
 
 md_cmd_t MD_AcmeCmd = {
-    "acme", MD_CTX_ACME,  
+    "acme", MD_CTX_STORE,  
     NULL, NULL, MD_NoOptions, AcmeSubCmds,
     "acme cmd [opts] [args]", 
     "play with the ACME server", 

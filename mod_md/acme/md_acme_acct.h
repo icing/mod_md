@@ -19,6 +19,7 @@
 struct md_acme_req;
 struct md_json_t;
 struct md_pkey_t;
+struct md_store_t;
 
 /** 
  * An ACME account at an ACME server.
@@ -26,17 +27,18 @@ struct md_pkey_t;
 typedef struct md_acme_acct_t md_acme_acct_t;
 
 struct md_acme_acct_t {
-    const char *name;               /* short name unique for a server, file name compat */
-    md_acme_t * acme;                 /* server this account is from */
+    const char *id;                 /* short, unique id for the account */
+    struct md_store_t *store;       /* store this account was loaded from/saved in */
     apr_pool_t *pool;               /* pool used for account data */
 
+    const char *ca_url;             /* url of the ACME protocol endpoint */
     const char *url;                /* url of the accunt, once registered */
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
     const char *tos;                /* terms of service */
     
     struct md_pkey_t *key;          /* private key of account for JWS */
     
-    struct md_json_t *registration;   /* data from server registration */
+    struct md_json_t *registration; /* data from server registration */
 };
 
 /**
@@ -60,21 +62,7 @@ apr_status_t md_acme_acct_agree_tos(md_acme_acct_t *acct, const char *agreed_tos
  */
 apr_status_t md_acme_acct_del(md_acme_acct_t *acct);
 
-/**
- * Retrieve an existing account from the ACME server.
- * 
- * @param acme     the ACME server to get the account from
- * @param url      the url at which the account was registered or the name of the account
- */
-md_acme_acct_t *md_acme_acct_get(md_acme_t *acme, const char *s);
-
-/**
- * Load the accounts store for the ACME server. Only accounts registered
- * with the same server before will be found.
- * 
- * @param acme     the ACME server to load accounts for. 
- */
-apr_status_t md_acme_acct_load(md_acme_t *acme);
-
+apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, 
+                               struct md_store_t *store, const char *name, apr_pool_t *p);
 
 #endif /* md_acme_acct_h */

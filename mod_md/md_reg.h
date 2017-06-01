@@ -29,14 +29,6 @@ struct X509;
  */
 typedef struct md_reg_t md_reg_t;
 
-typedef struct md_creds_t md_creds_t;
-struct md_creds_t {
-    struct md_cert_t *cert;
-    struct md_pkey_t *pkey;
-    struct apr_array_header_t *chain;      /* list of md_cert* */
-    int expired;
-};
-
 /**
  * Initialize the registry, using the pool and loading any existing information
  * from the store.
@@ -111,5 +103,36 @@ apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early);
  * when none is available. The returned values are immutable. 
  */
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md_t *md);
+
+/**************************************************************************************************/
+/* protocol drivers */
+
+typedef struct md_proto_t md_proto_t;
+
+typedef struct md_proto_driver_t md_proto_driver_t;
+
+struct md_proto_driver_t {
+    const md_proto_t *proto;
+    apr_pool_t *p;
+    struct md_store_t *store;
+    md_reg_t *reg;
+    const md_t *md;
+    void *baton;
+};
+
+typedef apr_status_t md_proto_driver_init_cb(md_proto_driver_t *driver);
+typedef apr_status_t md_proto_driver_run_cb(md_proto_driver_t *driver);
+
+struct md_proto_t {
+    const char *protocol;
+    md_proto_driver_init_cb *init;
+    md_proto_driver_run_cb *run;
+};
+
+
+/**
+ * Drive the given managed domain toward completeness, if possible.
+ */
+apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */
