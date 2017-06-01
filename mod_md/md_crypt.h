@@ -16,6 +16,8 @@
 #ifndef mod_md_md_crypt_h
 #define mod_md_md_crypt_h
 
+struct apr_array_header_t;
+
 typedef struct md_cert md_cert;
 typedef struct md_pkey md_pkey;
 
@@ -48,5 +50,11 @@ apr_status_t md_cert_load(md_cert **pcert, apr_pool_t *p, const char *fname);
 apr_status_t md_cert_save(md_cert *cert, apr_pool_t *p, const char *fname);
 
 md_cert_state_t md_cert_state_get(md_cert *cert);
+
+apr_status_t md_cert_load_chain(struct apr_array_header_t **pcerts, 
+                                apr_pool_t *p, const char *fname);
+apr_status_t md_cert_save_chain(struct apr_array_header_t *certs, 
+                                apr_pool_t *p, const char *fname);
+
 
 #endif /* md_crypt_h */

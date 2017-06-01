@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -269,21 +270,24 @@ struct md_cert {
     X509 *x509;
 };
 
-static md_cert *make_cert(apr_pool_t *p) 
-{
-    md_cert *cert = apr_pcalloc(p, sizeof(*cert));
-    cert->pool = p;
-    return cert;
-}
-
 static apr_status_t cert_cleanup(void *data)
 {
     md_cert *cert = data;
     if (cert->x509) {
-        /* TODO */
+        X509_free(cert->x509);
         cert->x509 = NULL;
     }
     return APR_SUCCESS;
+}
+
+static md_cert *make_cert(apr_pool_t *p, X509 *x509) 
+{
+    md_cert *cert = apr_pcalloc(p, sizeof(*cert));
+    cert->pool = p;
+    cert->x509 = x509;
+    apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
+    
+    return cert;
 }
 
 void md_cert_free(md_cert *cert)
@@ -296,17 +300,19 @@ apr_status_t md_cert_load(md_cert **pcert, apr_pool_t *p, const char *fname)
     FILE *f;
     apr_status_t rv;
     md_cert *cert;
+    X509 *x509;
     
-    cert =  make_cert(p);
     rv = md_util_fopen(&f, fname, "r");
     if (rv == APR_SUCCESS) {
-        rv = APR_EINVAL;
-        cert->x509 = PEM_read_X509(f, NULL, NULL, NULL);
-        if (cert->x509 != NULL) {
-            rv = APR_SUCCESS;
-            apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
+    
+        x509 = PEM_read_X509(f, NULL, NULL, NULL);
+        rv = fclose(f);
+        if (x509 != NULL) {
+            cert =  make_cert(p, x509);
         }
-        fclose(f);
+        else {
+            rv = APR_EINVAL;
+        }
     }
 
     *pcert = (APR_SUCCESS == rv)? cert : NULL;
@@ -316,10 +322,90 @@ apr_status_t md_cert_load(md_cert **pcert, apr_pool_t *p, const char *fname)
 
 apr_status_t md_cert_save(md_cert *cert, apr_pool_t *p, const char *fname)
 {
-    return APR_ENOTIMPL;
+    FILE *f;
+    apr_status_t rv;
+    
+    rv = md_util_fopen(&f, fname, "w");
+    if (rv == APR_SUCCESS) {
+        ERR_clear_error();
+        
+        PEM_write_X509(f, cert->x509);
+        rv = fclose(f);
+        
+        if (ERR_get_error() > 0) {
+            rv = APR_EINVAL;
+        }
+    }
+    return rv;
 }
 
 md_cert_state_t md_cert_state_get(md_cert *cert)
 {
     return cert->x509? MD_CERT_VALID : MD_CERT_UNKNOWN;
+}
+
+apr_status_t md_cert_load_chain(apr_array_header_t **pcerts, apr_pool_t *p, const char *fname)
+{
+    FILE *f;
+    apr_status_t rv;
+    apr_array_header_t *certs;
+    X509 *x509;
+    md_cert *cert, **pcert;
+    unsigned long err;
+    
+    rv = md_util_fopen(&f, fname, "r");
+    if (rv == APR_SUCCESS) {
+        certs = apr_array_make(p, 5, sizeof(md_cert *));
+        
+        ERR_clear_error();
+        while (NULL != (x509 = PEM_read_X509(f, NULL, NULL, NULL))) {
+            
+            cert = make_cert(p, x509);
+            pcert = (md_cert **)apr_array_push(certs);
+            *pcert = cert;
+        }
+        if (cert->x509 != NULL) {
+            rv = APR_SUCCESS;
+            apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
+        }
+        rv = fclose(f);
+        
+        if (0 < (err =  ERR_get_error())
+            && !(ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE)) {
+            /* not the expected one when no more PEM encodings are found */
+            rv = APR_EINVAL;
+        }
+    }
+    *pcerts = (APR_SUCCESS == rv)? certs : NULL;
+    return rv;
+}
+
+apr_status_t md_cert_save_chain(apr_array_header_t *certs, apr_pool_t *p, const char *fname)
+{
+    FILE *f;
+    apr_status_t rv;
+    const md_cert *cert;
+    unsigned long err = 0;
+    int i;
+    
+    rv = md_util_fopen(&f, fname, "w");
+    if (rv == APR_SUCCESS) {
+        ERR_clear_error();
+        for (i = 0; i < certs->nelts; ++i) {
+            cert = APR_ARRAY_IDX(certs, i, const md_cert *);
+            assert(cert->x509);
+            
+            PEM_write_X509(f, cert->x509);
+            
+            if (0 < (err = ERR_get_error())) {
+                break;
+            }
+            
+        }
+        rv = fclose(f);
+        if (err) {
+            rv = APR_EINVAL;
+        }
+    }
+    return rv;
 }

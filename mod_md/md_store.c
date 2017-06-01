@@ -226,6 +226,8 @@ static apr_status_t pfs_load_value(void *baton, apr_pool_t *p, apr_pool_t *ptemp
                     rv = md_pkey_load((md_pkey **)pvalue, p, fpath);
                     break;
                 case MD_STORE_V_CHAIN:
+                    rv = md_cert_load_chain((apr_array_header_t **)pvalue, p, fpath);
+                    break;
                 default:
                     return APR_ENOTIMPL;
             }
@@ -265,6 +267,8 @@ static apr_status_t pfs_save_value(void *baton, apr_pool_t *p, apr_pool_t *ptemp
                 rv = md_pkey_save((md_pkey*)value, ptemp, fpath);
                 break;
             case MD_STORE_V_CHAIN:
+                rv = md_cert_save_chain((apr_array_header_t*)value, ptemp, fpath);
+                break;
             default:
                 return APR_ENOTIMPL;
         }
