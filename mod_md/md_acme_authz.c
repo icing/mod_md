@@ -30,17 +30,17 @@
 #include "md_jws.h"
 #include "md_util.h"
 
-static apr_status_t authz_create(md_acme_authz **pauthz, apr_pool_t *p, 
-                                 const char *domain, md_acme_acct *acct)
+static apr_status_t authz_create(md_acme_authz_t **pauthz, apr_pool_t *p, 
+                                 const char *domain, md_acme_acct_t *acct)
 {
-    md_acme_authz *authz;
+    md_acme_authz_t *authz;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "generating new authz for %s", domain);
     
     authz = apr_pcalloc(p, sizeof(*authz));
     authz->domain = apr_pstrdup(p, domain);
     authz->acct = acct;
-    authz->challenges = apr_array_make(p, 5, sizeof(md_acme_challenge *));
+    authz->challenges = apr_array_make(p, 5, sizeof(md_acme_challenge_t *));
     *pauthz = authz;
       
     return APR_SUCCESS;
@@ -49,10 +49,10 @@ static apr_status_t authz_create(md_acme_authz **pauthz, apr_pool_t *p,
 /**************************************************************************************************/
 /* Register a new authorization */
 
-static apr_status_t on_init_authz(md_acme_req *req, void *baton)
+static apr_status_t on_init_authz(md_acme_req_t *req, void *baton)
 {
-    md_acme_authz *authz = baton;
-    md_acme_acct *acct = authz->acct;
+    md_acme_authz_t *authz = baton;
+    md_acme_acct_t *acct = authz->acct;
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
@@ -63,10 +63,10 @@ static apr_status_t on_init_authz(md_acme_req *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_authz(md_acme *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
+static apr_status_t on_success_authz(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
 {
-    md_acme_authz *authz = baton;
-    md_acme_acct *acct = authz->acct;
+    md_acme_authz_t *authz = baton;
+    md_acme_acct_t *acct = authz->acct;
     const char *location = apr_table_get(hdrs, "location");
     
     if (location) {
@@ -83,11 +83,11 @@ static apr_status_t on_success_authz(md_acme *acme, const apr_table_t *hdrs, md_
     }
 }
 
-apr_status_t md_acme_authz_register(struct md_acme_authz **pauthz, const char *domain, 
-                                    md_acme_acct *acct)
+apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, const char *domain, 
+                                    md_acme_acct_t *acct)
 {
-    md_acme *acme = acct->acme;
-    md_acme_authz *authz;
+    md_acme_t *acme = acct->acme;
+    md_acme_authz_t *authz;
     apr_status_t rv;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new authz");

@@ -83,9 +83,9 @@ apr_status_t md_acme_init(apr_pool_t *p)
     return md_crypt_init(p);
 }
 
-apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, const char *path)
+apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url, const char *path)
 {
-    md_acme *acme;
+    md_acme_t *acme;
     apr_status_t rv;
     
     acme = apr_pcalloc(p, sizeof(*acme));
@@ -173,7 +173,7 @@ apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, con
     return md_http_create(&acme->http, acme->pool);
 }
 
-apr_status_t md_acme_setup(md_acme *acme)
+apr_status_t md_acme_setup(md_acme_t *acme)
 {
     apr_status_t rv;
     md_json_t *json;
@@ -197,7 +197,7 @@ apr_status_t md_acme_setup(md_acme *acme)
 /**************************************************************************************************/
 /* acme requests */
 
-static void req_update_nonce(md_acme_req *req)
+static void req_update_nonce(md_acme_req_t *req)
 {
     if (req->resp_hdrs) {
         const char *nonce = apr_table_get(req->resp_hdrs, "Replay-Nonce");
@@ -212,14 +212,14 @@ static apr_status_t http_update_nonce(const md_http_response_t *res)
     if (res->headers) {
         const char *nonce = apr_table_get(res->headers, "Replay-Nonce");
         if (nonce) {
-            md_acme *acme = res->req->baton;
+            md_acme_t *acme = res->req->baton;
             acme->nonce = nonce;
         }
     }
     return res->rv;
 }
 
-static apr_status_t md_acme_new_nonce(md_acme *acme)
+static apr_status_t md_acme_new_nonce(md_acme_t *acme)
 {
     apr_status_t rv;
     long id;
@@ -229,10 +229,10 @@ static apr_status_t md_acme_new_nonce(md_acme *acme)
     return rv;
 }
 
-static md_acme_req *md_acme_req_create(md_acme *acme, const char *url)
+static md_acme_req_t *md_acme_req_create(md_acme_t *acme, const char *url)
 {
     apr_pool_t *pool;
-    md_acme_req *req;
+    md_acme_req_t *req;
     apr_status_t rv;
     
     rv = apr_pool_create(&pool, acme->pool);
@@ -257,7 +257,7 @@ static md_acme_req *md_acme_req_create(md_acme *acme, const char *url)
     return req;
 }
  
-apr_status_t md_acme_req_body_init(md_acme_req *req, md_json_t *jpayload, md_pkey_t *key)
+apr_status_t md_acme_req_body_init(md_acme_req_t *req, md_json_t *jpayload, md_pkey_t *key)
 {
     const char *payload = md_json_writep(jpayload, MD_JSON_FMT_COMPACT, req->pool);
     size_t payload_len = strlen(payload);
@@ -269,7 +269,7 @@ apr_status_t md_acme_req_body_init(md_acme_req *req, md_json_t *jpayload, md_pke
 } 
 
 
-static apr_status_t inspect_problem(md_acme_req *req, const md_http_response_t *res)
+static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t *res)
 {
     const char *ctype;
     md_json_t *problem;
@@ -296,7 +296,7 @@ static apr_status_t inspect_problem(md_acme_req *req, const md_http_response_t *
     return APR_EGENERAL;
 }
 
-static apr_status_t md_acme_req_done(md_acme_req *req)
+static apr_status_t md_acme_req_done(md_acme_req_t *req)
 {
     apr_status_t rv = req->rv;
     if (req->pool) {
@@ -307,7 +307,7 @@ static apr_status_t md_acme_req_done(md_acme_req *req)
 
 static apr_status_t on_response(const md_http_response_t *res)
 {
-    md_acme_req *req = res->req->baton;
+    md_acme_req_t *req = res->req->baton;
     apr_status_t rv = res->rv;
     
     if (rv != APR_SUCCESS) {
@@ -346,10 +346,10 @@ static apr_status_t on_response(const md_http_response_t *res)
     return rv;
 }
 
-static apr_status_t md_acme_req_send(md_acme_req *req)
+static apr_status_t md_acme_req_send(md_acme_req_t *req)
 {
     apr_status_t rv;
-    md_acme *acme = req->acme;
+    md_acme_t *acme = req->acme;
 
     if (!acme->nonce) {
         rv = md_acme_new_nonce(acme);
@@ -391,12 +391,12 @@ static apr_status_t md_acme_req_send(md_acme_req *req)
     return rv;
 }
 
-apr_status_t md_acme_req_do(md_acme *acme, const char *url,
+apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
                             md_acme_req_init_cb *on_init,
                             md_acme_req_success_cb *on_success,
                             void *baton)
 {
-    md_acme_req *req;
+    md_acme_req_t *req;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, acme->pool, "add acme req: %s", url);
     req = md_acme_req_create(acme, url);

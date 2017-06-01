@@ -17,30 +17,30 @@
 #define mod_md_md_acme_authz_h
 
 struct apr_array_header_t;
-struct md_acme;
-struct md_acme_acct;
+struct md_acme_t;
+struct md_acme_acct_t;
 
-typedef struct md_acme_challenge md_acme_challenge;
+typedef struct md_acme_challenge_t md_acme_challenge_t;
 
-struct md_acme_challenge {
+struct md_acme_challenge_t {
     const char *url;
     const char *type;
     const char *token;
 };
 
-typedef struct md_acme_authz md_acme_authz;
+typedef struct md_acme_authz_t md_acme_authz_t;
 
-struct md_acme_authz {
+struct md_acme_authz_t {
     const char *domain;
-    struct md_acme_acct *acct;
+    struct md_acme_acct_t *acct;
     md_acme_state_t state;
     const char *url;
     struct apr_array_header_t *challenges;
     apr_time_t expires;
 };
 
-apr_status_t md_acme_authz_register(struct md_acme_authz **pauthz, const char *domain, 
-                                    md_acme_acct *acct);
+apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, const char *domain, 
+                                    md_acme_acct_t *acct);
 
 
 #endif /* md_acme_authz_h */

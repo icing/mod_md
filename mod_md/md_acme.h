@@ -34,9 +34,9 @@ typedef enum {
     MD_ACME_S_DENIED,               /* MD domains (at least one) have been denied by CA */
 } md_acme_state_t;
 
-typedef struct md_acme md_acme;
+typedef struct md_acme_t md_acme_t;
 
-struct md_acme {
+struct md_acme_t {
     const char *url;
     apr_pool_t *pool;
     
@@ -70,35 +70,35 @@ apr_status_t md_acme_init(apr_pool_t *pool);
  * @param url     url of the server, optional if known at path
  * @param path    directory for file based persistence
  */
-apr_status_t md_acme_create(md_acme **pacme, apr_pool_t *p, const char *url, const char *path);
+apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url, const char *path);
 
 /**
  * Contact the ACME server and retrieve its directory information.
  * 
  * @param acme    the ACME server to contact
  */
-apr_status_t md_acme_setup(md_acme *acme);
+apr_status_t md_acme_setup(md_acme_t *acme);
 
 
 /**
  * A request against an ACME server
  */
-typedef struct md_acme_req md_acme_req;
+typedef struct md_acme_req_t md_acme_req_t;
 
 /**
  * Request callback to initialize before sending. May be invoked more than once in
  * case of retries.
  */
-typedef apr_status_t md_acme_req_init_cb(md_acme_req *req, void *baton);
+typedef apr_status_t md_acme_req_init_cb(md_acme_req_t *req, void *baton);
 
 /**
  * Request callback on a successfull response (HTTP response code 2xx).
  */
-typedef apr_status_t md_acme_req_success_cb(md_acme *acme, const apr_table_t *headers, 
+typedef apr_status_t md_acme_req_success_cb(md_acme_t *acme, const apr_table_t *headers, 
                                             struct md_json_t *body, void *baton);
 
-struct md_acme_req {
-    md_acme *acme;                 /* the ACME server to talk to */
+struct md_acme_req_t {
+    md_acme_t *acme;                 /* the ACME server to talk to */
     apr_pool_t *pool;              /* pool for the request duration */
     
     const char *url;               /* url to POST the request to */
@@ -124,12 +124,12 @@ struct md_acme_req {
  * @param on_success  callback on successful response
  * @param baton       userdata for callbacks
  */
-apr_status_t md_acme_req_do(md_acme *acme, const char *url,
+apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
                             md_acme_req_init_cb *on_init,
                             md_acme_req_success_cb *on_success,
                             void *baton);
 
-apr_status_t md_acme_req_body_init(md_acme_req *req, struct md_json_t *jpayload, 
+apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *jpayload, 
                                    struct md_pkey_t *key);
 
 

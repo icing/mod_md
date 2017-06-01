@@ -23,11 +23,11 @@ struct md_pkey_t;
 /** 
  * An ACME account at an ACME server.
  */
-typedef struct md_acme_acct md_acme_acct;
+typedef struct md_acme_acct_t md_acme_acct_t;
 
-struct md_acme_acct {
+struct md_acme_acct_t {
     const char *name;               /* short name unique for a server, file name compat */
-    md_acme * acme;                 /* server this account is from */
+    md_acme_t * acme;                 /* server this account is from */
     apr_pool_t *pool;               /* pool used for account data */
 
     const char *url;                /* url of the accunt, once registered */
@@ -46,10 +46,10 @@ struct md_acme_acct {
  * @param acme   the acme server to register at
  * @param contacts list of contact uris, at least one
  */
-apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme, 
+apr_status_t md_acme_register(md_acme_acct_t **pacct, md_acme_t *acme, 
                               apr_array_header_t *contacts, const char *agreed_tos);
 
-apr_status_t md_acme_acct_agree_tos(md_acme_acct *acct, const char *agreed_tos);
+apr_status_t md_acme_acct_agree_tos(md_acme_acct_t *acct, const char *agreed_tos);
 
 /**
  * Unregister/delete the account at the ACME server. Will remove
@@ -58,7 +58,7 @@ apr_status_t md_acme_acct_agree_tos(md_acme_acct *acct, const char *agreed_tos);
  * @param acme    the ACME server to remove the account from
  * @param acct    the account to delete
  */
-apr_status_t md_acme_acct_del(md_acme_acct *acct);
+apr_status_t md_acme_acct_del(md_acme_acct_t *acct);
 
 /**
  * Retrieve an existing account from the ACME server.
@@ -66,7 +66,7 @@ apr_status_t md_acme_acct_del(md_acme_acct *acct);
  * @param acme     the ACME server to get the account from
  * @param url      the url at which the account was registered or the name of the account
  */
-md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s);
+md_acme_acct_t *md_acme_acct_get(md_acme_t *acme, const char *s);
 
 /**
  * Load the accounts store for the ACME server. Only accounts registered
@@ -74,7 +74,7 @@ md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s);
  * 
  * @param acme     the ACME server to load accounts for. 
  */
-apr_status_t md_acme_acct_load(md_acme *acme);
+apr_status_t md_acme_acct_load(md_acme_t *acme);
 
 
 #endif /* md_acme_acct_h */

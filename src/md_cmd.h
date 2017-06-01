@@ -35,7 +35,7 @@ struct md_cmd_ctx {
     
     md_store_t *store;
     md_reg_t *reg;
-    md_acme *acme;
+    md_acme_t *acme;
 
     struct apr_table_t *options;
     

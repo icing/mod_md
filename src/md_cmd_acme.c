@@ -44,7 +44,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_status_t rv = APR_SUCCESS;
     const char **cpp;
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     int i;
     
     apr_array_header_t *contacts = apr_array_make(ctx->p, 5, sizeof(const char *));
@@ -78,10 +78,10 @@ static md_cmd_t AcmeNewregCmd = {
 /**************************************************************************************************/
 /* command: acme agree */
 
-static apr_status_t acct_agree_tos(md_acme *acme, const char *acct_url, const char *tos) 
+static apr_status_t acct_agree_tos(md_acme_t *acme, const char *acct_url, const char *tos) 
 {
     md_http_t *http;
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     apr_status_t rv;
     long req_id;
     const char *data;
@@ -135,10 +135,10 @@ static md_cmd_t AcmeAgreeCmd = {
 /**************************************************************************************************/
 /* command: acme delreg */
 
-static apr_status_t acme_delreg(md_acme *acme, const char *acct_url) 
+static apr_status_t acme_delreg(md_acme_t *acme, const char *acct_url) 
 {
     md_http_t *http;
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     apr_status_t rv;
     long req_id;
     const char *data;
@@ -184,14 +184,14 @@ static md_cmd_t AcmeDelregCmd = {
 /**************************************************************************************************/
 /* command: acme authz */
 
-static apr_status_t acme_newauthz(md_acme_acct *acct, const char *domain) 
+static apr_status_t acme_newauthz(md_acme_acct_t *acct, const char *domain) 
 {
-    md_acme *acme = acct->acme;
+    md_acme_t *acme = acct->acme;
     apr_status_t rv;
     long req_id;
     const char *data;
     md_json_t *json;
-    md_acme_authz *authz;
+    md_acme_authz_t *authz;
     
     rv = md_acme_authz_register(&authz, domain, acct); 
     
@@ -207,7 +207,7 @@ static apr_status_t acme_newauthz(md_acme_acct *acct, const char *domain)
 static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     const char *s;
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     apr_status_t rv;
     int i;
     
@@ -243,7 +243,7 @@ static md_cmd_t AcmeAuthzCmd = {
 static int acct_print(void *baton, const void *key, apr_ssize_t klen, const void *value)
 {
     apr_pool_t *pool = baton;
-    const md_acme_acct *acct = value;
+    const md_acme_acct_t *acct = value;
     md_json_t *json;
     
     json = md_json_create(pool);
@@ -257,7 +257,7 @@ static int acct_print(void *baton, const void *key, apr_ssize_t klen, const void
 static apr_status_t cmd_acme_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     md_http_t *http;
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     apr_status_t rv;
     long req_id;
     const char *data;

@@ -33,11 +33,11 @@
 
 #define MD_ACME_ACCT_JSON_FMT_VERSION   0.01
 
-static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, md_acme *acme, 
+static apr_status_t acct_make(md_acme_acct_t **pacct, apr_pool_t *p, md_acme_t *acme, 
                               const char *name, apr_array_header_t *contacts,  
                               void *pkey)
 {
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     
     acct = apr_pcalloc(p, sizeof(*acct));
 
@@ -58,7 +58,7 @@ static apr_status_t acct_make(md_acme_acct **pacct, apr_pool_t *p, md_acme *acme
 }
 
 
-static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, md_acme *acme,  
+static apr_status_t acct_create(md_acme_acct_t **pacct, apr_pool_t *p, md_acme_t *acme,  
                                 apr_array_header_t *contacts, int key_bits)
 {
     apr_status_t rv;
@@ -72,7 +72,7 @@ static apr_status_t acct_create(md_acme_acct **pacct, apr_pool_t *p, md_acme *ac
     return rv;
 }
 
-static void md_acme_acct_free(md_acme_acct *acct)
+static void md_acme_acct_free(md_acme_acct_t *acct)
 {
     if (acct->key) {
         md_pkey_free(acct->key);
@@ -84,7 +84,7 @@ static void md_acme_acct_free(md_acme_acct *acct)
 /* json load/save */
 
 static apr_status_t mk_acct_paths(const char **pdata_file, const char **pkey_file, 
-                                  apr_pool_t *p, md_acme *acme, const char *name)
+                                  apr_pool_t *p, md_acme_t *acme, const char *name)
 {
     char *key_file = apr_psprintf(p, "%s.pem", name);
     char *data_file = apr_psprintf(p, "%s.json", name);
@@ -99,7 +99,7 @@ static apr_status_t mk_acct_paths(const char **pdata_file, const char **pkey_fil
     return rv;
 }
 
-static apr_status_t acct_save(md_acme_acct *acct, md_acme *acme)
+static apr_status_t acct_save(md_acme_acct_t *acct, md_acme_t *acme)
 {
     apr_pool_t *ptemp;
     const char *name, *data_path, *key_path;
@@ -157,7 +157,7 @@ static apr_status_t acct_save(md_acme_acct *acct, md_acme *acme)
     return rv;
 }
 
-static apr_status_t acct_load(md_acme_acct **pacct, md_acme *acme, const char *name)
+static apr_status_t acct_load(md_acme_acct_t **pacct, md_acme_t *acme, const char *name)
 {
     md_json_t *json;
     apr_status_t rv;
@@ -224,9 +224,9 @@ static apr_status_t acct_load(md_acme_acct **pacct, md_acme *acme, const char *n
 /**************************************************************************************************/
 /* Register a new account */
 
-static apr_status_t on_init_acct_new(md_acme_req *req, void *baton)
+static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
 {
-    md_acme_acct *acct = baton;
+    md_acme_acct_t *acct = baton;
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
@@ -239,10 +239,10 @@ static apr_status_t on_init_acct_new(md_acme_req *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_acct_upd(md_acme *acme, const apr_table_t *hdrs, 
+static apr_status_t on_success_acct_upd(md_acme_t *acme, const apr_table_t *hdrs, 
                                         md_json_t *body, void *baton)
 {
-    md_acme_acct *acct = baton;
+    md_acme_acct_t *acct = baton;
     apr_status_t rv;
     
     if (!acct->url) {
@@ -272,10 +272,10 @@ static apr_status_t on_success_acct_upd(md_acme *acme, const apr_table_t *hdrs,
     return rv;
 }
 
-static apr_status_t acct_new(md_acme_acct **pacct, md_acme *acme, 
+static apr_status_t acct_new(md_acme_acct_t **pacct, md_acme_t *acme, 
                              apr_array_header_t *contacts, const char *agreed_tos)
 {
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     apr_status_t rv;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new local account");
@@ -301,7 +301,7 @@ static apr_status_t acct_new(md_acme_acct **pacct, md_acme *acme,
     return rv;
 }
 
-apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme, 
+apr_status_t md_acme_register(md_acme_acct_t **pacct, md_acme_t *acme, 
                               apr_array_header_t *contacts, const char *agreed_tos)
 {
     apr_status_t rv = acct_new(pacct, acme, contacts, agreed_tos);
@@ -315,9 +315,9 @@ apr_status_t md_acme_register(md_acme_acct **pacct, md_acme *acme,
 /**************************************************************************************************/
 /* terms-of-service */
 
-static apr_status_t on_init_acct_upd(md_acme_req *req, void *baton)
+static apr_status_t on_init_acct_upd(md_acme_req_t *req, void *baton)
 {
-    md_acme_acct *acct = baton;
+    md_acme_acct_t *acct = baton;
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
@@ -327,7 +327,7 @@ static apr_status_t on_init_acct_upd(md_acme_req *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-apr_status_t md_acme_acct_agree_tos(md_acme_acct *acct, const char *agreed_tos)
+apr_status_t md_acme_acct_agree_tos(md_acme_acct_t *acct, const char *agreed_tos)
 {
     apr_status_t rv;
     
@@ -344,14 +344,14 @@ apr_status_t md_acme_acct_agree_tos(md_acme_acct *acct, const char *agreed_tos)
 /* lookup */
 
 typedef struct {
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     const char *value;
 } acct_do_ctx;
 
 static int find_by_name(void *baton, const void *key, apr_ssize_t klen, const void *value)
 {
     acct_do_ctx *c = baton;
-    md_acme_acct *acct = (md_acme_acct *)value;
+    md_acme_acct_t *acct = (md_acme_acct_t *)value;
     
     if (acct->name && !strcmp(c->value, acct->name)) {
         c->acct = acct;
@@ -360,9 +360,9 @@ static int find_by_name(void *baton, const void *key, apr_ssize_t klen, const vo
     return 1;
 }
 
-md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s)
+md_acme_acct_t *md_acme_acct_get(md_acme_t *acme, const char *s)
 {
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     
     acct = apr_hash_get(acme->accounts, s, strlen(s));
     if (!acct) {
@@ -379,9 +379,9 @@ md_acme_acct *md_acme_acct_get(md_acme *acme, const char *s)
 /**************************************************************************************************/
 /* Delete an existing account */
 
-static apr_status_t on_init_acct_del(md_acme_req *req, void *baton)
+static apr_status_t on_init_acct_del(md_acme_req_t *req, void *baton)
 {
-    md_acme_acct *acct = baton;
+    md_acme_acct_t *acct = baton;
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
@@ -391,15 +391,15 @@ static apr_status_t on_init_acct_del(md_acme_req *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_acct_del(md_acme *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
+static apr_status_t on_success_acct_del(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
 {
-    md_acme_acct *acct = baton;
+    md_acme_acct_t *acct = baton;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "deleted account %s", acct->url);
     return APR_SUCCESS;
 }
 
-apr_status_t md_acme_acct_del(md_acme_acct *acct)
+apr_status_t md_acme_acct_del(md_acme_acct_t *acct)
 {
     apr_status_t rv;
     
@@ -416,9 +416,9 @@ apr_status_t md_acme_acct_del(md_acme_acct *acct)
 /**************************************************************************************************/
 /* Account file persistence */
 
-apr_status_t md_acme_acct_load(md_acme *acme)
+apr_status_t md_acme_acct_load(md_acme_t *acme)
 {
-    md_acme_acct *acct;
+    md_acme_acct_t *acct;
     apr_pool_t *ptemp;
     const char *path = acme->acct_path;
     apr_int32_t info = (APR_FINFO_TYPE|APR_FINFO_NAME);
