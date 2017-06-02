@@ -42,7 +42,8 @@ typedef enum {
 typedef struct md_acme_t md_acme_t;
 
 struct md_acme_t {
-    const char *url;
+    const char *url;                /* directory url of the ACME service */
+    const char *sname;              /* short name for the service, not necessarily unique */
     apr_pool_t *pool;
     struct md_store_t *store;
     

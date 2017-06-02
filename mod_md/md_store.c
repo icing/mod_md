@@ -98,7 +98,7 @@ apr_status_t md_store_load_data(struct md_json_t **pjson, md_store_t *store,
 apr_status_t md_store_save_data(md_store_t *store, md_store_group_t group, const char *name, 
                                 struct md_json_t *json, int create)
 {
-    return store->save(store, group, name, MD_SV_JSON_DATA, json, 0);
+    return store->save(store, group, name, MD_SV_JSON_DATA, json, create);
 }
 
 apr_status_t md_store_iter(md_store_inspect *inspect, void *baton, md_store_t *store, 
@@ -112,7 +112,7 @@ typedef struct {
     apr_array_header_t *mds;
 } md_load_ctx;
 
-static int add_md(void *baton, const char *name, md_store_vtype_t vtype, const void *value)
+static int add_md(void *baton, const char *name, md_store_vtype_t vtype, void *value)
 {
     md_load_ctx *ctx = baton;
     
@@ -127,7 +127,7 @@ static int add_md(void *baton, const char *name, md_store_vtype_t vtype, const v
 
 static int md_name_cmp(const void *v1, const void *v2)
 {
-    return - strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
+    return strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
 }
 
 

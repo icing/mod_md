@@ -54,7 +54,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
-    rv = md_acme_register(&acct, ctx->acme, contacts, ctx->tos);
+    rv = md_acme_register(&acct, ctx->store, ctx->acme, contacts, ctx->tos);
     
     if (rv == APR_SUCCESS) {
         fprintf(stdout, "registered: %s\n", acct->id);

@@ -52,8 +52,7 @@ typedef apr_status_t md_store_load_all_cb(struct apr_array_header_t *values, md_
                                           md_store_group_t group, const char *pattern, 
                                           md_store_vtype_t vtype, apr_pool_t *p);
 
-typedef int md_store_inspect(void *baton, const char *name, md_store_vtype_t vtype, 
-                             const void *value);
+typedef int md_store_inspect(void *baton, const char *name, md_store_vtype_t vtype, void *value);
 
 typedef apr_status_t md_store_iter_cb(md_store_inspect *inspect, void *baton, md_store_t *store, 
                                       md_store_group_t group, const char *pattern,

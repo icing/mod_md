@@ -41,6 +41,7 @@ struct md_t {
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     const char *ca_account;         /* account used at CA */
+    apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */

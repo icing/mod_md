@@ -39,6 +39,7 @@ struct md_acme_acct_t {
     struct md_pkey_t *key;          /* private key of account for JWS */
     
     struct md_json_t *registration; /* data from server registration */
+    int disabled;
 };
 
 /**
@@ -48,7 +49,7 @@ struct md_acme_acct_t {
  * @param acme   the acme server to register at
  * @param contacts list of contact uris, at least one
  */
-apr_status_t md_acme_register(md_acme_acct_t **pacct, md_acme_t *acme, 
+apr_status_t md_acme_register(md_acme_acct_t **pacct, struct md_store_t *store, md_acme_t *acme, 
                               apr_array_header_t *contacts, const char *agreed_tos);
 
 apr_status_t md_acme_acct_agree_tos(md_acme_acct_t *acct, const char *agreed_tos);
@@ -62,7 +63,15 @@ apr_status_t md_acme_acct_agree_tos(md_acme_acct_t *acct, const char *agreed_tos
  */
 apr_status_t md_acme_acct_del(md_acme_acct_t *acct);
 
+apr_status_t md_acme_acct_disable(md_acme_acct_t *acct);
+
 apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, 
                                struct md_store_t *store, const char *name, apr_pool_t *p);
+
+/**
+ * Find an ACME account for the given ACME service.
+ */
+apr_status_t md_acme_acct_find(md_acme_acct_t **pacct, 
+                               struct md_store_t *store, md_acme_t *acme, apr_pool_t *p);
 
 #endif /* md_acme_acct_h */

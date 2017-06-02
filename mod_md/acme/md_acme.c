@@ -20,6 +20,7 @@
 #include <apr_strings.h>
 #include <apr_buckets.h>
 #include <apr_hash.h>
+#include <apr_uri.h>
 
 #include "md_acme.h"
 #include "md_acme_acct.h"
@@ -30,6 +31,7 @@
 #include "../md_http.h"
 #include "../md_log.h"
 #include "../md_reg.h"
+#include "../md_store.h"
 #include "../md_util.h"
 
 #define MD_DIRNAME_ACCOUNTS "accounts"
@@ -89,9 +91,21 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
                             struct md_store_t *store)
 {
     md_acme_t *acme;
+    apr_uri_t uri;
+    apr_status_t rv;
+    size_t len;
     
     if (!url) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "create ACME without url");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, "create ACME without url");
+        return APR_EINVAL;
+    }
+    
+    if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "cannot parse ACME url: %s", url);
+        return rv;
+    }
+    else if (!uri.hostname) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, "ACME url hostname missing: %s", url);
         return APR_EINVAL;
     }
     
@@ -100,6 +114,9 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     acme->pool = p;
     acme->store = store;
     acme->pkey_bits = 4096;
+    
+    len = strlen(uri.hostname);
+    acme->sname = (len <= 16)? uri.hostname : apr_pstrdup(p, uri.hostname + len - 16);
     
     *pacme = acme;
     return md_http_create(&acme->http, acme->pool);
@@ -349,22 +366,84 @@ apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
 /**************************************************************************************************/
 /* protocol drivers */
 
-static apr_status_t acme_driver_init(md_proto_driver_t *driver)
+typedef struct {
+    md_proto_driver_t *driver;
+    md_acme_t *acme;
+    md_acme_acct_t *acct;
+    md_t *md;
+} md_acme_driver_t;
+
+static apr_status_t ad_acct_validate(md_proto_driver_t *d, md_acme_acct_t **pacct)
+{
+    md_acme_driver_t *ad = d->baton;
+    md_acme_acct_t *acct = *pacct;
+    apr_status_t rv = APR_SUCCESS;
+    int valid = 0;
+    
+    (void)ad;
+    if (!valid) {
+        rv = md_acme_acct_disable(acct);
+        *pacct = NULL;
+    }
+    return rv;
+}
+
+static apr_status_t ad_set_acct(md_proto_driver_t *d) 
+{
+    md_acme_driver_t *ad = d->baton;
+    md_acme_acct_t *acct = NULL;
+    apr_status_t rv = APR_SUCCESS;
+
+    /* Get an account for the ACME server for this MD */
+    if (ad->md->ca_account) {
+        if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, d->store, ad->md->ca_account, d->p))) {
+            rv = ad_acct_validate(d, &acct);
+        }
+        else if (APR_ENOENT == rv) {
+            rv = APR_SUCCESS;
+        }
+    }
+    
+    /* If MD has no account, find a local account for server, store at MD */ 
+    if (APR_SUCCESS == rv && NULL == acct) {
+        while (NULL == acct 
+               && APR_SUCCESS == (rv = md_acme_acct_find(&acct, d->store, ad->acme, d->p))) {
+            rv = ad_acct_validate(d, &acct);
+        }
+    }
+    
+    if (APR_SUCCESS == rv && NULL == acct) {
+        /* 2.2 No local account exists, create a new one */
+        if (!ad->md->contacts || apr_is_empty_array(ad->md->contacts)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, 
+                "no contact information for md %s", ad->md->name);            
+            return APR_EGENERAL;
+        }
+        
+        
+        /* 2.2.1 Make a 'newreg' at ACME server */
+        /* 2.2.2 Store account info locally and at MD */            
+    }
+    
+    ad->acct = (APR_SUCCESS == rv)? acct : NULL;
+    return rv;
+}
+
+static apr_status_t acme_driver_init(md_proto_driver_t *d)
 {
     apr_status_t rv;
-    md_acme_t *acme;
+    md_acme_driver_t ad;
+    
+    memset(&ad, 0, sizeof(ad));
+    d->baton = &ad;
+    ad.driver = d;
+    ad.md = md_copy(d->p, d->md);
     
     /* Find out where we're at with this managed domain */
-    if (APR_SUCCESS == (rv = md_acme_create(&acme, driver->p, driver->md->ca_url, driver->store))) {
-        /* 1.  */
-        /* 2. Get an account for the server for this MD */
-        /* 2.0 If MD has no account, find a local account for server, store at MD */ 
-        /* 2.1 verify that the MD account is valid */
-        /* 2.1.1 if account valid, goto 3 */
-        /* 2.1.3 disable local account, remove from MD, goto 2.0 */
-        /* 2.2 No local account exists, create a new one */
-        /* 2.2.1 Make a 'newreg' at ACME server */
-        /* 2.2.2 Store account info locally and at MD */
+    if (APR_SUCCESS == (rv = md_acme_create(&ad.acme, d->p, ad.md->ca_url, d->store))
+        && APR_SUCCESS == (rv = ad_set_acct(d))) {
+        
+        
         
         /* 3. Check if Terms-of-Service for MD account were accepted */
         /* 3.1 Update MD account with accepted TOS url, if necessary */
@@ -411,6 +490,8 @@ static apr_status_t acme_driver_init(md_proto_driver_t *driver)
         /* store cert and chain */
         /* Update MD expiration date */
     }
+    
+    d->baton = NULL;
     return rv;
 }
 
