@@ -356,7 +356,60 @@ static apr_status_t acme_driver_init(md_proto_driver_t *driver)
     
     /* Find out where we're at with this managed domain */
     if (APR_SUCCESS == (rv = md_acme_create(&acme, driver->p, driver->md->ca_url, driver->store))) {
+        /* 1.  */
+        /* 2. Get an account for the server for this MD */
+        /* 2.0 If MD has no account, find a local account for server, store at MD */ 
+        /* 2.1 verify that the MD account is valid */
+        /* 2.1.1 if account valid, goto 3 */
+        /* 2.1.3 disable local account, remove from MD, goto 2.0 */
+        /* 2.2 No local account exists, create a new one */
+        /* 2.2.1 Make a 'newreg' at ACME server */
+        /* 2.2.2 Store account info locally and at MD */
         
+        /* 3. Check if Terms-of-Service for MD account were accepted */
+        /* 3.1 Update MD account with accepted TOS url, if necessary */
+        /* 3.2 If rejected, fail */
+        
+        /* 4 For each domain in MD: AUTHZ setup */
+        /* 4.1 If an AUTHZ resource is known, check if it is still valid */
+        /* 4.2 If known AUTHZ resource is not valid, remove, goto 4.1.1 */
+        /* 4.3 If no AUTHZ available, create a new one for the domain, store it */
+        
+        /* 5 For each domain in MD: Challenge Response Setup */
+        /* 5.0 GET the AUTHZ resource with and local challenge data */
+        /* 5.0.1 If complete and matches challenge, continue with next domain */
+        /* 5.1 If "http-01" challenge is an option and port 80 is served: */
+        /* 5.1.1 Calculate the challenge data. */
+        /* 5.1.2 Store data in HTTP Challenge Directory */
+        /* 5.1.3 continue with next domain at 5 */
+        /* 5.2 If "tls-sni-02" is an option and port 443 is served: */
+        /* 5.2.1 Calculate challenge data */
+        /* 5.2.2 Create a self-signed certificate with the correct alt names */
+        /* 5.2.3 Store the cert and its key in the TLS-SNI Challenge Directory */
+        /* 5.2.4 continue with next domain at 5 */
+        /* 5.3 No suitable challenge found, fail */
+        
+        /* 6 For each domain in MD: Challenge Response */
+        /* 6.1 Lookup challenge data and response data */
+        /* 6.2 POST challenge response to ACME server */
+        
+        /* 7 For each domain in MD: Validation Check */
+        /* 7.1 GET the challenge resource */
+        /* 7.1.1 if "status" is "pending", continue at 7 */
+        /* 7.1.2 store status and "expires" at MD domain, continue at 7 */
+        
+        /* 8 If any domain is MD is "pending": */
+        /* 8.1 if max waiting time has been reached, fail */
+        /* 8.2 Pause for n seconds, goto 7 */
+        
+        /* All domains in MD have been validated */
+        
+        /* Create a CSR for the MD with all domains */
+        /* POST the CSR to the "new-order" resource */
+        /* On 201 answer, check Location or body content type for cert */
+        /* parse cert into PEM, retrieve CA Information Access, download chain */
+        /* store cert and chain */
+        /* Update MD expiration date */
     }
     return rv;
 }

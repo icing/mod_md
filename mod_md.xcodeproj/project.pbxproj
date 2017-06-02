@@ -21,8 +21,6 @@
 		B203334C1EE03CBD00E5BE7E /* md_acme_acct.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_acct.h; sourceTree = "<group>"; };
 		B203334D1EE03CBD00E5BE7E /* md_acme_authz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
 		B203334E1EE03CBD00E5BE7E /* md_acme_authz.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
-		B203334F1EE03CBD00E5BE7E /* md_acme_cert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_cert.c; sourceTree = "<group>"; };
-		B20333501EE03CBD00E5BE7E /* md_acme_cert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_cert.h; sourceTree = "<group>"; };
 		B2BCAB7B1ED42C8E002F4EB9 /* md_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B2BCAB7C1ED42C8E002F4EB9 /* md_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store.h; sourceTree = "<group>"; };
 		B2BCAB831ED82F6F002F4EB9 /* md_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_reg.c; sourceTree = "<group>"; };
@@ -99,8 +97,6 @@
 				B203334C1EE03CBD00E5BE7E /* md_acme_acct.h */,
 				B203334D1EE03CBD00E5BE7E /* md_acme_authz.c */,
 				B203334E1EE03CBD00E5BE7E /* md_acme_authz.h */,
-				B203334F1EE03CBD00E5BE7E /* md_acme_cert.c */,
-				B20333501EE03CBD00E5BE7E /* md_acme_cert.h */,
 			);
 			path = acme;
 			sourceTree = "<group>";
@@ -567,6 +563,7 @@
 				B20333431EDECB1D00E5BE7E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		B20333451EDECBE000E5BE7E /* Build configuration list for PBXLegacyTarget "mod_md test" */ = {
 			isa = XCConfigurationList;
@@ -575,6 +572,7 @@
 				B20333471EDECBE000E5BE7E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		B27BBD231A65757700C58A41 /* Build configuration list for PBXProject "mod_md" */ = {
 			isa = XCConfigurationList;

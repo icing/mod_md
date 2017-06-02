@@ -244,6 +244,9 @@ static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int dep
                 rv = ctx->cb(ctx->baton, p, ptemp, path, finfo.name, finfo.filetype);
             }
         }
+        if (APR_SUCCESS != rv) {
+            break;
+        }
     }
 
     if (APR_STATUS_IS_ENOENT(rv)) {

@@ -30,7 +30,6 @@ OBJECTS = \
     ../mod_md/acme/md_acme.c \
     ../mod_md/acme/md_acme_acct.c \
     ../mod_md/acme/md_acme_authz.c \
-    ../mod_md/acme/md_acme_cert.c \
     ../mod_md/md_core.c \
     ../mod_md/md_crypt.c \
     ../mod_md/md_http.c \

@@ -57,8 +57,7 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg->creds = apr_hash_make(p);
     
     if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, reg->p))) {
-        mds = apr_array_make(p, 5, sizeof(md_t *));
-        if (APR_SUCCESS == (rv = md_store_load_mds(mds, reg->store, reg->p))) {
+        if (APR_SUCCESS == (rv = md_store_load_mds(&mds, reg->store, reg->p))) {
             md_t *md;
             int i;
             

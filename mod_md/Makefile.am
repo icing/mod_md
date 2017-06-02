@@ -25,7 +25,6 @@ OBJECTS = \
     acme/md_acme.c \
     acme/md_acme_acct.c \
     acme/md_acme_authz.c \
-    acme/md_acme_cert.c \
     md_config.c \
     md_core.c \
     md_crypt.c \
@@ -42,7 +41,6 @@ HFILES = \
     acme/md_acme.h \
     acme/md_acme_acct.h \
     acme/md_acme_authz.h \
-    acme/md_acme_cert.h \
     md_config.h \
     md_crypt.h \
     md_http.h \

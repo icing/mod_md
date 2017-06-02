@@ -121,11 +121,11 @@ static md_cmd_t RemoveCmd = {
 
 static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
-    apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
+    apr_array_header_t *mdlist;
     apr_status_t rv;
     int i, j;
     
-    rv = md_store_load_mds(mdlist, ctx->store, ctx->p);
+    rv = md_store_load_mds(&mdlist, ctx->store, ctx->p);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "loading store");
         return rv;
