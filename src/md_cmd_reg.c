@@ -79,7 +79,7 @@ static int list_add_md(void *baton, md_reg_t *reg, const md_t *md)
 
 static int md_name_cmp(const void *v1, const void *v2)
 {
-    return strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
+    return strcmp((*(const md_t**)v1)->name, (*(const md_t**)v2)->name);
 }
 
 static apr_status_t cmd_reg_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
