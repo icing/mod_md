@@ -332,6 +332,7 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
 static const md_cmd_t *MainSubCmds[] = {
     &MD_AcmeCmd,
     &MD_RegAddCmd,
+    &MD_RegUpdateCmd, 
     &MD_RegDriveCmd,
     &MD_RegListCmd,
     &MD_StoreCmd,

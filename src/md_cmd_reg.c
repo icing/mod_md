@@ -109,7 +109,7 @@ md_cmd_t MD_RegListCmd = {
 };
 
 /**************************************************************************************************/
-/* command: store update */
+/* command: update */
 
 static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
@@ -154,7 +154,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             }
             fields |= MD_UPD_DOMAINS;
         }
-        if (!strcmp("ca", aspect)) {
+        else if (!strcmp("ca", aspect)) {
             if (ctx->argc <= 2) {
                 usage(cmd, "update name ca <url> [proto]");
                 return APR_EINVAL;
@@ -191,7 +191,7 @@ md_cmd_t MD_RegUpdateCmd = {
     "update", MD_CTX_REG, 
     NULL, cmd_reg_update, MD_NoOptions, NULL,
     "update name [ 'aspect' args ]",
-    "update a managed domain's properties."
+    "update a managed domain's properties, where 'aspect' is one of: 'domains', 'ca'"
 };
 
 /**************************************************************************************************/
