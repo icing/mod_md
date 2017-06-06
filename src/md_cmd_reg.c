@@ -154,6 +154,13 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             }
             fields |= MD_UPD_DOMAINS;
         }
+        else if (!strcmp("account", aspect)) {
+            if (ctx->argc <= 1) {
+                usage(cmd, "update name account <id>");
+                return APR_EINVAL;
+            }
+            nmd->ca_account = ctx->argv[2];
+        }
         else if (!strcmp("ca", aspect)) {
             if (ctx->argc <= 2) {
                 usage(cmd, "update name ca <url> [proto]");
@@ -163,8 +170,29 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             fields |= MD_UPD_CA_URL;
             if (ctx->argc > 3) {
                 nmd->ca_proto = ctx->argv[3];
-                fields |= MD_UPD_CA_PROTO;
+                fields |= MD_UPD_CA_ACCOUNT;
             }
+        }
+        else if (!strcmp("contacts", aspect)) {
+            apr_array_header_t *contacts = apr_array_make(ctx->p, 5, sizeof(const char *));
+            for (i = 2; i < ctx->argc; ++i) {
+                APR_ARRAY_PUSH(contacts, const char *) = 
+                    md_util_schemify(ctx->p, ctx->argv[i], "mailto");
+            }
+            nmd->contacts = contacts;
+            
+            if (apr_is_empty_array(nmd->contacts)) {
+                fprintf(stderr, "update contacts needs at least 1 contact email\n");
+                return APR_EINVAL;
+            }
+            fields |= MD_UPD_CONTACTS;
+        }
+        else if (!strcmp("tos", aspect)) {
+            if (ctx->argc <= 1) {
+                usage(cmd, "update name tos <url>");
+                return APR_EINVAL;
+            }
+            nmd->ca_tos_agreed = ctx->argv[2];
         }
         else {
             fprintf(stderr, "unknown update aspect: %s\n", aspect);
@@ -191,7 +219,8 @@ md_cmd_t MD_RegUpdateCmd = {
     "update", MD_CTX_REG, 
     NULL, cmd_reg_update, MD_NoOptions, NULL,
     "update name [ 'aspect' args ]",
-    "update a managed domain's properties, where 'aspect' is one of: 'domains', 'ca'"
+    "update a managed domain's properties, where 'aspect' is one of: 'domains', 'ca', 'account', "
+    "'contacts' or 'tos'"
 };
 
 /**************************************************************************************************/
@@ -213,6 +242,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                 fprintf(stderr, "md not found: %s\n", ctx->argv[i]);
                 return APR_ENOENT;
             }
+            APR_ARRAY_PUSH(mdlist, const md_t *) = md;
         }
     }
     else {

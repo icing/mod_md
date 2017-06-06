@@ -362,6 +362,7 @@ apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
 {
     md_acme_req_t *req;
     
+    assert(url);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, acme->pool, "add acme req: %s", url);
     req = md_acme_req_create(acme, url);
     req->on_init = on_init;
@@ -398,12 +399,17 @@ static apr_status_t ad_acct_validate(md_proto_driver_t *d, md_acme_acct_t **pacc
 static apr_status_t ad_set_acct(md_proto_driver_t *d) 
 {
     md_acme_driver_t *ad = d->baton;
+    md_t *md = ad->md;
     md_acme_acct_t *acct = NULL;
     apr_status_t rv = APR_SUCCESS;
 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: finding account",
+                  d->proto->protocol);
     /* Get an account for the ACME server for this MD */
     if (ad->md->ca_account) {
-        if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, d->store, ad->md->ca_account, d->p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checking previous account %s",
+                      d->proto->protocol, md->ca_account);
+        if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, d->store, md->ca_account, d->p))) {
             rv = ad_acct_validate(d, &acct);
         }
         else if (APR_ENOENT == rv) {
@@ -413,23 +419,32 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
     
     /* If MD has no account, find a local account for server, store at MD */ 
     if (APR_SUCCESS == rv && NULL == acct) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
+                      d->proto->protocol);
         while (NULL == acct 
                && APR_SUCCESS == (rv = md_acme_acct_find(&acct, d->store, ad->acme, d->p))) {
             rv = ad_acct_validate(d, &acct);
+        }
+        if (!acct && APR_ENOENT == rv) {
+            rv = APR_SUCCESS;
         }
     }
     
     if (APR_SUCCESS == rv && NULL == acct) {
         /* 2.2 No local account exists, create a new one */
-        if (!ad->md->contacts || apr_is_empty_array(ad->md->contacts)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: creating new account", 
+                      d->proto->protocol);
+
+        if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, 
-                "no contact information for md %s", ad->md->name);            
-            return APR_EGENERAL;
+                "no contact information for md %s", md->name);            
+            return APR_EINVAL;
         }
         
-        
-        /* 2.2.1 Make a 'newreg' at ACME server */
-        /* 2.2.2 Store account info locally and at MD */            
+        rv = md_acme_register(&acct, d->store, ad->acme, md->contacts, md->ca_tos_agreed);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "register new account");
+        }
     }
     
     ad->acct = (APR_SUCCESS == rv)? acct : NULL;
@@ -446,11 +461,33 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     ad.driver = d;
     ad.md = md_copy(d->p, d->md);
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: driving md %s", 
+                  d->proto->protocol, ad.md->name);
+    
     /* Find out where we're at with this managed domain */
     if (APR_SUCCESS == (rv = md_acme_create(&ad.acme, d->p, ad.md->ca_url, d->store))
+        && APR_SUCCESS == (rv = md_acme_setup(ad.acme))
         && APR_SUCCESS == (rv = ad_set_acct(d))) {
         
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: using account %s", 
+                      d->proto->protocol, ad.acct->id);
         
+        /* Persist the account we use for future runs */
+        if (!ad.md->ca_account || strcmp(ad.md->ca_account, ad.acct->id)) {
+            ad.md->ca_account = ad.acct->id;
+            rv = md_store_save_md(d->store, ad.md, 0);
+        }
+        
+        if (APR_SUCCESS == rv && !ad.acct->tos_agreed) {
+            if (ad.md->ca_tos_agreed) {
+                 rv = md_acme_acct_agree_tos(ad.acct, ad.md->ca_tos_agreed);
+            }
+            else {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, 
+                              "terms-of-service not accepted for account: %s", ad.acct->id);
+                rv = APR_EACCES;
+            }
+        }
         
         /* 3. Check if Terms-of-Service for MD account were accepted */
         /* 3.1 Update MD account with accepted TOS url, if necessary */

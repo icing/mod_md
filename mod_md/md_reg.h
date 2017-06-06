@@ -35,6 +35,8 @@ typedef struct md_reg_t md_reg_t;
  */
 apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *pm, struct md_store_t *store);
 
+struct md_store_t *md_reg_store_get(md_reg_t *reg);
+
 /**
  * Add a new md to the registry. This will check the name for uniqueness and
  * that domain names do not overlap with already existing mds.
@@ -78,6 +80,8 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg);
 #define MD_UPD_CA_URL       0x0002
 #define MD_UPD_CA_PROTO     0x0004
 #define MD_UPD_CA_ACCOUNT   0x0008
+#define MD_UPD_CONTACTS     0x0010
+#define MD_UPD_CA_TOS       0x0020
 #define MD_UPD_ALL          0x7FFF
 
 /**

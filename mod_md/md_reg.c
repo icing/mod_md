@@ -75,6 +75,11 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     return rv;
 }
 
+struct md_store_t *md_reg_store_get(md_reg_t *reg)
+{
+    return reg->store;
+}
+
 /**************************************************************************************************/
 /* iteration */
 
@@ -149,6 +154,16 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
         }
     }
     
+    if (MD_UPD_CONTACTS & fields) {
+        const char *contact;
+        int i;
+        
+        for (i = 0; i < md->contacts->nelts; ++i) {
+            contact = APR_ARRAY_IDX(md->contacts, i, const char *);
+            /* TODO check for uri? email? */
+        }
+    }
+    
     if ((MD_UPD_CA_URL & fields) && md->ca_url) { /* setting to empty is ok */
         apr_uri_t uri;
         
@@ -184,6 +199,10 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
     }
     
     if ((MD_UPD_CA_ACCOUNT & fields) && md->ca_account) { /* setting to empty is ok */
+        /* hmm, in case we know the protocol, some checks could be done */
+    }
+
+    if ((MD_UPD_CA_TOS & fields) && md->ca_tos_agreed) { /* setting to empty is ok */
         /* hmm, in case we know the protocol, some checks could be done */
     }
 out:
@@ -358,8 +377,11 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     fields = va_arg(ap, int);
     
     if (NULL == (md = md_reg_get(reg, name))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_ENOENT, reg->p, "md %s", name);
         return APR_ENOENT;
     }
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, "update md %s", name);
     
     if (APR_SUCCESS != (rv = check_values(reg, ptemp, updates, fields))) {
         return rv;
@@ -368,12 +390,27 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     nmd = md_copy(ptemp, md);
     if (MD_UPD_DOMAINS & fields) {
         nmd->domains = updates->domains;
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update domains: %s", name);
     }
     if (MD_UPD_CA_URL & fields) {
         nmd->ca_url = updates->ca_url;
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update ca url: %s", name);
     }
     if (MD_UPD_CA_PROTO & fields) {
         nmd->ca_proto = updates->ca_proto;
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update ca protocol: %s", name);
+    }
+    if (MD_UPD_CA_ACCOUNT & fields) {
+        nmd->ca_account = updates->ca_account;
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update account: %s", name);
+    }
+    if (MD_UPD_CONTACTS & fields) {
+        nmd->contacts = updates->contacts;
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update contacts: %s", name);
+    }
+    if (MD_UPD_CA_TOS & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update ca tos: %s", name);
+        nmd->ca_tos_agreed = updates->ca_tos_agreed;
     }
     
     if (fields 
@@ -445,7 +482,7 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
 
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md_t *md)
 {
-    apr_status_t rv = APR_ENOENT;
+    apr_status_t rv = APR_SUCCESS;
     md_creds_t *creds;
     
     creds = apr_hash_get(reg->creds, md->name, strlen(md->name));
@@ -477,6 +514,7 @@ static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     driver->proto = proto;
     driver->p = ptemp;
     driver->reg = reg;
+    driver->store = md_reg_store_get(reg);
     driver->md = md;
     
     if (APR_SUCCESS == (rv = proto->init(driver))) {

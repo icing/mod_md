@@ -34,7 +34,7 @@ struct md_acme_acct_t {
     const char *ca_url;             /* url of the ACME protocol endpoint */
     const char *url;                /* url of the accunt, once registered */
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
-    const char *tos;                /* terms of service */
+    const char *tos_agreed;         /* terms of service accepted */
     
     struct md_pkey_t *key;          /* private key of account for JWS */
     int key_changed;                /* key was changed, needs save */

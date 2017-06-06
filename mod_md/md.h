@@ -41,6 +41,7 @@ struct md_t {
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     const char *ca_account;         /* account used at CA */
+    const char *ca_tos_agreed;      /* terms-of-service, accepted by the admin */ 
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
     const char *defn_name;          /* config file this MD was defined */
@@ -52,8 +53,10 @@ struct md_t {
 #define MD_KEY_STATE    "state"
 #define MD_KEY_NAME     "name"
 #define MD_KEY_PROTO    "proto"
+#define MD_KEY_TOS      "terms-of-service"
 #define MD_KEY_URL      "url"
 #define MD_KEY_ACCOUNT  "account"
+#define MD_KEY_CONTACTS "contacts"
 
 /**
  * Determine if the Managed Domain contains a specific domain name.

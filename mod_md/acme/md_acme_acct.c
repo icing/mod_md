@@ -101,8 +101,8 @@ static apr_status_t acct_save(md_acme_acct_t *acct)
     md_json_sets(acct->ca_url, jacct, "ca-url", NULL);
     md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, "version", NULL);
     md_json_setj(acct->registration, jacct, "registration", NULL);
-    if (acct->tos) {
-        md_json_sets(acct->tos, jacct, "terms-of-service", NULL);
+    if (acct->tos_agreed) {
+        md_json_sets(acct->tos_agreed, jacct, "terms-of-service", NULL);
     }
 
     assert(acct->id);
@@ -132,8 +132,8 @@ static apr_status_t acct_create(md_acme_acct_t *acct, md_acme_t *acme)
     md_json_sets(acct->ca_url, jacct, "ca-url", NULL);
     md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, "version", NULL);
     md_json_setj(acct->registration, jacct, "registration", NULL);
-    if (acct->tos) {
-        md_json_sets(acct->tos, jacct, "terms-of-service", NULL);
+    if (acct->tos_agreed) {
+        md_json_sets(acct->tos_agreed, jacct, "terms-of-service", NULL);
     }
 
     rv = APR_EAGAIN;
@@ -210,7 +210,7 @@ apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, md_store_t *store, const 
     rv = acct_make(pacct, p, store, ca_url, name, contacts, pkey, 0);
     if (APR_SUCCESS == rv) {
         (*pacct)->url = url;
-        (*pacct)->tos = md_json_gets(json, "terms-of-service", NULL);
+        (*pacct)->tos_agreed = md_json_gets(json, "terms-of-service", NULL);
         
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "load account %s (%s)", name, url);
     }
@@ -272,8 +272,8 @@ static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
     jpayload = md_json_create(req->pool);
     md_json_sets("new-reg", jpayload, "resource", NULL);
     md_json_setsa(acct->contacts, jpayload, "contact", NULL);
-    if (acct->tos) {
-        md_json_sets(acct->tos, jpayload, "agreement", NULL);
+    if (acct->tos_agreed) {
+        md_json_sets(acct->tos_agreed, jpayload, "agreement", NULL);
     }
     
     return md_acme_req_body_init(req, jpayload, acct->key);
@@ -294,11 +294,11 @@ static apr_status_t on_success_acct_upd(md_acme_t *acme, const apr_table_t *hdrs
         }
         acct->url = apr_pstrdup(acct->pool, location);
     }
-    if (!acct->tos) {
-        acct->tos = md_link_find_relation(hdrs, acct->pool, "terms-of-service");
-        if (acct->tos) {
+    if (!acct->tos_agreed) {
+        acct->tos_agreed = md_link_find_relation(hdrs, acct->pool, "terms-of-service");
+        if (acct->tos_agreed) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, 
-                          "server links terms-of-service %s", acct->tos);
+                          "server links terms-of-service %s", acct->tos_agreed);
         }
     }
     
@@ -328,7 +328,7 @@ apr_status_t md_acme_register(md_acme_acct_t **pacct, md_store_t *store, md_acme
                                           acme->url, NULL, contacts, pkey, 1))) {
 
         if (agreed_tos) {
-            acct->tos = agreed_tos;
+            acct->tos_agreed = agreed_tos;
         }
 
         rv = md_acme_req_do(acme, acme->new_reg, on_init_acct_new, on_success_acct_upd, acct);
@@ -399,7 +399,7 @@ static apr_status_t on_init_acct_upd(md_acme_req_t *req, void *baton)
 
     jpayload = md_json_create(req->pool);
     md_json_sets("reg", jpayload, "resource", NULL);
-    md_json_sets(acct->tos, jpayload, "agreement", NULL);
+    md_json_sets(acct->tos_agreed, jpayload, "agreement", NULL);
     
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 

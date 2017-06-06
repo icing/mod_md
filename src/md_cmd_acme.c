@@ -88,7 +88,7 @@ static apr_status_t acct_agree_tos(md_store_t *store, const char *name,
     
     if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
         if (!tos) {
-            tos = acct->tos;
+            tos = acct->tos_agreed;
             if (!tos) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
                               "terms-of-service not specified (--terms), using default %s", 
