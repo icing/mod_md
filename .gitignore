@@ -38,3 +38,4 @@ test/test.ini
 test/gen
 test/conf/httpd.conf
 test/conf/modules.conf
+test/*.pyc

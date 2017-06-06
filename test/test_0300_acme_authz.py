@@ -3,7 +3,6 @@
 import os.path
 import json
 import re
-import subprocess
 import sys
 import time
 
@@ -12,6 +11,7 @@ from datetime import datetime
 from httplib import HTTPConnection
 from urlparse import urlparse
 from shutil import copyfile
+from testbase import BaseTest
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -70,31 +70,27 @@ def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
 
-class TestAuthz:
+class TestAuthz (BaseTest):
 
     def test_001(self):
         # register a new account, agree to tos, create auth resource
         domain = "www.test-example.org"
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-t", ACME_TOS]
         args.extend(["acme", "newreg", "tmp@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("registered: (.*)$", outdata)
         assert m
         acct = m.group(1)
 
         args = [A2MD, "-d", STORE_DIR]
         args.extend(["acme", "authz", acct, domain])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("authz: " + domain + " (.*)$", outdata)
         assert m
         authz_url = m.group(1)
         print "authz for %s at %s\n" % (domain, authz_url)
-        
+
         resp = get_json(authz_url, 5)
         assert resp["status"] == "pending"
-        
-        
+
+

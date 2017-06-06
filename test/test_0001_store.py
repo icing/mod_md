@@ -4,36 +4,23 @@ import json
 import os.path
 import re
 import shutil
-import subprocess
 import sys
 import time
 import pytest
 
 from ConfigParser import SafeConfigParser
 from datetime import datetime
-from httplib import HTTPConnection
-from urlparse import urlparse
 from shutil import copyfile
+from testbase import BaseTest
 
 config = SafeConfigParser()
 config.read('test.ini')
-PREFIX = config.get('global', 'prefix')
 
+PREFIX = config.get('global', 'prefix')
 A2MD = config.get('global', 'a2md_bin')
 ACME_URL = config.get('acme', 'url')
 WEBROOT = config.get('global', 'server_dir')
 STORE_DIR = os.path.join(WEBROOT, 'md') 
-
-def exec_sub_err(args, errCode):
-    print "execute: ", " ".join(args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE)
-    (outdata, errdata) = p.communicate()
-    assert p.wait() == errCode
-    print "result:  (", errCode, ") ", outdata
-    return outdata
-
-def exec_sub(args):
-    return exec_sub_err(args, 0)
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -42,7 +29,7 @@ def teardown_module(module):
     print("teardown_module: %s" % module.__name__)
 
 
-class TestStore:
+class TestStore (BaseTest):
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -55,11 +42,10 @@ class TestStore:
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-
     def test_001(self):
         # verify expected binary version
         args = [A2MD, "-V"]
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         m = re.match("version: %s-git$" % config.get('global', 'a2md_version'), outdata)
         assert m
 
@@ -70,7 +56,7 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "store", "add", dns ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         md = jout['output'][0]
         assert md['name'] == dns
@@ -86,7 +72,7 @@ class TestStore:
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         args.extend([ "store", "add" ])
         args.extend(dns)
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         md = jout['output'][0]
         assert md['name'] == dns[0]
@@ -103,13 +89,13 @@ class TestStore:
         dns1 = [ "test-100.com", "test-101.com", "test-102.com" ]
         args.extend([ "store", "add" ])
         args.extend(dns1)
-        exec_sub(args)
+        self.exec_sub(args)
         # add second managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns2 = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         args.extend([ "store", "add" ])
         args.extend(dns2)
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         # assert: output covers only changed md
         jout = json.loads(outdata)
         assert len(jout['output']) == 1
@@ -127,9 +113,9 @@ class TestStore:
         args.extend([ "store", "add"])
         dns = "greenbytes.de"
         args.extend([dns])
-        exec_sub(args)
+        self.exec_sub(args)
         # add same domain again
-        outdata = exec_sub_err(args, 1)
+        outdata = self.exec_sub_err(args, 1)
 
     # add without CA URL
     def test_104(self):
@@ -137,7 +123,7 @@ class TestStore:
         args.extend([ "store", "add"])
         dns = "greenbytes.de"
         args.extend([dns])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         assert len(jout['output']) == 1
         md = jout['output'][0]
@@ -152,7 +138,7 @@ class TestStore:
     # list empty store
     def test_200(self):
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "store", "list" ]
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         assert 'output' not in jout
         assert jout['status'] == 0
@@ -167,10 +153,10 @@ class TestStore:
         for dns in dnslist:
             args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "store", "add" ]
             args.extend(dns)
-            exec_sub(args)
+            self.exec_sub(args)
         # list all store content
         args = [A2MD, "-d", STORE_DIR, "-j", "store", "list" ]
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         assert len(jout['output']) == len(dnslist)
         dnslist.reverse()
@@ -190,17 +176,17 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "test-100.com"
         args.extend([ "store", "add", dns ])
-        exec_sub(args)
+        self.exec_sub(args)
         # remove managed domain
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "remove", dns ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         assert 'output' not in jout
         assert jout['status'] == 0
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "store", "list" ]
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         assert 'output' not in jout
         assert jout['status'] == 0
@@ -212,23 +198,23 @@ class TestStore:
         dns1 = [ "test-100.com", "test-101.com", "test-102.com" ]
         args.extend([ "store", "add"])
         args.extend(dns1)
-        exec_sub(args)
+        self.exec_sub(args)
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns2 = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         args.extend([ "store", "add" ])
         args.extend(dns2)
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout1 = json.loads(outdata)
         # remove managed domain
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "remove", "test-100.com" ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout2 = json.loads(outdata)
         assert 'output' not in jout2
         assert jout2['status'] == 0
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "store", "list" ]
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout2 = json.loads(outdata)
         assert len(jout2['output']) == 1
         assert jout1 == jout2
@@ -239,7 +225,7 @@ class TestStore:
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
         args.extend([ "store", "remove", dns1 ])
-        outdata = exec_sub_err(args, 1)
+        outdata = self.exec_sub_err(args, 1)
         jout = json.loads(outdata)
         assert 'output' not in jout
         assert jout['status'] == 2
@@ -249,7 +235,7 @@ class TestStore:
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
         args.extend([ "store", "remove", "-f", dns1 ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         assert 'output' not in jout
         assert jout['status'] == 0
@@ -262,12 +248,12 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "test-100.com"
         args.extend([ "store", "add", dns ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout1 = json.loads(outdata)
         # update without change
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "update", dns])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout2 = json.loads(outdata)
         assert len(jout2['output']) == 1
         assert jout1 == jout2
@@ -278,14 +264,14 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
         args.extend([ "store", "add", dns1 ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout1 = json.loads(outdata)
         # add second dns
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns2 = [ dns1, "test-101.com" ]
         args.extend([ "store", "update", dns1, "domains"])
         args.extend(dns2)
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout2 = json.loads(outdata)
         assert len(jout2['output']) == 1
         jout1['output'][0]['domains'] = dns2
@@ -297,12 +283,12 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "test-100.com"
         args.extend([ "store", "add", dns ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout1 = json.loads(outdata)
         # change CA URL
         args = [A2MD, "-a", "https://foo.com/", "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "update", dns])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout2 = json.loads(outdata)
         assert len(jout2['output']) == 1
         jout1['output'][0]['ca']['url'] = "https://foo.com/"
@@ -313,7 +299,7 @@ class TestStore:
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns = "test-100.com"
         args.extend([ "store", "update", dns ])
-        exec_sub_err(args, 1)
+        self.exec_sub_err(args, 1)
 
     # update domains, throw away md name
     def test_406(self):
@@ -321,14 +307,14 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
         args.extend([ "store", "add", dns1 ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout1 = json.loads(outdata)
         # override domains list
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "update", dns1, "domains" ])
         dns2 = "greenbytes.com"
         args.extend([ dns2 ])
-        outdata = exec_sub(args)
+        outdata = self.exec_sub(args)
         jout2 = json.loads(outdata)
         assert len(jout2['output']) == 1
         jout1['output'][0]['domains'] = [ dns2 ]
@@ -340,8 +326,8 @@ class TestStore:
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
         args.extend([ "store", "add", dns1 ])
-        exec_sub(args)
+        self.exec_sub(args)
         # override domains list
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "store", "update", dns1, "domains" ])
-        exec_sub_err(args, 1)
+        self.exec_sub_err(args, 1)

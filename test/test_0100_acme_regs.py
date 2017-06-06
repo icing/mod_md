@@ -2,7 +2,6 @@
 
 import os.path
 import re
-import subprocess
 import sys
 import time
 
@@ -11,6 +10,7 @@ from datetime import datetime
 from httplib import HTTPConnection
 from urlparse import urlparse
 from shutil import copyfile
+from testbase import BaseTest
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -41,23 +41,22 @@ def check_live(url, timeout):
     return False
 
 def setup_module(module):
+    print("setup_module: %s" % module.__name__)
     print("looking for ACME server at %s" % ACME_URL)
     assert check_live(ACME_URL, 1)
         
     
 def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
+    print("teardown_module:%s" % module.__name__)
 
 
-class TestRegs:
+class TestRegs (BaseTest):
 
     def test_001(self):
         # try register a new account
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "xx@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("registered: (.*)$", outdata)
         assert m
         print "newreg: %s" % (m.group(1))
@@ -66,73 +65,54 @@ class TestRegs:
         # register with varying length to check our base64 encoding
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "x@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        p.communicate()
-        assert p.wait() == 0
+        self.exec_sub(args)
 
     def test_003(self):
         # register with varying length to check our base64 encoding
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "xxx@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        p.communicate()
-        assert p.wait() == 0
+        self.exec_sub(args)
 
     def test_004(self):
         # needs to fail on an invalid contact url
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "mehlto:xxx@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        p.communicate()
-        assert p.wait() == 1
+        self.exec_sub_err(args, 1)
 
     def test_010(self):
         # register and try delete an account, will fail without persistence
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "tmp@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("registered: (.*)$", outdata)
         assert m
         acct = m.group(1)
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["delreg", acct])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 1
+        self.exec_sub_err(args, 1)
         
     def test_012(self):
         # register and try delete an account with persistence
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "tmp@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("registered: (.*)$", outdata)
         assert m
         acct = m.group(1)
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "delreg", acct])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        self.exec_sub(args)
 
     def test_013(self):
         # delete a persisted account without specifying url
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "tmp@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("registered: (.*)$", outdata)
         assert m
         acct = m.group(1)
         args = [A2MD, "-d", STORE_DIR]
         args.extend(["acme", "delreg", acct])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        self.exec_sub(args)
 
 
- 

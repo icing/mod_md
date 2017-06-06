@@ -2,7 +2,6 @@
 
 import os.path
 import re
-import subprocess
 import sys
 import time
 
@@ -11,6 +10,7 @@ from datetime import datetime
 from httplib import HTTPConnection
 from urlparse import urlparse
 from shutil import copyfile
+from testbase import BaseTest
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -51,15 +51,13 @@ def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
 
-class TestToS:
+class TestToS (BaseTest):
 
     def test_001(self):
         # try register a new account with valid tos agreements
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS ]
         args.extend(["acme", "newreg", "xx@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("registered: (.*)$", outdata)
         assert m
         print "newreg: %s" % (m.group(1))
@@ -68,22 +66,16 @@ class TestToS:
         # try register a new account with invalid tos agreements
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS2 ]
         args.extend(["acme", "newreg", "xx@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 1
+        self.exec_sub_err(args, 1)
  
     def test_003(self):
         # register new account, agree to tos afterwards
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "tmp@example.org"])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
         m = re.match("registered: (.*)$", outdata)
         assert m
         acct = m.group(1)
         args = [A2MD, "-d", STORE_DIR]
         args.extend(["acme", "agree", acct])
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
-        (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
+        outdata = self.exec_sub(args)
