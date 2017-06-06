@@ -133,6 +133,56 @@ static md_cmd_t AcmeAgreeCmd = {
 };
 
 /**************************************************************************************************/
+/* command: acme validate */
+
+static apr_status_t acct_validate(md_store_t *store, const char *name, apr_pool_t *p) 
+{
+    md_http_t *http;
+    md_acme_acct_t *acct;
+    apr_status_t rv;
+    long req_id;
+    const char *data;
+    md_json_t *json;
+    
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
+    
+        rv = md_acme_acct_validate(acct);
+        if (rv == APR_SUCCESS) {
+            fprintf(stdout, "account valid: %s\n", acct->url);
+        }
+        else {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "validating account: %s", acct->url);
+        }
+    }
+    else if (APR_ENOENT == rv) {
+        fprintf(stderr, "unknown account: %s", name);
+    }
+
+    return rv;
+}
+
+static apr_status_t cmd_acme_validate(md_cmd_ctx *ctx, const md_cmd_t *cmd)
+{
+    apr_status_t rv = APR_SUCCESS;
+    int i;
+    
+    for (i = 0; i < ctx->argc; ++i) {
+        rv = acct_validate(ctx->store, ctx->argv[i], ctx->p);
+        if (rv != APR_SUCCESS) {
+            break;
+        }
+    }
+    return rv;
+}
+
+static md_cmd_t AcmeValidateCmd = {
+    "validate", MD_CTX_STORE, 
+    NULL, cmd_acme_validate, MD_NoOptions, NULL,
+    "validate account",
+    "validate account existence",
+};
+
+/**************************************************************************************************/
 /* command: acme delreg */
 
 static apr_status_t acme_delreg(md_store_t *store, const char *name, apr_pool_t *p) 
@@ -247,6 +297,7 @@ static const md_cmd_t *AcmeSubCmds[] = {
     &AcmeDelregCmd,
     &AcmeAgreeCmd,
     &AcmeAuthzCmd,
+    &AcmeValidateCmd,
     NULL
 };
 

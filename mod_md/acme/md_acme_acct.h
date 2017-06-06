@@ -37,6 +37,7 @@ struct md_acme_acct_t {
     const char *tos;                /* terms of service */
     
     struct md_pkey_t *key;          /* private key of account for JWS */
+    int key_changed;                /* key was changed, needs save */
     
     struct md_json_t *registration; /* data from server registration */
     int disabled;
@@ -51,6 +52,8 @@ struct md_acme_acct_t {
  */
 apr_status_t md_acme_register(md_acme_acct_t **pacct, struct md_store_t *store, md_acme_t *acme, 
                               apr_array_header_t *contacts, const char *agreed_tos);
+
+apr_status_t md_acme_acct_validate(md_acme_acct_t *acct);
 
 apr_status_t md_acme_acct_agree_tos(md_acme_acct_t *acct, const char *agreed_tos);
 

@@ -1,5 +1,6 @@
 v0.0.1
 ----------------------------------------------------------------------------------------------------
+ * new command 'acme validate' to check that account is still known to server and key works
  * fixed all current test failures
  * DNS names are checked for valid characters and non-TLD
  * urls are checked to be absolute for the CA

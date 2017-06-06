@@ -115,4 +115,16 @@ class TestRegs (BaseTest):
         args.extend(["acme", "delreg", acct])
         self.exec_sub(args)
 
+    def test_014(self):
+        # create and validate an account
+        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
+        args.extend(["acme", "newreg", "test014@example.org"])
+        outdata = self.exec_sub(args)
+        m = re.match("registered: (.*)$", outdata)
+        assert m
+        acct = m.group(1)
+        args = [A2MD, "-d", STORE_DIR]
+        args.extend(["acme", "validate", acct])
+        self.exec_sub(args)
+
 

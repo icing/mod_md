@@ -241,9 +241,17 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
             return req->rv;
         }
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, req->pool,
-                  "acme problem unknonw: http status %d", res->status);
-    return APR_EGENERAL;
+    
+    switch (res->status) {
+        case 403:
+            return APR_EACCES;
+        case 404:
+            return APR_ENOENT;
+        default:
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, req->pool,
+                          "acme problem unknonw: http status %d", res->status);
+            return APR_EGENERAL;
+    }
 }
 
 static apr_status_t md_acme_req_done(md_acme_req_t *req)
@@ -364,7 +372,7 @@ apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
 }
 
 /**************************************************************************************************/
-/* protocol drivers */
+/* protocol driver */
 
 typedef struct {
     md_proto_driver_t *driver;
@@ -375,15 +383,14 @@ typedef struct {
 
 static apr_status_t ad_acct_validate(md_proto_driver_t *d, md_acme_acct_t **pacct)
 {
-    md_acme_driver_t *ad = d->baton;
     md_acme_acct_t *acct = *pacct;
-    apr_status_t rv = APR_SUCCESS;
-    int valid = 0;
+    apr_status_t rv;
     
-    (void)ad;
-    if (!valid) {
-        rv = md_acme_acct_disable(acct);
-        *pacct = NULL;
+    if (APR_SUCCESS != (rv = md_acme_acct_validate(*pacct))) {
+        if (APR_ENOENT == rv || APR_EACCES == rv) {
+            *pacct = NULL;
+            rv = md_acme_acct_disable(acct);
+        }
     }
     return rv;
 }
