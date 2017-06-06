@@ -9,16 +9,22 @@ class BaseTest:
 
     def exec_sub(self, args):
         print "execute: ", " ".join(args)
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
-        assert p.wait() == 0
-        print "result:  ", outdata
+        errCode = p.wait()
+        if errCode != 0:
+            print "error: ", errdata if errdata else "[no message]"
+        print "result:  (", errCode, ")\n", outdata
+        assert errCode == 0
         return outdata
 
-    def exec_sub_err(self, args, errCode):
+    def exec_sub_err(self, args, expCode):
         print "execute: ", " ".join(args)
-        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (outdata, errdata) = p.communicate()
-        assert p.wait() == errCode
+        errCode = p.wait()
+        if errCode != 0:
+            print "error: ", errdata if errdata else "[no message]"
         print "result:  (", errCode, ") ", outdata
+        assert errCode == expCode
         return outdata
