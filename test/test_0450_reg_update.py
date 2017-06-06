@@ -46,8 +46,8 @@ class TestReg (BaseTest):
         os.makedirs(STORE_DIR)
         # add managed domains
         dnslist = [ 
-            [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"],
-            [ "test-100.com", "test-101.com", "test-102.com" ]
+            [ self.NAME1, "www.greenbytes2.de", "mail.greenbytes2.de"],
+            [ self.NAME2, "test-101.com", "test-102.com" ]
         ]
         for dns in dnslist:
             args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "add" ]
@@ -79,3 +79,89 @@ class TestReg (BaseTest):
         jout2 = json.loads(outdata)
         assert md == jout2['output'][0]
 
+    # remove all domains
+    def test_101(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "update", self.NAME1, "domains" ])
+        self.exec_sub_err(args, 1)
+
+    # update domains with invalid DNS
+    @pytest.mark.parametrize("invalidDNS", [
+        ("tld"), ("white sp.ace"), ("*.wildcard.com"), ("k\xc3ller.idn.com")
+    ])
+    def test_102(self, invalidDNS):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "update", self.NAME1, "domains", invalidDNS ])
+        self.exec_sub_err(args, 1)
+
+    # update domains with overlapping DNS list
+    def test_103(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        dns = [ self.NAME1, self.NAME2 ]
+        args.extend([ "update", self.NAME1, "domains" ])
+        args.extend(dns)
+        self.exec_sub_err(args, 1)
+
+    # update ca URL
+    def test_104(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        url = "http://localhost.com:9999"
+        args.extend([ "update", self.NAME1, "ca", url])
+        outdata = self.exec_sub(args)
+        jout1 = json.loads(outdata)
+        md = jout1['output'][0]
+        assert md['name'] == self.NAME1
+        assert md['ca']['url'] == url
+        assert md['ca']['proto'] == 'ACME'
+        assert md['state'] == 1
+
+    # update ca with invalid URL
+    @pytest.mark.parametrize("invalidURL", [
+        ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
+    ])
+    def test_105(self, invalidURL):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "update", self.NAME1, "ca", invalidURL])
+        self.exec_sub_err(args, 1)
+
+    # update with subdomains
+    def test_106(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        dns = [ "test-foo.com", "sub.test-foo.com" ]
+        args.extend([ "update", self.NAME1, "domains" ])
+        args.extend(dns)
+        outdata = self.exec_sub(args)
+        jout1 = json.loads(outdata)
+        md = jout1['output'][0]
+        assert md['name'] == self.NAME1
+        assert md['domains'] == dns
+
+    # update domains with duplicates
+    def test_107(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        dns = [ self.NAME1, self.NAME1, self.NAME1 ]
+        args.extend([ "update", self.NAME1, "domains" ])
+        args.extend(dns)
+        outdata = self.exec_sub(args)
+        jout1 = json.loads(outdata)
+        md = jout1['output'][0]
+        assert md['name'] == self.NAME1
+        assert md['domains'] == [ self.NAME1 ]
+
+    # remove domains with punycode
+    def test_108(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        dns = [ self.NAME1, "xn--kller-jua.punycode.de" ]
+        args.extend([ "update", self.NAME1, "domains" ])
+        args.extend(dns)
+        outdata = self.exec_sub(args)
+        jout1 = json.loads(outdata)
+        md = jout1['output'][0]
+        assert md['name'] == self.NAME1
+        assert md['domains'] == dns
+
+    # update non-exeisting managed domain
+    def test_109(self):
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "update", "test-foo.com", "domains" ])
+        self.exec_sub_err(args, 1)
