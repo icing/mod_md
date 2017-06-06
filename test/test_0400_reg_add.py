@@ -47,8 +47,8 @@ class TestReg (BaseTest):
 
     # --------- add ---------
 
-    # add a single dns managed domain
     def test_100(self):
+        # test case: add a single dns managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "add", dns ])
@@ -67,8 +67,8 @@ class TestReg (BaseTest):
         jout2 = json.loads(outdata)
         assert jout1 == jout2
 
-    # add > 1 dns managed domain
     def test_101(self):
+        # test case: add > 1 dns managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         args.extend([ "add" ])
@@ -88,8 +88,8 @@ class TestReg (BaseTest):
         jout2 = json.loads(outdata)
         assert jout1 == jout2
 
-    # add second managed domain
     def test_102(self):
+        # test case: add second managed domain
         # setup: add first managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = [ "test-100.com", "test-101.com", "test-102.com" ]
@@ -112,8 +112,8 @@ class TestReg (BaseTest):
         assert md['ca']['proto'] == 'ACME'
         assert md['state'] == 1
 
-    # add existing domain 
     def test_103(self):
+        # test case: add existing domain 
         # setup: add domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         args.extend([ "add"])
@@ -123,8 +123,8 @@ class TestReg (BaseTest):
         # add same domain again
         outdata = self.exec_sub_err(args, 1)
 
-    # add without CA URL
     def test_104(self):
+        # test case: add without CA URL
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "add"])
         dns = "greenbytes.de"
@@ -144,11 +144,11 @@ class TestReg (BaseTest):
         jout2 = json.loads(outdata)
         assert jout1 == jout2
 
-    # add with invalid DNS
     @pytest.mark.parametrize("invalidDNS", [
         ("tld"), ("white sp.ace"), ("*.wildcard.com"), ("k\xc3ller.idn.com")
     ])
     def test_105(self, invalidDNS):
+        # test case: add with invalid DNS
         # dns as primary name
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         args.extend([ "add"])
@@ -160,18 +160,18 @@ class TestReg (BaseTest):
         args.extend([ "test-100.de", invalidDNS ])
         self.exec_sub_err(args, 1)
 
-    # add with invalid ACME URL
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
     ])
     def test_106(self, invalidURL):
+        # test case: add with invalid ACME URL
         args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "add", dns ])
         self.exec_sub_err(args, 1)
 
-    # add overlapping dns names
     def test_107(self):
+        # test case: add overlapping dns names
         # setup: add first managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = [ "test-100.com", "test-101.com" ]
@@ -197,8 +197,8 @@ class TestReg (BaseTest):
         args.extend(dns2)
         self.exec_sub_err(args, 1)
 
-    # add subdomains as separate managed domain
     def test_108(self):
+        # test case: add subdomains as separate managed domain
         # setup: add first managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = [ "test-100.com" ]
@@ -212,8 +212,8 @@ class TestReg (BaseTest):
         args.extend(dns2)
         self.exec_sub(args)
 
-    # add duplicate domain
     def test_109(self):
+        # test case: add duplicate domain
         # setup: add managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns1 = "test-100.com"
@@ -227,16 +227,16 @@ class TestReg (BaseTest):
         md = jout['output'][0]
         assert md['domains'] == [ dns1, dns2 ]
 
-    # add pnuycode name
     def test_110(self):
+        # test case: add pnuycode name
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "xn--kller-jua.punycode.de"
         args.extend([ "add" ])
         args.extend([ dns, dns ])
         self.exec_sub(args)
 
-    # don't sort alternate names
     def test_111(self):
+        # test case: don't sort alternate names
         # setup: add managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = [ "test-100.com", "test-xxx.com", "test-aaa.com" ]
@@ -251,16 +251,16 @@ class TestReg (BaseTest):
 
     # --------- list ---------
 
-    # list empty store
     def test_200(self):
+        # test case: list empty store
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
         outdata = self.exec_sub(args)
         jout = json.loads(outdata)
         assert 'output' not in jout
         assert jout['status'] == 0
 
-    # list two managed domains
     def test_201(self):
+        # test case: list two managed domains
         # setup: add managed domains
         dnslist = [ 
             [ "test-100.com", "test-101.com", "test-102.com" ],

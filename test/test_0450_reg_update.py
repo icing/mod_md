@@ -59,8 +59,8 @@ class TestReg (BaseTest):
 
     # --------- update ---------
 
-    # update domains
     def test_100(self):
+        # test case: update domains
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns = [ "foo.de", "bar.de" ]
         args.extend([ "update", self.NAME1, "domains" ])
@@ -79,31 +79,31 @@ class TestReg (BaseTest):
         jout2 = json.loads(outdata)
         assert md == jout2['output'][0]
 
-    # remove all domains
     def test_101(self):
+        # test case: remove all domains
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "update", self.NAME1, "domains" ])
         self.exec_sub_err(args, 1)
 
-    # update domains with invalid DNS
     @pytest.mark.parametrize("invalidDNS", [
         ("tld"), ("white sp.ace"), ("*.wildcard.com"), ("k\xc3ller.idn.com")
     ])
     def test_102(self, invalidDNS):
+        # test case: update domains with invalid DNS
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "update", self.NAME1, "domains", invalidDNS ])
         self.exec_sub_err(args, 1)
 
-    # update domains with overlapping DNS list
     def test_103(self):
+        # test case: update domains with overlapping DNS list
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns = [ self.NAME1, self.NAME2 ]
         args.extend([ "update", self.NAME1, "domains" ])
         args.extend(dns)
         self.exec_sub_err(args, 1)
 
-    # update ca URL
     def test_104(self):
+        # test case: update ca URL
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         url = "http://localhost.com:9999"
         args.extend([ "update", self.NAME1, "ca", url])
@@ -115,17 +115,17 @@ class TestReg (BaseTest):
         assert md['ca']['proto'] == 'ACME'
         assert md['state'] == 1
 
-    # update ca with invalid URL
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
     ])
     def test_105(self, invalidURL):
+        # test case: update ca with invalid URL
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "update", self.NAME1, "ca", invalidURL])
         self.exec_sub_err(args, 1)
 
-    # update with subdomains
     def test_106(self):
+        # test case: update with subdomains
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns = [ "test-foo.com", "sub.test-foo.com" ]
         args.extend([ "update", self.NAME1, "domains" ])
@@ -136,8 +136,8 @@ class TestReg (BaseTest):
         assert md['name'] == self.NAME1
         assert md['domains'] == dns
 
-    # update domains with duplicates
     def test_107(self):
+        # test case: update domains with duplicates
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns = [ self.NAME1, self.NAME1, self.NAME1 ]
         args.extend([ "update", self.NAME1, "domains" ])
@@ -148,8 +148,8 @@ class TestReg (BaseTest):
         assert md['name'] == self.NAME1
         assert md['domains'] == [ self.NAME1 ]
 
-    # remove domains with punycode
     def test_108(self):
+        # test case: remove domains with punycode
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         dns = [ self.NAME1, "xn--kller-jua.punycode.de" ]
         args.extend([ "update", self.NAME1, "domains" ])
@@ -160,8 +160,20 @@ class TestReg (BaseTest):
         assert md['name'] == self.NAME1
         assert md['domains'] == dns
 
-    # update non-exeisting managed domain
     def test_109(self):
+        # test case: update non-existing managed domain
         args = [A2MD, "-d", STORE_DIR, "-j" ]
         args.extend([ "update", "test-foo.com", "domains" ])
         self.exec_sub_err(args, 1)
+
+    def test_110(self):
+        # test case: update ca protocol
+        args = [A2MD, "-d", STORE_DIR, "-j" ]
+        args.extend([ "update", self.NAME1, "ca", ACME_URL, "FOO"])
+        outdata = self.exec_sub(args)
+        jout1 = json.loads(outdata)
+        md = jout1['output'][0]
+        assert md['name'] == self.NAME1
+        assert md['ca']['url'] == ACME_URL
+        assert md['ca']['proto'] == 'FOO'
+        assert md['state'] == 1
