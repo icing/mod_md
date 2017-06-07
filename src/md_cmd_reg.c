@@ -159,6 +159,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                 usage(cmd, "update name account <id>");
                 return APR_EINVAL;
             }
+            fields |= MD_UPD_CA_ACCOUNT;
             nmd->ca_account = ctx->argv[2];
         }
         else if (!strcmp("ca", aspect)) {
@@ -170,7 +171,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             fields |= MD_UPD_CA_URL;
             if (ctx->argc > 3) {
                 nmd->ca_proto = ctx->argv[3];
-                fields |= MD_UPD_CA_ACCOUNT;
+                fields |= MD_UPD_CA_PROTO;
             }
         }
         else if (!strcmp("contacts", aspect)) {
@@ -193,6 +194,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                 return APR_EINVAL;
             }
             nmd->ca_tos_agreed = ctx->argv[2];
+            fields |= MD_UPD_CA_TOS;
         }
         else {
             fprintf(stderr, "unknown update aspect: %s\n", aspect);

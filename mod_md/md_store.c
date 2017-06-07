@@ -127,7 +127,7 @@ static int add_md(void *baton, const char *name, md_store_vtype_t vtype, void *v
 
 static int md_name_cmp(const void *v1, const void *v2)
 {
-    return strcmp(((const md_t*)v1)->name, ((const md_t*)v2)->name);
+    return strcmp((*(const md_t**)v1)->name, (*(const md_t**)v2)->name);
 }
 
 

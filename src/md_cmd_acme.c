@@ -76,7 +76,7 @@ static md_cmd_t AcmeNewregCmd = {
 /**************************************************************************************************/
 /* command: acme agree */
 
-static apr_status_t acct_agree_tos(md_store_t *store, const char *name, 
+static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name, 
                                    const char *tos, apr_pool_t *p) 
 {
     md_http_t *http;
@@ -86,7 +86,7 @@ static apr_status_t acct_agree_tos(md_store_t *store, const char *name,
     const char *data;
     md_json_t *json;
     
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, name, p))) {
         if (!tos) {
             tos = acct->tos_agreed;
             if (!tos) {
@@ -96,7 +96,7 @@ static apr_status_t acct_agree_tos(md_store_t *store, const char *name,
                 tos = TOS_DEFAULT;
             }
         }
-        rv = md_acme_acct_agree_tos(acct, tos);
+        rv = md_acme_acct_agree_tos(ctx->acme, acct, tos);
         if (rv == APR_SUCCESS) {
             fprintf(stdout, "agreed terms-of-service: %s\n", acct->url);
         }
@@ -117,7 +117,7 @@ static apr_status_t cmd_acme_agree(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     int i;
     
     for (i = 0; i < ctx->argc; ++i) {
-        rv = acct_agree_tos(ctx->store, ctx->argv[i], ctx->tos, ctx->p);
+        rv = acct_agree_tos(ctx, ctx->argv[i], ctx->tos, ctx->p);
         if (rv != APR_SUCCESS) {
             break;
         }
@@ -126,7 +126,7 @@ static apr_status_t cmd_acme_agree(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeAgreeCmd = {
-    "agree", MD_CTX_STORE, 
+    "agree", MD_CTX_STORE|MD_CTX_ACME, 
     NULL, cmd_acme_agree, MD_NoOptions, NULL,
     "agree account",
     "agree to ACME terms of service",
@@ -135,7 +135,7 @@ static md_cmd_t AcmeAgreeCmd = {
 /**************************************************************************************************/
 /* command: acme validate */
 
-static apr_status_t acct_validate(md_store_t *store, const char *name, apr_pool_t *p) 
+static apr_status_t acct_validate(md_cmd_ctx *ctx, const char *name, apr_pool_t *p) 
 {
     md_http_t *http;
     md_acme_acct_t *acct;
@@ -144,9 +144,9 @@ static apr_status_t acct_validate(md_store_t *store, const char *name, apr_pool_
     const char *data;
     md_json_t *json;
     
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, name, p))) {
     
-        rv = md_acme_acct_validate(acct);
+        rv = md_acme_acct_validate(ctx->acme, acct);
         if (rv == APR_SUCCESS) {
             fprintf(stdout, "account valid: %s\n", acct->url);
         }
@@ -164,10 +164,11 @@ static apr_status_t acct_validate(md_store_t *store, const char *name, apr_pool_
 static apr_status_t cmd_acme_validate(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_status_t rv = APR_SUCCESS;
+    md_acme_t *acme;
     int i;
     
     for (i = 0; i < ctx->argc; ++i) {
-        rv = acct_validate(ctx->store, ctx->argv[i], ctx->p);
+        rv = acct_validate(ctx, ctx->argv[i], ctx->p);
         if (rv != APR_SUCCESS) {
             break;
         }
@@ -176,7 +177,7 @@ static apr_status_t cmd_acme_validate(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeValidateCmd = {
-    "validate", MD_CTX_STORE, 
+    "validate", MD_CTX_STORE|MD_CTX_ACME, 
     NULL, cmd_acme_validate, MD_NoOptions, NULL,
     "validate account",
     "validate account existence",

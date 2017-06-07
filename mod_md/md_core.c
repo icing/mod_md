@@ -100,8 +100,6 @@ int md_contains_domains(const md_t *md1, const md_t *md2)
 const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
 {
     md_t *md;
-    const char *domain;
-    int i;
     
     if (domains->nelts <= 0) {
         return "needs at least one domain name";
@@ -112,12 +110,7 @@ const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
         return "not enough memory";
     }
 
-    for (i = 0; i < domains->nelts; ++i) {
-        domain = APR_ARRAY_IDX(domains, i, const char *);
-        if (md_array_str_case_index(md->domains, domain, 0) < 0) {
-            APR_ARRAY_PUSH(md->domains, char *) = md_util_str_tolower(apr_pstrdup(p, domain));
-        }
-    }
+    md->domains = md_array_str_compact(p, domains);
     md->name = APR_ARRAY_IDX(md->domains, 0, const char *);
  
     *pmd = md;
@@ -145,11 +138,12 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
     if (md) {
         md->state = src->state;
         md->name = apr_pstrdup(p, src->name);
-        md->domains = md_array_str_clone(p, src->domains);
+        md->domains = md_array_str_compact(p, src->domains);
         md->contacts = md_array_str_clone(p, src->contacts);
         if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
         if (src->ca_proto) md->ca_proto = apr_pstrdup(p, src->ca_proto);
         if (src->ca_account) md->ca_account = apr_pstrdup(p, src->ca_account);
+        if (src->ca_tos_agreed) md->ca_tos_agreed = apr_pstrdup(p, src->ca_tos_agreed);
         if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
         md->defn_line_number = src->defn_line_number;
     }    
@@ -160,8 +154,9 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
 {
     md_json_t *json = md_json_create(p);
     if (json) {
+        apr_array_header_t *domains = md_array_str_compact(p, md->domains);
         md_json_sets(md->name, json, MD_KEY_NAME, NULL);
-        md_json_setsa(md->domains, json, MD_KEY_DOMAINS, NULL);
+        md_json_setsa(domains, json, MD_KEY_DOMAINS, NULL);
         md_json_setsa(md->contacts, json, MD_KEY_CONTACTS, NULL);
         md_json_sets(md->ca_account, json, MD_KEY_CA, MD_KEY_ACCOUNT, NULL);
         md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
@@ -185,6 +180,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md->ca_tos_agreed = md_json_dups(p, json, MD_KEY_CA, MD_KEY_TOS, NULL);
         md->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);
+        md->domains = md_array_str_compact(p, md->domains);
         return md;
     }
     return NULL;

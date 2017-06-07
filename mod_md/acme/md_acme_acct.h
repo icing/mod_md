@@ -34,7 +34,8 @@ struct md_acme_acct_t {
     const char *ca_url;             /* url of the ACME protocol endpoint */
     const char *url;                /* url of the accunt, once registered */
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
-    const char *tos_agreed;         /* terms of service accepted */
+    const char *tos_required;       /* terms of service asked for by CA */
+    const char *tos_agreed;         /* terms of service accepted by user */
     
     struct md_pkey_t *key;          /* private key of account for JWS */
     int key_changed;                /* key was changed, needs save */
@@ -53,9 +54,9 @@ struct md_acme_acct_t {
 apr_status_t md_acme_register(md_acme_acct_t **pacct, struct md_store_t *store, md_acme_t *acme, 
                               apr_array_header_t *contacts, const char *agreed_tos);
 
-apr_status_t md_acme_acct_validate(md_acme_acct_t *acct);
+apr_status_t md_acme_acct_validate(md_acme_t *acme, md_acme_acct_t *acct);
 
-apr_status_t md_acme_acct_agree_tos(md_acme_acct_t *acct, const char *agreed_tos);
+apr_status_t md_acme_acct_agree_tos(md_acme_t *acme, md_acme_acct_t *acct, const char *tos);
 
 /**
  * Unregister/delete the account at the ACME server. Will remove

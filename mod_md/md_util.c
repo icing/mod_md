@@ -106,6 +106,22 @@ apr_array_header_t *md_array_str_clone(apr_pool_t *p, apr_array_header_t *src)
     return dest;
 }
 
+struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src)
+{
+    apr_array_header_t *dest = apr_array_make(p, src->nelts, sizeof(const char*));
+    if (dest) {
+        const char *s;
+        int i;
+        for (i = 0; i < src->nelts; ++i) {
+            s = APR_ARRAY_IDX(src, i, const char *);
+            if (md_array_str_case_index(dest, s, 0) < 0) {
+                APR_ARRAY_PUSH(dest, char *) = md_util_str_tolower(apr_pstrdup(p, s));
+            }
+        }
+    }
+    return dest;
+}
+
 /**************************************************************************************************/
 /* file system related */
 

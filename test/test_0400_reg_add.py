@@ -14,7 +14,7 @@ from datetime import datetime
 from httplib import HTTPConnection
 from urlparse import urlparse
 from shutil import copyfile
-from testbase import BaseTest
+from testbase import TestUtil
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -32,7 +32,7 @@ def teardown_module(module):
     print("teardown_module: %s" % module.__name__)
 
 
-class TestReg (BaseTest):
+class TestReg :
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -52,8 +52,8 @@ class TestReg (BaseTest):
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "add", dns ])
-        outdata = self.exec_sub(args)
-        jout1 = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout1 = json.loads(run["stdout"])
         md = jout1['output'][0]
         assert md['name'] == dns
         assert len(md['domains']) == 1 
@@ -63,8 +63,8 @@ class TestReg (BaseTest):
         assert md['state'] == 1
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
-        outdata = self.exec_sub(args)
-        jout2 = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout2 = json.loads(run["stdout"])
         assert jout1 == jout2
 
     def test_101(self):
@@ -73,8 +73,8 @@ class TestReg (BaseTest):
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         args.extend([ "add" ])
         args.extend(dns)
-        outdata = self.exec_sub(args)
-        jout1 = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout1 = json.loads(run["stdout"])
         md = jout1['output'][0]
         assert md['name'] == dns[0]
         assert len(md['domains']) == 3 
@@ -84,8 +84,8 @@ class TestReg (BaseTest):
         assert md['state'] == 1
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
-        outdata = self.exec_sub(args)
-        jout2 = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout2 = json.loads(run["stdout"])
         assert jout1 == jout2
 
     def test_102(self):
@@ -95,15 +95,15 @@ class TestReg (BaseTest):
         dns1 = [ "test-100.com", "test-101.com", "test-102.com" ]
         args.extend([ "add" ])
         args.extend(dns1)
-        self.exec_sub(args)
+        TestUtil.run(args)
         # add second managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns2 = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         args.extend([ "add" ])
         args.extend(dns2)
-        outdata = self.exec_sub(args)
+        run = TestUtil.run(args)
         # assert: output covers only changed md
-        jout = json.loads(outdata)
+        jout = json.loads(run["stdout"])
         assert len(jout['output']) == 1
         md = jout['output'][0]
         assert md['name'] == dns2[0]
@@ -119,9 +119,10 @@ class TestReg (BaseTest):
         args.extend([ "add"])
         dns = "greenbytes.de"
         args.extend([dns])
-        self.exec_sub(args)
+        TestUtil.run(args)
         # add same domain again
-        outdata = self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
 
     def test_104(self):
         # test case: add without CA URL
@@ -129,8 +130,8 @@ class TestReg (BaseTest):
         args.extend([ "add"])
         dns = "greenbytes.de"
         args.extend([dns])
-        outdata = self.exec_sub(args)
-        jout1 = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout1 = json.loads(run["stdout"])
         assert len(jout1['output']) == 1
         md = jout1['output'][0]
         assert md['name'] == dns
@@ -140,8 +141,8 @@ class TestReg (BaseTest):
         assert md['state'] == 1
         # list store content
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
-        outdata = self.exec_sub(args)
-        jout2 = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout2 = json.loads(run["stdout"])
         assert jout1 == jout2
 
     @pytest.mark.parametrize("invalidDNS", [
@@ -153,12 +154,14 @@ class TestReg (BaseTest):
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         args.extend([ "add"])
         args.extend([ invalidDNS ])
-        self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
         # dns as alternate name
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         args.extend([ "add"])
         args.extend([ "test-100.de", invalidDNS ])
-        self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
 
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
@@ -168,7 +171,8 @@ class TestReg (BaseTest):
         args = [A2MD, "-a", invalidURL, "-d", STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "add", dns ])
-        self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
 
     def test_107(self):
         # test case: add overlapping dns names
@@ -177,25 +181,28 @@ class TestReg (BaseTest):
         dns1 = [ "test-100.com", "test-101.com" ]
         args.extend([ "add" ])
         args.extend(dns1)
-        self.exec_sub(args)
+        TestUtil.run(args)
         # 1: alternate DNS exists as primary name
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns2 = [ "greenbytes2.de", "test-100.com" ]
         args.extend([ "add" ])
         args.extend(dns2)
-        self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
         # 2: alternate DNS exists as alternate DNS
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns2 = [ "greenbytes2.de", "test-101.com" ]
         args.extend([ "add" ])
         args.extend(dns2)
-        self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
         # 3: primary name exists as alternate DNS
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns2 = [ "test-101.com" ]
         args.extend([ "add" ])
         args.extend(dns2)
-        self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
 
     def test_108(self):
         # test case: add subdomains as separate managed domain
@@ -204,13 +211,13 @@ class TestReg (BaseTest):
         dns1 = [ "test-100.com" ]
         args.extend([ "add" ])
         args.extend(dns1)
-        self.exec_sub(args)
+        TestUtil.run(args)
         # add second managed domain
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j" ]
         dns2 = [ "sub.test-100.com" ]
         args.extend([ "add" ])
         args.extend(dns2)
-        self.exec_sub(args)
+        TestUtil.run(args)
 
     def test_109(self):
         # test case: add duplicate domain
@@ -220,9 +227,9 @@ class TestReg (BaseTest):
         dns2 = "test-101.com"
         args.extend([ "add" ])
         args.extend([ dns1, dns2, dns1, dns2 ])
-        outdata = self.exec_sub(args)
+        run = TestUtil.run(args)
         # DNS is only listed once
-        jout = json.loads(outdata)
+        jout = json.loads(run["stdout"])
         assert len(jout['output']) == 1
         md = jout['output'][0]
         assert md['domains'] == [ dns1, dns2 ]
@@ -233,7 +240,7 @@ class TestReg (BaseTest):
         dns = "xn--kller-jua.punycode.de"
         args.extend([ "add" ])
         args.extend([ dns, dns ])
-        self.exec_sub(args)
+        TestUtil.run(args)
 
     def test_111(self):
         # test case: don't sort alternate names
@@ -242,9 +249,9 @@ class TestReg (BaseTest):
         dns = [ "test-100.com", "test-xxx.com", "test-aaa.com" ]
         args.extend([ "add" ])
         args.extend(dns)
-        outdata = self.exec_sub(args)
+        run = TestUtil.run(args)
         # DNS is only listed once
-        jout = json.loads(outdata)
+        jout = json.loads(run["stdout"])
         assert len(jout['output']) == 1
         md = jout['output'][0]
         assert md['domains'] == dns
@@ -254,8 +261,8 @@ class TestReg (BaseTest):
     def test_200(self):
         # test case: list empty store
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
-        outdata = self.exec_sub(args)
-        jout = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout = json.loads(run["stdout"])
         assert 'output' not in jout
         assert jout['status'] == 0
 
@@ -269,11 +276,11 @@ class TestReg (BaseTest):
         for dns in dnslist:
             args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "add" ]
             args.extend(dns)
-            self.exec_sub(args)
+            TestUtil.run(args)
         # list all store content
         args = [A2MD, "-d", STORE_DIR, "-j", "list" ]
-        outdata = self.exec_sub(args)
-        jout = json.loads(outdata)
+        run = TestUtil.run(args)
+        jout = json.loads(run["stdout"])
         assert len(jout['output']) == len(dnslist)
         dnslist.reverse()
         for i in range (0, len(jout['output'])):

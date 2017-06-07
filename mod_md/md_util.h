@@ -42,6 +42,8 @@ int md_array_str_case_index(const struct apr_array_header_t *array, const char *
 
 struct apr_array_header_t *md_array_str_clone(apr_pool_t *p, struct apr_array_header_t *array);
 
+struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src);
+
 /**************************************************************************************************/
 /* dns name check */
 

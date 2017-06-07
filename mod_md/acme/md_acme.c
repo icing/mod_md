@@ -22,8 +22,6 @@
 #include <apr_hash.h>
 #include <apr_uri.h>
 
-#include "md_acme.h"
-#include "md_acme_acct.h"
 #include "../md.h"
 #include "../md_crypt.h"
 #include "../md_json.h"
@@ -34,7 +32,10 @@
 #include "../md_store.h"
 #include "../md_util.h"
 
-#define MD_DIRNAME_ACCOUNTS "accounts"
+#include "md_acme.h"
+#include "md_acme_acct.h"
+#include "md_acme_authz.h"
+
 
 typedef struct acme_problem_status_t acme_problem_status_t;
 
@@ -380,14 +381,21 @@ typedef struct {
     md_acme_t *acme;
     md_acme_acct_t *acct;
     md_t *md;
+    
+    apr_hash_t *authzs;
+    
 } md_acme_driver_t;
+
+/**************************************************************************************************/
+/* account setup */
 
 static apr_status_t ad_acct_validate(md_proto_driver_t *d, md_acme_acct_t **pacct)
 {
+    md_acme_driver_t *ad = d->baton;
     md_acme_acct_t *acct = *pacct;
     apr_status_t rv;
     
-    if (APR_SUCCESS != (rv = md_acme_acct_validate(*pacct))) {
+    if (APR_SUCCESS != (rv = md_acme_acct_validate(ad->acme, *pacct))) {
         if (APR_ENOENT == rv || APR_EACCES == rv) {
             *pacct = NULL;
             rv = md_acme_acct_disable(acct);
@@ -436,7 +444,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
                       d->proto->protocol);
 
         if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
                 "no contact information for md %s", md->name);            
             return APR_EINVAL;
         }
@@ -451,52 +459,107 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
     return rv;
 }
 
+/**************************************************************************************************/
+/* authz setup */
+
+static apr_status_t ad_setup_authz(md_proto_driver_t *d)
+{
+    md_acme_driver_t *ad = d->baton;
+    apr_status_t rv = APR_SUCCESS;
+    md_t *md = ad->md;
+    int i;
+    
+    /* For each domain in MD: AUTHZ setup
+     * if an AUTHZ resource is known, check if it is still valid
+     * if known AUTHZ resource is not valid, remove, goto 4.1.1
+     * if no AUTHZ available, create a new one for the domain, store it
+     */
+    for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
+        const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
+        md_acme_authz_t *authz = apr_hash_get(ad->authzs, domain, strlen(domain));
+        if (authz) {
+            /* check valid */
+        }
+        else {
+            /* create new one */
+            if (APR_SUCCESS == (rv = md_acme_authz_register(&authz, domain, ad->acct))) {
+                apr_hash_set(ad->authzs, domain, strlen(domain), authz);
+            }
+        }
+        
+        if (APR_SUCCESS == rv && !authz) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_ENOENT, d->p, 
+                          "%s: authz missing for domain name %s", ad->md->name, domain);
+            rv = APR_ENOENT;
+        }
+    }
+    
+    return rv;
+}
+
+/**************************************************************************************************/
+/* ACME driving */
+
 static apr_status_t acme_driver_init(md_proto_driver_t *d)
 {
-    apr_status_t rv;
-    md_acme_driver_t ad;
+    md_acme_driver_t *ad;
     
-    memset(&ad, 0, sizeof(ad));
-    d->baton = &ad;
-    ad.driver = d;
-    ad.md = md_copy(d->p, d->md);
+    ad = apr_pcalloc(d->p, sizeof(*ad));
+    
+    d->baton = ad;
+    ad->driver = d;
+    ad->md = md_copy(d->p, d->md);
+    ad->authzs = apr_hash_make(d->p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: driving md %s", 
-                  d->proto->protocol, ad.md->name);
+                  d->proto->protocol, ad->md->name);
     
     /* Find out where we're at with this managed domain */
-    if (APR_SUCCESS == (rv = md_acme_create(&ad.acme, d->p, ad.md->ca_url, d->store))
-        && APR_SUCCESS == (rv = md_acme_setup(ad.acme))
+    return md_acme_create(&ad->acme, d->p, ad->md->ca_url, d->store);
+}
+
+static apr_status_t acme_driver_run(md_proto_driver_t *d)
+{
+    apr_status_t rv = APR_ENOTIMPL;
+    md_acme_driver_t *ad = d->baton;
+
+    if (APR_SUCCESS == (rv = md_acme_setup(ad->acme))
         && APR_SUCCESS == (rv = ad_set_acct(d))) {
         
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: using account %s", 
-                      d->proto->protocol, ad.acct->id);
+                      d->proto->protocol, ad->acct->id);
         
         /* Persist the account we use for future runs */
-        if (!ad.md->ca_account || strcmp(ad.md->ca_account, ad.acct->id)) {
-            ad.md->ca_account = ad.acct->id;
-            rv = md_store_save_md(d->store, ad.md, 0);
+        if (!ad->md->ca_account || strcmp(ad->md->ca_account, ad->acct->id)) {
+            ad->md->ca_account = ad->acct->id;
+            rv = md_store_save_md(d->store, ad->md, 0);
         }
         
-        if (APR_SUCCESS == rv && !ad.acct->tos_agreed) {
-            if (ad.md->ca_tos_agreed) {
-                 rv = md_acme_acct_agree_tos(ad.acct, ad.md->ca_tos_agreed);
+        /* Check if Terms-of-Service for MD account were accepted */
+        if (APR_SUCCESS == rv && !ad->acct->tos_agreed) {
+            if (ad->md->ca_tos_agreed) {
+                /* have been accepted on md, set it on account */
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                              "%s: agreeing to terms-of-service %s", 
+                              d->proto->protocol, ad->md->ca_tos_agreed);
+                 rv = md_acme_acct_agree_tos(ad->acme, ad->acct, ad->md->ca_tos_agreed);
             }
             else {
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, 
-                              "terms-of-service not accepted for account: %s", ad.acct->id);
+                              "terms-of-service not accepted for account: %s", ad->acct->id);
                 rv = APR_EACCES;
             }
         }
+        else {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                          "%s: already agreed to terms-of-service %s", 
+                          d->proto->protocol, ad->acct->tos_agreed);
+        }
         
-        /* 3. Check if Terms-of-Service for MD account were accepted */
-        /* 3.1 Update MD account with accepted TOS url, if necessary */
-        /* 3.2 If rejected, fail */
-        
-        /* 4 For each domain in MD: AUTHZ setup */
-        /* 4.1 If an AUTHZ resource is known, check if it is still valid */
-        /* 4.2 If known AUTHZ resource is not valid, remove, goto 4.1.1 */
-        /* 4.3 If no AUTHZ available, create a new one for the domain, store it */
+        if (APR_SUCCESS == rv) {
+            /* Check that we have challenges for each domain name */
+            rv = ad_setup_authz(d);
+        }
         
         /* 5 For each domain in MD: Challenge Response Setup */
         /* 5.0 GET the AUTHZ resource with and local challenge data */
@@ -533,15 +596,14 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         /* parse cert into PEM, retrieve CA Information Access, download chain */
         /* store cert and chain */
         /* Update MD expiration date */
-    }
-    
-    d->baton = NULL;
-    return rv;
-}
 
-static apr_status_t acme_driver_run(md_proto_driver_t *driver)
-{
-    return APR_ENOTIMPL;
+        if (APR_SUCCESS == rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_ENOTIMPL, d->p, 
+                          "%s beyond account registration", d->proto->protocol);
+        }
+    }    
+        
+    return rv;
 }
 
 static md_proto_t ACME_PROTO = {

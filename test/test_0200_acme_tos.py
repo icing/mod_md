@@ -10,7 +10,7 @@ from datetime import datetime
 from httplib import HTTPConnection
 from urlparse import urlparse
 from shutil import copyfile
-from testbase import BaseTest
+from testbase import TestUtil
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -51,14 +51,14 @@ def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
 
-class TestToS (BaseTest):
+class TestToS :
 
     def test_001(self):
         # try register a new account with valid tos agreements
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS ]
         args.extend(["acme", "newreg", "xx@example.org"])
-        outdata = self.exec_sub(args)
-        m = re.match("registered: (.*)$", outdata)
+        run = TestUtil.run(args)
+        m = re.match("registered: (.*)$", run["stdout"])
         assert m
         print "newreg: %s" % (m.group(1))
  
@@ -66,16 +66,17 @@ class TestToS (BaseTest):
         # try register a new account with invalid tos agreements
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS2 ]
         args.extend(["acme", "newreg", "xx@example.org"])
-        self.exec_sub_err(args, 1)
+        run = TestUtil.run(args)
+        assert run["rv"] == 1
  
     def test_003(self):
         # register new account, agree to tos afterwards
         args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
         args.extend(["acme", "newreg", "tmp@example.org"])
-        outdata = self.exec_sub(args)
-        m = re.match("registered: (.*)$", outdata)
+        run = TestUtil.run(args)
+        m = re.match("registered: (.*)$", run["stdout"])
         assert m
         acct = m.group(1)
         args = [A2MD, "-d", STORE_DIR]
         args.extend(["acme", "agree", acct])
-        outdata = self.exec_sub(args)
+        run = TestUtil.run(args)
