@@ -29,13 +29,8 @@ class TestUtil:
 
     @classmethod
     def a2md_stdargs( cls, args ) :
-        nargs = []
-        nargs.extend(args)
-        cls._a2md_stdargs = nargs 
+        cls._a2md_stdargs = [] + args 
 
     @classmethod
     def a2md( cls, args ) :
-        nargs = []
-        nargs.extend(cls._a2md_stdargs)
-        nargs.extend(args)
-        return cls.run(nargs)
+        return cls.run( cls._a2md_stdargs + args )
