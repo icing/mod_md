@@ -193,8 +193,8 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                 usage(cmd, "update name tos <url>");
                 return APR_EINVAL;
             }
-            nmd->ca_tos_agreed = ctx->argv[2];
-            fields |= MD_UPD_CA_TOS;
+            nmd->ca_agreement = ctx->argv[2];
+            fields |= MD_UPD_AGREEMENT;
         }
         else {
             fprintf(stderr, "unknown update aspect: %s\n", aspect);

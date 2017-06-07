@@ -45,7 +45,7 @@ def check_live(url, timeout):
 def setup_module(module):
     print("looking for ACME server at %s" % ACME_URL)
     assert check_live(ACME_URL, 1)
-        
+    TestUtil.a2md_stdargs([A2MD, "-a", ACME_URL, "-d", STORE_DIR ])        
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
@@ -55,28 +55,31 @@ class TestToS :
 
     def test_001(self):
         # try register a new account with valid tos agreements
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS ]
-        args.extend(["acme", "newreg", "xx@example.org"])
-        run = TestUtil.run(args)
-        m = re.match("registered: (.*)$", run["stdout"])
+        run = TestUtil.a2md( ["--terms", ACME_TOS, "acme", "newreg", "test001@example.org"] )
+        assert run['rv'] == 0
+        m = re.match("registered: (.*)$", run['stdout'])
         assert m
         print "newreg: %s" % (m.group(1))
  
     def test_002(self):
         # try register a new account with invalid tos agreements
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "--terms", ACME_TOS2 ]
-        args.extend(["acme", "newreg", "xx@example.org"])
-        run = TestUtil.run(args)
+        run = TestUtil.a2md( ["--terms", ACME_TOS2, "acme", "newreg", "test002@example.org"])
         assert run["rv"] == 1
  
     def test_003(self):
         # register new account, agree to tos afterwards
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR]
-        args.extend(["acme", "newreg", "tmp@example.org"])
-        run = TestUtil.run(args)
+        run = TestUtil.a2md( ["acme", "newreg", "test003@example.org"] )
+        assert run['rv'] == 0
+        m = re.match("registered: (.*)$", run['stdout'])
+        assert m
+        acct = m.group(1)
+        assert TestUtil.a2md( ["--terms", ACME_TOS, "acme", "agree", acct] )['rv'] == 0
+
+    def test_004(self):
+        # register new account, agree to wrong tos afterwards
+        run = TestUtil.a2md( ["acme", "newreg", "test004@example.org"] )
         m = re.match("registered: (.*)$", run["stdout"])
         assert m
         acct = m.group(1)
-        args = [A2MD, "-d", STORE_DIR]
-        args.extend(["acme", "agree", acct])
-        run = TestUtil.run(args)
+        run = TestUtil.a2md( ["--terms", ACME_TOS2, "acme", "agree", acct] )
+        assert run['rv'] == 1

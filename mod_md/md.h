@@ -21,6 +21,7 @@ struct apr_hash_t;
 struct md_json_t;
 struct md_cert_t;
 struct md_pkey_t;
+struct md_store_t;
 
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
@@ -41,22 +42,22 @@ struct md_t {
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     const char *ca_account;         /* account used at CA */
-    const char *ca_tos_agreed;      /* terms-of-service, accepted by the admin */ 
+    const char *ca_agreement;       /* accepted agreement uri between CA and user */ 
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
 };
 
-#define MD_KEY_CA       "ca"
-#define MD_KEY_DOMAINS  "domains"
-#define MD_KEY_STATE    "state"
-#define MD_KEY_NAME     "name"
-#define MD_KEY_PROTO    "proto"
-#define MD_KEY_TOS      "terms-of-service"
-#define MD_KEY_URL      "url"
-#define MD_KEY_ACCOUNT  "account"
-#define MD_KEY_CONTACTS "contacts"
+#define MD_KEY_CA           "ca"
+#define MD_KEY_DOMAINS      "domains"
+#define MD_KEY_STATE        "state"
+#define MD_KEY_NAME         "name"
+#define MD_KEY_PROTO        "proto"
+#define MD_KEY_AGREEMENT    "agreement"
+#define MD_KEY_URL          "url"
+#define MD_KEY_ACCOUNT      "account"
+#define MD_KEY_CONTACTS     "contacts"
 
 /**
  * Determine if the Managed Domain contains a specific domain name.
@@ -93,14 +94,6 @@ md_t *md_create_empty(apr_pool_t *p);
  */
 const char *md_create(md_t **pmd, apr_pool_t *p, struct apr_array_header_t *domains);
 
-/** 
- * Convert the managed domain into a JSON representation and vice versa. 
- *
- * This reads and writes the following information: name, domains, ca_url, ca_proto and state.
- */
-struct md_json_t *md_to_json (const md_t *md, apr_pool_t *p);
-md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
-
 /**
  * Deep copy an md record into another pool.
  */
@@ -110,6 +103,27 @@ md_t *md_clone(apr_pool_t *p, const md_t *src);
  * Shallow copy an md record into another pool.
  */
 md_t *md_copy(apr_pool_t *p, const md_t *src);
+
+/** 
+ * Convert the managed domain into a JSON representation and vice versa. 
+ *
+ * This reads and writes the following information: name, domains, ca_url, ca_proto and state.
+ */
+struct md_json_t *md_to_json (const md_t *md, apr_pool_t *p);
+md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
+
+/* Storage handling of managed domains */
+apr_status_t md_load(struct md_store_t *store, const char *name, md_t **pmd, apr_pool_t *p);
+apr_status_t md_save(struct md_store_t *store, md_t *md, int create);
+apr_status_t md_remove(struct md_store_t *store, const char *name, int force);
+apr_status_t md_load_all(struct apr_array_header_t **pmds, struct md_store_t *store, apr_pool_t *p);
+
+apr_status_t md_load_pkey(struct md_store_t *store, const char *name, 
+                          struct md_pkey_t **ppkey, apr_pool_t *p);
+apr_status_t md_load_cert(struct md_store_t *store, const char *name, 
+                          struct md_cert_t **pcert, apr_pool_t *p);
+apr_status_t md_load_chain(struct md_store_t *store, const char *name, 
+                           struct apr_array_header_t **pchain, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* domain credentials */

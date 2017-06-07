@@ -81,7 +81,7 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg);
 #define MD_UPD_CA_PROTO     0x0004
 #define MD_UPD_CA_ACCOUNT   0x0008
 #define MD_UPD_CONTACTS     0x0010
-#define MD_UPD_CA_TOS       0x0020
+#define MD_UPD_AGREEMENT    0x0020
 #define MD_UPD_ALL          0x7FFF
 
 /**

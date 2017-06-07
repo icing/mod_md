@@ -244,6 +244,8 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
     }
     
     switch (res->status) {
+        case 400:
+            return APR_EINVAL;
         case 403:
             return APR_EACCES;
         case 404:
@@ -449,7 +451,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
             return APR_EINVAL;
         }
         
-        rv = md_acme_register(&acct, d->store, ad->acme, md->contacts, md->ca_tos_agreed);
+        rv = md_acme_register(&acct, d->store, ad->acme, md->contacts, md->ca_agreement);
         if (APR_SUCCESS != rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "register new account");
         }
@@ -529,31 +531,17 @@ static apr_status_t acme_driver_run(md_proto_driver_t *d)
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: using account %s", 
                       d->proto->protocol, ad->acct->id);
         
-        /* Persist the account we use for future runs */
+        /* Persist the account chosen for future runs */
         if (!ad->md->ca_account || strcmp(ad->md->ca_account, ad->acct->id)) {
             ad->md->ca_account = ad->acct->id;
-            rv = md_store_save_md(d->store, ad->md, 0);
+            rv = md_save(d->store, ad->md, 0);
         }
         
-        /* Check if Terms-of-Service for MD account were accepted */
-        if (APR_SUCCESS == rv && !ad->acct->tos_agreed) {
-            if (ad->md->ca_tos_agreed) {
-                /* have been accepted on md, set it on account */
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                              "%s: agreeing to terms-of-service %s", 
-                              d->proto->protocol, ad->md->ca_tos_agreed);
-                 rv = md_acme_acct_agree_tos(ad->acme, ad->acct, ad->md->ca_tos_agreed);
-            }
-            else {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, 
-                              "terms-of-service not accepted for account: %s", ad->acct->id);
-                rv = APR_EACCES;
-            }
-        }
-        else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                          "%s: already agreed to terms-of-service %s", 
-                          d->proto->protocol, ad->acct->tos_agreed);
+        /* Check that the account agreed to the terms-of-service, otherwise
+         * requests for new authorizations are denied. ToS may change during the
+         * lifetime of an account */
+        if (APR_SUCCESS == rv) {
+            rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
         }
         
         if (APR_SUCCESS == rv) {

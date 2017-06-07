@@ -57,7 +57,7 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg->creds = apr_hash_make(p);
     
     if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, reg->p))) {
-        if (APR_SUCCESS == (rv = md_store_load_mds(&mds, reg->store, reg->p))) {
+        if (APR_SUCCESS == (rv = md_load_all(&mds, reg->store, reg->p))) {
             md_t *md;
             int i;
             
@@ -202,7 +202,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
         /* hmm, in case we know the protocol, some checks could be done */
     }
 
-    if ((MD_UPD_CA_TOS & fields) && md->ca_tos_agreed) { /* setting to empty is ok */
+    if ((MD_UPD_AGREEMENT & fields) && md->ca_agreement) { /* setting to empty is ok */
         /* hmm, in case we know the protocol, some checks could be done */
     }
 out:
@@ -348,19 +348,27 @@ const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdom
 /**************************************************************************************************/
 /* manipulation */
 
-apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
+static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
-    md_t *mine;
-    apr_status_t rv;
+    md_reg_t *reg = baton;
+    apr_status_t rv = APR_SUCCESS;
+    md_t *md, *mine;
     
-    if (APR_SUCCESS == (rv = check_values(reg, reg->p, md, MD_UPD_ALL))
-        && APR_SUCCESS == (rv = md_store_save_md(reg->store, md, 1))
-        && APR_SUCCESS == (rv = md_store_load_md(&mine, reg->store, md->name, reg->p))) {
+    md = va_arg(ap, md_t *);
+    
+    if (APR_SUCCESS == (rv = check_values(reg, ptemp, md, MD_UPD_ALL))
+        && APR_SUCCESS == (rv = md_save(reg->store, md, 1))
+        && APR_SUCCESS == (rv = md_load(reg->store, md->name, &mine, p))) {
         apr_hash_set(reg->mds, mine->name, strlen(mine->name), mine);
         
         rv = md_reg_state_init(reg, mine);
     }
     return rv;
+}
+
+apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
+{
+    return md_util_pool_vdo(p_md_add, reg, reg->p, md, NULL);
 }
 
 static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -408,14 +416,14 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         nmd->contacts = updates->contacts;
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update contacts: %s", name);
     }
-    if (MD_UPD_CA_TOS & fields) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update ca tos: %s", name);
-        nmd->ca_tos_agreed = updates->ca_tos_agreed;
+    if (MD_UPD_AGREEMENT & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update agreement: %s", name);
+        nmd->ca_agreement = updates->ca_agreement;
     }
     
     if (fields 
-        && APR_SUCCESS == (rv = md_store_save_md(reg->store, nmd, 0))
-        && APR_SUCCESS == (rv = md_store_load_md(&nmd, reg->store, name, p))) {
+        && APR_SUCCESS == (rv = md_save(reg->store, nmd, 0))
+        && APR_SUCCESS == (rv = md_load(reg->store, name, &nmd, p))) {
         apr_hash_set(reg->mds, nmd->name, strlen(nmd->name), nmd);
 
         rv = md_reg_state_init(reg, nmd);
@@ -450,9 +458,9 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     pcreds = va_arg(ap, md_creds_t **);
     md = va_arg(ap, const md_t *);
     
-    if (ok_or_noent(rv = md_store_load_cert(&cert, reg->store, md->name, p))
-        && ok_or_noent(rv = md_store_load_pkey(&pkey, reg->store, MD_SG_DOMAINS, md->name, p))
-        && ok_or_noent(rv = md_store_load_chain(&chain, reg->store, md->name, p))) {
+    if (ok_or_noent(rv = md_load_cert(reg->store, md->name, &cert, p))
+        && ok_or_noent(rv = md_load_pkey(reg->store, md->name, &pkey, p))
+        && ok_or_noent(rv = md_load_chain(reg->store, md->name, &chain, p))) {
         rv = APR_SUCCESS;
             
         creds = apr_pcalloc(p, sizeof(*creds));
