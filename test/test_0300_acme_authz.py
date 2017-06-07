@@ -64,6 +64,7 @@ def get_json(url, timeout):
 def setup_module(module):
     print("looking for ACME server at %s" % ACME_URL)
     assert check_live(ACME_URL, 1)
+    TestUtil.a2md_stdargs([A2MD, "-a", ACME_URL, "-d", STORE_DIR ])        
         
     
 def teardown_module(module):
@@ -75,16 +76,13 @@ class TestAuthz :
     def test_001(self):
         # register a new account, agree to tos, create auth resource
         domain = "www.test-example.org"
-        args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-t", ACME_TOS]
-        args.extend(["acme", "newreg", "tmp@example.org"])
-        run = TestUtil.run(args)
+        run = TestUtil.a2md( ["-t", ACME_TOS, "acme", "newreg", "tmp@example.org"] )
         m = re.match("registered: (.*)$", run["stdout"])
         assert m
         acct = m.group(1)
 
-        args = [A2MD, "-d", STORE_DIR]
-        args.extend(["acme", "authz", acct, domain])
-        run = TestUtil.run(args)
+        run = TestUtil.a2md( ["acme", "authz", acct, domain] )
+        assert run['rv'] == 0
         m = re.match("authz: " + domain + " (.*)$", run["stdout"])
         assert m
         authz_url = m.group(1)

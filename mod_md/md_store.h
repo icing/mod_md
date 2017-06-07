@@ -19,7 +19,6 @@
 struct apr_array_header_t;
 struct md_cert_t;
 struct md_pkey_t;
-struct md_t;
 
 typedef struct md_store_t md_store_t;
 

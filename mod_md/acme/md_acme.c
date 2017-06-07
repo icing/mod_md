@@ -467,8 +467,9 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
 static apr_status_t ad_setup_authz(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad = d->baton;
-    apr_status_t rv = APR_SUCCESS;
+    apr_status_t rv;
     md_t *md = ad->md;
+    md_acme_authz_set_t *authz_set;
     int i;
     
     /* For each domain in MD: AUTHZ setup
@@ -476,6 +477,8 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
      * if known AUTHZ resource is not valid, remove, goto 4.1.1
      * if no AUTHZ available, create a new one for the domain, store it
      */
+     
+    rv = md_acme_authz_set_load(d->store, md->name, &authz_set, d->p);
     for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
         const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
         md_acme_authz_t *authz = apr_hash_get(ad->authzs, domain, strlen(domain));
@@ -484,7 +487,8 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
         }
         else {
             /* create new one */
-            if (APR_SUCCESS == (rv = md_acme_authz_register(&authz, domain, ad->acct))) {
+            rv = md_acme_authz_register(&authz,ad->acme, domain, ad->acct, d->p);
+            if (APR_SUCCESS == rv) {
                 apr_hash_set(ad->authzs, domain, strlen(domain), authz);
             }
         }

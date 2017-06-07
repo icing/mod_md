@@ -237,7 +237,7 @@ static md_cmd_t AcmeDelregCmd = {
 /**************************************************************************************************/
 /* command: acme authz */
 
-static apr_status_t acme_newauthz(md_acme_acct_t *acct, const char *domain) 
+static apr_status_t acme_newauthz(md_cmd_ctx *ctx, md_acme_acct_t *acct, const char *domain) 
 {
     apr_status_t rv;
     long req_id;
@@ -245,13 +245,13 @@ static apr_status_t acme_newauthz(md_acme_acct_t *acct, const char *domain)
     md_json_t *json;
     md_acme_authz_t *authz;
     
-    rv = md_acme_authz_register(&authz, domain, acct); 
+    rv = md_acme_authz_register(&authz, ctx->acme, domain, acct, ctx->p); 
     
     if (rv == APR_SUCCESS) {
-        fprintf(stdout, "authz: %s %s\n", domain, authz->url);
+        fprintf(stdout, "authz: %s %s\n", domain, authz->location);
     }
     else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acct->pool, "register new authz");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "register new authz");
     }
     return rv;
 }
@@ -269,7 +269,7 @@ static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     s = ctx->argv[0];
     if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, s, ctx->p))) {
         for (i = 1; i < ctx->argc; ++i) {
-            rv = acme_newauthz(acct, ctx->argv[i]);
+            rv = acme_newauthz(ctx, acct, ctx->argv[i]);
             if (rv != APR_SUCCESS) {
                 break;
             }
@@ -284,7 +284,7 @@ static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeAuthzCmd = {
-    "authz", MD_CTX_STORE, 
+    "authz", MD_CTX_STORE|MD_CTX_ACME, 
     NULL, cmd_acme_authz, MD_NoOptions, NULL,
     "authz account domain",
     "request a new authorization for an account and domain",

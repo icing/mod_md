@@ -33,10 +33,10 @@ test-store: $(SERVER_DIR)/.test-setup
 	@cd test; py.test test_0001_store.py
 
 test-tos: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_0200_tos.py
+	@cd test; py.test test_0200_acme_tos.py
 
 test-authz: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_0300_authz.py
+	@cd test; py.test test_0300_acme_authz.py
 
 $(SERVER_DIR)/.test-setup: test/conf/* \
 		$(SERVER_DIR)/conf/ssl/cert.pem
