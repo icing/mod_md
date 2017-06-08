@@ -105,5 +105,11 @@ class TestEnv:
         print "Unable to contact server after %d sec" % timeout
         return None
 
+    @classmethod
+    def clear_store( cls ) : 
+        print("clear store dir: %s" % TestEnv.STORE_DIR)
+        assert len(TestEnv.STORE_DIR) > 1
+        shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=True)
+        os.makedirs(TestEnv.STORE_DIR)
 
 

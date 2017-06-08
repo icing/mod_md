@@ -40,20 +40,14 @@ class TestReg :
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        # wipe store directory
-        print("clear store dir: %s" % STORE_DIR)
-        assert len(STORE_DIR) > 1
-        shutil.rmtree(STORE_DIR, ignore_errors=True)
-        os.makedirs(STORE_DIR)
+        TestEnv.clear_store()
         # add managed domains
         dnslist = [ 
             [ self.NAME1, "www.greenbytes2.de", "mail.greenbytes2.de"],
             [ self.NAME2, "test-101.com", "test-102.com" ]
         ]
         for dns in dnslist:
-            args = [A2MD, "-a", ACME_URL, "-d", STORE_DIR, "-j", "add" ]
-            args.extend(dns)
-            TestEnv.run(args)
+            TestEnv.a2md( [ "add" ] + dns )
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)

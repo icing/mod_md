@@ -25,11 +25,7 @@ class TestReg :
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        # wipe store directory
-        print("clear store dir: %s" % TestEnv.STORE_DIR)
-        assert len(TestEnv.STORE_DIR) > 1
-        shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=True)
-        os.makedirs(TestEnv.STORE_DIR)
+        TestEnv.clear_store()
  
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
