@@ -62,6 +62,22 @@ apr_status_t md_json_addj(md_json_t *value, md_json_t *json, ...);
 apr_status_t md_json_clr(md_json_t *json, ...);
 apr_status_t md_json_del(md_json_t *json, ...);
 
+/* conversion function from and to json */
+typedef apr_status_t md_json_to_cb(void *value, md_json_t *json, apr_pool_t *p);
+typedef apr_status_t md_json_from_cb(void **pvalue, md_json_t *json, apr_pool_t *p);
+
+/* identity pass through from json to json */
+apr_status_t md_json_pass_to(void *value, md_json_t *json, apr_pool_t *p);
+apr_status_t md_json_pass_from(void **pvalue, md_json_t *json, apr_pool_t *p);
+
+/* conversions from json to json in specified pool */
+apr_status_t md_json_clone_to(void *value, md_json_t *json, apr_pool_t *p);
+apr_status_t md_json_clone_from(void **pvalue, md_json_t *json, apr_pool_t *p);
+
+/* Manipulating generic Arrays */
+apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb, md_json_t *json, ...);
+apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, md_json_t *json, ...);
+
 /* Manipulating Object String values */
 apr_status_t md_json_gets_dict(apr_table_t *dict, md_json_t *json, ...);
 apr_status_t md_json_sets_dict(apr_table_t *dict, md_json_t *json, ...);

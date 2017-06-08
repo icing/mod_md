@@ -23,6 +23,7 @@
 		B255730A1EE6CF6100E0B132 /* test_0100_reg_add.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0100_reg_add.py; sourceTree = "<group>"; };
 		B255730B1EE6CF6100E0B132 /* test_0110_reg_update.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0110_reg_update.py; sourceTree = "<group>"; };
 		B255730C1EE6D11200E0B132 /* testbase.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = testbase.py; sourceTree = "<group>"; };
+		B255730D1EE956B000E0B132 /* test_0500_drive.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0500_drive.py; sourceTree = "<group>"; };
 		B2BCAB7B1ED42C8E002F4EB9 /* md_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B2BCAB7C1ED42C8E002F4EB9 /* md_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store.h; sourceTree = "<group>"; };
 		B2BCAB831ED82F6F002F4EB9 /* md_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_reg.c; sourceTree = "<group>"; };
@@ -169,6 +170,7 @@
 				B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */,
 				B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */,
 				B20333391EDDA82300E5BE7E /* test_0220_acme_authz.py */,
+				B255730D1EE956B000E0B132 /* test_0500_drive.py */,
 				B203333B1EDDA82300E5BE7E /* test_1001_configs.py */,
 				B2D31AF51EC1B80D007BECC8 /* test_configs_data */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,

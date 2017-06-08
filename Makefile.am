@@ -32,8 +32,8 @@ test: $(SERVER_DIR)/.test-setup src/a2md
 test-store: $(SERVER_DIR)/.test-setup
 	@cd test; py.test test_0001_store.py
 
-test-tos: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_0210_acme_tos.py
+test-drive: $(SERVER_DIR)/.test-setup
+	@cd test; py.test test_0500_drive.py
 
 test-authz: $(SERVER_DIR)/.test-setup
 	@cd test; py.test test_0220_acme_authz.py

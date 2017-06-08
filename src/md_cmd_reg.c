@@ -188,7 +188,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             }
             fields |= MD_UPD_CONTACTS;
         }
-        else if (!strcmp("tos", aspect)) {
+        else if (!strcmp("agreement", aspect)) {
             if (ctx->argc <= 1) {
                 usage(cmd, "update name tos <url>");
                 return APR_EINVAL;

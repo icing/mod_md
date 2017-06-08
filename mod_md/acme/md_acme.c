@@ -384,7 +384,7 @@ typedef struct {
     md_acme_acct_t *acct;
     md_t *md;
     
-    apr_hash_t *authzs;
+    md_acme_authz_set_t *authz_set;
     
 } md_acme_driver_t;
 
@@ -469,38 +469,42 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
     md_t *md = ad->md;
-    md_acme_authz_set_t *authz_set;
-    int i;
+    md_acme_authz_t *authz;
+    int i, changed;
     
     /* For each domain in MD: AUTHZ setup
      * if an AUTHZ resource is known, check if it is still valid
      * if known AUTHZ resource is not valid, remove, goto 4.1.1
      * if no AUTHZ available, create a new one for the domain, store it
      */
-     
-    rv = md_acme_authz_set_load(d->store, md->name, &authz_set, d->p);
+    
+    rv = md_acme_authz_set_load(d->store, md->name, &ad->authz_set, d->p);
+    if (APR_ENOENT == rv) {
+        ad->authz_set = md_acme_authz_set_create(d->p, ad->acct->id);
+        rv = APR_SUCCESS;
+    }
+    
     for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
         const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
-        md_acme_authz_t *authz = apr_hash_get(ad->authzs, domain, strlen(domain));
+        changed = 0;
+        authz = md_acme_authz_set_get(ad->authz_set, domain);
         if (authz) {
             /* check valid */
         }
-        else {
+        if (!authz) {
             /* create new one */
             rv = md_acme_authz_register(&authz,ad->acme, domain, ad->acct, d->p);
             if (APR_SUCCESS == rv) {
-                apr_hash_set(ad->authzs, domain, strlen(domain), authz);
+                rv = md_acme_authz_set_add(ad->authz_set, authz);
+                changed = 1;
             }
         }
-        
-        if (APR_SUCCESS == rv && !authz) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_ENOENT, d->p, 
-                          "%s: authz missing for domain name %s", ad->md->name, domain);
-            rv = APR_ENOENT;
+        if (APR_SUCCESS == rv && changed) {
+            rv = md_acme_authz_set_save(d->store, md->name, ad->authz_set, 0);
         }
     }
     
-    return rv;
+    return APR_ENOTIMPL;
 }
 
 /**************************************************************************************************/
@@ -515,7 +519,6 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     d->baton = ad;
     ad->driver = d;
     ad->md = md_copy(d->p, d->md);
-    ad->authzs = apr_hash_make(d->p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: driving md %s", 
                   d->proto->protocol, ad->md->name);
