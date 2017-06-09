@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 
+#include <assert.h>
+
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_buckets.h>
@@ -24,22 +26,11 @@
 struct md_http_t {
     apr_pool_t *pool;
     apr_bucket_alloc_t *bucket_alloc;
-    CURL *curl;
 };
 
 
 static int init_done;
 static long next_req_id;
-
-static apr_status_t http_pool_cleanup(void *data)
-{
-    md_http_t *http = data;
-    if (http->curl) {
-        curl_easy_cleanup(http->curl);
-        http->curl = NULL;
-    }
-    return APR_SUCCESS;
-}
 
 static size_t req_data_cb(void *data, size_t len, size_t nmemb, void *baton)
 {
@@ -142,21 +133,25 @@ apr_status_t md_http_create(md_http_t **phttp, apr_pool_t *p)
         return APR_EGENERAL;
     }
     
-    http->curl = curl_easy_init();
-    if (!http->curl) {
+    *phttp = http;
+    return APR_SUCCESS;
+}
+
+static apr_status_t curl_init(md_http_request_t *req)
+{
+    CURL *curl = curl_easy_init();
+    if (!curl) {
         return APR_EGENERAL;
     }
     
-    apr_pool_pre_cleanup_register(p, http, http_pool_cleanup);    
-    *phttp = http;
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, NULL);
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, req_data_cb);
+    curl_easy_setopt(curl, CURLOPT_READDATA, NULL);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, resp_data_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
     
-    curl_easy_setopt(http->curl, CURLOPT_HEADERFUNCTION, header_cb);
-    curl_easy_setopt(http->curl, CURLOPT_HEADERDATA, NULL);
-    curl_easy_setopt(http->curl, CURLOPT_READFUNCTION, req_data_cb);
-    curl_easy_setopt(http->curl, CURLOPT_READDATA, NULL);
-    curl_easy_setopt(http->curl, CURLOPT_WRITEFUNCTION, resp_data_cb);
-    curl_easy_setopt(http->curl, CURLOPT_WRITEDATA, NULL);
-
+    req->internals = curl;
     return APR_SUCCESS;
 }
 
@@ -189,7 +184,11 @@ static apr_status_t req_create(md_http_request_t **preq, md_http_t *http,
 
 static void req_destroy(md_http_request_t *req) 
 {
-   apr_pool_destroy(req->pool);
+    if (req->internals) {
+        curl_easy_cleanup(req->internals);
+        req->internals = NULL;
+    }
+    apr_pool_destroy(req->pool);
 }
 
 typedef struct {
@@ -216,10 +215,13 @@ static int curlify_headers(void *baton, const char *key, const char *value)
 static apr_status_t perform(md_http_request_t *req)
 {
     apr_status_t rv = APR_SUCCESS;
-    CURL *curl = req->http->curl;
     md_http_response_t *res;
+    CURL *curl;
     struct curl_slist *req_hdrs = NULL;
 
+    rv = curl_init(req);
+    curl = req->internals;
+    
     res = apr_pcalloc(req->pool, sizeof(*res));
     
     res->req = req;

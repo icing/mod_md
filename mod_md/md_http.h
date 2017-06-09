@@ -36,6 +36,7 @@ struct md_http_request_t {
     apr_off_t body_len;
     md_http_cb *cb;
     void *baton;
+    void *internals;
 };
 
 struct md_http_response_t {

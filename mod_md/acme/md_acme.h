@@ -84,6 +84,12 @@ apr_status_t md_acme_setup(md_acme_t *acme);
 
 
 /**
+ * Retrieve a JSON resource from the ACME server 
+ */
+apr_status_t md_acme_get_json(struct md_json_t **pjson, md_acme_t *acme, 
+                              const char *url, apr_pool_t *p);
+
+/**
  * A request against an ACME server
  */
 typedef struct md_acme_req_t md_acme_req_t;

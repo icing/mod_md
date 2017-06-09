@@ -17,6 +17,7 @@
 #include <stdio.h>
 
 #include <apr_lib.h>
+#include <apr_buckets.h>
 #include <apr_file_info.h>
 #include <apr_file_io.h>
 #include <apr_fnmatch.h>
@@ -25,6 +26,7 @@
 #include <apr_tables.h>
 
 #include "../md_json.h"
+#include "../md_http.h"
 #include "../md_log.h"
 #include "../md_jws.h"
 #include "../md_store.h"
@@ -78,6 +80,27 @@ apr_status_t md_acme_authz_set_add(md_acme_authz_set_t *set, md_acme_authz_t *au
     }
     APR_ARRAY_PUSH(set->authzs, md_acme_authz_t*) = authz;
     return APR_SUCCESS;
+}
+
+apr_status_t md_acme_authz_set_remove(md_acme_authz_set_t *set, const char *domain)
+{
+    md_acme_authz_t *authz;
+    int i;
+    
+    assert(domain);
+    for (i = 0; i < set->authzs->nelts; ++i) {
+        authz = APR_ARRAY_IDX(set->authzs, i, md_acme_authz_t *);
+        if (!apr_strnatcasecmp(domain, authz->domain)) {
+            int n = i +1;
+            if (n < set->authzs->nelts) {
+                void **elems = (void **)set->authzs->elts;
+                memmove(elems + i, elems + n, set->authzs->nelts - n); 
+            }
+            --set->authzs->nelts;
+            return APR_SUCCESS;
+        }
+    }
+    return APR_ENOENT;
 }
 
 /**************************************************************************************************/
@@ -139,15 +162,70 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "create new authz");
     rv = md_acme_req_do(acme, acme->new_authz, on_init_authz, on_success_authz, &ctx);
+    
     *pauthz = (APR_SUCCESS == rv)? ctx.authz : NULL;
     return rv;
-} 
+}
+
+/**************************************************************************************************/
+/* Update an exiosting authorization */
+
+apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, 
+                                  md_acme_acct_t *acct, apr_pool_t *p)
+{
+    md_json_t *json;
+    const char *s;
+    apr_status_t rv;
+    
+    assert(acme);
+    assert(acme->http);
+    assert(authz);
+    assert(authz->location);
+
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "update authz for %s at %s",
+        authz->domain, authz->location);
+        
+    if (APR_SUCCESS == (rv = md_json_http_get(&json, p, acme->http, authz->location))) {
+        s = md_json_gets(json, "identifier", "type", NULL);
+        if (!s || strcmp(s, "dns")) return APR_EINVAL;
+        s = md_json_gets(json, "identifier", "value", NULL);
+        if (!s || strcmp(s, authz->domain)) return APR_EINVAL;
+        
+        authz->state = MD_ACME_AUTHZ_S_UNKNOWN;
+        s = md_json_gets(json, "status", NULL);
+        if (s && !strcmp(s, "pending")) {
+            authz->state = MD_ACME_AUTHZ_S_PENDING;
+        }
+        else if (s && !strcmp(s, "valid")) {
+            authz->state = MD_ACME_AUTHZ_S_VALID;
+        }
+        else if (s && !strcmp(s, "invalid")) {
+            authz->state = MD_ACME_AUTHZ_S_INVALID;
+        }
+        else if (s) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acct->pool, "unknown authz state '%s' "
+                          "for %s in %s", s, authz->domain, authz->location);
+            return APR_EINVAL;
+        }
+    }
+    return rv;
+}
+
+/**************************************************************************************************/
+/* response to a challenge */
+apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, 
+                                   md_acme_acct_t *acct, struct md_store_t *store,
+                                   apr_pool_t *p)
+{
+    return APR_ENOTIMPL;
+}
 
 /**************************************************************************************************/
 /* authz conversion */
 
 #define MD_KEY_DOMAIN           "domain"
 #define MD_KEY_LOCATION         "location"
+#define MD_KEY_STATE            "state"
 
 md_json_t *md_acme_authz_to_json(md_acme_authz_t *a, apr_pool_t *p)
 {
@@ -155,6 +233,7 @@ md_json_t *md_acme_authz_to_json(md_acme_authz_t *a, apr_pool_t *p)
     if (json) {
         md_json_sets(a->domain, json, MD_KEY_DOMAIN, NULL);
         md_json_sets(a->location, json, MD_KEY_LOCATION, NULL);
+        md_json_setl(a->state, json, MD_KEY_STATE, NULL);
         return json;
     }
     return NULL;
@@ -166,6 +245,7 @@ md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p)
     if (authz) {
         authz->domain = md_json_dups(p, json, MD_KEY_DOMAIN, NULL);            
         authz->location = md_json_dups(p, json, MD_KEY_LOCATION, NULL);            
+        authz->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);            
         return authz;
     }
     return NULL;
