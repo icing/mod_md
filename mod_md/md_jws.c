@@ -78,3 +78,20 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
     *pmsg = (APR_SUCCESS == rv)? msg : NULL;
     return rv;
 }
+
+apr_status_t md_jws_pkey_thumb(const char **pthumb, apr_pool_t *p, struct md_pkey_t *pkey)
+{
+    const char *e64, *n64, *s;
+    apr_status_t rv;
+    
+    e64 = md_pkey_get_rsa_e64(pkey, p);
+    n64 = md_pkey_get_rsa_n64(pkey, p);
+    if (!e64 || !n64) {
+        return APR_EINVAL;
+    }
+
+    /* whitespace and order is relevant, since we hand out a digest of this */
+    s = apr_psprintf(p, "{\"e\":\"%s\",\"kty\":\"RSA\",\"n\":\"%s\"}", e64, n64);
+    rv = md_crypt_sha256_digest64(pthumb, p, s, strlen(s));
+    return rv;
+}

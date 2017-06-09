@@ -483,26 +483,30 @@ apr_status_t md_json_sets_dict(apr_table_t *dict, md_json_t *json, ...)
 /**************************************************************************************************/
 /* conversions */
 
-apr_status_t md_json_pass_to(void *value, md_json_t *json, apr_pool_t *p)
+apr_status_t md_json_pass_to(void *value, md_json_t *json, apr_pool_t *p, void *baton)
 {
     (void)p;
+    (void)baton;
     return md_json_setj(value, json, NULL);
 }
 
-apr_status_t md_json_pass_from(void **pvalue, md_json_t *json, apr_pool_t *p)
+apr_status_t md_json_pass_from(void **pvalue, md_json_t *json, apr_pool_t *p, void *baton)
 {
     (void)p;
+    (void)baton;
     *pvalue = json;
     return APR_SUCCESS;
 }
 
-apr_status_t md_json_clone_to(void *value, md_json_t *json, apr_pool_t *p)
+apr_status_t md_json_clone_to(void *value, md_json_t *json, apr_pool_t *p, void *baton)
 {
+    (void)baton;
     return md_json_setj(md_json_clone(p, value), json, NULL);
 }
 
-apr_status_t md_json_clone_from(void **pvalue, md_json_t *json, apr_pool_t *p)
+apr_status_t md_json_clone_from(void **pvalue, md_json_t *json, apr_pool_t *p, void *baton)
 {
+    (void)baton;
     *pvalue = md_json_clone(p, json);
     return APR_SUCCESS;
 }
@@ -510,34 +514,45 @@ apr_status_t md_json_clone_from(void **pvalue, md_json_t *json, apr_pool_t *p)
 /**************************************************************************************************/
 /* array generic */
 
-apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb, md_json_t *json, ...)
+apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb, void *baton,
+                          md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
+    apr_status_t rv = APR_SUCCESS;
+    size_t index;
+    json_t *val;
+    md_json_t wrap;
+    void *element;
     
     va_start(ap, json);
     j = select(json, ap);
     va_end(ap);
     
-    if (j && json_is_array(j)) {
-        size_t index;
-        json_t *val;
-        md_json_t wrap;
-        void *element;
+    if (!j || !json_is_array(j)) {
+        return APR_ENOENT;
+    }
         
-        wrap.p = a->pool;
-        json_array_foreach(j, index, val) {
-            wrap.j = val;
-            if ((APR_SUCCESS == cb(&element, &wrap, wrap.p))) {
+    wrap.p = a->pool;
+    json_array_foreach(j, index, val) {
+        wrap.j = val;
+        if (APR_SUCCESS == (rv = cb(&element, &wrap, wrap.p, baton))) {
+            if (a) {
                 APR_ARRAY_PUSH(a, void*) = element;
             }
         }
-        return APR_SUCCESS;
+        else if (APR_ENOENT == rv) {
+            rv = APR_SUCCESS;
+        }
+        else {
+            break;
+        }
     }
-    return APR_ENOENT;
+    return rv;
 }
 
-apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, md_json_t *json, ...)
+apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, void *baton, 
+                          md_json_t *json, ...)
 {
     json_t *nj, *j;
     md_json_t wrap;
@@ -572,7 +587,7 @@ apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, md_json_t *j
             nj = json_string("");
         }
         wrap.j = nj;
-        if (APR_SUCCESS == (rv = cb(APR_ARRAY_IDX(a, i, void*), &wrap, json->p))) {
+        if (APR_SUCCESS == (rv = cb(APR_ARRAY_IDX(a, i, void*), &wrap, json->p, baton))) {
             json_array_append(j, wrap.j);
             if (wrap.j == nj) {
                 nj = NULL;
@@ -583,6 +598,32 @@ apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, md_json_t *j
         json_decref(nj);
     }
     return rv;
+}
+
+int md_json_itera(md_json_itera_cb *cb, void *baton, md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    size_t index;
+    json_t *val;
+    md_json_t wrap;
+    
+    va_start(ap, json);
+    j = select(json, ap);
+    va_end(ap);
+    
+    if (!j || !json_is_array(j)) {
+        return 0;
+    }
+        
+    wrap.p = json->p;
+    json_array_foreach(j, index, val) {
+        wrap.j = val;
+        if (!cb(baton, index, &wrap)) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 /**************************************************************************************************/

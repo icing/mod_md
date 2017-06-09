@@ -26,8 +26,10 @@ struct md_acme_acct;
 struct md_proto_t;
 
 
-#define MD_PROTO_ACME       "ACME"
+#define MD_PROTO_ACME           "ACME"
 
+#define MD_AUTHZ_CHA_HTTP       "http-01"
+#define MD_AUTHZ_CHA_SNI        "tls-sni-01"
 
 typedef enum {
     MD_ACME_S_UNKNOWN,              /* MD has not been analysed yet */
@@ -56,6 +58,9 @@ struct md_acme_t {
     
     const char *nonce;
     unsigned int pkey_bits;
+    
+    unsigned can_cha_http_01 : 1;
+    unsigned can_cha_tls_sni_01 : 1;
 };
 
 /**

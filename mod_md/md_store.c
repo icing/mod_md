@@ -35,6 +35,7 @@
 /* generic callback handling */
 
 #define FS_DN_ACCOUNTS     "accounts"
+#define FS_DN_CHALLENGES   "challenges"
 #define FS_DN_DOMAINS      "domains"
 
 #define ASPECT_MD           "md.json"
@@ -44,6 +45,7 @@
 
 static const char *SGROUP_FNAME[] = {
     FS_DN_ACCOUNTS,
+    FS_DN_CHALLENGES,
     FS_DN_DOMAINS,
 };
 
@@ -168,6 +170,9 @@ static apr_status_t fs_fload(void **pvalue, const char *fpath, md_store_vtype_t 
     apr_status_t rv;
     if (pvalue != NULL) {
         switch (vtype) {
+            case MD_SV_TEXT:
+                rv = md_text_fread8k((const char **)pvalue, p, fpath);
+                break;
             case MD_SV_JSON:
                 rv = md_json_readf((md_json_t **)pvalue, p, fpath);
                 break;
@@ -241,6 +246,10 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "storing in %s", fpath);
         switch (vtype) {
+            case MD_SV_TEXT:
+                rv = (create? md_text_fcreatex(fpath,p, value)
+                      : md_text_freplace(fpath, p, value));
+                break;
             case MD_SV_JSON:
                 rv = (create? md_json_fcreatex((md_json_t *)value, p, MD_JSON_FMT_INDENT, fpath)
                       : md_json_freplace((md_json_t *)value, p, MD_JSON_FMT_INDENT, fpath));

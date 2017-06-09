@@ -24,4 +24,6 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
                          const char *payload, size_t len, struct apr_table_t *protected, 
                          struct md_pkey_t *pkey, const char *key_id);
 
+apr_status_t md_jws_pkey_thumb(const char **pthumb, apr_pool_t *p, struct md_pkey_t *pkey);
+
 #endif /* md_jws_h */

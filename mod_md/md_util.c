@@ -214,6 +214,52 @@ creat:
     return rv;
 }                            
 
+/**************************************************************************************************/
+/* text files */
+
+apr_status_t md_text_fread8k(const char **ptext, apr_pool_t *p, const char *fpath)
+{
+    apr_status_t rv;
+    apr_file_t *f;
+    char buffer[8 * 1024];
+
+    *ptext = NULL;
+    if (APR_SUCCESS == (rv = apr_file_open(&f, fpath, APR_FOPEN_READ, 0, p))) {
+        apr_size_t blen = sizeof(buffer)/sizeof(buffer[0]) - 1;
+        if (APR_SUCCESS == (rv = apr_file_read_full(f, buffer, blen, &blen))) {
+            *ptext = apr_pstrndup(p, buffer, blen);
+        }
+        apr_file_close(f);
+        
+    }
+    return rv;
+}
+
+static apr_status_t write_text(void *baton, struct apr_file_t *f, apr_pool_t *p)
+{
+    const char *text = baton;
+    apr_size_t len = strlen(text);
+    return apr_file_write_full(f, text, len, &len);
+}
+
+apr_status_t md_text_fcreatex(const char *fpath, apr_pool_t *p, const char *text)
+{
+    apr_status_t rv;
+    apr_file_t *f;
+    
+    rv = md_util_fcreatex(&f, fpath, p);
+    if (APR_SUCCESS == rv) {
+        rv = write_text((void*)text, f, p);
+        apr_file_close(f);
+    }
+    return rv;
+}
+
+apr_status_t md_text_freplace(const char *fpath, apr_pool_t *p, const char *text)
+{
+    return md_util_freplace(fpath, p, write_text, (void*)text);
+}
+
 typedef struct {
     const char *path;
     apr_array_header_t *patterns;

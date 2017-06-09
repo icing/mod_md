@@ -24,6 +24,9 @@ struct md_store_t;
 
 typedef struct md_acme_challenge_t md_acme_challenge_t;
 
+/**************************************************************************************************/
+/* authorization request for a specific domain name */
+
 typedef enum {
     MD_ACME_AUTHZ_S_UNKNOWN,
     MD_ACME_AUTHZ_S_PENDING,
@@ -46,6 +49,22 @@ md_acme_authz_t *md_acme_authz_create(apr_pool_t *p);
 struct md_json_t *md_acme_authz_to_json(md_acme_authz_t *a, apr_pool_t *p);
 md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p);
 
+/* authz interaction with ACME server */
+apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *acme, 
+                                    const char *domain, md_acme_acct_t *acct, apr_pool_t *p);
+
+apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, 
+                                  md_acme_acct_t *acct, apr_pool_t *p);
+
+apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, 
+                                   md_acme_acct_t *acct, struct md_store_t *store,
+                                   apr_pool_t *p);
+apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme, 
+                               md_acme_acct_t *acct, apr_pool_t *p);
+
+/**************************************************************************************************/
+/* set of authz data for a managed domain */
+
 typedef struct md_acme_authz_set_t md_acme_authz_set_t;
 
 struct md_acme_authz_set_t {
@@ -65,15 +84,5 @@ apr_status_t md_acme_authz_set_load(struct md_store_t *store, const char *md_nam
                                     md_acme_authz_set_t **pauthz_set, apr_pool_t *p);
 apr_status_t md_acme_authz_set_save(struct md_store_t *store, const char *md_name, 
                                     md_acme_authz_set_t *authz_set, int create);
-
-apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *acme, 
-                                    const char *domain, md_acme_acct_t *acct, apr_pool_t *p);
-
-apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, 
-                                  md_acme_acct_t *acct, apr_pool_t *p);
-
-apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, 
-                                   md_acme_acct_t *acct, struct md_store_t *store,
-                                   apr_pool_t *p);
 
 #endif /* md_acme_authz_h */

@@ -38,6 +38,9 @@ const char *md_pkey_get_rsa_n64(md_pkey_t *pkey, apr_pool_t *p);
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
 
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
+                                      const char *d, size_t dlen);
+
 typedef enum {
     MD_CERT_UNKNOWN,
     MD_CERT_VALID,

@@ -133,7 +133,7 @@ apr_status_t md_acme_setup(md_acme_t *acme)
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "get directory from %s", acme->url);
     
-    rv = md_json_http_get(&json, acme->pool, acme->http, acme->url);
+    rv = md_acme_get_json(&json, acme, acme->url, acme->pool);
     if (APR_SUCCESS == rv) {
         acme->new_authz = md_json_gets(json, "new-authz", NULL);
         acme->new_cert = md_json_gets(json, "new-cert", NULL);
@@ -150,12 +150,12 @@ apr_status_t md_acme_setup(md_acme_t *acme)
 /**************************************************************************************************/
 /* acme requests */
 
-static void req_update_nonce(md_acme_req_t *req)
+static void req_update_nonce(md_acme_t *acme, apr_table_t *hdrs)
 {
-    if (req->resp_hdrs) {
-        const char *nonce = apr_table_get(req->resp_hdrs, "Replay-Nonce");
+    if (hdrs) {
+        const char *nonce = apr_table_get(hdrs, "Replay-Nonce");
         if (nonce) {
-            req->acme->nonce = nonce;
+            acme->nonce = nonce;
         }
     }
 }
@@ -259,6 +259,48 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
     }
 }
 
+/**************************************************************************************************/
+/* GET JSON */
+
+typedef struct {
+    apr_status_t rv;
+    apr_pool_t *pool;
+    md_acme_t *acme;
+    md_json_t *json;
+} resp_data;
+
+static apr_status_t json_resp_cb(const md_http_response_t *res)
+{
+    resp_data *resp = res->req->baton;
+    req_update_nonce(resp->acme, res->headers);
+    return md_json_read_http(&resp->json, resp->pool, res);
+}
+
+apr_status_t md_acme_get_json(struct md_json_t **pjson, md_acme_t *acme, 
+                              const char *url, apr_pool_t *p)
+{
+    long req_id;
+    apr_status_t rv;
+    resp_data resp;
+    
+    memset(&resp, 0, sizeof(resp));
+    resp.pool = p;
+    resp.acme = acme;
+    
+    rv = md_http_GET(acme->http, url, NULL, json_resp_cb, &resp, &req_id);
+    
+    if (rv == APR_SUCCESS) {
+        md_http_await(acme->http, req_id);
+        *pjson = resp.json;
+        return resp.rv;
+    }
+    *pjson = NULL;
+    return rv;
+}
+
+/**************************************************************************************************/
+/* POST requests */
+
 static apr_status_t md_acme_req_done(md_acme_req_t *req)
 {
     apr_status_t rv = req->rv;
@@ -279,7 +321,7 @@ static apr_status_t on_response(const md_http_response_t *res)
     }
     
     req->resp_hdrs = apr_table_clone(req->pool, res->headers);
-    req_update_nonce(req);
+    req_update_nonce(req->acme, res->headers);
     
     /* TODO: Redirect Handling? */
     if (res->status >= 200 && res->status < 300) {
@@ -588,6 +630,11 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
     return rv;
 }
 
+static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
+{
+    return APR_ENOTIMPL;
+}
+
 /**
  * Pre-Req: all domains have been validated by the ACME server, e.g. all have AUTHZ
  * resources that have status 'valid'
@@ -637,10 +684,14 @@ static apr_status_t acme_driver_run(md_proto_driver_t *d)
 
     step = "ACME setup";
     rv = md_acme_setup(ad->acme);
+    
+    /* TODO: which challenge types do we support? 
+     * Need to know if the server listens to the right ports */
+    ad->acme->can_cha_http_01 = 1;
 
     /* Chose (or create) and ACME account to use */
     if (APR_SUCCESS == rv) {
-        step = "chose account";
+        step = "choose account";
         rv = ad_set_acct(d);
     }
     
@@ -648,21 +699,31 @@ static apr_status_t acme_driver_run(md_proto_driver_t *d)
      * requests for new authorizations are denied. ToS may change during the
      * lifetime of an account */
     if (APR_SUCCESS == rv) {
+        step = "check agreement";
         rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
     }
     
+    /* Check that we have authz resources with challenge info for each domain */
     if (APR_SUCCESS == rv) {
-        /* Check that we have authz resources with challenge info for each domain */
+        step = "check authz";
         rv = ad_setup_authz(d);
     }
     
+    /* Start challenges */
     if (APR_SUCCESS == rv) {
-        /* Start challenges and monitor authz status */
+        step = "setup challenges";
         rv = ad_start_challenges(d);
     }
     
+    /* monitor authz status */
     if (APR_SUCCESS == rv) {
-        /* Setup the certificate */
+        step = "setup challenges";
+        rv = ad_monitor_challenges(d);
+    }
+    
+    /* Setup the certificate */
+    if (APR_SUCCESS == rv) {
+        step = "create certificate";
         rv = ad_setup_certificate(d);
     }
     

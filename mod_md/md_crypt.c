@@ -262,6 +262,46 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
     return rv;
 }
 
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
+                                      const char *d, size_t dlen)
+{
+    EVP_MD_CTX *ctx = NULL;
+    const char *digest64 = NULL;
+    unsigned char *buffer;
+    apr_status_t rv = APR_ENOMEM;
+    unsigned int blen;
+    
+    buffer = apr_pcalloc(p, EVP_MAX_MD_SIZE);
+    if (buffer) {
+        ctx = EVP_MD_CTX_create();
+        if (ctx) {
+            rv = APR_ENOTIMPL;
+            if (EVP_DigestInit_ex(ctx, EVP_sha256(), NULL)) {
+                rv = APR_EGENERAL;
+                if (EVP_DigestUpdate(ctx, d, dlen)) {
+                    if (EVP_DigestFinal(ctx, buffer, &blen)) {
+                        digest64 = md_util_base64url_encode((const char*)buffer, blen, p);
+                        if (digest64) {
+                            rv = APR_SUCCESS;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (ctx) {
+            EVP_MD_CTX_destroy(ctx);
+        }
+    }
+    
+    if (rv != APR_SUCCESS) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "digest"); 
+    }
+    
+    *pdigest64 = digest64;
+    return rv;
+}
+
 /**************************************************************************************************/
 /* certificates */
 

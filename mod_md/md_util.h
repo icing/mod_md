@@ -84,6 +84,9 @@ apr_status_t md_util_tree_do(md_util_fdo_cb *cb, void *baton, apr_pool_t *p,
 
 apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p);
 
+apr_status_t md_text_fread8k(const char **ptext, apr_pool_t *p, const char *fpath);
+apr_status_t md_text_fcreatex(const char *fpath, apr_pool_t *p, const char *text);
+apr_status_t md_text_freplace(const char *fpath, apr_pool_t *p, const char *text); 
 
 /**************************************************************************************************/
 /* base64 url encodings */
