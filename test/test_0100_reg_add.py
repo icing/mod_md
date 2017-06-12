@@ -1,10 +1,8 @@
 # test mod_md acme terms-of-service handling
 
 import json
-import os.path
 import re
 import shutil
-import subprocess
 import sys
 import time
 import pytest
@@ -35,14 +33,17 @@ class TestReg :
     def test_100(self):
         # test case: add a single dns managed domain
         dns = "greenbytes.de"
-        jout1 = TestEnv.a2md( [ "add", dns ] )['jout'] 
-        md = jout1['output'][0]
-        assert md['name'] == dns
-        assert len(md['domains']) == 1 
-        assert md['domains'][0] == dns
-        assert md['ca']['url'] == TestEnv.ACME_URL
-        assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 1
+        jout1 = TestEnv.a2md( [ "add", dns ] )['jout']
+        assert jout1['output'][0] == {
+            "name": dns,
+            "domains": [ dns ],
+            "contacts": [],
+            "ca": {
+                "url": TestEnv.ACME_URL,
+                "proto": "ACME"
+            },
+            "state": 1
+        }
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
@@ -50,13 +51,16 @@ class TestReg :
         # test case: add > 1 dns managed domain
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         jout1 = TestEnv.a2md( [ "add" ] + dns )['jout']
-        md = jout1['output'][0]
-        assert md['name'] == dns[0]
-        assert len(md['domains']) == 3 
-        assert md['domains'] == dns
-        assert md['ca']['url'] == TestEnv.ACME_URL
-        assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 1
+        assert jout1['output'][0] == {
+            "name": dns[0],
+            "domains": dns,
+            "contacts": [],
+            "ca": {
+                "url": TestEnv.ACME_URL,
+                "proto": "ACME"
+            },
+            "state": 1
+        }
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
@@ -69,13 +73,17 @@ class TestReg :
         dns2 = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         jout = TestEnv.a2md( [ "add" ] + dns2 )['jout']
         # assert: output covers only changed md
-        assert len(jout['output']) == 1
-        md = jout['output'][0]
-        assert md['name'] == dns2[0]
-        assert md['domains'] == dns2
-        assert md['ca']['url'] == TestEnv.ACME_URL
-        assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 1
+        assert jout['output'] == [{
+            "name": dns2[0],
+            "domains": dns2,
+            "contacts": [],
+            "ca": {
+                "url": TestEnv.ACME_URL,
+                "proto": "ACME"
+            },
+            "state": 1
+        }]
+        assert len(TestEnv.a2md( [ "list" ] )['jout']['output']) == 2
 
     def test_103(self):
         # test case: add existing domain 
@@ -89,13 +97,15 @@ class TestReg :
         # test case: add without CA URL
         dns = "greenbytes.de"
         jout1 = TestEnv.run( [ TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", dns ] )['jout']
-        assert len(jout1['output']) == 1
-        md = jout1['output'][0]
-        assert md['name'] == dns
-        assert md['domains'] == [ dns ]
-        assert "url" not in md['ca']
-        assert md['ca']['proto'] == 'ACME'
-        assert md['state'] == 1
+        assert jout1['output'] == [{
+            "name": dns,
+            "domains": [ dns ],
+            "contacts": [],
+            "ca": {
+                "proto": "ACME"
+            },
+            "state": 1
+        }]
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
@@ -185,9 +195,13 @@ class TestReg :
         assert len(jout['output']) == len(dnslist)
         dnslist.reverse()
         for i in range (0, len(jout['output'])):
-            md = jout['output'][i]
-            assert md['name'] == dnslist[i][0]
-            assert md['domains'] == dnslist[i]
-            assert md['ca']['url'] == TestEnv.ACME_URL
-            assert md['ca']['proto'] == 'ACME'
-            assert md['state'] == 1
+            assert jout['output'][i] == {
+                "name": dnslist[i][0],
+                "domains": dnslist[i],
+                "contacts": [],
+                "ca": {
+                    "url": TestEnv.ACME_URL,
+                    "proto": "ACME"
+                },
+                "state": 1
+            }

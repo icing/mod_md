@@ -39,6 +39,8 @@ class TestEnv:
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output, errput) = p.communicate()
         rv = p.wait()
+        # print "stderr: ", errput
+        # print "stdout: ", output
         try:
             jout = json.loads(output)
         except:
