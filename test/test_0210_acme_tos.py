@@ -18,7 +18,7 @@ def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
 
-class TestToS :
+class TestAcmeToS :
 
     def test_001(self):
         # try register a new account with valid tos agreements

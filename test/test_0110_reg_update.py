@@ -21,7 +21,7 @@ def teardown_module(module):
     print("teardown_module: %s" % module.__name__)
 
 
-class TestReg :
+class TestRegUpdate :
 
     NAME1 = "greenbytes2.de"
     NAME2 = "test-100.com"
@@ -226,7 +226,7 @@ class TestReg :
         assert md['state'] == 1
 
     @pytest.mark.parametrize("invalidMail", [
-        ("no.at.symbol"), ("wrong://schema@test.com"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
+        ("no.at.char"), ("wrong://schema@test.com"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
         ("double..dot@test.com"), ("double@at@test.com"), ("invalid_char@k\xc3ller.com")
     ])
     def test_404(self, invalidMail):
@@ -234,8 +234,8 @@ class TestReg :
         assert TestEnv.a2md([ "update", self.NAME1, "contacts", invalidMail])['rv'] == 1
 
     def test_405(self):
-        # test case: respect 'mailto://' prefix
-        mail = "mailto://test@greenbytes.de"
+        # test case: respect 'mailto:' prefix
+        mail = "mailto:test@greenbytes.de"
         md = TestEnv.a2md([ "update", self.NAME1, "contacts", mail])['jout']['output'][0]
         assert md['contacts'] == [ mail ]
         assert md['state'] == 1

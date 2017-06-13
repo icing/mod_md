@@ -35,6 +35,11 @@ class TestStore:
             TestEnv.config.get('global', 'a2md_version'), run['stdout'])
         assert m
 
+    def test_002(self):
+        # verify that store is clean
+        run = TestEnv.run(["find", TestEnv.STORE_DIR])
+        assert re.match(TestEnv.STORE_DIR, run['stdout'])
+
     # --------- store add ---------
 
     def test_100(self):

@@ -19,7 +19,7 @@ def teardown_module(module):
     print("teardown_module: %s" % module.__name__)
 
 
-class TestReg :
+class TestRegAdd :
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)

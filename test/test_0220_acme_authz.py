@@ -18,7 +18,7 @@ def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
 
 
-class TestAuthz :
+class TestAcmeAuthz :
 
     def test_001(self):
         # register a new account, agree to tos, create auth resource
