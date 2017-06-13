@@ -70,7 +70,7 @@ static md_cmd_t AcmeNewregCmd = {
     "newreg", MD_CTX_ACME, 
     NULL, cmd_acme_newreg, MD_NoOptions, NULL,
     "newreg contact-uri [contact-uri...]",
-    "register a new account at ACME server with give contact uri (email)",
+    "register a new account at ACME server with given contact uri (email)",
 };
 
 /**************************************************************************************************/

@@ -423,7 +423,7 @@ static apr_status_t on_success_acct_valid(md_acme_t *acme, const apr_table_t *hd
     if (tos_required) {
         if (!acct->agreement || strcmp(tos_required, acct->agreement)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acct->pool, 
-                          "needs to agreed to terms-of-service '%s', "
+                          "needs to agree to terms-of-service '%s', "
                           "has already agreed to '%s'", 
                           tos_required, acct->agreement);
         }
