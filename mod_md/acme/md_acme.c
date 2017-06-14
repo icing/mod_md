@@ -92,8 +92,9 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
                             struct md_store_t *store)
 {
     md_acme_t *acme;
-    apr_uri_t uri;
+    const char *err = NULL;
     apr_status_t rv;
+    apr_uri_t uri_parsed;
     size_t len;
     
     if (!url) {
@@ -101,13 +102,9 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
         return APR_EINVAL;
     }
     
-    if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "cannot parse ACME url: %s", url);
+    if (APR_SUCCESS != (rv = md_util_abs_uri_check(p, url, &err))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "invalid ACME uri ($s): %s", err, url);
         return rv;
-    }
-    else if (!uri.hostname) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, "ACME url hostname missing: %s", url);
-        return APR_EINVAL;
     }
     
     acme = apr_pcalloc(p, sizeof(*acme));
@@ -116,8 +113,13 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     acme->store = store;
     acme->pkey_bits = 4096;
     
-    len = strlen(uri.hostname);
-    acme->sname = (len <= 16)? uri.hostname : apr_pstrdup(p, uri.hostname + len - 16);
+    if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri_parsed))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "parsing ACME uri: ", url);
+        return APR_EINVAL;
+    }
+    
+    len = strlen(uri_parsed.hostname);
+    acme->sname = (len <= 16)? uri_parsed.hostname : apr_pstrdup(p, uri_parsed.hostname + len - 16);
     
     *pacme = acme;
     return md_http_create(&acme->http, acme->pool);

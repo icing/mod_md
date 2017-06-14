@@ -363,8 +363,24 @@ apr_status_t md_acme_register(md_acme_acct_t **pacct, md_store_t *store, md_acme
     md_acme_acct_t *acct;
     apr_status_t rv;
     md_pkey_t *pkey;
+    const char *err = NULL, *uri;
+    int i;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new account");
+    
+    if (agreement) {
+        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->pool, agreement, &err))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->pool, 
+                          "invalid agreement uri (%s): %s", err, agreement);
+        }
+    }
+    for (i = 0; i < contacts->nelts; ++i) {
+        uri = APR_ARRAY_IDX(contacts, i, const char *);
+        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->pool, uri, &err))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->pool, 
+                          "invalid contact uri (%s): %s", err, uri);
+        }
+    }
     
     if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, acme->pool, acme->pkey_bits))
         && APR_SUCCESS == (rv = acct_make(&acct,  acme->pool, store, 
@@ -522,9 +538,16 @@ static apr_status_t on_init_acct_del(md_acme_req_t *req, void *baton)
 static apr_status_t on_success_acct_del(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
 {
     md_acme_acct_t *acct = baton;
+    apr_status_t rv = APR_SUCCESS;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "deleted account %s", acct->url);
-    return APR_SUCCESS;
+    if (acct->store) {
+        rv = md_store_remove(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_ACCOUNT, acct->pool, 1);
+        if (APR_SUCCESS == rv) {
+            md_store_remove(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_PKEY, acct->pool, 1);
+        }
+    }
+    return rv;
 }
 
 apr_status_t md_acme_acct_del(md_acme_acct_t *acct)

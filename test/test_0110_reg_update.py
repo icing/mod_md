@@ -214,9 +214,8 @@ class TestRegUpdate :
         # 1) currently implemented
         # assert TestEnv.a2md([ "update", self.NAME1, "contacts"])['rv'] == 1
 
-        # 2) consistent with other update aspects 'account', 'agreemtent'
-        md = TestEnv.a2md([ "update", self.NAME1, "contacts"])['jout']['output'][0]
-        assert md['contacts'] == []
+        # 2) assert that contacts cannot be removed again
+        assert TestEnv.a2md([ "update", self.NAME1, "contacts"])['rv'] == 1
 
     def test_403(self):
         # test case: replace existing contact info
@@ -226,18 +225,21 @@ class TestRegUpdate :
         assert md['state'] == 1
 
     @pytest.mark.parametrize("invalidMail", [
-        ("no.at.char"), ("wrong://schema@test.com"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
-        ("double..dot@test.com"), ("double@at@test.com"), ("invalid_char@k\xc3ller.com")
+        ("no.at.char"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
+        ("double..dot@test.com"), ("double@at@test.com")
     ])
     def test_404(self, invalidMail):
         # test case: use invalid mail address
+        # SEI: Uhm, es ist nicht sinnvoll, eine komplette verification von
+        # https://tools.ietf.org/html/rfc822 zu bauen.
         assert TestEnv.a2md([ "update", self.NAME1, "contacts", invalidMail])['rv'] == 1
 
-    def test_405(self):
-        # test case: respect 'mailto:' prefix
-        mail = "mailto:test@greenbytes.de"
-        md = TestEnv.a2md([ "update", self.NAME1, "contacts", mail])['jout']['output'][0]
-        assert md['contacts'] == [ mail ]
+    @pytest.mark.parametrize("url", [
+        ("mailto:test@greenbytes.de"), ("wrong://schema@test.com")])
+    def test_405(self, url):
+        # test case: respect urls as given
+        md = TestEnv.a2md([ "update", self.NAME1, "contacts", url])['jout']['output'][0]
+        assert md['contacts'] == [ url ]
         assert md['state'] == 1
 
     # --------- update agreement ---------

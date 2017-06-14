@@ -59,7 +59,7 @@ class TestAcmeAcc :
 
     @pytest.mark.parametrize("invalidContact", [
         ("mehlto:xxx@example.org"), ("no.at.char"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
-        ("double..dot@test.com"), ("double@at@test.com"), ("invalid_char@k\xc3ller.com")
+        ("double..dot@test.com"), ("double@at@test.com")
     ])
     def test_102(self, invalidContact):
         # test case: fail on invalid contact url

@@ -125,6 +125,7 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg)
 static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, int fields)
 {
     apr_status_t rv = APR_SUCCESS;
+    const char *err = NULL;
     
     if (MD_UPD_DOMAINS & fields) {
         const md_t *other;
@@ -134,7 +135,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
         if (!md->domains || md->domains->nelts <= 0) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_EINVAL, p, 
                           "empty domain list: %s", md->name);
-            rv = APR_EINVAL; goto out;
+            return APR_EINVAL;
         }
         
         for (i = 0; i < md->domains->nelts; ++i) {
@@ -142,7 +143,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
             if (!md_util_is_dns_name(p, domain, 1)) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
                               "md %s with invalid domain name: %s", md->name, domain);
-                rv = APR_EINVAL; goto out;
+                return APR_EINVAL;
             }
         }
 
@@ -150,47 +151,32 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
                           "md %s shares domain '%s' with md %s", 
                           md->name, domain, other->name);
-            rv = APR_EINVAL; goto out;
+            return APR_EINVAL;
         }
     }
     
     if (MD_UPD_CONTACTS & fields) {
         const char *contact;
         int i;
-        
-        for (i = 0; i < md->contacts->nelts; ++i) {
+
+        for (i = 0; i < md->contacts->nelts && !err; ++i) {
             contact = APR_ARRAY_IDX(md->contacts, i, const char *);
-            /* TODO check for uri? email? */
+            rv = md_util_abs_uri_check(p, contact, &err);
+            
+            if (err) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                              "contact for %s invalid (%s): %s", md->name, err, contact);
+                return APR_EINVAL;
+            }
         }
     }
     
     if ((MD_UPD_CA_URL & fields) && md->ca_url) { /* setting to empty is ok */
-        apr_uri_t uri;
-        
-        if (APR_SUCCESS != (rv = apr_uri_parse(p, md->ca_url, &uri))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                          "parsing CA url for %s: %s", md->name, md->ca_url);
-            goto out;
-        }
-        if (!uri.scheme) {
+        rv = md_util_abs_uri_check(p, md->ca_url, &err);
+        if (err) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
-                          "CA url for %s without scheme: %s", md->name, md->ca_url);
-            rv = APR_EINVAL; goto out;
-        }
-        if (!uri.hostname) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
-                          "CA url for %s without hostname: %s", md->name, md->ca_url);
-            rv = APR_EINVAL; goto out;
-        }
-        else if (!md_util_is_dns_name(p, uri.hostname, 0)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
-                          "CA url for %s invalid hostname: %s", md->name, md->ca_url);
-            rv = APR_EINVAL; goto out;
-        }
-        if (uri.port_str && (uri.port == 0 || uri.port > 65353)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
-                          "CA url for %s invalid port: %s", md->name, md->ca_url);
-            rv = APR_EINVAL; goto out;
+                          "CA url for %s invalid (%s): %s", md->name, err, md->ca_url);
+            return APR_EINVAL;
         }
     }
     
@@ -203,9 +189,13 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
     }
 
     if ((MD_UPD_AGREEMENT & fields) && md->ca_agreement) { /* setting to empty is ok */
-        /* hmm, in case we know the protocol, some checks could be done */
+        rv = md_util_abs_uri_check(p, md->ca_agreement, &err);
+        if (err) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
+                          "CA url for %s invalid (%s): %s", md->name, err, md->ca_agreement);
+            return APR_EINVAL;
+        }
     }
-out:
     return rv;
 }
 

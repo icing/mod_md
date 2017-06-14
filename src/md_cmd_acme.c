@@ -199,6 +199,7 @@ static apr_status_t acme_delreg(md_store_t *store, const char *name, apr_pool_t 
         rv = md_acme_acct_del(acct);
         if (rv == APR_SUCCESS) {
             fprintf(stdout, "deleted: %s\n", acct->url);
+            
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "delete account");
