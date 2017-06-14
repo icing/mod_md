@@ -12,9 +12,13 @@ def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.init()
     assert TestEnv.is_live(TestEnv.ACME_URL, 1)
+    TestEnv.apache_err_reset()
+    TestEnv.APACHE_CONF_SRC = "test_drive_data"
+    status = TestEnv.apachectl("test1.example.org", "start")
     
 def teardown_module(module):
     print("teardown_module:%s" % module.__name__)
+    #status = TestEnv.apachectl(None, "stop")
 
 
 class TestDrive :
@@ -44,6 +48,7 @@ class TestDrive :
 
     def test_003(self):
         # setup an md with contact and agreement, drive it
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         domain = "test1.example1.org"
         assert TestEnv.a2md( [ "add", domain ] )['rv'] == 0
         assert TestEnv.a2md( 
@@ -54,10 +59,10 @@ class TestDrive :
             )['rv'] == 0
         run = TestEnv.a2md( [ "-vvvv", "drive", domain ] )
         print run["stderr"]
-        assert run['rv'] == 1
+        assert run['rv'] == 0
         assert re.search("function has not been impl", run["stderr"])
 
-    def test_004(self):
+    def xxxtest_004(self):
         # drive an md with 2 domains
         domain = "test2.example1.org"
         assert TestEnv.a2md( [ "-vvvvv", "add", domain , "www." + domain ] )['rv'] == 0

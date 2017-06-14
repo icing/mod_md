@@ -44,6 +44,10 @@ struct md_acme_acct_t {
     int disabled;
 };
 
+#define MD_FN_ACCOUNT           "account.json"
+#define MD_FN_ACCT_KEY          "account.key"
+
+
 /**
  * Register a new account at the ACME server.
  *

@@ -24,7 +24,9 @@
 #include "md.h"
 #include "mod_md.h"
 #include "md_config.h"
+#include "md_store.h"
 #include "md_version.h"
+#include "acme/md_acme_authz.h"
 
 static void md_hooks(apr_pool_t *pool);
 
@@ -193,6 +195,60 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     return rv;
 }
 
+#define ACME_CHALLENGE_PREFIX       "/.well-known/acme-challenge/"
+
+static int md_http_challenge_pr(request_rec *r)
+{
+    apr_bucket_brigade *bb;
+    const md_config *conf;
+    const char *base_dir, *name, *data;
+    md_store_t *store;
+    apr_status_t rv;
+            
+    if (r->method_number == M_GET) {
+        if (!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
+            conf = ap_get_module_config(r->server->module_config, &md_module);
+            base_dir = md_config_var_get(conf, MD_CONFIG_BASE_DIR);
+            name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
+
+            r->status = HTTP_NOT_FOUND;
+            if (!strchr(name, '/')) {
+                base_dir = ap_server_root_relative(r->pool, base_dir);
+                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, 
+                              "Challenge for %s (%s) -> %s (%s)", 
+                              r->hostname, r->uri, base_dir, name);
+
+                if (APR_SUCCESS != (rv = md_store_fs_init(&store, r->pool, base_dir))) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
+                                  "setup store for %s", base_dir);
+                    return HTTP_INTERNAL_SERVER_ERROR;
+                }
+
+                rv = md_store_load(store, MD_SG_CHALLENGES, r->hostname, MD_FN_HTTP01, MD_SV_TEXT,
+                                   (void**)&data, r->pool);
+                if (APR_SUCCESS == rv) {
+                    apr_size_t len = strlen(data);
+                    
+                    r->status = HTTP_OK;
+                    apr_table_setn(r->headers_out, "Content-Length", apr_ltoa(r->pool, (long)len));
+                    
+                    bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
+                    apr_brigade_write(bb, NULL, NULL, data, len);
+                    ap_pass_brigade(r->output_filters, bb);
+                    apr_brigade_cleanup(bb);
+                }
+                else if (APR_ENOENT != rv) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
+                                  "loading challenge %s from store %s", name, base_dir);
+                    return HTTP_INTERNAL_SERVER_ERROR;
+                }
+            }
+            return r->status;
+        }
+    }
+    return DECLINED;
+}
+
 /* Runs once per created child process. Perform any process 
  * related initionalization here.
  */
@@ -216,4 +272,6 @@ static void md_hooks(apr_pool_t *pool)
      */
     ap_hook_child_init(md_child_init, NULL, NULL, APR_HOOK_MIDDLE);
 
+    /* answer challenges *very* early, before any configured authentication may strike */
+    ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
 }

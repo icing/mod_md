@@ -49,15 +49,36 @@ struct md_t {
     unsigned defn_line_number;      /* line number of definition */
 };
 
-#define MD_KEY_CA           "ca"
-#define MD_KEY_DOMAINS      "domains"
-#define MD_KEY_STATE        "state"
-#define MD_KEY_NAME         "name"
-#define MD_KEY_PROTO        "proto"
-#define MD_KEY_AGREEMENT    "agreement"
-#define MD_KEY_URL          "url"
-#define MD_KEY_ACCOUNT      "account"
-#define MD_KEY_CONTACTS     "contacts"
+#define MD_KEY_ACCOUNT          "account"
+#define MD_KEY_AGREEMENT        "agreement"
+#define MD_KEY_CA               "ca"
+#define MD_KEY_CA_URL           "ca-url"
+#define MD_KEY_CHALLENGES       "challenges"
+#define MD_KEY_CONTACT          "contact"
+#define MD_KEY_CONTACTS         "contacts"
+#define MD_KEY_DISABLED         "disabled"
+#define MD_KEY_DOMAINS          "domains"
+#define MD_KEY_ID               "id"
+#define MD_KEY_IDENTIFIER       "identifier"
+#define MD_KEY_KEYAUTHZ         "keyAuthorization"
+#define MD_KEY_NAME             "name"
+#define MD_KEY_PROTO            "proto"
+#define MD_KEY_REGISTRATION     "registration"
+#define MD_KEY_RESOURCE         "resource"
+#define MD_KEY_STATE            "state"
+#define MD_KEY_STATUS           "status"
+#define MD_KEY_TOKEN            "token"
+#define MD_KEY_TYPE             "type"
+#define MD_KEY_URL              "url"
+#define MD_KEY_URI              "uri"
+#define MD_KEY_VALUE            "value"
+#define MD_KEY_VERSION          "version"
+
+#define MD_FN_MD                "md.json"
+#define MD_FN_PKEY              "pkey.pem"
+#define MD_FN_CERT              "cert.pem"
+#define MD_FN_CHAIN             "chain.pem"
+
 
 /**
  * Determine if the Managed Domain contains a specific domain name.

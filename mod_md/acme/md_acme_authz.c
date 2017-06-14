@@ -25,6 +25,7 @@
 #include <apr_strings.h>
 #include <apr_tables.h>
 
+#include "../md.h"
 #include "../md_json.h"
 #include "../md_http.h"
 #include "../md_log.h"
@@ -106,15 +107,6 @@ apr_status_t md_acme_authz_set_remove(md_acme_authz_set_t *set, const char *doma
 /**************************************************************************************************/
 /* Register a new authorization */
 
-#define MD_KEY_CHALLENGES       "challenges"
-#define MD_KEY_TYPE             "type"
-#define MD_KEY_URI              "uri"
-#define MD_KEY_TOKEN            "token"
-#define MD_KEY_KEYAUTHZ         "keyAuthorization"
-#define MD_KEY_STATUS           "status"
-
-#define MD_FN_HTTP01            "acme-http-01.txt"
-
 typedef struct {
     size_t index;
     const char *type;
@@ -149,9 +141,9 @@ static apr_status_t on_init_authz(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
-    md_json_sets("new-authz", jpayload, "resource", NULL);
-    md_json_sets("dns", jpayload, "identifier", "type", NULL);
-    md_json_sets(ctx->domain, jpayload, "identifier", "value", NULL);
+    md_json_sets("new-authz", jpayload, MD_KEY_RESOURCE, NULL);
+    md_json_sets("dns", jpayload, MD_KEY_IDENTIFIER, MD_KEY_TYPE, NULL);
+    md_json_sets(ctx->domain, jpayload, MD_KEY_IDENTIFIER, MD_KEY_VALUE, NULL);
     
     return md_acme_req_body_init(req, jpayload, ctx->acct->key);
 } 
@@ -268,7 +260,8 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
-    md_json_sets(ctx->challenge->type, jpayload, MD_KEY_TYPE, NULL);
+    /*md_json_sets(ctx->challenge->type, jpayload, MD_KEY_TYPE, NULL);*/
+    md_json_sets("challenge", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);
     
     return md_acme_req_body_init(req, jpayload, ctx->acct->key);
@@ -319,18 +312,13 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     }
     
     if (APR_SUCCESS == rv && notify_server) {
-        /* challenge is setup or was changed from previous data, tell ACME server
-         * so it may retry */
-         
-        /* not working yet
         authz_req_ctx ctx;
+
+        /* challenge is setup or was changed from previous data, tell ACME server
+         * so it may (re)try verification */        
         authz_req_ctx_init(&ctx, acme, acct, NULL, authz, p);
         ctx.challenge = cha;
         rv = md_acme_req_do(acme, cha->uri, on_init_authz_resp, on_success_authz_resp, &ctx);
-        */
-        (void)on_init_authz_resp;
-        (void)on_success_authz_resp;
-        rv = APR_ENOTIMPL;
     }
     return rv;
 }
@@ -505,8 +493,6 @@ md_acme_authz_set_t *md_acme_authz_set_from_json(md_json_t *json, apr_pool_t *p)
 
 /**************************************************************************************************/
 /* persistence */
-
-#define MD_FN_AUTHZ     "authz.json"
 
 apr_status_t md_acme_authz_set_load(struct md_store_t *store, const char *md_name, 
                                     md_acme_authz_set_t **pauthz_set, apr_pool_t *p)

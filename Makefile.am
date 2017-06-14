@@ -38,6 +38,9 @@ test-drive: $(SERVER_DIR)/.test-setup src/a2md
 test-authz: $(SERVER_DIR)/.test-setup src/a2md
 	@cd test; py.test test_0220_acme_authz.py
 
+test-configs: $(SERVER_DIR)/.test-setup src/a2md
+	@cd test; py.test test_1001_configs.py
+
 $(SERVER_DIR)/.test-setup: test/conf/* \
 		$(SERVER_DIR)/conf/ssl/cert.pem
 	@mkdir -p $(SERVER_DIR)/conf

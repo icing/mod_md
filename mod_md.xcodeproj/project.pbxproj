@@ -33,6 +33,7 @@
 		B2BCAB871ED84A86002F4EB9 /* md_cmd_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_store.c; sourceTree = "<group>"; };
 		B2BCAB881ED84A86002F4EB9 /* md_cmd_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_store.h; sourceTree = "<group>"; };
 		B2BCAB891ED84ABE002F4EB9 /* md_cmd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd.h; sourceTree = "<group>"; };
+		B2CD24F31EF1673100E9A535 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
 		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -104,6 +105,14 @@
 			path = acme;
 			sourceTree = "<group>";
 		};
+		B2CD24F21EF1673100E9A535 /* test_drive_data */ = {
+			isa = PBXGroup;
+			children = (
+				B2CD24F31EF1673100E9A535 /* test1.example.org.conf */,
+			);
+			path = test_drive_data;
+			sourceTree = "<group>";
+		};
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
@@ -173,6 +182,7 @@
 				B255730D1EE956B000E0B132 /* test_0500_drive.py */,
 				B203333B1EDDA82300E5BE7E /* test_1001_configs.py */,
 				B2D31AF51EC1B80D007BECC8 /* test_configs_data */,
+				B2CD24F21EF1673100E9A535 /* test_drive_data */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
 				B255730C1EE6D11200E0B132 /* testbase.py */,
 			);

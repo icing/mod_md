@@ -37,7 +37,8 @@ static md_config defconf = {
     NULL,
     "https://acme-v01.api.letsencrypt.org/directory",
     "ACME",
-    NULL
+    NULL,
+    "md"
 };
 
 static void *md_config_create(apr_pool_t *pool,
@@ -78,7 +79,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     n->emd = add->emd? add->emd : base->emd;
-    
+    n->base_dir = add->base_dir? add->base_dir : base->base_dir;
     return n;
 }
 
@@ -183,6 +184,8 @@ const char *md_config_var_get(const md_config *config, md_config_var_t var)
             return config->ca_url? config->ca_url : defconf.ca_url;
         case MD_CONFIG_CA_PROTO:
             return config->ca_proto? config->ca_proto : defconf.ca_proto;
+        case MD_CONFIG_BASE_DIR:
+            return config->base_dir? config->base_dir : defconf.base_dir;
     }
     return NULL;
 }

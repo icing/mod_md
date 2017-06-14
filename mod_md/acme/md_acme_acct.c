@@ -24,6 +24,7 @@
 #include <apr_strings.h>
 #include <apr_tables.h>
 
+#include "../md.h"
 #include "../md_crypt.h"
 #include "../md_json.h"
 #include "../md_jws.h"
@@ -36,18 +37,6 @@
 #include "md_acme_acct.h"
 
 #define MD_ACME_ACCT_JSON_FMT_VERSION   0.01
-
-#define MD_KEY_ID               "id"
-#define MD_KEY_AGREEMENT        "agreement"
-#define MD_KEY_CONTACT          "contact"
-#define MD_KEY_URL              "url"
-#define MD_KEY_CA_URL           "ca-url"
-#define MD_KEY_DISABLED         "disabled"
-#define MD_KEY_VERSION          "version"
-#define MD_KEY_REGISTRATION     "registration"
-
-#define MD_FN_ACCOUNT           "account.json"
-#define MD_FN_PKEY              "account.key"
 
 static apr_status_t acct_make(md_acme_acct_t **pacct, apr_pool_t *p, md_store_t *store,
                               const char *ca_url, const char *id, apr_array_header_t *contacts,  
@@ -122,7 +111,7 @@ static apr_status_t acct_save(md_acme_acct_t *acct)
     assert(acct->id);
     if (APR_SUCCESS == (rv = md_store_save(acct->store, MD_SG_ACCOUNTS, acct->id, 
                                            MD_FN_ACCOUNT, MD_SV_JSON, jacct, 0))) {
-        rv = md_store_save(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_PKEY, 
+        rv = md_store_save(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_ACCT_KEY, 
                            MD_SV_PKEY, acct->key, 0);
     }
     
@@ -168,7 +157,7 @@ static apr_status_t acct_create(md_acme_acct_t *acct, md_acme_t *acme)
         rv = md_store_save(acct->store, MD_SG_ACCOUNTS, id, 
                            MD_FN_ACCOUNT, MD_SV_JSON, jacct, 1);
         rv = md_store_save(acct->store, MD_SG_ACCOUNTS, id, 
-                           MD_FN_PKEY, MD_SV_PKEY, acct->key, 0);
+                           MD_FN_ACCT_KEY, MD_SV_PKEY, acct->key, 0);
         if (APR_SUCCESS == rv) {
             acct->key_changed = 0;
         }
@@ -195,7 +184,7 @@ apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, md_store_t *store, const 
         return rv;
     }
     
-    rv = md_store_load(store, MD_SG_ACCOUNTS, name, MD_FN_PKEY, MD_SV_PKEY, (void**)&pkey, p);
+    rv = md_store_load(store, MD_SG_ACCOUNTS, name, MD_FN_ACCT_KEY, MD_SV_PKEY, (void**)&pkey, p);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "loading key: %s", name);
         return rv;
@@ -313,7 +302,7 @@ static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
-    md_json_sets("new-reg", jpayload, "resource", NULL);
+    md_json_sets("new-reg", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_setsa(acct->contacts, jpayload, MD_KEY_CONTACT, NULL);
     if (acct->agreement) {
         md_json_sets(acct->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
@@ -414,7 +403,7 @@ static apr_status_t on_init_acct_valid(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
-    md_json_sets("reg", jpayload, "resource", NULL);
+    md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
     
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
@@ -464,7 +453,7 @@ static apr_status_t on_init_agree_tos(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
-    md_json_sets("reg", jpayload, "resource", NULL);
+    md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_sets(acct->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
     
     return md_acme_req_body_init(req, jpayload, acct->key);
@@ -529,7 +518,7 @@ static apr_status_t on_init_acct_del(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->pool);
-    md_json_sets("reg", jpayload, "resource", NULL);
+    md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_setb(1, jpayload, "delete", NULL);
     
     return md_acme_req_body_init(req, jpayload, acct->key);
@@ -544,7 +533,7 @@ static apr_status_t on_success_acct_del(md_acme_t *acme, const apr_table_t *hdrs
     if (acct->store) {
         rv = md_store_remove(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_ACCOUNT, acct->pool, 1);
         if (APR_SUCCESS == rv) {
-            md_store_remove(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_PKEY, acct->pool, 1);
+            md_store_remove(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_ACCT_KEY, acct->pool, 1);
         }
     }
     return rv;

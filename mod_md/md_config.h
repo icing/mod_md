@@ -19,6 +19,7 @@
 typedef enum {
     MD_CONFIG_CA_URL,
     MD_CONFIG_CA_PROTO,
+    MD_CONFIG_BASE_DIR,
 } md_config_var_t;
 
 typedef struct md_config {
@@ -28,6 +29,8 @@ typedef struct md_config {
     const char *ca_url;
     const char *ca_proto;
     const md_t *emd;         /* effective md */
+    
+    const char *base_dir;
 } md_config;
 
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s);

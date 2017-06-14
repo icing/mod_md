@@ -197,11 +197,6 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
 /**************************************************************************************************/
 /* storage */
 
-#define MD_FN_MD            "md.json"
-#define MD_FN_PKEY          "pkey.pem"
-#define MD_FN_CERT          "cert.pem"
-#define MD_FN_CHAIN         "chain.pem"
-
 apr_status_t md_load(md_store_t *store, const char *name, md_t **pmd, apr_pool_t *p)
 {
     md_json_t *json;
