@@ -210,11 +210,6 @@ class TestRegUpdate :
     def test_402(self):
         # test case: must not remove contact info
         assert TestEnv.a2md([ "update", self.NAME1, "contacts", "test@greenbytes.de"])['rv'] == 0
-        # to be discussed: what is expected behaviour?
-        # 1) currently implemented
-        # assert TestEnv.a2md([ "update", self.NAME1, "contacts"])['rv'] == 1
-
-        # 2) assert that contacts cannot be removed again
         assert TestEnv.a2md([ "update", self.NAME1, "contacts"])['rv'] == 1
 
     def test_403(self):
