@@ -34,7 +34,6 @@
 		B2BCAB881ED84A86002F4EB9 /* md_cmd_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_store.h; sourceTree = "<group>"; };
 		B2BCAB891ED84ABE002F4EB9 /* md_cmd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd.h; sourceTree = "<group>"; };
 		B2CD24F31EF1673100E9A535 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
-		B2D3099F1EBA229F007BECC8 /* aclocal.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; path = aclocal.m4; sourceTree = SOURCE_ROOT; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -116,7 +115,6 @@
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
-				B2D3099F1EBA229F007BECC8 /* aclocal.m4 */,
 				B2D309A01EBA229F007BECC8 /* AUTHORS */,
 				B2D309A11EBA229F007BECC8 /* ChangeLog */,
 				B2D309A21EBA229F007BECC8 /* configure.ac */,
