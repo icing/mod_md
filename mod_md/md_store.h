@@ -103,6 +103,6 @@ apr_status_t md_store_iter(md_store_inspect *inspect, void *baton, md_store_t *s
 /**************************************************************************************************/
 /* file system based store */
 
-apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path);
+apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path, int create);
 
 #endif /* mod_md_md_store_h */

@@ -16,7 +16,7 @@ DocumentRoot "@SERVER_DIR@/htdocs"
     
 </IfModule>
 
-LogLevel md:info
+LogLevel md:debug
 
 SSLEngine off
 

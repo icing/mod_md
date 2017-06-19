@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <assert.h>
 #include <apr_strings.h>
 
 #include <httpd.h>
@@ -25,6 +26,7 @@
 #include "mod_md.h"
 #include "md_config.h"
 #include "md_store.h"
+#include "md_util.h"
 #include "md_version.h"
 #include "acme/md_acme_authz.h"
 
@@ -51,11 +53,11 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
     md_t *md, *nmd;
     const char *domain, *name;
     apr_status_t rv = APR_SUCCESS;
-    md_config *config;
+    md_config_t *config;
 
     mds = apr_array_make(p, 5, sizeof(const md_t *));
     for (s = base_server; s; s = s->next) {
-        config = (md_config *)md_config_sget(s);
+        config = (md_config_t *)md_config_sget(s);
         
         for (i = 0; i < config->mds->nelts; ++i) {
         
@@ -85,10 +87,6 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
             }
         }
-        
-        /* set the aggregated md_t list into each config, so there is access
-         * to it from severy server_rec */
-        config->mds = mds;
     }
     *pmds = (APR_SUCCESS == rv)? mds : NULL;
     return rv;
@@ -100,7 +98,7 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
 {
     server_rec *s;
     request_rec r;
-    md_config *config;
+    md_config_t *config;
     apr_status_t rv = APR_SUCCESS;
     md_t *md;
     int i, j, k;
@@ -113,7 +111,7 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
         for (s = base_server; s; s = s->next) {
             r.server = s;
             
-            if (strcmp(ap_http_scheme(&r), "https")) {
+            if (0 && strcmp(ap_http_scheme(&r), "https")) {
                 /* Not a TLS enabled server */
                 continue;
             }
@@ -126,13 +124,13 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                 
                 if (ap_matches_request_vhost(&r, domain, s->port)) {
                 
-                    config = (md_config *)md_config_sget(s);
+                    config = (md_config_t *)md_config_sget(s);
                     if (config->emd == md) {
                         /* already matched via another domain name */
                     }
                     else if (config->emd) {
                         ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
-                                     "Managed Domain %s matches server %s, but MD %s also matches",
+                                     "Managed Domain %s matches server %s, but MD %s also matches.",
                                      md->name, s->server_hostname, config->emd->name);
                         rv = APR_EINVAL;
                     }
@@ -179,6 +177,104 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
     return rv;
 }
 
+static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *s)
+{
+    const char *base_dir;
+    md_config_t *config;
+    md_store_t *store;
+    apr_status_t rv;
+    
+    config = (md_config_t *)md_config_sget(s);
+    base_dir = md_config_var_get(config, MD_CONFIG_BASE_DIR);
+    base_dir = ap_server_root_relative(p, base_dir);
+    
+    rv = md_store_fs_init(&store, p, base_dir, 1);
+    
+    if (APR_SUCCESS == rv) {
+        config->store = store;
+        
+        for (s = s->next; s; s = s->next) {
+            config = (md_config_t *)md_config_sget(s);
+            config->store = store;
+        }
+    }
+    else {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
+                     "setup store for %s", base_dir);
+    }
+    *pstore = (APR_SUCCESS == rv)? store : NULL;
+    return rv;
+}
+
+static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *ptemp, 
+                                  apr_array_header_t *mds, server_rec *s) 
+{
+    apr_array_header_t *store_mds;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = md_load_all(&store_mds, store, ptemp))) {
+        int i, j;
+        md_t *md, *config_md, *smd, *omd;
+        const char *common;
+        
+        for (i = 0; i < mds->nelts; ++i) {
+            md = APR_ARRAY_IDX(mds, i, md_t *);
+            smd = md_get_by_name(store_mds, md->name);
+            
+            while (APR_SUCCESS == rv && (omd = md_get_by_dns_overlap(store_mds, md))) {
+                common = md_common_name(md, smd);
+                assert(common);
+                config_md = md_get_by_name(mds, omd->name);
+                if (config_md && md_contains(config_md, common)) {
+                    /* domain used in two configured mds, not allowed */
+                    rv = APR_EINVAL;
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
+                                 "domain %s used in md %s and %s", common, md->name, omd->name);
+                }
+                else if (config_md) {
+                    /* domain stored in omd, but no longer configured so */
+                    omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
+                    rv = md_save(store, omd, 0);
+                }
+                else {
+                    /* domain stored in omd, but omd no longer configured */
+                    rv = APR_EINVAL;
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
+                                 "domain %s, configured in md %s, is part of the stored md %s. "
+                                 "That md however is no longer mentioned in the config. "
+                                 "If you longer want it, remove the md from the store.", 
+                                 common, md->name, omd->name);
+                }
+            }
+
+            if (APR_SUCCESS == rv) {
+                if (smd) {
+                    int added;
+                    
+                    /* existing managed domain, update necessary? */
+                    added = md_array_str_add_missing(smd->domains, md->domains, 0);
+                    if (added) {
+                        rv = md_save(store, md, 0);
+                        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
+                                     "md %s updated with %d additional domains", md->name, added);
+                    } 
+                }
+                else {
+                    /* new managed domain */
+                    rv = md_save(store, md, 1);
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
+                                 "new md %s saved", md->name);
+                }
+            }
+        }
+    }
+    else {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "loading mds");
+    }
+    
+    return rv;
+}
+
 /*
  * Config has been loaded completely for the given base server. Now,
  * before the actual request processing starts, is the time to prepare
@@ -206,10 +302,10 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     void *data = NULL;
     const char *mod_md_init_key = "mod_md_init_counter";
     apr_array_header_t *mds;
+    md_config_t *conf;
+    md_store_t *store;
     apr_status_t rv = APR_SUCCESS;
 
-    (void)plog;(void)ptemp;
-    
     apr_pool_userdata_get(&data, mod_md_init_key, base_server->process->pool);
     if ( data == NULL ) {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
@@ -224,14 +320,18 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
 
     /* 1. Check uniqueness of MDs, calculate global MD list */
     if (APR_SUCCESS == (rv = md_calc_md_list(p, plog, ptemp, base_server, &mds))) {
-    
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                     "found %d Managed Domains", mds->nelts);
-        
-        /* 1. Check mappings of MDs to VirtulHosts defined */
+        /* Check mappings of MDs to VirtulHosts defined */
         rv = md_check_vhost_mapping(p, plog, ptemp, base_server, mds);    
+
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, base_server, APLOGNO()
+                     "checked %d Managed Domains", mds->nelts);
     }
 
+    /* 2. If config consistent, sync with store */
+    if (APR_SUCCESS == (rv = setup_store(&store, p, base_server))) {
+        /*rv = md_store_sync(store, p, ptemp, mds, base_server);*/
+    }
+     
     return rv;
 }
 
@@ -240,7 +340,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
 static int md_http_challenge_pr(request_rec *r)
 {
     apr_bucket_brigade *bb;
-    const md_config *conf;
+    const md_config_t *conf;
     const char *base_dir, *name, *data;
     md_store_t *store;
     apr_status_t rv;
@@ -252,20 +352,14 @@ static int md_http_challenge_pr(request_rec *r)
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
 
             r->status = HTTP_NOT_FOUND;
-            if (!strchr(name, '/')) {
+            if (!strchr(name, '/') && conf->store) {
                 base_dir = ap_server_root_relative(r->pool, base_dir);
                 ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, 
                               "Challenge for %s (%s) -> %s (%s)", 
                               r->hostname, r->uri, base_dir, name);
 
-                if (APR_SUCCESS != (rv = md_store_fs_init(&store, r->pool, base_dir))) {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
-                                  "setup store for %s", base_dir);
-                    return HTTP_INTERNAL_SERVER_ERROR;
-                }
-
-                rv = md_store_load(store, MD_SG_CHALLENGES, r->hostname, MD_FN_HTTP01, MD_SV_TEXT,
-                                   (void**)&data, r->pool);
+                rv = md_store_load(conf->store, MD_SG_CHALLENGES, r->hostname, 
+                                   MD_FN_HTTP01, MD_SV_TEXT, (void**)&data, r->pool);
                 if (APR_SUCCESS == rv) {
                     apr_size_t len = strlen(data);
                     

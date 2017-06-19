@@ -38,11 +38,19 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /* string related */
 char *md_util_str_tolower(char *s);
 
-int md_array_str_case_index(const struct apr_array_header_t *array, const char *s, int start);
+int md_array_str_index(const struct apr_array_header_t *array, const char *s, 
+                       int start, int case_sensitive);
 
 struct apr_array_header_t *md_array_str_clone(apr_pool_t *p, struct apr_array_header_t *array);
 
-struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src);
+struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src,
+                                                int case_sensitive);
+
+struct apr_array_header_t *md_array_str_remove(apr_pool_t *p, struct apr_array_header_t *src, 
+                                               const char *exclude, int case_sensitive);
+
+int md_array_str_add_missing(struct apr_array_header_t *dest, 
+                             struct apr_array_header_t *src, int case_sensitive);
 
 /**************************************************************************************************/
 /* dns name check */

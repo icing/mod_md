@@ -135,7 +135,7 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
                                const char *aspect, md_store_vtype_t vtype);
 
 
-apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
+apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path, int create)
 {
     md_store_fs_t *s_fs;
     apr_status_t rv = APR_SUCCESS;
@@ -152,7 +152,12 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->base = apr_pstrdup(p, path);
     
     if (APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
+        if (APR_STATUS_IS_ENOENT(rv) && create) {
+            rv = apr_dir_make_recursive(s_fs->base, MD_FPROT_D_UONLY, p);
+        }
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
+        }
     }
     *pstore = (rv == APR_SUCCESS)? &(s_fs->s) : NULL;
     return rv;

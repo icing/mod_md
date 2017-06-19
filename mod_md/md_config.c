@@ -32,7 +32,7 @@
 
 #define DEF_VAL     (-1)
 
-static md_config defconf = {
+static md_config_t defconf = {
     "default",
     NULL,
     "https://acme-v01.api.letsencrypt.org/directory",
@@ -44,7 +44,7 @@ static md_config defconf = {
 static void *md_config_create(apr_pool_t *pool,
                               const char *prefix, const char *x)
 {
-    md_config *conf = (md_config *)apr_pcalloc(pool, sizeof(md_config));
+    md_config_t *conf = (md_config_t *)apr_pcalloc(pool, sizeof(md_config_t));
     const char *s = x? x : "unknown";
 
     conf->name = apr_pstrcat(pool, prefix, "[", s, "]", NULL);
@@ -60,9 +60,9 @@ void *md_config_create_svr(apr_pool_t *pool, server_rec *s)
 
 static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
 {
-    md_config *base = (md_config *)basev;
-    md_config *add = (md_config *)addv;
-    md_config *n = (md_config *)apr_pcalloc(pool, sizeof(md_config));
+    md_config_t *base = (md_config_t *)basev;
+    md_config_t *add = (md_config_t *)addv;
+    md_config_t *n = (md_config_t *)apr_pcalloc(pool, sizeof(md_config_t));
     char *name = apr_pstrcat(pool, "merged[", add->name, ", ", base->name, "]", NULL);
     md_t *md;
     int i;
@@ -91,7 +91,7 @@ void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv)
 static const char *md_config_set_names(cmd_parms *parms, void *arg, 
                                        int argc, char *const argv[])
 {
-    md_config *config = (md_config *)md_config_sget(parms->server);
+    md_config_t *config = (md_config_t *)md_config_sget(parms->server);
     apr_array_header_t *domains = apr_array_make(parms->pool, 5, sizeof(const char *));
     const char *err, *name;
     md_t *md;
@@ -104,7 +104,7 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
     
     for (i = 0; i < argc; ++i) {
         name = argv[i];
-        if (md_array_str_case_index(domains, name, 0) < 0) {
+        if (md_array_str_index(domains, name, 0, 0) < 0) {
             APR_ARRAY_PUSH(domains, char *) = md_util_str_tolower(apr_pstrdup(parms->pool, name));
         }
     }
@@ -126,7 +126,7 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
 static const char *md_config_set_ca(cmd_parms *parms,
                                     void *arg, const char *value)
 {
-    md_config *config = (md_config *)md_config_sget(parms->server);
+    md_config_t *config = (md_config_t *)md_config_sget(parms->server);
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
 
     if (err) {
@@ -140,7 +140,7 @@ static const char *md_config_set_ca(cmd_parms *parms,
 static const char *md_config_set_ca_proto(cmd_parms *parms,
                                           void *arg, const char *value)
 {
-    md_config *config = (md_config *)md_config_sget(parms->server);
+    md_config_t *config = (md_config_t *)md_config_sget(parms->server);
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
 
     if (err) {
@@ -164,20 +164,19 @@ const command_rec md_cmds[] = {
 };
 
 
-const md_config *md_config_sget(server_rec *s)
+const md_config_t *md_config_sget(server_rec *s)
 {
-    md_config *cfg = (md_config *)ap_get_module_config(s->module_config, 
-                                                       &md_module);
+    md_config_t *cfg = (md_config_t *)ap_get_module_config(s->module_config, &md_module);
     ap_assert(cfg);
     return cfg;
 }
 
-const md_config *md_config_get(conn_rec *c)
+const md_config_t *md_config_get(conn_rec *c)
 {
     return md_config_sget(c->base_server);
 }
 
-const char *md_config_var_get(const md_config *config, md_config_var_t var)
+const char *md_config_var_get(const md_config_t *config, md_config_var_t var)
 {
     switch (var) {
         case MD_CONFIG_CA_URL:

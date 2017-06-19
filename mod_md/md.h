@@ -105,6 +105,10 @@ int md_contains_domains(const md_t *md1, const md_t *md2);
  */
 const char *md_common_name(const md_t *md1, const md_t *md2);
 
+md_t *md_get_by_name(struct apr_array_header_t *mds, const char *name);
+
+md_t *md_get_by_dns_overlap(struct apr_array_header_t *mds, const md_t *md);
+
 /**
  * Create and empty md record, structures initialized.
  */

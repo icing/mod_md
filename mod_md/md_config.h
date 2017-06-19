@@ -16,6 +16,8 @@
 #ifndef mod_md_md_config_h
 #define mod_md_md_config_h
 
+struct md_store_t;
+
 typedef enum {
     MD_CONFIG_CA_URL,
     MD_CONFIG_CA_PROTO,
@@ -31,16 +33,17 @@ typedef struct md_config {
     const md_t *emd;         /* effective md */
     
     const char *base_dir;
-} md_config;
+    struct md_store_t *store;
+} md_config_t;
 
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s);
 void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv);
 
 extern const command_rec md_cmds[];
 
-const md_config *md_config_get(conn_rec *c);
-const md_config *md_config_sget(server_rec *s);
+const md_config_t *md_config_get(conn_rec *c);
+const md_config_t *md_config_sget(server_rec *s);
 
-const char *md_config_var_get(const md_config *config, md_config_var_t var);
+const char *md_config_var_get(const md_config_t *config, md_config_var_t var);
 
 #endif /* md_config_h */

@@ -78,14 +78,16 @@ char *md_util_str_tolower(char *s)
     return orig;
 }
 
-int md_array_str_case_index(const apr_array_header_t *array, const char *s, int start)
+int md_array_str_index(const apr_array_header_t *array, const char *s, 
+                       int start, int case_sensitive)
 {
     if (start >= 0) {
         int i;
         
         for (i = start; i < array->nelts; i++) {
             const char *p = APR_ARRAY_IDX(array, i, const char *);
-            if (!apr_strnatcasecmp(p, s)) {
+            if ((case_sensitive && !strcmp(p, s))
+                || (!case_sensitive && !apr_strnatcasecmp(p, s))) {
                 return i;
             }
         }
@@ -107,7 +109,8 @@ apr_array_header_t *md_array_str_clone(apr_pool_t *p, apr_array_header_t *src)
     return dest;
 }
 
-struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src)
+struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src,
+                                                int case_sensitive)
 {
     apr_array_header_t *dest = apr_array_make(p, src->nelts, sizeof(const char*));
     if (dest) {
@@ -115,12 +118,43 @@ struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_
         int i;
         for (i = 0; i < src->nelts; ++i) {
             s = APR_ARRAY_IDX(src, i, const char *);
-            if (md_array_str_case_index(dest, s, 0) < 0) {
+            if (md_array_str_index(dest, s, 0, case_sensitive) < 0) {
                 APR_ARRAY_PUSH(dest, char *) = md_util_str_tolower(apr_pstrdup(p, s));
             }
         }
     }
     return dest;
+}
+
+apr_array_header_t *md_array_str_remove(apr_pool_t *p, apr_array_header_t *src, 
+                                        const char *exclude, int case_sensitive)
+{
+    apr_array_header_t *dest = apr_array_make(p, src->nelts, sizeof(const char*));
+    if (dest) {
+        int i;
+        for (i = 0; i < src->nelts; i++) {
+            const char *s = APR_ARRAY_IDX(src, i, const char *);
+            if (!exclude 
+                || (case_sensitive && strcmp(exclude, s))
+                || (!case_sensitive && apr_strnatcasecmp(exclude, s))) {
+                APR_ARRAY_PUSH(dest, const char *) = apr_pstrdup(p, s); 
+            }
+        }
+    }
+    return dest;
+}
+
+int md_array_str_add_missing(apr_array_header_t *dest, apr_array_header_t *src, int case_sensitive)
+{
+    int i, added = 0;
+    for (i = 0; i < src->nelts; i++) {
+        const char *s = APR_ARRAY_IDX(src, i, const char *);
+        if (md_array_str_index(dest, s, 0, case_sensitive) < 0) {
+            APR_ARRAY_PUSH(dest, const char *) = s;
+            ++added; 
+        }
+    }
+    return added;
 }
 
 /**************************************************************************************************/
