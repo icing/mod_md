@@ -42,8 +42,14 @@ class TestConf:
         
     def setup_method(self, method):
         time.sleep(.1)
+        print("setup_method: %s" % method.__name__)
         (self.errors, self.warnings) = TestEnv.apache_err_count()
-                            
+
+    def teardown_method(self, method):
+        print("teardown_method: %s" % method.__name__)
+
+    # --------- tests ---------
+
     def test_001(self):
         # just one ManagedDomain definition
         assert TestEnv.apachectl("test_001", "graceful") == 0
@@ -65,22 +71,22 @@ class TestConf:
         assert self.new_errors() == 1
 
     def test_005(self):
-        # two ManagedDomain, one inside a virtual host
+        # two ManagedDomains, one inside a virtual host
         assert TestEnv.apachectl("test_005", "graceful") == 0
         assert self.new_errors() == 0
 
     def test_006(self):
-        # two ManagedDomain, one correct vhost name
+        # two ManagedDomains, one correct vhost name
         assert TestEnv.apachectl("test_006", "graceful") == 0
         assert self.new_errors() == 0
 
     def test_007(self):
-        # two ManagedDomain, two correct vhost names
+        # two ManagedDomains, two correct vhost names
         assert TestEnv.apachectl("test_007", "graceful") == 0
         assert self.new_errors() == 0
 
     def test_008(self):
-        # two ManagedDomain, overlapping vhosts
+        # two ManagedDomains, overlapping vhosts
         assert TestEnv.apachectl("test_008", "graceful") == 0
         assert self.new_errors() == 0
 
@@ -97,7 +103,7 @@ class TestConf:
         assert self.new_warnings() == 0
 
     def test_011(self):
-        # ManagedDomain does misses one ServerAlias
+        # ManagedDomain, misses one ServerAlias
         assert TestEnv.apachectl("test_011", "graceful") == 0
         assert self.new_errors() == 1
         assert self.new_warnings() == 0
@@ -107,4 +113,3 @@ class TestConf:
         assert TestEnv.apachectl("test_012", "graceful") == 0
         assert self.new_errors() == 0
         assert self.new_warnings() == 1
-
