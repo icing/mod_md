@@ -98,6 +98,29 @@ int md_contains_domains(const md_t *md1, const md_t *md2)
     return 0;
 }
 
+md_t *md_get_by_name(struct apr_array_header_t *mds, const char *name)
+{
+    int i;
+    for (i = 0; i < mds->nelts; ++i) {
+        md_t *md = APR_ARRAY_IDX(mds, i, md_t *);
+        if (!strcmp(name, md->name)) {
+            return md;
+        }
+    }
+    return NULL;
+}
+
+md_t *md_get_by_dns_overlap(struct apr_array_header_t *mds, const md_t *md)
+{
+    int i;
+    for (i = 0; i < mds->nelts; ++i) {
+        md_t *o = APR_ARRAY_IDX(mds, i, md_t *);
+        if (strcmp(o->name, md->name) && md_common_name(o, md)) {
+            return o;
+        }
+    }
+    return NULL;
+}
 
 const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
 {

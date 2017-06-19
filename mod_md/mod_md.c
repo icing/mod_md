@@ -222,7 +222,7 @@ static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *
             smd = md_get_by_name(store_mds, md->name);
             
             while (APR_SUCCESS == rv && (omd = md_get_by_dns_overlap(store_mds, md))) {
-                common = md_common_name(md, smd);
+                common = md_common_name(md, omd);
                 assert(common);
                 config_md = md_get_by_name(mds, omd->name);
                 if (config_md && md_contains(config_md, common)) {
@@ -329,7 +329,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
 
     /* 2. If config consistent, sync with store */
     if (APR_SUCCESS == (rv = setup_store(&store, p, base_server))) {
-        /*rv = md_store_sync(store, p, ptemp, mds, base_server);*/
+        rv = md_store_sync(store, p, ptemp, mds, base_server);
     }
      
     return rv;
