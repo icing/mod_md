@@ -41,63 +41,33 @@ AP_DECLARE_MODULE(md) = {
 };
 
 
-/* The module initialization. Called once as apache hook, before any multi
- * processing (threaded or not) happens. It is typically at least called twice, 
- * see
- * http://wiki.apache.org/httpd/ModuleLife
- * Since the first run is just a "practise" run, we want to initialize for real
- * only on the second try. This defeats the purpose of the first dry run a bit, 
- * since apache wants to verify that a new configuration actually will work. 
- * So if we have trouble with the configuration, this will only be detected 
- * when the server has already switched.
- * On the other hand, when we initialize lib nghttp2, all possible crazy things 
- * might happen and this might even eat threads. So, better init on the real 
- * invocation, for now at least.
- */
-static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
-                                   apr_pool_t *ptemp, server_rec *base_server)
+static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
+                                    apr_pool_t *ptemp, server_rec *base_server,
+                                    apr_array_header_t **pmds)
 {
-    void *data = NULL;
-    const char *mod_md_init_key = "mod_md_init_counter";
     server_rec *s;
-    md_config *config;
     apr_array_header_t *mds;
     int i, j, k;
     md_t *md, *nmd;
     const char *domain, *name;
-    request_rec r;
     apr_status_t rv = APR_SUCCESS;
-    
-    (void)plog;(void)ptemp;
-    
-    apr_pool_userdata_get(&data, mod_md_init_key, base_server->process->pool);
-    if ( data == NULL ) {
-        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                     "initializing post config dry run");
-        apr_pool_userdata_set((const void *)1, mod_md_init_key,
-                              apr_pool_cleanup_null, base_server->process->pool);
-        return APR_SUCCESS;
-    }
-    
-    ap_log_error( APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
-                 "mod_md (v%s), initializing...", MOD_MD_VERSION);
+    md_config *config;
 
-    /*
-     * Collect all defined Managed Domains, check for uniqueness
-     * and compile the global list.
-     */
     mds = apr_array_make(p, 5, sizeof(const md_t *));
     for (s = base_server; s; s = s->next) {
         config = (md_config *)md_config_sget(s);
         
         for (i = 0; i < config->mds->nelts; ++i) {
+        
             nmd = APR_ARRAY_IDX(config->mds, i, md_t*);
             for (j = 0; j < mds->nelts; ++j) {
+            
                 md = APR_ARRAY_IDX(mds, j, md_t*);
                 if (nmd == md) {
                     nmd = NULL;
                     break; /* merged between different configs */
                 }
+                
                 if ((domain = md_common_name(nmd, md)) != NULL) {
                     ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                  "two Managed Domains have an overlap in domain '%s'"
@@ -112,7 +82,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                 /* new managed domain not seen before */
                 nmd->ca_url = md_config_var_get(config, MD_CONFIG_CA_URL);
                 nmd->ca_proto = md_config_var_get(config, MD_CONFIG_CA_PROTO);
-                
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
             }
         }
@@ -121,10 +90,22 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
          * to it from severy server_rec */
         config->mds = mds;
     }
+    *pmds = (APR_SUCCESS == rv)? mds : NULL;
+    return rv;
+}
+
+static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
+                                           apr_pool_t *ptemp, server_rec *base_server,
+                                           apr_array_header_t *mds)
+{
+    server_rec *s;
+    request_rec r;
+    md_config *config;
+    apr_status_t rv = APR_SUCCESS;
+    md_t *md;
+    int i, j, k;
+    const char *domain, *name;
     
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
-                 "found %d Managed Domains", mds->nelts);
-                 
     memset(&r, 0, sizeof(r));
     for (i = 0; i < mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mds, i, md_t*);
@@ -136,7 +117,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                 /* Not a TLS enabled server */
                 continue;
             }
-            ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
                          "Server %s:%d uses https", s->server_hostname, s->port);
             
             /* try finding a matching server for the domain, might be more than  one */ 
@@ -144,6 +125,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                 domain = APR_ARRAY_IDX(md->domains, j, const char*);
                 
                 if (ap_matches_request_vhost(&r, domain, s->port)) {
+                
                     config = (md_config *)md_config_sget(s);
                     if (config->emd == md) {
                         /* already matched via another domain name */
@@ -158,25 +140,28 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      * alias that are not in this md, a generated certificate will not match.
                      */
                     if (!md_contains(md, s->server_hostname)) {
-                        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
+                        ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                      "Virtual Host %s:%d matches Managed Domain %s, but the name"
                                      " itself is not managed. A requested MD certificate will "
                                      "not match ServerName.",
                                      s->server_hostname, s->port, md->name);
+                        rv = APR_EINVAL;
                     }
                     else {
                         for (k = 0; k < s->names->nelts; ++k) {
                             name = APR_ARRAY_IDX(s->names, k, const char*);
                             if (!md_contains(md, name)) {
-                                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
+                                ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                              "Virtual Host %s:%d matches Managed Domain %s, but "
                                              "the ServerAlias %s is not covered by the MD. "
                                              "A requested MD certificate will not match this " 
                                              "alias.", s->server_hostname, s->port, md->name,
                                              name);
+                                rv = APR_EINVAL;
                             }
                         }
                     }
+                    
                     config->emd = md;
                     ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
                                  "Managed Domain %s applies to vhost %s:%d", md->name,
@@ -191,7 +176,62 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                          "No VirtualHost matches Managed Domain %s", md->name);
         }
     }
+    return rv;
+}
+
+/*
+ * Config has been loaded completely for the given base server. Now,
+ * before the actual request processing starts, is the time to prepare
+ * everything based on this. Also, this is the last chance to fail the config.
+ *
+ * The following is done:
+ * 1. Collect all defined "managed domains" (MD). Since DNS is one thing, it does
+ *    not matter where a MD is defined. All MDs need to be unique and have no overlaps
+ *    in their DNS names. Fail the config otherwise. Also, if a vhost matches an MD, it
+ *    needs to *only* have ServerAliases from that MD. There can be no more than one
+ *    matching MD for a vhost. But an MD can apply to several vhosts.
+ * 2. Instantiate the Store. Iterator over all defined domains and 
+ *   a. create them in the store if they do not already exist
+ *   b. compare dns lists from store and config, if
+ *      - store has dns name in other MD than from config, remove dns name from store def,
+ *        issue WARNING. TODO: what if this was the last name???
+ *      - store misses dns name from config, add dns name to store def
+ *      - store misses MD, create it 
+ *   c. compare MD acme url/protocol, update if changed
+ *   
+ */
+static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
+                                   apr_pool_t *ptemp, server_rec *base_server)
+{
+    void *data = NULL;
+    const char *mod_md_init_key = "mod_md_init_counter";
+    apr_array_header_t *mds;
+    apr_status_t rv = APR_SUCCESS;
+
+    (void)plog;(void)ptemp;
     
+    apr_pool_userdata_get(&data, mod_md_init_key, base_server->process->pool);
+    if ( data == NULL ) {
+        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                     "initializing post config dry run");
+        apr_pool_userdata_set((const void *)1, mod_md_init_key,
+                              apr_pool_cleanup_null, base_server->process->pool);
+        return APR_SUCCESS;
+    }
+    
+    ap_log_error( APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+                 "mod_md (v%s), initializing...", MOD_MD_VERSION);
+
+    /* 1. Check uniqueness of MDs, calculate global MD list */
+    if (APR_SUCCESS == (rv = md_calc_md_list(p, plog, ptemp, base_server, &mds))) {
+    
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                     "found %d Managed Domains", mds->nelts);
+        
+        /* 1. Check mappings of MDs to VirtulHosts defined */
+        rv = md_check_vhost_mapping(p, plog, ptemp, base_server, mds);    
+    }
+
     return rv;
 }
 

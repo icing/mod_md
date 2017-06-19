@@ -91,8 +91,7 @@ class TestConf:
         # vhosts with overlapping MDs
         assert TestEnv.apachectl("test_009", "graceful") == 0
         assert not TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        assert self.new_errors() == 1
-        assert self.new_warnings() == 2
+        assert self.new_errors() == 3
 
     def test_010(self):
         # ManagedDomain, vhost with matching ServerAlias
@@ -104,9 +103,9 @@ class TestConf:
     def test_011(self):
         # ManagedDomain does misses one ServerAlias
         assert TestEnv.apachectl("test_011", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        assert self.new_errors() == 0
-        assert self.new_warnings() == 1
+        assert not TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert self.new_errors() == 1
+        assert self.new_warnings() == 0
 
     def test_012(self):
         # ManagedDomain does not match any vhost
