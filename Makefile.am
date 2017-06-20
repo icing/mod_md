@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 SUBDIRS         = @BUILD_SUBDIRS@
-DIST_SUBDIRS    = mod_md src
+DIST_SUBDIRS    = src mod_md
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -22,7 +22,7 @@ dist_doc_DATA   = README README.md LICENSE
 
 .PHONY: test
 
-src/a2md: all
+mod_md: src
 
 SERVER_DIR      = @SERVER_DIR@
 

@@ -17,31 +17,59 @@ ACLOCAL_AMFLAGS = -I m4
 
 AUTOMAKE_OPTIONS = foreign
 
-CFLAGS  = -g -I ../mod_md
-LDFLAGS = @LDFLAGS@ -lapr-1 -laprutil-1  -lcurl -lssl -lcrypto
 
-bin_PROGRAMS = a2md
+lib_LTLIBRARIES    = libapachemd.la
+bin_PROGRAMS       = a2md
 
-OBJECTS = \
+libapachemd_la_CPPFLAGS = -g -std=c99 -D_GNU_SOURCE -Werror
+libapachemd_la_LDFLAGS  = @LDFLAGS@ -lapr-1 -laprutil-1  -lcurl -lssl -lcrypto
+
+A2LIB_OBJECTS = \
+    acme/md_acme.c \
+    acme/md_acme_acct.c \
+    acme/md_acme_authz.c \
+    acme/md_acme_drive.c \
+    md_core.c \
+    md_crypt.c \
+    md_http.c \
+    md_json.c \
+    md_jws.c \
+    md_log.c \
+    md_reg.c \
+    md_store.c \
+    md_util.c
+
+A2LIB_HFILES = \
+    acme/md_acme.h \
+    acme/md_acme_acct.h \
+    acme/md_acme_authz.h \
+    acme/md_acme_drive.h \
+    md_crypt.h \
+    md_http.h \
+    md_json.h \
+    md_jws.h \
+    md_log.h \
+    md_reg.h \
+    md_store.h \
+    md_util.h \
+    md.h
+    
+    
+libapachemd_la_SOURCES = $(A2LIB_HFILES) $(A2LIB_OBJECTS)
+
+a2md_CFLAGS  = -g
+a2md_LDFLAGS = @LDFLAGS@ -lapachemd
+
+A2MD_OBJECTS = \
     md_main.c \
     md_cmd_acme.c \
     md_cmd_reg.c \
-    md_cmd_store.c \
-    ../mod_md/acme/md_acme.c \
-    ../mod_md/acme/md_acme_acct.c \
-    ../mod_md/acme/md_acme_authz.c \
-    ../mod_md/acme/md_acme_drive.c \
-    ../mod_md/md_core.c \
-    ../mod_md/md_crypt.c \
-    ../mod_md/md_http.c \
-    ../mod_md/md_json.c \
-    ../mod_md/md_jws.c \
-    ../mod_md/md_log.c \
-    ../mod_md/md_reg.c \
-    ../mod_md/md_store.c \
-    ../mod_md/md_util.c
+    md_cmd_store.c
 
-HFILES = \
-    md_cmd.h
+A2MD_HFILES = \
+    md_cmd.h \
+    md_cmd_acme.h \
+    md_cmd_reg.h \
+    md_cmd_store.h
 
-a2md_SOURCES = $(HFILES) $(OBJECTS)
+a2md_SOURCES = $(A2MD_HFILES) $(A2MD_OBJECTS)

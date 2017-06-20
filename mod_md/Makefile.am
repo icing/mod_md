@@ -18,41 +18,15 @@ ACLOCAL_AMFLAGS = -I m4
 
 lib_LTLIBRARIES    = mod_md.la
 
-mod_md_la_CPPFLAGS = -std=c99 -D_GNU_SOURCE -Werror
-mod_md_la_LDFLAGS  = -module
+mod_md_la_CPPFLAGS = -g -I../src -std=c99 -D_GNU_SOURCE -Werror
+mod_md_la_LDFLAGS  = -module -L../src/.libs -static -lapachemd
 
 OBJECTS = \
-    acme/md_acme.c \
-    acme/md_acme_acct.c \
-    acme/md_acme_authz.c \
-    acme/md_acme_drive.c \
     md_config.c \
-    md_core.c \
-    md_crypt.c \
-    md_http.c \
-    md_json.c \
-    md_jws.c \
-    md_log.c \
-    md_reg.c \
-    md_store.c \
-    md_util.c \
     mod_md.c
 
 HFILES = \
-    acme/md_acme.h \
-    acme/md_acme_acct.h \
-    acme/md_acme_authz.h \
-    acme/md_acme_drive.h \
     md_config.h \
-    md_crypt.h \
-    md_http.h \
-    md_json.h \
-    md_jws.h \
-    md_log.h \
-    md_reg.h \
-    md_store.h \
-    md_util.h \
-    md.h \
     mod_md.h
 
 mod_md_la_SOURCES = $(HFILES) $(OBJECTS)
