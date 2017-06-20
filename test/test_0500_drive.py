@@ -60,9 +60,8 @@ class TestDrive :
         run = TestEnv.a2md( [ "-vvvv", "drive", domain ] )
         print run["stderr"]
         assert run['rv'] == 0
-        assert re.search("function has not been impl", run["stderr"])
 
-    def xxxtest_004(self):
+    def test_004(self):
         # drive an md with 2 domains
         domain = "test2.example1.org"
         assert TestEnv.a2md( [ "-vvvvv", "add", domain , "www." + domain ] )['rv'] == 0
@@ -74,8 +73,7 @@ class TestDrive :
             )['rv'] == 0
         run = TestEnv.a2md( [ "-vvvv", "drive", domain ] )
         print run["stderr"]
-        assert run['rv'] == 1
-        assert re.search("function has not been impl", run["stderr"])
+        assert run['rv'] == 0
 
         
  

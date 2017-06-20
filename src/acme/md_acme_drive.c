@@ -249,8 +249,11 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
 static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad = d->baton;
-    apr_status_t rv = APR_SUCCESS;
+    apr_status_t rv;
     md_acme_authz_t *authz;
+    apr_time_t now, giveup = apr_time_now() + ad->authz_timeout;
+    apr_interval_time_t nap_duration = apr_time_from_msec(100);
+    apr_interval_time_t nap_max = apr_time_from_sec(10);
     int i;
     
     assert(ad->md);
@@ -259,27 +262,54 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
     assert(ad->authz_set);
     assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
 
-    for (i = 0; i < ad->authz_set->authzs->nelts && APR_SUCCESS == rv; ++i) {
-        authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
-                      ad->md->name, authz->domain);
-        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p))) {
-            switch (authz->state) {
-                case MD_ACME_AUTHZ_S_VALID:
-                    break;
-                case MD_ACME_AUTHZ_S_PENDING:
-                    rv = APR_EAGAIN;
-                    break;
-                default:
-                    rv = APR_EINVAL;
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                                  "%s: unexpected AUTHZ state %d at %s", 
-                                  authz->domain, authz->state, authz->location);
-                    break;
+    while (1) {
+        rv = APR_SUCCESS;
+        for (i = 0; i < ad->authz_set->authzs->nelts && APR_SUCCESS == rv; ++i) {
+            authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
+                          ad->md->name, authz->domain);
+            if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p))) {
+                switch (authz->state) {
+                    case MD_ACME_AUTHZ_S_VALID:
+                        break;
+                    case MD_ACME_AUTHZ_S_PENDING:
+                        rv = APR_EAGAIN;
+                        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                                      "%s: status pending at %s", authz->domain, authz->location);
+                        break;
+                    default:
+                        rv = APR_EINVAL;
+                        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
+                                      "%s: unexpected AUTHZ state %d at %s", 
+                                      authz->domain, authz->state, authz->location);
+                        break;
+                }
             }
+        }
+        
+        now = apr_time_now();
+        if (now > giveup) {
+            break;
+        }
+        else if (APR_EAGAIN == rv) {
+            apr_interval_time_t left = giveup - now;
+            if (nap_duration > left) {
+                nap_duration = left;
+            }
+            if (nap_duration > nap_max) {
+                nap_duration = nap_max;
+            }
+            
+            apr_sleep(nap_duration);
+            nap_duration *= 2; 
+        }
+        else {
+            break;
         }
     }
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, d->p, 
+                  "%s: checked all domain authorizations", ad->md->name);
     return rv;
 }
 
@@ -301,7 +331,7 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
  */
 static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
 {
-    return APR_ENOTIMPL;
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/
