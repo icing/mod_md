@@ -33,9 +33,10 @@ typedef enum {
 
 typedef struct md_t md_t;
 struct md_t {
-    const char         *name;       /* unique name of this MD */
+    const char *name;               /* unique name of this MD */
     struct apr_array_header_t *domains; /* all DNS names this MD includes */
-
+    unsigned must_staple : 1;
+    
     md_state_t state;               /* state of this MD */
     int proto_state;                /* state of renewal process, protocol specific */
 
@@ -56,6 +57,7 @@ struct md_t {
 #define MD_KEY_CHALLENGES       "challenges"
 #define MD_KEY_CONTACT          "contact"
 #define MD_KEY_CONTACTS         "contacts"
+#define MD_KEY_CSR              "csr"
 #define MD_KEY_DISABLED         "disabled"
 #define MD_KEY_DOMAINS          "domains"
 #define MD_KEY_ID               "id"

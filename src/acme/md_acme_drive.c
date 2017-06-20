@@ -46,6 +46,8 @@ typedef struct {
     md_acme_authz_set_t *authz_set;
     apr_interval_time_t authz_timeout;
     
+    const char *csr_der_64;
+    const char *cert_url;
 } md_acme_driver_t;
 
 /**************************************************************************************************/
@@ -124,7 +126,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
         /* Persist the account chosen at the md so we use the same on future runs */
         if (!md->ca_account || strcmp(md->ca_account, acct->id)) {
             md->ca_account = acct->id;
-            rv = md_save(d->store, md, 0);
+            rv = md_reg_update(d->reg, md->name, md, MD_UPD_CA_ACCOUNT);
         }
     }
 
@@ -316,6 +318,34 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
 /**************************************************************************************************/
 /* cert setup */
 
+static apr_status_t on_init_csr_req(md_acme_req_t *req, void *baton)
+{
+    md_proto_driver_t *d = baton;
+    md_acme_driver_t *ad = d->baton;
+    md_json_t *jpayload;
+
+    jpayload = md_json_create(req->pool);
+    md_json_sets("new-cert", jpayload, MD_KEY_RESOURCE, NULL);
+    md_json_sets(ad->csr_der_64, jpayload, MD_KEY_CSR, NULL);
+    
+    return md_acme_req_body_init(req, jpayload, ad->acct->key);
+} 
+
+static apr_status_t on_success_csr_req(md_acme_t *acme, const apr_table_t *hdrs, 
+                                       md_json_t *body, void *baton)
+{
+    md_proto_driver_t *d = baton;
+    md_acme_driver_t *ad = d->baton;
+    
+    ad->cert_url = apr_table_get(hdrs, "location");
+    if (!ad->cert_url) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
+                      "cert created without location header");
+        return APR_EINVAL;
+    }
+    return APR_SUCCESS;
+}
+
 /**
  * Pre-Req: all domains have been validated by the ACME server, e.g. all have AUTHZ
  * resources that have status 'valid'
@@ -331,7 +361,29 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
  */
 static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
 {
-    return APR_SUCCESS;
+    md_acme_driver_t *ad = d->baton;
+    md_pkey_t *pkey;
+    apr_status_t rv;
+
+    rv = md_load_pkey(d->store, ad->md->name, &pkey, d->p);
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = md_pkey_gen_rsa(&pkey, d->p, ad->acme->pkey_bits);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate pkey", ad->md->name);
+    }
+
+    if (APR_SUCCESS == rv) {
+        rv = md_cert_req_create(&ad->csr_der_64, ad->md, pkey, d->p);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR", ad->md->name);
+    }
+
+    if (APR_SUCCESS == rv) {
+        rv = md_acme_req_do(ad->acme, ad->acme->new_cert, on_init_csr_req, on_success_csr_req, d);
+    }
+
+    if (APR_SUCCESS == rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "cert at %s", ad->cert_url);
+    }
+    return rv;
 }
 
 /**************************************************************************************************/

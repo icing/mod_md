@@ -305,7 +305,8 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     
     rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                        MD_SV_TEXT, (void**)&data, p);
-    if ((APR_SUCCESS == rv && strcmp(key_authz, data)) || APR_ENOENT == rv) {
+    if ((APR_SUCCESS == rv && strcmp(key_authz, data)) 
+        || APR_STATUS_IS_ENOENT(rv)) {
         rv = md_store_save(store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                            MD_SV_TEXT, (void*)key_authz, 0);
         notify_server = 1;

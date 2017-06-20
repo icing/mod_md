@@ -26,7 +26,9 @@
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
+#include <openssl/x509v3.h>
 
+#include "md.h"
 #include "md_crypt.h"
 #include "md_log.h"
 #include "md_util.h"
@@ -448,3 +450,117 @@ apr_status_t md_cert_save_chain(apr_array_header_t *certs, apr_pool_t *p, const 
     }
     return rv;
 }
+
+/**************************************************************************************************/
+/* certificate signing requests */
+
+static apr_status_t add_alt_names(STACK_OF(X509_EXTENSION) *exts, const md_t *md, apr_pool_t *p)
+{
+    
+    if (md->domains->nelts > 1) {
+        const char *alt_names = "", *sep = "", *domain;
+        X509_EXTENSION *x;
+        int i;
+        
+        for (i = 1; i < md->domains->nelts; ++i) {
+            domain = APR_ARRAY_IDX(md->domains, i, const char *);
+            alt_names = apr_psprintf(p, "%s%sDNS:%s", alt_names, sep, domain);
+            sep = ",";
+        }
+        
+        if (NULL == (x = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, alt_names))) {
+            return APR_EGENERAL;
+        }
+        sk_X509_EXTENSION_push(exts, x);
+    }
+    return APR_SUCCESS;
+}
+
+static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const md_t *md, apr_pool_t *p)
+{
+    
+    if (md->must_staple) {
+        X509_EXTENSION *x = X509V3_EXT_conf_nid(NULL, NULL, NID_tlsfeature, "DER:30:03:02:01:05");
+        if (NULL == x) {
+            return APR_EGENERAL;
+        }
+        sk_X509_EXTENSION_push(exts, x);
+    }
+    return APR_SUCCESS;
+}
+
+apr_status_t md_cert_req_create(const char **pcsr_der_64, const md_t *md, 
+                                md_pkey_t *pkey, apr_pool_t *p)
+{
+    const char *s, *csr_der, *csr_der_64 = NULL;
+    const unsigned char *domain;
+    X509_REQ *csr;
+    X509_NAME *n = NULL;
+    STACK_OF(X509_EXTENSION) *exts = NULL;
+    apr_status_t rv = APR_EGENERAL;
+    int csr_der_len;
+    
+    assert(md->domains->nelts > 0);
+    
+    if (NULL == (csr = X509_REQ_new()) 
+        || NULL == (exts = sk_X509_EXTENSION_new_null())
+        || NULL == (n = X509_NAME_new())) {
+        rv = APR_ENOMEM;
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: openssl alloc X509 things", md->name);
+        goto out; 
+    }
+
+    /* subject name == first domain */
+    domain = APR_ARRAY_IDX(md->domains, 0, const unsigned char *);
+    if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, domain, -1, -1, 0)
+        || !X509_REQ_set_subject_name(csr, n)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: REQ name add entry", md->name);
+        goto out;
+    }
+    /* collect extensions, such as alt names and must staple */
+    if (APR_SUCCESS != (rv = add_alt_names(exts, md, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: collecting alt names", md->name);
+        goto out;
+    }
+    if (APR_SUCCESS != (rv = add_must_staple(exts, md, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: must staple", md->name);
+        goto out;
+    }
+    /* add extensions to csr */
+    if (sk_X509_EXTENSION_num(exts) > 0 && !X509_REQ_add_extensions(csr, exts)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: adding exts", md->name);
+        goto out;
+    }
+    /* add our key */
+    if (!X509_REQ_set_pubkey(csr, pkey->pkey)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in csr", md->name);
+        goto out;
+    }
+    /* sign, der encode and base64url encode */
+    if (!X509_REQ_sign(csr, pkey->pkey, EVP_sha256())) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign csr", md->name);
+        goto out;
+    }
+    if ((csr_der_len = i2d_X509_REQ(csr, NULL)) < 0) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", md->name);
+        goto out;
+    }
+    s = csr_der = apr_pcalloc(p, csr_der_len + 1);
+    if (i2d_X509_REQ(csr, (unsigned char**)&s) != csr_der_len) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", md->name);
+        goto out;
+    }
+    csr_der_64 = md_util_base64url_encode(csr_der, csr_der_len, p);
+    rv = APR_SUCCESS;
+    
+out:
+    if (exts) {
+        sk_X509_EXTENSION_pop_free(exts, X509_EXTENSION_free);
+    }
+    if (csr) {
+        X509_REQ_free(csr);
+    }
+    *pcsr_der_64 = (APR_SUCCESS == rv)? csr_der_64 : NULL;
+    return rv;
+}
+
