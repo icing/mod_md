@@ -3,7 +3,7 @@
    LastUpgradeVersion = "0830"
    version = "1.3">
    <BuildAction
-      parallelizeBuildables = "YES"
+      parallelizeBuildables = "NO"
       buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry
@@ -14,9 +14,23 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B20333401EDECB1D00E5BE7E"
+               BlueprintIdentifier = "B240522C1EF9223300E36701"
                BuildableName = "a2md"
                BlueprintName = "a2md"
+               ReferencedContainer = "container:mod_md.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "B203333C1EDEC7FE00E5BE7E"
+               BuildableName = "mod_md"
+               BlueprintName = "mod_md"
                ReferencedContainer = "container:mod_md.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -29,6 +43,15 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
       </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "B240522C1EF9223300E36701"
+            BuildableName = "a2md"
+            BlueprintName = "a2md"
+            ReferencedContainer = "container:mod_md.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </TestAction>
@@ -45,7 +68,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B20333401EDECB1D00E5BE7E"
+            BlueprintIdentifier = "B240522C1EF9223300E36701"
             BuildableName = "a2md"
             BlueprintName = "a2md"
             ReferencedContainer = "container:mod_md.xcodeproj">
@@ -63,7 +86,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B20333401EDECB1D00E5BE7E"
+            BlueprintIdentifier = "B240522C1EF9223300E36701"
             BuildableName = "a2md"
             BlueprintName = "a2md"
             ReferencedContainer = "container:mod_md.xcodeproj">

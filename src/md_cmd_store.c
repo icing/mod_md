@@ -40,7 +40,7 @@
 static apr_status_t cmd_add(md_cmd_ctx *ctx, const md_cmd_t *cmd) 
 {
     md_t *md, *nmd;
-    const char *err, *optarg;
+    const char *err;
     apr_status_t rv;
 
     err = md_create(&md, ctx->p, md_cmd_gather_args(ctx, 0));
@@ -105,7 +105,7 @@ static apr_status_t opts_remove(md_cmd_ctx *ctx, int option, const char *optarg)
 
 static apr_getopt_option_t RemoveOptions [] = {
     { "force",    'f', 0, "force removal, be silent about missing domains"},
-    { NULL }
+    { NULL , 0, 0, NULL }
 };
 
 static md_cmd_t RemoveCmd = {
@@ -123,7 +123,7 @@ static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist;
     apr_status_t rv;
-    int i, j;
+    int i;
     
     rv = md_load_all(&mdlist, ctx->store, ctx->p);
     if (APR_SUCCESS != rv) {
@@ -155,7 +155,7 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     const char *name;
     md_t *md;
     apr_status_t rv;
-    int i, j, changed;
+    int changed;
     
     if (ctx->argc <= 0) {
         return usage(cmd, "needs md name");

@@ -39,8 +39,8 @@
 
 static apr_status_t cmd_reg_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
-    md_t *md, *nmd;
-    const char *err, *optarg;
+    md_t *md;
+    const char *err;
     apr_status_t rv;
 
     err = md_create(&md, ctx->p, md_cmd_gather_args(ctx, 0));
@@ -71,7 +71,6 @@ md_cmd_t MD_RegAddCmd = {
 static int list_add_md(void *baton, md_reg_t *reg, const md_t *md)
 {
     apr_array_header_t *mdlist = baton;
-    const md_t **pmd;
     
     APR_ARRAY_PUSH(mdlist, const md_t *) = md;
     return 1;
@@ -85,9 +84,7 @@ static int md_name_cmp(const void *v1, const void *v2)
 static apr_status_t cmd_reg_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
-    apr_hash_t *mds = apr_hash_make(ctx->p);
-    apr_status_t rv;
-    int i, j;
+    int i;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
     md_reg_do(list_add_md, mdlist, ctx->reg);
@@ -117,7 +114,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     const md_t *md;
     md_t *nmd;
     apr_status_t rv = APR_SUCCESS;
-    int i, j, fields;
+    int i, fields;
     
     if (ctx->argc <= 0) {
         return usage(cmd, "needs md name");
@@ -231,10 +228,9 @@ md_cmd_t MD_RegUpdateCmd = {
 static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
-    apr_hash_t *mds = apr_hash_make(ctx->p);
-    const md_t *md, **pmd;
+    const md_t *md;
     apr_status_t rv;
-    int i, j;
+    int i;
  
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "drive do");
     if (ctx->argc > 0) {

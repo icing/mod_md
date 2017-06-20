@@ -228,8 +228,8 @@ static int log_is_level(void *baton, apr_pool_t *p, md_log_level_t level)
 
 #define LOG_BUF_LEN 16*1024
 
-void log_print(const char *file, int line, md_log_level_t level, 
-               apr_status_t rv, void *baton, apr_pool_t *p, const char *fmt, va_list ap)
+static void log_print(const char *file, int line, md_log_level_t level, 
+                      apr_status_t rv, void *baton, apr_pool_t *p, const char *fmt, va_list ap)
 {
     if (log_is_level(baton, p, level)) {
         char buffer[LOG_BUF_LEN];
@@ -364,10 +364,7 @@ int main(int argc, const char *const *argv)
     apr_allocator_t *allocator;
     apr_status_t rv;
     apr_pool_t *p;
-    int i;
-    apr_hash_t *mds;
     md_cmd_ctx ctx;
-    const md_cmd_t *cmd;
     
     memset(&ctx, 0, sizeof(ctx));
     md_log_set(log_is_level, log_print, NULL);

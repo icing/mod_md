@@ -79,12 +79,8 @@ static md_cmd_t AcmeNewregCmd = {
 static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name, 
                                    const char *tos, apr_pool_t *p) 
 {
-    md_http_t *http;
     md_acme_acct_t *acct;
     apr_status_t rv;
-    long req_id;
-    const char *data;
-    md_json_t *json;
     
     if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, name, p))) {
         if (!tos) {
@@ -137,12 +133,8 @@ static md_cmd_t AcmeAgreeCmd = {
 
 static apr_status_t acct_validate(md_cmd_ctx *ctx, const char *name, apr_pool_t *p) 
 {
-    md_http_t *http;
     md_acme_acct_t *acct;
     apr_status_t rv;
-    long req_id;
-    const char *data;
-    md_json_t *json;
     
     if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, name, p))) {
     
@@ -164,7 +156,6 @@ static apr_status_t acct_validate(md_cmd_ctx *ctx, const char *name, apr_pool_t 
 static apr_status_t cmd_acme_validate(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_status_t rv = APR_SUCCESS;
-    md_acme_t *acme;
     int i;
     
     for (i = 0; i < ctx->argc; ++i) {
@@ -188,12 +179,8 @@ static md_cmd_t AcmeValidateCmd = {
 
 static apr_status_t acme_delreg(md_store_t *store, const char *name, apr_pool_t *p) 
 {
-    md_http_t *http;
     md_acme_acct_t *acct;
     apr_status_t rv;
-    long req_id;
-    const char *data;
-    md_json_t *json;
     
     if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
         rv = md_acme_acct_del(acct);
@@ -241,9 +228,6 @@ static md_cmd_t AcmeDelregCmd = {
 static apr_status_t acme_newauthz(md_cmd_ctx *ctx, md_acme_acct_t *acct, const char *domain) 
 {
     apr_status_t rv;
-    long req_id;
-    const char *data;
-    md_json_t *json;
     md_acme_authz_t *authz;
     
     rv = md_acme_authz_register(&authz, ctx->acme, domain, acct, ctx->p); 

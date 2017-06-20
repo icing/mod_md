@@ -38,7 +38,8 @@ static md_config_t defconf = {
     "https://acme-v01.api.letsencrypt.org/directory",
     "ACME",
     NULL,
-    "md"
+    "md",
+    NULL
 };
 
 static void *md_config_create(apr_pool_t *pool,

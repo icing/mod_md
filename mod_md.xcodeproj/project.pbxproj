@@ -45,6 +45,8 @@
 		B24052271EF9145000E36701 /* md_version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_version.h; sourceTree = "<group>"; };
 		B24052281EF9145000E36701 /* md_version.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = md_version.h.in; sourceTree = "<group>"; };
 		B24052291EF9145000E36701 /* md.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md.h; sourceTree = "<group>"; };
+		B240522A1EF91D3F00E36701 /* md_config.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_config.c; sourceTree = "<group>"; };
+		B240522B1EF91D3F00E36701 /* md_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_config.h; sourceTree = "<group>"; };
 		B255730A1EE6CF6100E0B132 /* test_0100_reg_add.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0100_reg_add.py; sourceTree = "<group>"; };
 		B255730B1EE6CF6100E0B132 /* test_0110_reg_update.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0110_reg_update.py; sourceTree = "<group>"; };
 		B255730C1EE6D11200E0B132 /* testbase.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = testbase.py; sourceTree = "<group>"; };
@@ -141,6 +143,8 @@
 			isa = PBXGroup;
 			children = (
 				B2D309D61EBA2384007BECC8 /* Makefile.am */,
+				B240522A1EF91D3F00E36701 /* md_config.c */,
+				B240522B1EF91D3F00E36701 /* md_config.h */,
 				B2D309D71EBA2384007BECC8 /* mod_md.c */,
 				B2D309D81EBA2384007BECC8 /* mod_md.h */,
 			);
@@ -264,20 +268,6 @@
 			passBuildSettingsInEnvironment = 1;
 			productName = mod_md;
 		};
-		B20333401EDECB1D00E5BE7E /* a2md */ = {
-			isa = PBXLegacyTarget;
-			buildArgumentsString = "$(ACTION)";
-			buildConfigurationList = B20333411EDECB1D00E5BE7E /* Build configuration list for PBXLegacyTarget "a2md" */;
-			buildPhases = (
-			);
-			buildToolPath = /usr/bin/make;
-			buildWorkingDirectory = /Users/sei/projects/mod_md/src;
-			dependencies = (
-			);
-			name = a2md;
-			passBuildSettingsInEnvironment = 1;
-			productName = a2md;
-		};
 		B20333441EDECBE000E5BE7E /* mod_md test */ = {
 			isa = PBXLegacyTarget;
 			buildArgumentsString = "$(ACTION) test";
@@ -292,6 +282,20 @@
 			passBuildSettingsInEnvironment = 1;
 			productName = "mod_md test";
 		};
+		B240522C1EF9223300E36701 /* a2md */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = B240522D1EF9223300E36701 /* Build configuration list for PBXLegacyTarget "a2md" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = /Users/sei/projects/mod_md/src;
+			dependencies = (
+			);
+			name = a2md;
+			passBuildSettingsInEnvironment = 1;
+			productName = mod_md;
+		};
 /* End PBXLegacyTarget section */
 
 /* Begin PBXProject section */
@@ -301,10 +305,6 @@
 				LastUpgradeCheck = 0800;
 				TargetAttributes = {
 					B203333C1EDEC7FE00E5BE7E = {
-						CreatedOnToolsVersion = 8.3;
-						ProvisioningStyle = Automatic;
-					};
-					B20333401EDECB1D00E5BE7E = {
 						CreatedOnToolsVersion = 8.3;
 						ProvisioningStyle = Automatic;
 					};
@@ -325,8 +325,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				B240522C1EF9223300E36701 /* a2md */,
 				B203333C1EDEC7FE00E5BE7E /* mod_md */,
-				B20333401EDECB1D00E5BE7E /* a2md */,
 				B20333441EDECBE000E5BE7E /* mod_md test */,
 			);
 		};
@@ -392,65 +392,6 @@
 			};
 			name = Release;
 		};
-		B20333421EDECB1D00E5BE7E /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				COPY_PHASE_STRIP = NO;
-				DEBUGGING_SYMBOLS = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		B20333431EDECB1D00E5BE7E /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
 		B20333461EDECBE000E5BE7E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -485,6 +426,65 @@
 			name = Debug;
 		};
 		B20333471EDECBE000E5BE7E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		B240522E1EF9223300E36701 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		B240522F1EF9223300E36701 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -574,20 +574,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B20333411EDECB1D00E5BE7E /* Build configuration list for PBXLegacyTarget "a2md" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				B20333421EDECB1D00E5BE7E /* Debug */,
-				B20333431EDECB1D00E5BE7E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		B20333451EDECBE000E5BE7E /* Build configuration list for PBXLegacyTarget "mod_md test" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B20333461EDECBE000E5BE7E /* Debug */,
 				B20333471EDECBE000E5BE7E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B240522D1EF9223300E36701 /* Build configuration list for PBXLegacyTarget "a2md" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B240522E1EF9223300E36701 /* Debug */,
+				B240522F1EF9223300E36701 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

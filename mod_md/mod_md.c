@@ -49,9 +49,9 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
 {
     server_rec *s;
     apr_array_header_t *mds;
-    int i, j, k;
+    int i, j;
     md_t *md, *nmd;
-    const char *domain, *name;
+    const char *domain;
     apr_status_t rv = APR_SUCCESS;
     md_config_t *config;
 
@@ -111,7 +111,7 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
         for (s = base_server; s; s = s->next) {
             r.server = s;
             
-            if (0 && strcmp(ap_http_scheme(&r), "https")) {
+            if (strcmp(ap_http_scheme(&r), "https")) {
                 /* Not a TLS enabled server */
                 continue;
             }
@@ -213,7 +213,7 @@ static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = md_load_all(&store_mds, store, ptemp))) {
-        int i, j;
+        int i;
         md_t *md, *config_md, *smd, *omd;
         const char *common;
         
@@ -302,7 +302,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     void *data = NULL;
     const char *mod_md_init_key = "mod_md_init_counter";
     apr_array_header_t *mds;
-    md_config_t *conf;
     md_store_t *store;
     apr_status_t rv = APR_SUCCESS;
 
@@ -342,7 +341,6 @@ static int md_http_challenge_pr(request_rec *r)
     apr_bucket_brigade *bb;
     const md_config_t *conf;
     const char *base_dir, *name, *data;
-    md_store_t *store;
     apr_status_t rv;
             
     if (r->method_number == M_GET) {

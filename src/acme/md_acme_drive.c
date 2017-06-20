@@ -44,6 +44,7 @@ typedef struct {
     md_t *md;
     
     md_acme_authz_set_t *authz_set;
+    apr_interval_time_t authz_timeout;
     
 } md_acme_driver_t;
 
@@ -247,7 +248,39 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
 
 static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
 {
-    return APR_ENOTIMPL;
+    md_acme_driver_t *ad = d->baton;
+    apr_status_t rv = APR_SUCCESS;
+    md_acme_authz_t *authz;
+    int i;
+    
+    assert(ad->md);
+    assert(ad->acme);
+    assert(ad->acct);
+    assert(ad->authz_set);
+    assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
+
+    for (i = 0; i < ad->authz_set->authzs->nelts && APR_SUCCESS == rv; ++i) {
+        authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
+                      ad->md->name, authz->domain);
+        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p))) {
+            switch (authz->state) {
+                case MD_ACME_AUTHZ_S_VALID:
+                    break;
+                case MD_ACME_AUTHZ_S_PENDING:
+                    rv = APR_EAGAIN;
+                    break;
+                default:
+                    rv = APR_EINVAL;
+                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
+                                  "%s: unexpected AUTHZ state %d at %s", 
+                                  authz->domain, authz->state, authz->location);
+                    break;
+            }
+        }
+    }
+    
+    return rv;
 }
 
 /**************************************************************************************************/
@@ -283,7 +316,8 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     d->baton = ad;
     ad->driver = d;
     ad->md = md_copy(d->p, d->md);
-    
+    ad->authz_timeout = apr_time_from_sec(30);
+
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: driving md %s", 
                   d->proto->protocol, ad->md->name);
     
