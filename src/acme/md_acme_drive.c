@@ -47,7 +47,8 @@ typedef struct {
     apr_interval_time_t authz_timeout;
     
     const char *csr_der_64;
-    const char *cert_url;
+    md_cert_t *cert;
+    
 } md_acme_driver_t;
 
 /**************************************************************************************************/
@@ -331,19 +332,50 @@ static apr_status_t on_init_csr_req(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload, ad->acct->key);
 } 
 
-static apr_status_t on_success_csr_req(md_acme_t *acme, const apr_table_t *hdrs, 
-                                       md_json_t *body, void *baton)
+static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void *baton)
 {
     md_proto_driver_t *d = baton;
     md_acme_driver_t *ad = d->baton;
+    apr_status_t rv = APR_SUCCESS;
     
-    ad->cert_url = apr_table_get(hdrs, "location");
-    if (!ad->cert_url) {
+    ad->md->cert_url = apr_table_get(res->headers, "location");
+    if (!ad->md->cert_url) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
-                      "cert created without location header");
+                      "cert created without giving its location header");
         return APR_EINVAL;
     }
-    return APR_SUCCESS;
+    if (APR_SUCCESS != (rv = md_reg_update(d->reg, ad->md->name, ad->md, MD_UPD_CERT_URL))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
+                      "%s: saving cert url %s", ad->md->name, ad->md->cert_url);
+        return rv;
+    }
+    
+    /* Check if it already was sent with this response */
+    if (APR_SUCCESS == (rv = md_cert_read_http(&ad->cert, d->p, res))) {
+        rv = md_store_save(d->store, MD_SG_DOMAINS, ad->md->name, MD_FN_CERT, 
+                           MD_SV_CERT, ad->cert, 0);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed and saved");
+    }
+    else if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_SUCCESS;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                      "cert not in response, need to poll %s", ad->md->cert_url);
+    }
+    
+    return rv;
+}
+
+static apr_status_t cert_poll(md_proto_driver_t *d)
+{
+    md_acme_driver_t *ad = d->baton;
+
+    if (!ad->md->cert_url) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: cert url missing", ad->md->name);
+        return APR_EGENERAL;
+    }
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "poll for cert at %s", ad->md->cert_url);
+    return APR_ENOTIMPL;
 }
 
 /**
@@ -365,9 +397,11 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
     md_pkey_t *pkey;
     apr_status_t rv;
 
-    rv = md_load_pkey(d->store, ad->md->name, &pkey, d->p);
+    rv = md_pkey_load(d->store, ad->md->name, &pkey, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
-        rv = md_pkey_gen_rsa(&pkey, d->p, ad->acme->pkey_bits);
+        if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, d->p, ad->acme->pkey_bits))) {
+            rv = md_pkey_save(d->store, ad->md->name, pkey, 1);
+        }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate pkey", ad->md->name);
     }
 
@@ -377,11 +411,13 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
     }
 
     if (APR_SUCCESS == rv) {
-        rv = md_acme_req_do(ad->acme, ad->acme->new_cert, on_init_csr_req, on_success_csr_req, d);
+        rv = md_acme_req_do(ad->acme, ad->acme->new_cert, on_init_csr_req, NULL, csr_req, d);
     }
 
     if (APR_SUCCESS == rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "cert at %s", ad->cert_url);
+        if (!ad->cert) {
+            rv = cert_poll(d);
+        }
     }
     return rv;
 }

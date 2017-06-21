@@ -148,8 +148,8 @@ static apr_status_t on_init_authz(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload, ctx->acct->key);
 } 
 
-static apr_status_t on_success_authz(md_acme_t *acme, const apr_table_t *hdrs, 
-                                     md_json_t *body, void *baton)
+static apr_status_t authz_created(md_acme_t *acme, const apr_table_t *hdrs, 
+                                  md_json_t *body, void *baton)
 {
     authz_req_ctx *ctx = baton;
     const char *location = apr_table_get(hdrs, "location");
@@ -178,7 +178,7 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
     authz_req_ctx_init(&ctx, acme, acct, domain, NULL, p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "create new authz");
-    rv = md_acme_req_do(acme, acme->new_authz, on_init_authz, on_success_authz, &ctx);
+    rv = md_acme_req_do(acme, acme->new_authz, on_init_authz, authz_created, NULL, &ctx);
     
     *pauthz = (APR_SUCCESS == rv)? ctx.authz : NULL;
     return rv;
@@ -267,8 +267,8 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload, ctx->acct->key);
 } 
 
-static apr_status_t on_success_authz_resp(md_acme_t *acme, const apr_table_t *hdrs, 
-                                          md_json_t *body, void *baton)
+static apr_status_t authz_http_set(md_acme_t *acme, const apr_table_t *hdrs, 
+                                   md_json_t *body, void *baton)
 {
     authz_req_ctx *ctx = baton;
     
@@ -319,7 +319,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
          * so it may (re)try verification */        
         authz_req_ctx_init(&ctx, acme, acct, NULL, authz, p);
         ctx.challenge = cha;
-        rv = md_acme_req_do(acme, cha->uri, on_init_authz_resp, on_success_authz_resp, &ctx);
+        rv = md_acme_req_do(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
     }
     return rv;
 }
@@ -399,8 +399,8 @@ static apr_status_t on_init_authz_del(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload, ctx->acct->key);
 } 
 
-static apr_status_t on_success_authz_del(md_acme_t *acme, const apr_table_t *hdrs, 
-                                         md_json_t *body, void *baton)
+static apr_status_t authz_del(md_acme_t *acme, const apr_table_t *hdrs, 
+                              md_json_t *body, void *baton)
 {
     authz_req_ctx *ctx = baton;
     
@@ -419,7 +419,7 @@ apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme,
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "delete authz for %s from %s", 
                   authz->domain, authz->location);
-    return md_acme_req_do(acme, authz->location, on_init_authz_del, on_success_authz_del, &ctx);
+    return md_acme_req_do(acme, authz->location, on_init_authz_del, authz_del, NULL, &ctx);
 }
 
 /**************************************************************************************************/

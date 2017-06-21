@@ -26,6 +26,7 @@
 struct md_http_t {
     apr_pool_t *pool;
     apr_bucket_alloc_t *bucket_alloc;
+    apr_off_t resp_limit;
 };
 
 
@@ -77,9 +78,17 @@ static size_t resp_data_cb(void *data, size_t len, size_t nmemb, void *baton)
 {
     md_http_response_t *res = baton;
     size_t blen = len * nmemb;
-
+    apr_status_t rv;
+    
     if (res->body) {
-        apr_status_t rv = apr_brigade_write(res->body, NULL, NULL, (const char *)data, blen);
+        if (res->req->resp_limit) {
+            apr_off_t body_len = 0;
+            apr_brigade_length(res->body, 0, &body_len);
+            if (body_len + len > res->req->resp_limit) {
+                return 0; /* signal curl failure */
+            }
+        }
+        rv = apr_brigade_write(res->body, NULL, NULL, (const char *)data, blen);
         if (rv != APR_SUCCESS) {
             /* returning anything != blen will make CURL fail this */
             return 0;
@@ -137,6 +146,11 @@ apr_status_t md_http_create(md_http_t **phttp, apr_pool_t *p)
     return APR_SUCCESS;
 }
 
+void md_http_set_response_limit(md_http_t *http, apr_off_t resp_limit)
+{
+    http->resp_limit = resp_limit;
+}
+
 static apr_status_t curl_init(md_http_request_t *req)
 {
     CURL *curl = curl_easy_init();
@@ -175,6 +189,7 @@ static apr_status_t req_create(md_http_request_t **preq, md_http_t *http,
     req->method = method;
     req->url = url;
     req->headers = headers? apr_table_copy(req->pool, headers) : apr_table_make(req->pool, 5);
+    req->resp_limit = http->resp_limit;
     req->cb = cb;
     req->baton = baton;
 

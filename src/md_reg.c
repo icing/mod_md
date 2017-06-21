@@ -410,6 +410,10 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update agreement: %s", name);
         nmd->ca_agreement = updates->ca_agreement;
     }
+    if (MD_UPD_CERT_URL & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update cert url: %s", name);
+        nmd->cert_url = updates->cert_url;
+    }
     
     if (fields 
         && APR_SUCCESS == (rv = md_save(reg->store, nmd, 0))
@@ -448,9 +452,9 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     pcreds = va_arg(ap, md_creds_t **);
     md = va_arg(ap, const md_t *);
     
-    if (ok_or_noent(rv = md_load_cert(reg->store, md->name, &cert, p))
-        && ok_or_noent(rv = md_load_pkey(reg->store, md->name, &pkey, p))
-        && ok_or_noent(rv = md_load_chain(reg->store, md->name, &chain, p))) {
+    if (ok_or_noent(rv = md_cert_load(reg->store, md->name, &cert, p))
+        && ok_or_noent(rv = md_pkey_load(reg->store, md->name, &pkey, p))
+        && ok_or_noent(rv = md_chain_load(reg->store, md->name, &chain, p))) {
         rv = APR_SUCCESS;
             
         creds = apr_pcalloc(p, sizeof(*creds));

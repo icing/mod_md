@@ -311,8 +311,8 @@ static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_acct_upd(md_acme_t *acme, const apr_table_t *hdrs, 
-                                        md_json_t *body, void *baton)
+static apr_status_t acct_upd(md_acme_t *acme, const apr_table_t *hdrs,
+                             md_json_t *body, void *baton)
 {
     md_acme_acct_t *acct = baton;
     apr_status_t rv = APR_SUCCESS;
@@ -379,7 +379,7 @@ apr_status_t md_acme_register(md_acme_acct_t **pacct, md_store_t *store, md_acme
             acct->agreement = agreement;
         }
 
-        rv = md_acme_req_do(acme, acme->new_reg, on_init_acct_new, on_success_acct_upd, acct);
+        rv = md_acme_req_do(acme, acme->new_reg, on_init_acct_new, acct_upd, NULL, acct);
         if (APR_SUCCESS == rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acme->pool, 
                           "registered new account %s", acct->url);
@@ -408,8 +408,8 @@ static apr_status_t on_init_acct_valid(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_acct_valid(md_acme_t *acme, const apr_table_t *hdrs, 
-                                          md_json_t *body, void *baton)
+static apr_status_t acct_valid(md_acme_t *acme, const apr_table_t *hdrs, 
+                               md_json_t *body, void *baton)
 {
     md_acme_acct_t *acct = baton;
     apr_status_t rv = APR_SUCCESS;
@@ -441,7 +441,7 @@ static apr_status_t on_success_acct_valid(md_acme_t *acme, const apr_table_t *hd
 apr_status_t md_acme_acct_validate(md_acme_t *acme, md_acme_acct_t *acct)
 {
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "acct validation");
-    return md_acme_req_do(acme, acct->url, on_init_acct_valid, on_success_acct_valid, acct);
+    return md_acme_req_do(acme, acct->url, on_init_acct_valid, acct_valid, NULL, acct);
 }
 
 /**************************************************************************************************/
@@ -462,7 +462,7 @@ static apr_status_t on_init_agree_tos(md_acme_req_t *req, void *baton)
 apr_status_t md_acme_acct_agree_tos(md_acme_t *acme, md_acme_acct_t *acct, const char *agreement)
 {
     acct->agreement = agreement;
-    return md_acme_req_do(acme, acct->url, on_init_agree_tos, on_success_acct_upd, acct);
+    return md_acme_req_do(acme, acct->url, on_init_agree_tos, acct_upd, NULL, acct);
 }
 
 static int agreement_required(md_acme_acct_t *acct)
@@ -524,7 +524,7 @@ static apr_status_t on_init_acct_del(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload, acct->key);
 } 
 
-static apr_status_t on_success_acct_del(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
+static apr_status_t acct_del(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
 {
     md_acme_acct_t *acct = baton;
     apr_status_t rv = APR_SUCCESS;
@@ -547,7 +547,7 @@ apr_status_t md_acme_acct_del(md_acme_acct_t *acct)
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "delete account %s from %s", 
                   acct->url, acct->ca_url);
     if (APR_SUCCESS == (rv = md_acme_create(&acme, acct->pool, acct->ca_url, acct->store))) {
-        rv = md_acme_req_do(acme, acct->url, on_init_acct_del, on_success_acct_del, acct);
+        rv = md_acme_req_do(acme, acct->url, on_init_acct_del, acct_del, NULL, acct);
     }
     return rv;
 }

@@ -173,6 +173,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         if (src->ca_account) md->ca_account = apr_pstrdup(p, src->ca_account);
         if (src->ca_agreement) md->ca_agreement = apr_pstrdup(p, src->ca_agreement);
         if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
+        if (src->cert_url) md->cert_url = apr_pstrdup(p, src->cert_url);
         md->defn_line_number = src->defn_line_number;
     }    
     return md;   
@@ -193,6 +194,9 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
         md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md_json_sets(md->ca_agreement, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
+        if (md->cert_url) {
+            md_json_sets(md->cert_url, json, MD_KEY_CERT, MD_KEY_URL, NULL);
+        }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         return json;
     }
@@ -210,6 +214,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->ca_proto = md_json_dups(p, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
         md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md->ca_agreement = md_json_dups(p, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
+        md->cert_url = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_URL, NULL);
         md->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         return md;
@@ -313,20 +318,38 @@ apr_status_t md_load_all(apr_array_header_t **pmds, md_store_t *store, apr_pool_
     return rv;
 }
 
-apr_status_t md_load_pkey(struct md_store_t *store, const char *name, 
+apr_status_t md_pkey_load(struct md_store_t *store, const char *name, 
                           struct md_pkey_t **ppkey, apr_pool_t *p)
 {
     return md_store_load(store, MD_SG_DOMAINS, name, MD_FN_PKEY, MD_SV_PKEY, (void**)ppkey, p);
 }
 
-apr_status_t md_load_cert(struct md_store_t *store, const char *name, 
+apr_status_t md_pkey_save(struct md_store_t *store, const char *name, 
+                          struct md_pkey_t *pkey, int create)
+{
+    return md_store_save(store, MD_SG_DOMAINS, name, MD_FN_PKEY, MD_SV_PKEY, pkey, create);
+}
+
+apr_status_t md_cert_load(struct md_store_t *store, const char *name, 
                           struct md_cert_t **pcert, apr_pool_t *p)
 {
     return md_store_load(store, MD_SG_DOMAINS, name, MD_FN_CERT, MD_SV_CERT, (void**)pcert, p);
 }
 
-apr_status_t md_load_chain(struct md_store_t *store, const char *name, 
+apr_status_t md_cert_save(struct md_store_t *store, const char *name, 
+                          struct md_cert_t *cert, int create)
+{
+    return md_store_save(store, MD_SG_DOMAINS, name, MD_FN_CERT, MD_SV_CERT, cert, create);
+}
+
+apr_status_t md_chain_load(struct md_store_t *store, const char *name, 
                            struct apr_array_header_t **pchain, apr_pool_t *p)
 {
     return md_store_load(store, MD_SG_DOMAINS, name, MD_FN_CHAIN, MD_SV_CHAIN, (void**)pchain, p);
+}
+
+apr_status_t md_chain_save(struct md_store_t *store, const char *name, 
+                           struct apr_array_header_t *chain, int create)
+{
+    return md_store_save(store, MD_SG_DOMAINS, name, MD_FN_CHAIN, MD_SV_CHAIN, chain, create);
 }

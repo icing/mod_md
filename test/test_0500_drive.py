@@ -23,13 +23,16 @@ def teardown_module(module):
 
 class TestDrive :
 
+    def setup_class( cls ):
+        cls.dns_uniq = "%d.org" % time.time()
+        
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.clear_store()
 
     def test_001(self):
         # setup an md without contact, drive it
-        domain = "test1.example1.org"
+        domain = "test1." + TestDrive.dns_uniq
         assert TestEnv.a2md( [ "add", domain ] )['rv'] == 0
         run = TestEnv.a2md( [ "drive", domain ] )
         assert run['rv'] == 1
@@ -37,7 +40,7 @@ class TestDrive :
 
     def test_002(self):
         # setup an md with contact, drive it
-        domain = "test1.example1.org"
+        domain = "test1." + TestDrive.dns_uniq
         assert TestEnv.a2md( [ "add", domain ] )['rv'] == 0
         assert TestEnv.a2md( 
             [ "update", domain, "contacts", "admin@test1.example.org" ] 
@@ -49,7 +52,7 @@ class TestDrive :
     def test_003(self):
         # setup an md with contact and agreement, drive it
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        domain = "test1.example1.org"
+        domain = "test003." + TestDrive.dns_uniq
         assert TestEnv.a2md( [ "add", domain ] )['rv'] == 0
         assert TestEnv.a2md( 
             [ "update", domain, "contacts", "admin@" + domain ] 
@@ -63,7 +66,7 @@ class TestDrive :
 
     def test_004(self):
         # drive an md with 2 domains
-        domain = "test2.example1.org"
+        domain = "test004." + TestDrive.dns_uniq
         assert TestEnv.a2md( [ "-vvvvv", "add", domain , "www." + domain ] )['rv'] == 0
         assert TestEnv.a2md( 
             [ "update", domain, "contacts", "admin@" + domain ] 

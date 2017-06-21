@@ -46,6 +46,8 @@ struct md_t {
     const char *ca_agreement;       /* accepted agreement uri between CA and user */ 
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
+    const char *cert_url;           /* url where cert has been created */ 
+
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
 };
@@ -54,6 +56,7 @@ struct md_t {
 #define MD_KEY_AGREEMENT        "agreement"
 #define MD_KEY_CA               "ca"
 #define MD_KEY_CA_URL           "ca-url"
+#define MD_KEY_CERT             "cert"
 #define MD_KEY_CHALLENGES       "challenges"
 #define MD_KEY_CONTACT          "contact"
 #define MD_KEY_CONTACTS         "contacts"
@@ -152,12 +155,18 @@ apr_status_t md_save(struct md_store_t *store, md_t *md, int create);
 apr_status_t md_remove(struct md_store_t *store, const char *name, int force);
 apr_status_t md_load_all(struct apr_array_header_t **pmds, struct md_store_t *store, apr_pool_t *p);
 
-apr_status_t md_load_pkey(struct md_store_t *store, const char *name, 
+apr_status_t md_pkey_load(struct md_store_t *store, const char *name, 
                           struct md_pkey_t **ppkey, apr_pool_t *p);
-apr_status_t md_load_cert(struct md_store_t *store, const char *name, 
+apr_status_t md_pkey_save(struct md_store_t *store, const char *name, 
+                          struct md_pkey_t *pkey, int create);
+apr_status_t md_cert_load(struct md_store_t *store, const char *name, 
                           struct md_cert_t **pcert, apr_pool_t *p);
-apr_status_t md_load_chain(struct md_store_t *store, const char *name, 
+apr_status_t md_cert_save(struct md_store_t *store, const char *name, 
+                          struct md_cert_t *cert, int create);
+apr_status_t md_chain_load(struct md_store_t *store, const char *name, 
                            struct apr_array_header_t **pchain, apr_pool_t *p);
+apr_status_t md_chain_save(struct md_store_t *store, const char *name, 
+                           struct apr_array_header_t *chain, int create);
 
 /**************************************************************************************************/
 /* domain credentials */

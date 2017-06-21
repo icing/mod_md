@@ -899,7 +899,7 @@ apr_status_t md_json_readf(md_json_t **pjson, apr_pool_t *p, const char *fpath)
 
 apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, const md_http_response_t *res)
 {
-    apr_status_t rv = APR_EINVAL;
+    apr_status_t rv = APR_ENOENT;
     if (res->rv == APR_SUCCESS) {
         const char *ctype = apr_table_get(res->headers, "content-type");
         if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {

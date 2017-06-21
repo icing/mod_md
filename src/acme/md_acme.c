@@ -117,8 +117,11 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     len = strlen(uri_parsed.hostname);
     acme->sname = (len <= 16)? uri_parsed.hostname : apr_pstrdup(p, uri_parsed.hostname + len - 16);
     
-    *pacme = acme;
-    return md_http_create(&acme->http, acme->pool);
+    if (APR_SUCCESS == (rv = md_http_create(&acme->http, acme->pool))) {
+        md_http_set_response_limit(acme->http, 1024*1024);
+    }
+    *pacme = (APR_SUCCESS == rv)? acme : NULL;
+    return rv;
 }
 
 apr_status_t md_acme_setup(md_acme_t *acme)
@@ -269,9 +272,15 @@ typedef struct {
 
 static apr_status_t json_resp_cb(const md_http_response_t *res)
 {
+    apr_status_t rv;
+    
     resp_data *resp = res->req->baton;
     req_update_nonce(resp->acme, res->headers);
-    return md_json_read_http(&resp->json, resp->pool, res);
+    rv = md_json_read_http(&resp->json, resp->pool, res);
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_EINVAL;
+    }
+    return rv;
 }
 
 apr_status_t md_acme_get_json(struct md_json_t **pjson, md_acme_t *acme, 
@@ -313,38 +322,54 @@ static apr_status_t on_response(const md_http_response_t *res)
     md_acme_req_t *req = res->req->baton;
     apr_status_t rv = res->rv;
     
-    if (rv != APR_SUCCESS) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, res->req->pool, "req failed");
-        return rv;
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, res->rv, res->req->pool, "req failed");
+        goto out;
     }
     
     req->resp_hdrs = apr_table_clone(req->pool, res->headers);
     req_update_nonce(req->acme, res->headers);
     
-    /* TODO: Redirect Handling? */
     if (res->status >= 200 && res->status < 300) {
-        rv = md_json_read_http(&req->resp_json, req->pool, res);
-        if (rv != APR_SUCCESS) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, req->pool, 
-                              "unable to parse JSON response body");
-                return APR_EINVAL;
+        int processed = 0;
+        
+        if (req->on_json) {
+            processed = 1;
+            rv = md_json_read_http(&req->resp_json, req->pool, res);
+            if (APR_SUCCESS == rv) {
+                if (md_log_is_level(req->pool, MD_LOG_TRACE2)) {
+                    const char *s;
+                    s = md_json_writep(req->resp_json, MD_JSON_FMT_INDENT, req->pool);
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->pool, "response: %s", s);
+                }
+                rv = req->on_json(req->acme, req->resp_hdrs, req->resp_json, req->baton);
+            }        
+            else if (APR_STATUS_IS_ENOENT(rv)) {
+                /* not JSON content, fall through */
+                processed = 0;
+            }
+            else {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, req->pool, "parsing JSON body");
+            }
         }
         
-        if (md_log_is_level(req->pool, MD_LOG_TRACE2)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->pool,
-                          "acme response: %s", md_json_writep(req->resp_json, 
-                                                              MD_JSON_FMT_INDENT, req->pool));
+        if (!processed && req->on_res) {
+            processed = 1;
+            rv = req->on_res(req->acme, res, req->baton);
         }
-    
-        if (req->on_success) {
-            req->rv = req->on_success(req->acme, req->resp_hdrs, req->resp_json, req->baton);
+        
+        if (!processed) {
+            rv = APR_EINVAL;
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, req->pool, 
+                          "response: %d, content-type=%s", res->status, 
+                          apr_table_get(res->headers, "Content-Type"));
         }
     }
     else {
-        req->rv = rv;
         rv = inspect_problem(req, res);
     }
-    
+
+out:
     md_acme_req_done(req);
     return rv;
 }
@@ -389,7 +414,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
                           "req: POST %s\n", req->url);
         }
         rv = md_http_POSTd(req->acme->http, req->url, NULL, "application/json",  
-                               body, body? strlen(body) : 0, on_response, req, &id);
+                           body, body? strlen(body) : 0, on_response, req, &id);
         req = NULL;
         md_http_await(acme->http, id);
     }
@@ -402,16 +427,20 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
 
 apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
                             md_acme_req_init_cb *on_init,
-                            md_acme_req_success_cb *on_success,
+                            md_acme_req_json_cb *on_json,
+                            md_acme_req_res_cb *on_res,
                             void *baton)
 {
     md_acme_req_t *req;
     
     assert(url);
+    assert(on_json || on_res);
+
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, acme->pool, "add acme req: %s", url);
     req = md_acme_req_create(acme, url);
     req->on_init = on_init;
-    req->on_success = on_success;
+    req->on_json = on_json;
+    req->on_res = on_res;
     req->baton = baton;
     
     return md_acme_req_send(req);

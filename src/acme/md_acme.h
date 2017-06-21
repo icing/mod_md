@@ -17,6 +17,8 @@
 #define mod_md_md_acme_h
 
 struct apr_array_header_t;
+struct apr_bucket_brigade;
+struct md_http_response_t;
 struct apr_hash_t;
 struct md_http_t;
 struct md_json_t;
@@ -106,10 +108,17 @@ typedef struct md_acme_req_t md_acme_req_t;
 typedef apr_status_t md_acme_req_init_cb(md_acme_req_t *req, void *baton);
 
 /**
- * Request callback on a successfull response (HTTP response code 2xx).
+ * Request callback on a successfull response (HTTP response code 2xx) and content
+ * type matching application/.*json.
  */
-typedef apr_status_t md_acme_req_success_cb(md_acme_t *acme, const apr_table_t *headers, 
-                                            struct md_json_t *body, void *baton);
+typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, const apr_table_t *headers, 
+                                         struct md_json_t *jbody, void *baton);
+
+/**
+ * Request callback on a successfull HTTP response (status 2xx).
+ */
+typedef apr_status_t md_acme_req_res_cb(md_acme_t *acme, 
+                                        const struct md_http_response_t *res, void *baton);
 
 struct md_acme_req_t {
     md_acme_t *acme;                 /* the ACME server to talk to */
@@ -120,27 +129,34 @@ struct md_acme_req_t {
     struct md_json_t *req_json;      /* JSON to be POSTed in request body */
 
     apr_table_t *resp_hdrs;        /* HTTP response headers */
-    struct md_json_t *resp_json;     /* JSON response body recevied */
+    struct md_json_t *resp_json;   /* JSON response body recevied */
     
     apr_status_t rv;               /* status of request */
     
     md_acme_req_init_cb *on_init;  /* callback to initialize the request before submit */
-    md_acme_req_success_cb *on_success; /* callback on successful response */
+    md_acme_req_json_cb *on_json;  /* callback on successful JSON response */
+    md_acme_req_res_cb *on_res;    /* callback on generic HTTP response */
     void *baton;                   /* userdata for callbacks */
 };
 
 /**
- * Perform a request against the ACME server for the given url.
+ * Perform a POST against the ACME url. If a on_json callback is given and
+ * the HTTP response is JSON, only this callback is invoked. Otherwise, on HTTP status
+ * 2xx, the on_res callback is invoked. If no on_res is given, it is considered a
+ * response error, since only JSON was expected.
+ * At least one callback needs to be non-NULL.
  * 
  * @param acme        the ACME server to talk to
  * @param url         the url to send the request to
  * @param on_init     callback to initialize the request data
- * @param on_success  callback on successful response
+ * @param on_json     callback on successful JSON response
+ * @param on_res      callback on successful HTTP response
  * @param baton       userdata for callbacks
  */
 apr_status_t md_acme_req_do(md_acme_t *acme, const char *url,
                             md_acme_req_init_cb *on_init,
-                            md_acme_req_success_cb *on_success,
+                            md_acme_req_json_cb *on_json,
+                            md_acme_req_res_cb *on_res,
                             void *baton);
 
 apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *jpayload, 

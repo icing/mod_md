@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include <apr_lib.h>
+#include <apr_buckets.h>
 #include <apr_file_io.h>
 #include <apr_strings.h>
 
@@ -31,6 +32,7 @@
 #include "md.h"
 #include "md_crypt.h"
 #include "md_log.h"
+#include "md_http.h"
 #include "md_util.h"
 
 static int initialized;
@@ -84,7 +86,7 @@ void md_pkey_free(md_pkey_t *pkey)
     pkey_cleanup(pkey);
 }
 
-apr_status_t md_pkey_load(md_pkey_t **ppkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
@@ -106,11 +108,11 @@ apr_status_t md_pkey_load(md_pkey_t **ppkey, apr_pool_t *p, const char *fname)
     return rv;
 }
 
-apr_status_t md_pkey_load_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname)
 {
     apr_status_t rv;
     
-    if ((rv = md_pkey_load(ppkey, p, fname)) == APR_SUCCESS) {
+    if ((rv = md_pkey_fload(ppkey, p, fname)) == APR_SUCCESS) {
         if (EVP_PKEY_id((*ppkey)->pkey) != EVP_PKEY_RSA) {
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "key is not RSA: %s", fname); 
             md_pkey_free(*ppkey);
@@ -121,7 +123,7 @@ apr_status_t md_pkey_load_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fnam
     return rv;
 }
 
-apr_status_t md_pkey_save(md_pkey_t *pkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
@@ -337,7 +339,7 @@ void md_cert_free(md_cert_t *cert)
     cert_cleanup(cert);
 }
 
-apr_status_t md_cert_load(md_cert_t **pcert, apr_pool_t *p, const char *fname)
+apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
@@ -362,13 +364,19 @@ apr_status_t md_cert_load(md_cert_t **pcert, apr_pool_t *p, const char *fname)
 }
 
 
-apr_status_t md_cert_save(md_cert_t *cert, apr_pool_t *p, const char *fname)
+apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
     
     rv = md_util_fopen(&f, fname, "w");
     if (rv == APR_SUCCESS) {
+        rv = apr_file_perms_set(fname, MD_FPROT_F_UONLY);
+        if (rv == APR_ENOTIMPL) {
+            /* TODO: Windows, OS2 do not implement this. Do we have other
+             * means to secure the file? */
+            rv = APR_SUCCESS;
+        }
         ERR_clear_error();
         
         PEM_write_X509(f, cert->x509);
@@ -381,12 +389,47 @@ apr_status_t md_cert_save(md_cert_t *cert, apr_pool_t *p, const char *fname)
     return rv;
 }
 
+apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p, 
+                               const md_http_response_t *res)
+{
+    const char *ct;
+    apr_off_t data_len;
+    apr_size_t der_len;
+    apr_status_t rv;
+    
+    ct = apr_table_get(res->headers, "Content-Type");
+    if (!res->body || !ct || strcmp("application/pkix-cert", ct)) {
+        return APR_ENOENT;
+    }
+    
+    if (APR_SUCCESS == (rv = apr_brigade_length(res->body, 1, &data_len))) {
+        char *der;
+        if (data_len > 1024*1024) { /* certs usually are <2k each */
+            return APR_EINVAL;
+        }
+        if (APR_SUCCESS == (rv = apr_brigade_pflatten(res->body, &der, &der_len, p))) {
+            const unsigned char *bf = (const unsigned char*)der;
+            X509 *x509;
+            
+            if (NULL == (x509 = d2i_X509(NULL, &bf, der_len))) {
+                rv = APR_EINVAL;
+            }
+            else {
+                *pcert = make_cert(p, x509);
+                rv = APR_SUCCESS;
+            }
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "cert parsed");
+    }
+    return rv;
+}
+
 md_cert_state_t md_cert_state_get(md_cert_t *cert)
 {
     return cert->x509? MD_CERT_VALID : MD_CERT_UNKNOWN;
 }
 
-apr_status_t md_cert_load_chain(apr_array_header_t **pcerts, apr_pool_t *p, const char *fname)
+apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
@@ -421,7 +464,7 @@ apr_status_t md_cert_load_chain(apr_array_header_t **pcerts, apr_pool_t *p, cons
     return rv;
 }
 
-apr_status_t md_cert_save_chain(apr_array_header_t *certs, apr_pool_t *p, const char *fname)
+apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;

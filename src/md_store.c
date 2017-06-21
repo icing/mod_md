@@ -182,13 +182,13 @@ static apr_status_t fs_fload(void **pvalue, const char *fpath, md_store_vtype_t 
                 rv = md_json_readf((md_json_t **)pvalue, p, fpath);
                 break;
             case MD_SV_CERT:
-                rv = md_cert_load((md_cert_t **)pvalue, p, fpath);
+                rv = md_cert_fload((md_cert_t **)pvalue, p, fpath);
                 break;
             case MD_SV_PKEY:
-                rv = md_pkey_load((md_pkey_t **)pvalue, p, fpath);
+                rv = md_pkey_fload((md_pkey_t **)pvalue, p, fpath);
                 break;
             case MD_SV_CHAIN:
-                rv = md_cert_load_chain((apr_array_header_t **)pvalue, p, fpath);
+                rv = md_chain_fload((apr_array_header_t **)pvalue, p, fpath);
                 break;
             default:
                 rv = APR_ENOTIMPL;
@@ -260,13 +260,13 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
                       : md_json_freplace((md_json_t *)value, p, MD_JSON_FMT_INDENT, fpath));
                 break;
             case MD_SV_CERT:
-                rv = md_cert_save((md_cert_t *)value, ptemp, fpath);
+                rv = md_cert_fsave((md_cert_t *)value, ptemp, fpath);
                 break;
             case MD_SV_PKEY:
-                rv = md_pkey_save((md_pkey_t *)value, ptemp, fpath);
+                rv = md_pkey_fsave((md_pkey_t *)value, ptemp, fpath);
                 break;
             case MD_SV_CHAIN:
-                rv = md_cert_save_chain((apr_array_header_t*)value, ptemp, fpath);
+                rv = md_chain_fsave((apr_array_header_t*)value, ptemp, fpath);
                 break;
             default:
                 return APR_ENOTIMPL;
