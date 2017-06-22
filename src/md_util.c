@@ -624,6 +624,50 @@ apr_status_t md_util_abs_uri_check(apr_pool_t *p, const char *uri, const char **
     return rv;
 }
 
+/* retry login ************************************************************************************/
+
+apr_status_t md_util_try(md_util_try_fn *fn, void *baton, int ignore_errs, 
+                         apr_interval_time_t timeout, apr_interval_time_t start_delay, 
+                         apr_interval_time_t max_delay, int backoff)
+{
+    apr_status_t rv;
+    apr_time_t now = apr_time_now();
+    apr_time_t giveup = now + timeout;
+    apr_interval_time_t nap_duration = start_delay? start_delay : apr_time_from_msec(100);
+    apr_interval_time_t nap_max = max_delay? max_delay : apr_time_from_sec(10);
+    apr_interval_time_t left;
+    int i = 0;
+    
+    while (1) {
+        if (APR_SUCCESS == (rv = fn(baton, i++))) {
+            break;
+        }
+        else if (!APR_STATUS_IS_EAGAIN(rv) && !ignore_errs) {
+            break;
+        }
+        
+        now = apr_time_now();
+        if (now > giveup) {
+            rv = APR_TIMEUP;
+            break;
+        }
+        
+        left = giveup - now;
+        if (nap_duration > left) {
+            nap_duration = left;
+        }
+        if (nap_duration > nap_max) {
+            nap_duration = nap_max;
+        }
+        
+        apr_sleep(nap_duration);
+        if (backoff) {
+            nap_duration *= 2;
+        } 
+    }
+    return rv;
+}
+
 /* base64 url encoding ****************************************************************************/
 
 static const int BASE64URL_UINT6[] = {

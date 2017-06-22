@@ -234,6 +234,10 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
 typedef struct {
     apr_pool_t *p;
     md_acme_t *acme;
+    
+    unsigned can_cha_http_01 : 1;
+    unsigned can_cha_tls_sni_01 : 1;
+    
     md_acme_acct_t *acct;
     md_acme_authz_t *authz;
     md_acme_authz_cha_t *http_01;
@@ -337,10 +341,10 @@ static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
     
     const char *ctype = md_json_gets(json, MD_KEY_TYPE, NULL);
     if (ctype) {
-        if (ctx->acme->can_cha_http_01 && !strcmp(MD_AUTHZ_CHA_HTTP, ctype)) {
+        if (ctx->can_cha_http_01 && !strcmp(MD_AUTHZ_CHA_HTTP, ctype)) {
             ctx->http_01 = cha_from_json(ctx->p, index, json);
         }
-        else if (ctx->acme->can_cha_tls_sni_01 && !strcmp(MD_AUTHZ_CHA_SNI, ctype)) {
+        else if (ctx->can_cha_tls_sni_01 && !strcmp(MD_AUTHZ_CHA_SNI, ctype)) {
             ctx->tls_sni_01 = cha_from_json(ctx->p, index, json);
         }
     }
@@ -349,7 +353,7 @@ static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, 
                                    md_acme_acct_t *acct, md_store_t *store,
-                                   apr_pool_t *p)
+                                   int http_01, int tls_sni_01, apr_pool_t *p)
 {
     apr_status_t rv;
     cha_find_ctx fctx;
@@ -362,6 +366,8 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme,
     fctx.acme = acme;
     fctx.acct = acct;
     fctx.authz = authz;
+    fctx.can_cha_http_01 = http_01;
+    fctx.can_cha_tls_sni_01 = tls_sni_01;
     
     md_json_itera(add_candidates, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
     

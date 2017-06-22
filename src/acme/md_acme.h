@@ -60,9 +60,6 @@ struct md_acme_t {
     
     const char *nonce;
     unsigned int pkey_bits;
-    
-    unsigned can_cha_http_01 : 1;
-    unsigned can_cha_tls_sni_01 : 1;
 };
 
 /**

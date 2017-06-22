@@ -39,14 +39,20 @@
 
 typedef struct {
     md_proto_driver_t *driver;
+    
+    const char *phase;
+    
     md_acme_t *acme;
     md_acme_acct_t *acct;
     md_t *md;
     
+    unsigned can_http_01 : 1;
+    unsigned can_tls_sni_01 : 1;
     md_acme_authz_set_t *authz_set;
-    apr_interval_time_t authz_timeout;
+    apr_interval_time_t authz_monitor_timeout;
     
     const char *csr_der_64;
+    apr_interval_time_t cert_poll_timeout;
     md_cert_t *cert;
     
 } md_acme_driver_t;
@@ -76,7 +82,9 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
     md_acme_acct_t *acct = NULL;
     apr_status_t rv = APR_SUCCESS;
 
+    ad->phase = "choose account";
     ad->acct = NULL;
+    
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: finding account",
                   d->proto->protocol);
     
@@ -155,6 +163,8 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     assert(ad->acme);
     assert(ad->acct);
 
+    ad->phase = "check authz";
+    
     /* For each domain in MD: AUTHZ setup
      * if an AUTHZ resource is known, check if it is still valid
      * if known AUTHZ resource is not valid, remove, goto 4.1.1
@@ -225,6 +235,8 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
     assert(ad->authz_set);
     assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
 
+    ad->phase = "start challenges";
+
     for (i = 0; i < ad->authz_set->authzs->nelts && APR_SUCCESS == rv; ++i) {
         authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
@@ -234,7 +246,8 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
                 case MD_ACME_AUTHZ_S_VALID:
                     break;
                 case MD_ACME_AUTHZ_S_PENDING:
-                    rv = md_acme_authz_respond(authz, ad->acme, ad->acct, d->store, d->p);
+                    rv = md_acme_authz_respond(authz, ad->acme, ad->acct, d->store,
+                                               ad->can_http_01, ad->can_tls_sni_01, d->p);
                     break;
                 default:
                     rv = APR_EINVAL;
@@ -249,15 +262,43 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
     return rv;
 }
 
+static apr_status_t check_challenges(void *baton, int attemmpt)
+{
+    md_proto_driver_t *d = baton;
+    md_acme_driver_t *ad = d->baton;
+    md_acme_authz_t *authz;
+    apr_status_t rv = APR_SUCCESS;
+    int i;
+    
+    for (i = 0; i < ad->authz_set->authzs->nelts && APR_SUCCESS == rv; ++i) {
+        authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
+                      ad->md->name, authz->domain);
+        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p))) {
+            switch (authz->state) {
+                case MD_ACME_AUTHZ_S_VALID:
+                    break;
+                case MD_ACME_AUTHZ_S_PENDING:
+                    rv = APR_EAGAIN;
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                                  "%s: status pending at %s", authz->domain, authz->location);
+                    break;
+                default:
+                    rv = APR_EINVAL;
+                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
+                                  "%s: unexpected AUTHZ state %d at %s", 
+                                  authz->domain, authz->state, authz->location);
+                    break;
+            }
+        }
+    }
+    return rv;
+}
+
 static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
-    md_acme_authz_t *authz;
-    apr_time_t now, giveup = apr_time_now() + ad->authz_timeout;
-    apr_interval_time_t nap_duration = apr_time_from_msec(100);
-    apr_interval_time_t nap_max = apr_time_from_sec(10);
-    int i;
     
     assert(ad->md);
     assert(ad->acme);
@@ -265,54 +306,62 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
     assert(ad->authz_set);
     assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
 
-    while (1) {
-        rv = APR_SUCCESS;
-        for (i = 0; i < ad->authz_set->authzs->nelts && APR_SUCCESS == rv; ++i) {
-            authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
-                          ad->md->name, authz->domain);
-            if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p))) {
-                switch (authz->state) {
-                    case MD_ACME_AUTHZ_S_VALID:
-                        break;
-                    case MD_ACME_AUTHZ_S_PENDING:
-                        rv = APR_EAGAIN;
-                        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                                      "%s: status pending at %s", authz->domain, authz->location);
-                        break;
-                    default:
-                        rv = APR_EINVAL;
-                        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                                      "%s: unexpected AUTHZ state %d at %s", 
-                                      authz->domain, authz->state, authz->location);
-                        break;
-                }
-            }
-        }
-        
-        now = apr_time_now();
-        if (now > giveup) {
-            break;
-        }
-        else if (APR_EAGAIN == rv) {
-            apr_interval_time_t left = giveup - now;
-            if (nap_duration > left) {
-                nap_duration = left;
-            }
-            if (nap_duration > nap_max) {
-                nap_duration = nap_max;
-            }
-            
-            apr_sleep(nap_duration);
-            nap_duration *= 2; 
-        }
-        else {
-            break;
-        }
-    }
+    ad->phase = "monitor challenges";
+    rv = md_util_try(check_challenges, d, 0, ad->authz_monitor_timeout, 0, 0, 1);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, d->p, 
                   "%s: checked all domain authorizations", ad->md->name);
+    return rv;
+}
+
+/**************************************************************************************************/
+/* poll cert */
+
+
+static apr_status_t on_got_cert(md_acme_t *acme, const md_http_response_t *res, void *baton)
+{
+    md_proto_driver_t *d = baton;
+    md_acme_driver_t *ad = d->baton;
+    apr_status_t rv = APR_SUCCESS;
+    
+    if (APR_SUCCESS == (rv = md_cert_read_http(&ad->cert, d->p, res))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed");
+    }
+    else if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_EAGAIN;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                      "cert not in response from %s", ad->md->cert_url);
+    }
+    
+    return rv;
+}
+
+static apr_status_t get_cert(void *baton, int attempt)
+{
+    md_proto_driver_t *d = baton;
+    md_acme_driver_t *ad = d->baton;
+    
+    return md_acme_GET(ad->acme, ad->md->cert_url, NULL, NULL, on_got_cert, d);
+}
+
+static apr_status_t ad_cert_poll(md_proto_driver_t *d, int only_once)
+{
+    md_acme_driver_t *ad = d->baton;
+    apr_status_t rv;
+    
+    assert(ad->md);
+    assert(ad->acme);
+    assert(ad->md->cert_url);
+    
+    ad->phase = "poll certificate";
+    if (only_once) {
+        rv = get_cert(d, 0);
+    }
+    else {
+        rv = md_util_try(get_cert, d, 1, ad->cert_poll_timeout, 0, 0, 1);
+    }
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "poll for cert at %s", ad->md->cert_url);
     return rv;
 }
 
@@ -365,19 +414,6 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
     return rv;
 }
 
-static apr_status_t cert_poll(md_proto_driver_t *d)
-{
-    md_acme_driver_t *ad = d->baton;
-
-    if (!ad->md->cert_url) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: cert url missing", ad->md->name);
-        return APR_EGENERAL;
-    }
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "poll for cert at %s", ad->md->cert_url);
-    return APR_ENOTIMPL;
-}
-
 /**
  * Pre-Req: all domains have been validated by the ACME server, e.g. all have AUTHZ
  * resources that have status 'valid'
@@ -397,6 +433,8 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
     md_pkey_t *pkey;
     apr_status_t rv;
 
+    ad->phase = "setup cert pkey";
+    
     rv = md_pkey_load(d->store, ad->md->name, &pkey, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
         if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, d->p, ad->acme->pkey_bits))) {
@@ -406,17 +444,19 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
     }
 
     if (APR_SUCCESS == rv) {
+        ad->phase = "setup csr";
         rv = md_cert_req_create(&ad->csr_der_64, ad->md, pkey, d->p);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR", ad->md->name);
     }
 
     if (APR_SUCCESS == rv) {
+        ad->phase = "submit csr";
         rv = md_acme_POST(ad->acme, ad->acme->new_cert, on_init_csr_req, NULL, csr_req, d);
     }
 
     if (APR_SUCCESS == rv) {
         if (!ad->cert) {
-            rv = cert_poll(d);
+            rv = ad_cert_poll(d, 0);
         }
     }
     return rv;
@@ -434,80 +474,86 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     d->baton = ad;
     ad->driver = d;
     ad->md = md_copy(d->p, d->md);
-    ad->authz_timeout = apr_time_from_sec(30);
+    
+    ad->authz_monitor_timeout = apr_time_from_sec(30);
+    ad->cert_poll_timeout = apr_time_from_sec(30);
 
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: driving md %s", 
-                  d->proto->protocol, ad->md->name);
+    /* TODO: which challenge types do we support? 
+     * Need to know if the server listens to the right ports */
+    ad->can_http_01 = 1;
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: driving %s", 
+                  ad->md->name, d->proto->protocol);
     
     /* Find out where we're at with this managed domain */
     return md_acme_create(&ad->acme, d->p, ad->md->ca_url, d->store);
+}
+
+static apr_status_t acme_drive_cert(md_proto_driver_t *d)
+{
+    md_acme_driver_t *ad = d->baton;
+    apr_status_t rv;
+
+    if (ad->cert) {
+        return APR_SUCCESS;
+    }
+
+    ad->phase = "get certificate";
+
+    /* Chose (or create) and ACME account to use */
+    rv = ad_set_acct(d);
+    
+    /* Check that the account agreed to the terms-of-service, otherwise
+     * requests for new authorizations are denied. ToS may change during the
+     * lifetime of an account */
+    if (APR_SUCCESS == rv) {
+        ad->phase = "check agreement";
+        rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
+    }
+    
+    /* If we know a cert's location, try to get it. Previous download might
+     * have failed. If server 404 it, we clear our memory of it. */
+    if (APR_SUCCESS == rv && ad->md->cert_url) {
+        rv = ad_cert_poll(d, 1);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            /* Server reports to know nothing about it. */
+            ad->md->cert_url = NULL;
+            rv = md_reg_update(d->reg, ad->md->name, ad->md, MD_UPD_CERT_URL);
+        }
+    }
+    
+    if (APR_SUCCESS == rv
+        && APR_SUCCESS == (rv = ad_setup_authz(d))
+        && APR_SUCCESS == (rv = ad_start_challenges(d))
+        && APR_SUCCESS == (rv = ad_monitor_challenges(d))
+        && APR_SUCCESS == (rv = ad_setup_certificate(d))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: certificate obtained", 
+                      ad->md->name);
+    }
+    return rv;
 }
 
 static apr_status_t acme_driver_run(md_proto_driver_t *d)
 {
     apr_status_t rv = APR_ENOTIMPL;
     md_acme_driver_t *ad = d->baton;
-    const char *step;
 
     assert(ad->md);
     assert(ad->acme);
 
-    step = "ACME setup";
+    ad->phase = "ACME setup";
     rv = md_acme_setup(ad->acme);
     
-    /* TODO: which challenge types do we support? 
-     * Need to know if the server listens to the right ports */
-    ad->acme->can_cha_http_01 = 1;
-
-    /* Chose (or create) and ACME account to use */
     if (APR_SUCCESS == rv) {
-        step = "choose account";
-        rv = ad_set_acct(d);
+        rv = acme_drive_cert(d);
     }
-    
-    /* Check that the account agreed to the terms-of-service, otherwise
-     * requests for new authorizations are denied. ToS may change during the
-     * lifetime of an account */
-    if (APR_SUCCESS == rv) {
-        step = "check agreement";
-        rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
-    }
-    
-    if (ad->md->cert_url) {
-        
-    }
-    
-    /* Check that we have authz resources with challenge info for each domain */
-    if (APR_SUCCESS == rv) {
-        step = "check authz";
-        rv = ad_setup_authz(d);
-    }
-    
-    /* Start challenges */
-    if (APR_SUCCESS == rv) {
-        step = "setup challenges";
-        rv = ad_start_challenges(d);
-    }
-    
-    /* monitor authz status */
-    if (APR_SUCCESS == rv) {
-        step = "setup challenges";
-        rv = ad_monitor_challenges(d);
-    }
-    
-    /* Setup the certificate */
-    if (APR_SUCCESS == rv) {
-        step = "create certificate";
-        rv = ad_setup_certificate(d);
-    }
-    
     /* Update MD expiration date */
     if (APR_SUCCESS == rv) {
-        step = "completed";
+        ad->phase = "completed";
     }
         
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s drive %s, %s", 
-                  d->proto->protocol, ad->md->name, step);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: drive %s, %s", 
+                  ad->md->name, d->proto->protocol, ad->phase);
     return rv;
 }
 

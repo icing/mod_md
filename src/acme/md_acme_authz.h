@@ -62,7 +62,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, struct md_acme_t *acme, 
                                    struct md_acme_acct_t *acct, struct md_store_t *store,
-                                   apr_pool_t *p);
+                                   int http_01, int tls_sni_01, apr_pool_t *p);
 apr_status_t md_acme_authz_del(md_acme_authz_t *authz, struct md_acme_t *acme, 
                                struct md_acme_acct_t *acct, apr_pool_t *p);
 
