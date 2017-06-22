@@ -176,6 +176,10 @@ apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, int bits)
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 
+#ifndef NID_tlsfeature
+#define NID_tlsfeature          1020
+#endif
+
 static void RSA_get0_key(const RSA *r,
                          const BIGNUM **n, const BIGNUM **e, const BIGNUM **d)
 {
@@ -511,7 +515,8 @@ static apr_status_t add_alt_names(STACK_OF(X509_EXTENSION) *exts, const md_t *md
             sep = ",";
         }
         
-        if (NULL == (x = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, alt_names))) {
+        if (NULL == (x = X509V3_EXT_conf_nid(NULL, NULL, 
+                                             NID_subject_alt_name, (char*)alt_names))) {
             return APR_EGENERAL;
         }
         sk_X509_EXTENSION_push(exts, x);
@@ -523,7 +528,8 @@ static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const md_t *
 {
     
     if (md->must_staple) {
-        X509_EXTENSION *x = X509V3_EXT_conf_nid(NULL, NULL, NID_tlsfeature, "DER:30:03:02:01:05");
+        X509_EXTENSION *x = X509V3_EXT_conf_nid(NULL, NULL, 
+                                                NID_tlsfeature, (char*)"DER:30:03:02:01:05");
         if (NULL == x) {
             return APR_EGENERAL;
         }

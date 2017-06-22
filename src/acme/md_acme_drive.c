@@ -411,7 +411,7 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
     }
 
     if (APR_SUCCESS == rv) {
-        rv = md_acme_req_do(ad->acme, ad->acme->new_cert, on_init_csr_req, NULL, csr_req, d);
+        rv = md_acme_POST(ad->acme, ad->acme->new_cert, on_init_csr_req, NULL, csr_req, d);
     }
 
     if (APR_SUCCESS == rv) {
@@ -471,6 +471,10 @@ static apr_status_t acme_driver_run(md_proto_driver_t *d)
     if (APR_SUCCESS == rv) {
         step = "check agreement";
         rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
+    }
+    
+    if (ad->md->cert_url) {
+        
     }
     
     /* Check that we have authz resources with challenge info for each domain */
