@@ -148,7 +148,8 @@ class TestConf:
     # --------- status reset ---------
 
     #def test_400(self):
-    #    # test case: status reset with config change
+    #    # test case: md store changes cause status reset
+    #    # TODO: not implemented yet
     #    assert 1 == 2
 
 
