@@ -50,7 +50,6 @@
 		B255730D1EE956B000E0B132 /* test_0500_drive.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0500_drive.py; sourceTree = "<group>"; };
 		B262F6CB1EFCFD8100D396A1 /* test_1000_conf_validate.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_1000_conf_validate.py; sourceTree = "<group>"; };
 		B262F6CC1EFCFD8100D396A1 /* test_1100_conf_store.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_1100_conf_store.py; sourceTree = "<group>"; };
-		B262F6CF1EFCFE1100D396A1 /* test_000.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_000.conf; sourceTree = "<group>"; };
 		B262F6D01EFCFE1100D396A1 /* test_001.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_001.conf; sourceTree = "<group>"; };
 		B262F6D11EFCFE1100D396A1 /* test_002.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_002.conf; sourceTree = "<group>"; };
 		B262F6D31EFCFE1100D396A1 /* test_001.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_001.conf; sourceTree = "<group>"; };
@@ -125,7 +124,6 @@
 		B262F6CE1EFCFE1100D396A1 /* conf_store */ = {
 			isa = PBXGroup;
 			children = (
-				B262F6CF1EFCFE1100D396A1 /* test_000.conf */,
 				B262F6D01EFCFE1100D396A1 /* test_001.conf */,
 				B262F6D11EFCFE1100D396A1 /* test_002.conf */,
 			);

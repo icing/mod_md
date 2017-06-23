@@ -111,5 +111,6 @@ class TestConf:
     def test_012(self):
         # ManagedDomain does not match any vhost
         assert TestEnv.apachectl("test_012", "graceful") == 0
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         assert self.new_errors() == 0
-        assert self.new_warnings() == 1
+        assert self.new_warnings() == 3

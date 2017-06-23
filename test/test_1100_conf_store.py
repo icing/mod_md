@@ -140,6 +140,7 @@ class TestConf:
         TestEnv.a2md([ "add", "example2.org", "www.example2.org" ])
         self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org", "mail.example2.org"], 1, 2)
         self._check_md("example2.org", ["example2.org", "www.example2.org"], 1, 2)
+        
         assert TestEnv.apachectl("test_002", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)

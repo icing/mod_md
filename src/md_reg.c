@@ -564,7 +564,7 @@ apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, apr_pool_t *p)
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, reg->p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
         ((md_t *)md)->state = MD_S_ERROR;
-        return APR_SUCCESS;
+        return APR_EINVAL;
     }
     
     return md_util_pool_vdo(run_driver, reg, p, proto, md, NULL);

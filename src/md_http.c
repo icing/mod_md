@@ -29,6 +29,24 @@ struct md_http_t {
     apr_off_t resp_limit;
 };
 
+static apr_status_t curl_status(int curl_code)
+{
+    switch (curl_code) {
+        case CURLE_OK:                   return APR_SUCCESS;
+        case CURLE_UNSUPPORTED_PROTOCOL: return APR_ENOTIMPL; 
+        case CURLE_NOT_BUILT_IN:         return APR_ENOTIMPL; 
+        case CURLE_URL_MALFORMAT:        return APR_EINVAL;
+        case CURLE_COULDNT_RESOLVE_PROXY:return APR_ECONNREFUSED;
+        case CURLE_COULDNT_RESOLVE_HOST: return APR_ECONNREFUSED;
+        case CURLE_COULDNT_CONNECT:      return APR_ECONNREFUSED;
+        case CURLE_REMOTE_ACCESS_DENIED: return APR_EACCES;
+        case CURLE_OUT_OF_MEMORY:        return APR_ENOMEM;
+        case CURLE_OPERATION_TIMEDOUT:   return APR_TIMEUP;
+        case CURLE_SSL_CONNECT_ERROR:    return APR_ECONNABORTED;
+        case CURLE_AGAIN:                return APR_EAGAIN;
+        default:                         return APR_EGENERAL;
+    }
+}
 
 static int init_done;
 static long next_req_id;
@@ -230,6 +248,7 @@ static int curlify_headers(void *baton, const char *key, const char *value)
 static apr_status_t perform(md_http_request_t *req)
 {
     apr_status_t rv = APR_SUCCESS;
+    int curle;
     md_http_response_t *res;
     CURL *curl;
     struct curl_slist *req_hdrs = NULL;
@@ -282,20 +301,21 @@ static apr_status_t perform(md_http_request_t *req)
         curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     }
     
-    res->rv = curl_easy_perform(curl);
-    if (res->rv == CURLE_OK) {
+    curle = curl_easy_perform(curl);
+    res->rv = curl_status(curle);
+    
+    if (APR_SUCCESS == res->rv) {
         long l;
-        res->rv = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &l);
-        if (res->rv == CURLE_OK) {
+        res->rv = curl_status(curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &l));
+        if (APR_SUCCESS == res->rv) {
             res->status = (int)l;
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, res->rv, req->pool, 
                       "request %ld <-- %d", req->id, res->status);
     }
     else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
-                      "request %ld failed: %s", req->id, curl_easy_strerror(res->rv));
-        res->rv = APR_EGENERAL;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, res->rv, req->pool, 
+                      "request %ld failed(%d): %s", req->id, curle, curl_easy_strerror(curle));
     }
     
     if (req->cb) {

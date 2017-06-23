@@ -179,7 +179,7 @@ class TestStore:
         dns1 = "test-100.com"
         run = TestEnv.a2md([ "store", "remove", dns1 ] )
         assert run['rv'] == 1
-        assert run['jout'] == { 'status' : 2 }
+        assert run['jout'] == { 'status' : 2, 'description' : 'No such file or directory' }
 
     def test_303(self):
         # test case: force remove nonexisting managed domain

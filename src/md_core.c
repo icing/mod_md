@@ -56,6 +56,26 @@ int md_domains_overlap(const md_t *md1, const md_t *md2)
     return md_common_name(md1, md2) != NULL;
 }
 
+apr_size_t md_common_name_count(const md_t *md1, const md_t *md2)
+{
+    int i;
+    apr_size_t hits;
+    
+    if (md1 == NULL || md1->domains == NULL
+        || md2 == NULL || md2->domains == NULL) {
+        return 0;
+    }
+    
+    hits = 0;
+    for (i = 0; i < md1->domains->nelts; ++i) {
+        const char *name1 = APR_ARRAY_IDX(md1->domains, i, const char*);
+        if (md_contains(md2, name1)) {
+            ++hits;
+        }
+    }
+    return hits;
+}
+
 md_t *md_create_empty(apr_pool_t *p)
 {
     md_t *md = apr_pcalloc(p, sizeof(*md));
@@ -104,6 +124,18 @@ md_t *md_get_by_name(struct apr_array_header_t *mds, const char *name)
     for (i = 0; i < mds->nelts; ++i) {
         md_t *md = APR_ARRAY_IDX(mds, i, md_t *);
         if (!strcmp(name, md->name)) {
+            return md;
+        }
+    }
+    return NULL;
+}
+
+md_t *md_get_by_domain(struct apr_array_header_t *mds, const char *domain)
+{
+    int i;
+    for (i = 0; i < mds->nelts; ++i) {
+        md_t *md = APR_ARRAY_IDX(mds, i, md_t *);
+        if (md_contains(md, domain)) {
             return md;
         }
     }

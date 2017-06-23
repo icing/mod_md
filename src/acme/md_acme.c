@@ -247,18 +247,21 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
         }
     }
     
-    switch (res->status) {
-        case 400:
-            return APR_EINVAL;
-        case 403:
-            return APR_EACCES;
-        case 404:
-            return APR_ENOENT;
-        default:
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, req->pool,
-                          "acme problem unknonw: http status %d", res->status);
-            return APR_EGENERAL;
+    if (APR_SUCCESS == res->rv) {
+        switch (res->status) {
+            case 400:
+                return APR_EINVAL;
+            case 403:
+                return APR_EACCES;
+            case 404:
+                return APR_ENOENT;
+            default:
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, req->pool,
+                              "acme problem unknonw: http status %d", res->status);
+                return APR_EGENERAL;
+        }
     }
+    return res->rv;
 }
 
 /**************************************************************************************************/
@@ -279,7 +282,6 @@ static apr_status_t on_response(const md_http_response_t *res)
     apr_status_t rv = res->rv;
     
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, res->rv, res->req->pool, "req failed");
         goto out;
     }
     
@@ -369,7 +371,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
-                          "req: POST %s\n", req->url);
+                          "req: POST %s", req->url);
         }
         if (!strcmp("GET", req->method)) {
             rv = md_http_GET(req->acme->http, req->url, NULL, on_response, req, &id);
@@ -386,6 +388,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
                           "HTTP method %s against: %s", req->method, req->url);
             rv = APR_ENOTIMPL;
         }
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, "req sent");
         req = NULL;
         md_http_await(acme->http, id);
     }

@@ -111,9 +111,19 @@ int md_contains_domains(const md_t *md1, const md_t *md2);
 const char *md_common_name(const md_t *md1, const md_t *md2);
 
 /**
+ * Get the number of common domains.
+ */
+apr_size_t md_common_name_count(const md_t *md1, const md_t *md2);
+
+/**
  * Look up a managed domain by its name.
  */
 md_t *md_get_by_name(struct apr_array_header_t *mds, const char *name);
+
+/**
+ * Look up a managed domain by a DNS name it contains.
+ */
+md_t *md_get_by_domain(struct apr_array_header_t *mds, const char *domain);
 
 /**
  * Find a managed domain, different from the given one, that has overlaps

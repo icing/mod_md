@@ -206,6 +206,38 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
     return rv;
 }
 
+static md_t *find_closest_match(apr_array_header_t *mds, const md_t *md)
+{
+    md_t *candidate, *m;
+    apr_size_t cand_n, n;
+    int i;
+    
+    candidate = md_get_by_name(mds, md->name);
+    if (!candidate) {
+        /* try to find an instance that contains all domain names from md */ 
+        for (i = 0; i < mds->nelts; ++i) {
+            m = APR_ARRAY_IDX(mds, i, md_t *);
+            if (md_contains_domains(m, md)) {
+                return m;
+            }
+        }
+        /* no matching name and no md in the list has all domains.
+         * We consider that managed domain as closest match that contains at least one
+         * domain name from md, ONLY if there is no other one that also has.
+         */
+        cand_n = 0;
+        for (i = 0; i < mds->nelts; ++i) {
+            m = APR_ARRAY_IDX(mds, i, md_t *);
+            n = md_common_name_count(md, m);
+            if (n > cand_n) {
+                candidate = m;
+                cand_n = n;
+            }
+        }
+    }
+    return candidate;
+}
+
 static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *ptemp, 
                                   apr_array_header_t *mds, server_rec *s) 
 {
@@ -213,57 +245,67 @@ static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = md_load_all(&store_mds, store, ptemp))) {
-        int i;
+        int i, added;
         md_t *md, *config_md, *smd, *omd;
         const char *common;
         
         for (i = 0; i < mds->nelts; ++i) {
             md = APR_ARRAY_IDX(mds, i, md_t *);
-            smd = md_get_by_name(store_mds, md->name);
-            
-            while (APR_SUCCESS == rv && (omd = md_get_by_dns_overlap(store_mds, md))) {
-                common = md_common_name(md, omd);
-                assert(common);
-                config_md = md_get_by_name(mds, omd->name);
-                if (config_md && md_contains(config_md, common)) {
-                    /* domain used in two configured mds, not allowed */
-                    rv = APR_EINVAL;
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
-                                 "domain %s used in md %s and %s", common, md->name, omd->name);
+
+            /* find the store md that is closest match for the configured md */
+            smd = find_closest_match(store_mds, md);
+            if (smd) {
+                /* add any newly configured domains to the store md */
+                added = md_array_str_add_missing(smd->domains, md->domains, 0);
+
+                /* Look for other store mds which have domains now being part of smd */
+                while (APR_SUCCESS == rv && (omd = md_get_by_dns_overlap(store_mds, md))) {
+                    /* find the name now duplicate */
+                    common = md_common_name(md, omd);
+                    assert(common);
+                    
+                    /* Is this md still configured or has it been abandoned in the config? */
+                    config_md = md_get_by_name(mds, omd->name);
+                    if (config_md && md_contains(config_md, common)) {
+                        /* domain used in two configured mds, not allowed */
+                        rv = APR_EINVAL;
+                        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
+                                     "domain %s used in md %s and %s", common, md->name, omd->name);
+                    }
+                    else if (config_md) {
+                        /* domain stored in omd, but no longer has the offending domain,
+                           remove it from the store md. */
+                        omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
+                        rv = md_save(store, omd, 0);
+                    }
+                    else {
+                        /* domain in a store md that is no longer configured, warn about it.
+                         * Remove the domain here, so we can progress, but never save it. */
+                        omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
+                        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, s, APLOGNO()
+                                     "domain %s, configured in md %s, is part of the stored md %s. "
+                                     "That md however is no longer mentioned in the config. "
+                                     "If you longer want it, remove the md from the store.", 
+                                     common, md->name, omd->name);
+                    }
                 }
-                else if (config_md) {
-                    /* domain stored in omd, but no longer configured so */
-                    omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
-                    rv = md_save(store, omd, 0);
-                }
-                else {
-                    /* domain stored in omd, but omd no longer configured */
-                    rv = APR_EINVAL;
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
-                                 "domain %s, configured in md %s, is part of the stored md %s. "
-                                 "That md however is no longer mentioned in the config. "
-                                 "If you longer want it, remove the md from the store.", 
-                                 common, md->name, omd->name);
+
+                if (added) {
+                    rv = md_save(store, md, 0);
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
+                                 "md %s updated with %d additional domains", md->name, added);
                 }
             }
+            else {
+                /* new managed domain */
+                rv = md_save(store, md, 1);
+                ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
+                             "new md %s saved", md->name);
+            }
+
 
             if (APR_SUCCESS == rv) {
                 if (smd) {
-                    int added;
-                    
-                    /* existing managed domain, update necessary? */
-                    added = md_array_str_add_missing(smd->domains, md->domains, 0);
-                    if (added) {
-                        rv = md_save(store, md, 0);
-                        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
-                                     "md %s updated with %d additional domains", md->name, added);
-                    } 
-                }
-                else {
-                    /* new managed domain */
-                    rv = md_save(store, md, 1);
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
-                                 "new md %s saved", md->name);
                 }
             }
         }

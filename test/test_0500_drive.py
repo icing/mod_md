@@ -52,7 +52,7 @@ class TestDrive :
         assert run['rv'] == 1
         assert re.search("need to accept terms-of-service", run["stderr"])
 
-    def test_102(self):
+    def XXXXtest_102(self): # without URL it goes against the ACME LE production server
         # test case: md without ACME url
         domain = "test102." + self.dns_uniq
         assert TestEnv.run([TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", domain])['rv'] == 0
@@ -127,7 +127,8 @@ class TestDrive :
         # drive
         run = TestEnv.a2md( [ "drive", domain ] )
         assert run['rv'] == 1
-        assert re.search("failed to contact server", run["stderr"])
+        assert run['jout']['status'] == 61
+        assert run['jout']['description'] == 'Connection refused'
 
     # --------- _utils_ ---------
 
