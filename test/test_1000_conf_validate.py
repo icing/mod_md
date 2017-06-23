@@ -19,7 +19,7 @@ def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.init()
     TestEnv.apache_err_reset()
-    TestEnv.APACHE_CONF_SRC = "test_configs_data"
+    TestEnv.APACHE_CONF_SRC = "data/conf_validate"
     status = TestEnv.apachectl(None, "start")
     assert status == 0
     

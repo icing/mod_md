@@ -13,7 +13,7 @@ def setup_module(module):
     TestEnv.init()
     assert TestEnv.is_live(TestEnv.ACME_URL, 1)
     TestEnv.apache_err_reset()
-    TestEnv.APACHE_CONF_SRC = "test_drive_data"
+    TestEnv.APACHE_CONF_SRC = "data/drive"
     status = TestEnv.apachectl("test1.example.org", "start")
     
 def teardown_module(module):
