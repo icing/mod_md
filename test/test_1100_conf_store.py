@@ -43,7 +43,7 @@ class TestConf:
 
     def test_001(self):
         # test case: no md definitions in config
-        assert TestEnv.apachectl("test_000", "graceful") == 0
+        assert TestEnv.apachectl("empty", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         jout = TestEnv.a2md(["list"])['jout']
         assert "output" not in jout
@@ -79,49 +79,60 @@ class TestConf:
     # --------- remove from store ---------
 
     def test_200(self):
-        # test case: remove managed domain from store
-        TestEnv.a2md([ "add", "example.org", "www.example.org", "mail.example.org" ])
-        self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
-        assert TestEnv.apachectl("test_000", "graceful") == 0
+        # test case: remove managed domain from config
+        dnsList = ["example.org", "www.example.org", "mail.example.org"]
+        TestEnv.a2md(["add"] + dnsList)
+        self._check_md("example.org", dnsList, 1, 1)
+        assert TestEnv.apachectl("empty", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        # check: store is empty
-        jout = TestEnv.a2md(["list"])['jout']
-        assert "output" not in jout
+        # check: md stays in store
+        self._check_md("example.org", dnsList, 1, 1)
 
     def test_201(self):
         # test case: remove alias DNS from managed domain
-        TestEnv.a2md([ "add", "example.org", "test.example.org", "www.example.org", "mail.example.org" ])
-        self._check_md("example.org", ["example.org", "test.example.org", "www.example.org", "mail.example.org"], 1, 1)
+        dnsList = ["example.org", "test.example.org", "www.example.org", "mail.example.org"]
+        TestEnv.a2md(["add"] + dnsList)
+        self._check_md("example.org", dnsList, 1, 1)
         assert TestEnv.apachectl("test_001", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
+        # check: DNS stays part of md in store
+        self._check_md("example.org", dnsList, 1, 1)
 
     def test_202(self):
         # test case: remove primary name from managed domain
-        TestEnv.a2md([ "add", "name.example.org", "example.org", "www.example.org", "mail.example.org" ])
+        dnsList = ["name.example.org", "example.org", "www.example.org", "mail.example.org"]
+        TestEnv.a2md([ "add"] + dnsList)
+        self._check_md("name.example.org", dnsList, 1, 1)
         assert TestEnv.apachectl("test_001", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
+        # check: md stays with previous name, complete dns list
+        self._check_md("name.example.org", dnsList, 1, 1)
 
     def test_203(self):
         # test case: remove one md, keep another
-        TestEnv.a2md([ "add", "greenybtes2.de", "www.greenybtes2.de", "mail.greenybtes2.de" ])
-        TestEnv.a2md([ "add", "example.org", "www.example.org", "mail.example.org" ])
-        self._check_md("greenybtes2.de", ["greenybtes2.de", "www.greenybtes2.de", "mail.greenybtes2.de"], 1, 2)
-        self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)
+        dnsList1 = ["greenybtes2.de", "www.greenybtes2.de", "mail.greenybtes2.de"]
+        dnsList2 = ["example.org", "www.example.org", "mail.example.org"]
+        TestEnv.a2md(["add"] + dnsList1)
+        TestEnv.a2md(["add"] + dnsList2)
+        self._check_md("greenybtes2.de", dnsList1, 1, 2)
+        self._check_md("example.org", dnsList2, 1, 2)
         assert TestEnv.apachectl("test_001", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
+        # all mds stay in store
+        self._check_md("greenybtes2.de", dnsList1, 1, 2)
+        self._check_md("example.org", dnsList2, 1, 2)
 
     # --------- reorder config definitions ---------
 
     def test_300(self):
         # test case: reorder DNS names in md definition
-        TestEnv.a2md([ "add", "example.org", "mail.example.org", "www.example.org" ])
-        self._check_md("example.org", ["example.org", "mail.example.org", "www.example.org"], 1, 1)
+        dnsList = ["example.org", "mail.example.org", "www.example.org"]
+        TestEnv.a2md(["add"] + dnsList)
+        self._check_md("example.org", dnsList, 1, 1)
         assert TestEnv.apachectl("test_001", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        self._check_md("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
+        # check: dns list stays as before
+        self._check_md("example.org", dnsList, 1, 1)
 
     def test_301(self):
         # test case: move DNS from one md to another
