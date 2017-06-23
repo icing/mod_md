@@ -343,6 +343,17 @@ void md_cert_free(md_cert_t *cert)
     cert_cleanup(cert);
 }
 
+int md_cert_is_valid_now(md_cert_t *cert)
+{
+    return ((X509_cmp_current_time(X509_get_notBefore(cert->x509)) < 0)
+            && (X509_cmp_current_time(X509_get_notAfter(cert->x509)) > 0));
+}
+
+int md_cert_has_expired(md_cert_t *cert)
+{
+    return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) > 0);
+}
+
 apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
 {
     FILE *f;

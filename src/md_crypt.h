@@ -67,4 +67,7 @@ apr_status_t md_chain_fsave(struct apr_array_header_t *certs,
 apr_status_t md_cert_req_create(const char **pcsr_der_64, const struct md_t *md, 
                                 md_pkey_t *pkey, apr_pool_t *p);
 
+int md_cert_is_valid_now(md_cert_t *cert);
+int md_cert_has_expired(md_cert_t *cert);
+
 #endif /* md_crypt_h */

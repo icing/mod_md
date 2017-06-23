@@ -84,15 +84,33 @@ static int md_name_cmp(const void *v1, const void *v2)
 static apr_status_t cmd_reg_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
+    const char *name;
+    const md_t *md;
     int i;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
-    md_reg_do(list_add_md, mdlist, ctx->reg);
-    qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
+    if (ctx->argc > 0) {
+        for (i = 0; i < ctx->argc; ++i) {
+            name = ctx->argv[i];
+            md = md_reg_get(ctx->reg, name);
+            if (!md) {
+                md = md_reg_find(ctx->reg, name);
+            }
+            if (!md) {
+                fprintf(stderr, "managed domain not found: %s\n", name);
+                return APR_ENOENT;
+            }
+            md_cmd_print_md(ctx, md);
+        }
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
+        md_reg_do(list_add_md, mdlist, ctx->reg);
+        qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     
-    for (i = 0; i < mdlist->nelts; ++i) {
-        const md_t *md = APR_ARRAY_IDX(mdlist, i, const md_t*);
-        md_cmd_print_md(ctx, md);
+        for (i = 0; i < mdlist->nelts; ++i) {
+            md = APR_ARRAY_IDX(mdlist, i, const md_t*);
+            md_cmd_print_md(ctx, md);
+        }
     }
 
     return APR_SUCCESS;

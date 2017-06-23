@@ -209,12 +209,30 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
     apr_status_t rv;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, md))) {
-        state = (creds->cert && creds->pkey)? MD_S_COMPLETE : MD_S_INCOMPLETE;
+        state = MD_S_INCOMPLETE;
+        if (creds->cert && creds->pkey && creds->chain) {
+            if (md_cert_has_expired(creds->cert)) {
+                state = MD_S_EXPIRED;
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert expired", md->name);
+            }
+            else if (!md_cert_is_valid_now(creds->cert)) {
+                state = MD_S_ERROR;
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                              "md{%s}: cert not valid yet", md->name);
+            }
+            else {
+                state = MD_S_COMPLETE;
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert valid", md->name);
+            }
+        }
+    }
+    
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}{state}: %d", md->name, state);
+        state = MD_S_ERROR;
     }
     /* break the constness, ugly but effective */
     ((md_t *)md)->state = state;
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, "md{%s}{state}: %d", md->name, state);
-    
     return rv;
 }
 

@@ -27,7 +27,7 @@ typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
     MD_S_INCOMPLETE,                /* MD is missing necessary information, can go live */
     MD_S_COMPLETE,                  /* MD has all necessary information, can go live */
-    MD_S_INACTIVE,                  /* MD is inactive, not to go live */
+    MD_S_EXPIRED,                   /* MD is complete, but credentials have expired */
     MD_S_ERROR,                     /* MD data is flawed, unable to be processed as is */ 
 } md_state_t;
 
