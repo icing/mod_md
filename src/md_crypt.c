@@ -354,6 +354,38 @@ int md_cert_has_expired(md_cert_t *cert)
     return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) > 0);
 }
 
+apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p)
+{
+    int i, ext_idx, nid = NID_info_access;
+    X509_EXTENSION *ext;
+    X509V3_EXT_METHOD *ext_cls;
+    void *ext_data;
+    const char *uri = NULL;
+    apr_status_t rv = APR_ENOENT;
+    
+    /* Waddle through x509  API history to get someone that may be able
+     * to hand us the issuer url for the cert chain */
+    ext_idx = X509_get_ext_by_NID(cert->x509, nid, -1);
+    ext = (ext_idx >= 0)? X509_get_ext(cert->x509, ext_idx) : NULL;
+    ext_cls = ext? (X509V3_EXT_METHOD*)X509V3_EXT_get(ext) : NULL;
+    if (ext_cls && (ext_data = X509_get_ext_d2i(cert->x509, nid, 0, 0))) {
+        CONF_VALUE *cval;
+        STACK_OF(CONF_VALUE) *ext_vals = ext_cls->i2v(ext_cls, ext_data, 0);
+        
+        for (i = 0; i < sk_CONF_VALUE_num(ext_vals); ++i) {
+            cval = sk_CONF_VALUE_value(ext_vals, i);
+            if (!strcmp("CA Issuers - URI", cval->name)) {
+                uri = apr_pstrdup(p, cval->value);
+                rv = APR_SUCCESS;
+                break;
+            }
+        }
+    } 
+    *puri = (APR_SUCCESS == rv)? uri : NULL;
+    return rv;
+}
+
+
 apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
 {
     FILE *f;
@@ -413,7 +445,7 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
     apr_status_t rv;
     
     ct = apr_table_get(res->headers, "Content-Type");
-    if (!res->body || !ct || strcmp("application/pkix-cert", ct)) {
+    if (!res->body || !ct  || strcmp("application/pkix-cert", ct)) {
         return APR_ENOENT;
     }
     

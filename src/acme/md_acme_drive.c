@@ -55,6 +55,9 @@ typedef struct {
     apr_interval_time_t cert_poll_timeout;
     md_cert_t *cert;
     
+    const char *chain_url;
+    apr_array_header_t *chain;
+    
 } md_acme_driver_t;
 
 /**************************************************************************************************/
@@ -318,21 +321,32 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
 /* poll cert */
 
 
+static apr_status_t read_http_cert(md_cert_t **pcert, apr_pool_t *p,
+                                   const md_http_response_t *res)
+{
+    apr_status_t rv = APR_SUCCESS;
+    
+    if (APR_SUCCESS != (rv = md_cert_read_http(pcert, p, res))
+        && APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_EAGAIN;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                      "cert not in response from %s", res->req->url);
+    }
+    return rv;
+}
+
 static apr_status_t on_got_cert(md_acme_t *acme, const md_http_response_t *res, void *baton)
 {
     md_proto_driver_t *d = baton;
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv = APR_SUCCESS;
     
-    if (APR_SUCCESS == (rv = md_cert_read_http(&ad->cert, d->p, res))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed");
-    }
-    else if (APR_STATUS_IS_ENOENT(rv)) {
-        rv = APR_EAGAIN;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                      "cert not in response from %s", ad->md->cert_url);
-    }
     
+    if (APR_SUCCESS == (rv = read_http_cert(&ad->cert, d->p, res))) {
+        rv = md_store_save(d->store, MD_SG_DOMAINS, ad->md->name, MD_FN_CERT, 
+                           MD_SV_CERT, ad->cert, 0);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed and saved");
+    }
     return rv;
 }
 
@@ -463,6 +477,76 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
 }
 
 /**************************************************************************************************/
+/* cert chain retrieval */
+
+static apr_status_t on_add_chain(md_acme_t *acme, const md_http_response_t *res, void *baton)
+{
+    md_proto_driver_t *d = baton;
+    md_acme_driver_t *ad = d->baton;
+    apr_status_t rv = APR_SUCCESS;
+    md_cert_t *cert;
+    const char *ct;
+    
+    ct = apr_table_get(res->headers, "Content-Type");
+    if (ct && !strcmp("application/x-pkcs7-mime", ct)) {
+        /* root cert most likely, end it here */
+        return APR_SUCCESS;
+    }
+    
+    if (APR_SUCCESS == (rv = read_http_cert(&cert, d->p, res))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "chain cert parsed");
+        APR_ARRAY_PUSH(ad->chain, md_cert_t *) = cert;
+    }
+    return rv;
+}
+
+static apr_status_t get_chain(void *baton, int attempt)
+{
+    md_proto_driver_t *d = baton;
+    md_acme_driver_t *ad = d->baton;
+    md_cert_t *cert;
+    const char *url;
+    apr_status_t rv = APR_SUCCESS;
+    
+    while (APR_SUCCESS == rv && ad->chain->nelts < 10) {
+        int nelts = ad->chain->nelts;
+        if (ad->chain && nelts > 0) {
+            cert = APR_ARRAY_IDX(ad->chain, nelts - 1, md_cert_t *);
+        }
+        else {
+            cert = ad->cert;
+        }
+        
+        if (APR_SUCCESS == (rv = md_cert_get_issuers_uri(&url, cert, d->p))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "next issuer is  %s", url);
+            rv = md_acme_GET(ad->acme, url, NULL, NULL, on_add_chain, d);
+            
+            if (APR_SUCCESS == rv && nelts == ad->chain->nelts) {
+                break;
+            }
+        }
+        else if (APR_STATUS_IS_ENOENT(rv) || !url || !strlen(url)) {
+            break;
+        }
+    }
+    return rv;
+}
+
+static apr_status_t ad_chain_install(md_proto_driver_t *d)
+{
+    md_acme_driver_t *ad = d->baton;
+    apr_status_t rv;
+    
+    ad->chain = apr_array_make(d->p, 5, sizeof(md_cert_t *));
+    if (APR_SUCCESS == (rv = md_util_try(get_chain, d, 0, ad->cert_poll_timeout, 0, 0, 0))) {
+        rv = md_store_save(d->store, MD_SG_DOMAINS, ad->md->name, MD_FN_CHAIN, 
+                           MD_SV_CHAIN, ad->chain, 0);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "chain fetched and saved");
+    }
+    return rv;
+}
+
+/**************************************************************************************************/
 /* ACME driving */
 
 static apr_status_t acme_driver_init(md_proto_driver_t *d)
@@ -522,7 +606,7 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
         }
     }
     
-    if (APR_SUCCESS == rv
+    if (APR_SUCCESS == rv && !ad->cert
         && APR_SUCCESS == (rv = ad_setup_authz(d))
         && APR_SUCCESS == (rv = ad_start_challenges(d))
         && APR_SUCCESS == (rv = ad_monitor_challenges(d))
@@ -530,6 +614,11 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: certificate obtained", 
                       ad->md->name);
     }
+
+    if (APR_SUCCESS == rv && !ad->chain) {
+        rv = ad_chain_install(d);
+    }
+
     return rv;
 }
 
