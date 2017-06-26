@@ -16,9 +16,6 @@ from urlparse import urlparse
 
 class TestEnv:
 
-    _a2md_args = []
-    _a2md_args_raw = []
-    
     @classmethod
     def init( cls ) :
         cls.config = SafeConfigParser()
@@ -30,6 +27,7 @@ class TestEnv:
         cls.ACME_TOS2 = cls.config.get('acme', 'tos2')
         cls.WEBROOT   = cls.config.get('global', 'server_dir')
         cls.STORE_DIR = os.path.join(cls.WEBROOT, 'md')
+        cls.TESTROOT   = os.path.join(cls.WEBROOT, '..', '..')
 
         cls.APACHECTL = os.path.join(cls.PREFIX, 'bin', 'apachectl')
         cls.ERROR_LOG = os.path.join(cls.WEBROOT, "logs", "error_log")
@@ -44,6 +42,11 @@ class TestEnv:
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
         cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
         cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
+
+    # --------- cmd execution ---------
+
+    _a2md_args = []
+    _a2md_args_raw = []
     
     @classmethod
     def run( cls, args ) :
@@ -78,7 +81,9 @@ class TestEnv:
         if raw :
             preargs = cls._a2md_args_raw
         return cls.run( preargs + args )
-        
+
+    # --------- HTTP ---------
+
     @classmethod
     def is_live( cls, url, timeout ) :
         server = urlparse(url)
@@ -119,12 +124,36 @@ class TestEnv:
         print "Unable to contact server after %d sec" % timeout
         return None
 
+    # --------- access local store ---------
+
     @classmethod
     def clear_store( cls ) : 
         print("clear store dir: %s" % TestEnv.STORE_DIR)
         assert len(TestEnv.STORE_DIR) > 1
         shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=True)
         os.makedirs(TestEnv.STORE_DIR)
+
+    @classmethod
+    def path_account( cls, acct ) : 
+        return TestEnv.STORE_DIR + "/accounts/" + acct + "/account.json"
+
+    @classmethod
+    def path_account_key( cls, acct ) : 
+        return TestEnv.STORE_DIR + "/accounts/" + acct + "/account.key"
+
+    @classmethod
+    def path_domain_authz( cls, domain ) : 
+        return TestEnv.STORE_DIR + "/domains/" + domain + "/authz.json"
+
+    @classmethod
+    def path_domain_cert( cls, domain ) : 
+        return TestEnv.STORE_DIR + "/domains/" + domain + "/cert.pem"
+
+    @classmethod
+    def path_domain_pkey( cls, domain ) : 
+        return TestEnv.STORE_DIR + "/domains/" + domain + "/pkey.pem"
+
+    # --------- control apache ---------
 
     @classmethod
     def apachectl( cls, conf, cmd ) :

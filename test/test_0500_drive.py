@@ -5,6 +5,7 @@ import re
 import sys
 import time
 import json
+import crypto_util
 
 from datetime import datetime
 from testbase import TestEnv
@@ -87,7 +88,7 @@ class TestDrive :
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", domain ] )['rv'] == 0
-        self._check_md_cert(domain)
+        self._check_md_cert([ domain ])
 
     def test_201(self):
         # test case: md with 2 domains
@@ -96,7 +97,7 @@ class TestDrive :
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", domain ] )['rv'] == 0
-        self._check_md_cert(domain)
+        self._check_md_cert([ domain, "www." + domain ])
 
     def test_202(self):
         # test case: md with one domain, local TOS agreement and ACME account
@@ -114,7 +115,7 @@ class TestDrive :
         run = TestEnv.a2md( [ "-vv", "drive", domain ] )
         print run["stderr"]
         assert run['rv'] == 0
-        self._check_md_cert(domain)
+        self._check_md_cert([ domain ])
 
     def test_203(self):
         # test case: md with one domain, ACME account and TOS agreement on server
@@ -135,7 +136,7 @@ class TestDrive :
         run = TestEnv.a2md( [ "-vv", "drive", domain ] )
         print run["stderr"]
         assert run['rv'] == 0
-        self._check_md_cert(domain)
+        self._check_md_cert([ domain ])
 
     def test_204(self):
         # test case: md with one domain, TOS agreement, ACME account and authz challenge
@@ -155,9 +156,8 @@ class TestDrive :
         run = TestEnv.a2md( ["-vv", "acme", "authz", acct, domain], raw=True )
         assert run['rv'] == 0
         authz_url = re.match("authz: " + domain + " (.*)$", run["stdout"]).group(1)
-        # TODO: find storage-independent way to modify local registration data
-        jsonFile = TestEnv.STORE_DIR + "/domains/" + domain + "/authz.json"
-        open(jsonFile, "w").write(json.dumps({
+        # TODO: find storage-independent way to modify local authz data
+        open( TestEnv.path_domain_authz(domain), "w" ).write(json.dumps({
             "account": acct,
             "authorizations": [{
                 "domain": domain,
@@ -169,7 +169,9 @@ class TestDrive :
         run = TestEnv.a2md( [ "-vv", "drive", domain ] )
         print run["stderr"]
         assert run['rv'] == 0
-        self._check_md_cert(domain)
+        self._check_md_cert([domain])
+        auth_json = TestEnv.get_json( authz_url, 1 )
+        assert auth_json['status'] == "valid"
 
     # --------- network problems  ---------
 
@@ -197,8 +199,30 @@ class TestDrive :
             [ "update", dnsList[0], "agreement", TestEnv.ACME_TOS ]
             )['rv'] == 0
 
-    def _check_md_cert(self, name):
+    def _check_md_cert(self, dnsList):
+        name = dnsList[0]
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        assert "url" in md['cert']
+        # check tos agreement, cert url
         assert md['ca']['agreement'] == TestEnv.ACME_TOS
-        # TODO: more specific checks on store data
+        assert "url" in md['cert']
+        # check private key, validate certificate
+        priv_key = self._load_binary_file( TestEnv.path_domain_pkey(name) )
+        cert = self._load_binary_file( TestEnv.path_domain_cert(name) )
+        crypto_util.validate_privkey(priv_key)
+        # TODO: read ca cert chain from store
+        # ca_cert = self._load_binary_file( os.path.join( TestEnv.TESTROOT, "data", "ca_cert.p12" ) )
+        # crypto_util.validate_cert(priv_key, cert, ca_cert)
+        # check SANs and CN
+        assert crypto_util.get_cn_from_cert(cert) == name
+        assert crypto_util.get_sans_from_cert(cert) == dnsList
+        assert crypto_util.get_names_from_cert(cert) == dnsList
+        # check valid dates interval
+        notBefore = crypto_util.get_not_before(cert)
+        notAfter = crypto_util.get_not_after(cert)
+        assert notBefore < datetime.now(notBefore.tzinfo)
+        assert notAfter > datetime.now(notAfter.tzinfo)
+
+    def _load_binary_file(self, path):
+        with open(path, mode="rb")	 as file:
+            return file.read()
+

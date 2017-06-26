@@ -9,4 +9,4 @@
 
 ## tests
 
-
+* conf_store test: read contact info from config, add it to managed domain in store
