@@ -515,12 +515,12 @@ apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p, const char
 static apr_status_t add_alt_names(STACK_OF(X509_EXTENSION) *exts, const md_t *md, apr_pool_t *p)
 {
     
-    if (md->domains->nelts > 1) {
+    if (md->domains->nelts > 0) {
         const char *alt_names = "", *sep = "", *domain;
         X509_EXTENSION *x;
         int i;
         
-        for (i = 1; i < md->domains->nelts; ++i) {
+        for (i = 0; i < md->domains->nelts; ++i) {
             domain = APR_ARRAY_IDX(md->domains, i, const char *);
             alt_names = apr_psprintf(p, "%s%sDNS:%s", alt_names, sep, domain);
             sep = ",";
