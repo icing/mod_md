@@ -4,6 +4,7 @@ import os.path
 import re
 import sys
 import time
+import json
 
 from datetime import datetime
 from testbase import TestEnv
@@ -80,7 +81,7 @@ class TestDrive :
     # --------- driving OK  ---------
 
     def test_200(self):
-        # test case: fresh md with one domain
+        # test case: md with one domain
         domain = "test200." + self.dns_uniq
         self._prepare_md([ domain ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
@@ -89,7 +90,7 @@ class TestDrive :
         self._check_md_cert(domain)
 
     def test_201(self):
-        # test case: fresh md with 2 domains
+        # test case: md with 2 domains
         domain = "test201." + self.dns_uniq
         self._prepare_md([ domain, "www." + domain ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
@@ -98,9 +99,9 @@ class TestDrive :
         self._check_md_cert(domain)
 
     def test_202(self):
-        # test case: fresh md with one domain and ACME account
+        # test case: md with one domain, local TOS agreement and ACME account
         # setup: create md
-        domain = "test200." + self.dns_uniq
+        domain = "test202." + self.dns_uniq
         self._prepare_md([ domain ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # setup: create account on server
@@ -109,6 +110,61 @@ class TestDrive :
         acct = re.match("registered: (.*)$", run["stdout"]).group(1)
         # setup: link md to account
         assert TestEnv.a2md([ "update", domain, "account", acct])['rv'] == 0
+        # drive
+        run = TestEnv.a2md( [ "-vv", "drive", domain ] )
+        print run["stderr"]
+        assert run['rv'] == 0
+        self._check_md_cert(domain)
+
+    def test_203(self):
+        # test case: md with one domain, ACME account and TOS agreement on server
+        # setup: create md
+        domain = "test202." + self.dns_uniq
+        assert TestEnv.a2md(["add", domain])['rv'] == 0
+        assert TestEnv.a2md([ "update", domain, "contacts", "admin@" + domain ])['rv'] == 0
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: create account on server
+        run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
+        assert run['rv'] == 0
+        acct = re.match("registered: (.*)$", run["stdout"]).group(1)
+        # setup: send TOS agreement to server
+        assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
+        # setup: link md to account
+        assert TestEnv.a2md([ "update", domain, "account", acct])['rv'] == 0
+        # drive
+        run = TestEnv.a2md( [ "-vv", "drive", domain ] )
+        print run["stderr"]
+        assert run['rv'] == 0
+        self._check_md_cert(domain)
+
+    def test_204(self):
+        # test case: md with one domain, TOS agreement, ACME account and authz challenge
+        # setup: create md
+        domain = "test202." + self.dns_uniq
+        self._prepare_md([ domain ])
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: create account on server
+        run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
+        assert run['rv'] == 0
+        acct = re.match("registered: (.*)$", run["stdout"]).group(1)
+        # setup: send TOS agreement to server
+        assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
+        # setup: link md to account
+        assert TestEnv.a2md([ "update", domain, "account", acct])['rv'] == 0
+        # setup: create authz resource, write it into store
+        run = TestEnv.a2md( ["-vv", "acme", "authz", acct, domain], raw=True )
+        assert run['rv'] == 0
+        authz_url = re.match("authz: " + domain + " (.*)$", run["stdout"]).group(1)
+        # TODO: find storage-independent way to modify local registration data
+        jsonFile = TestEnv.STORE_DIR + "/domains/" + domain + "/authz.json"
+        open(jsonFile, "w").write(json.dumps({
+            "account": acct,
+            "authorizations": [{
+                "domain": domain,
+                "location": authz_url,
+                "state": 0
+            }]
+            }, indent=2))
         # drive
         run = TestEnv.a2md( [ "-vv", "drive", domain ] )
         print run["stderr"]
@@ -142,6 +198,7 @@ class TestDrive :
             )['rv'] == 0
 
     def _check_md_cert(self, name):
-        output = TestEnv.a2md([ "list", name ])['jout']['output']
-        assert "url" in output[0]['cert']
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        assert "url" in md['cert']
+        assert md['ca']['agreement'] == TestEnv.ACME_TOS
         # TODO: more specific checks on store data
