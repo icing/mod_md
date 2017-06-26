@@ -60,16 +60,15 @@ typedef struct {
 /**************************************************************************************************/
 /* account setup */
 
-static apr_status_t ad_acct_validate(md_proto_driver_t *d, md_acme_acct_t **pacct)
+static apr_status_t ad_acct_validate(md_proto_driver_t *d, md_acme_acct_t *acct)
 {
     md_acme_driver_t *ad = d->baton;
-    md_acme_acct_t *acct = *pacct;
     apr_status_t rv;
     
-    if (APR_SUCCESS != (rv = md_acme_acct_validate(ad->acme, *pacct))) {
+    if (APR_SUCCESS != (rv = md_acme_acct_validate(ad->acme, acct))) {
         if (APR_ENOENT == rv || APR_EACCES == rv) {
-            *pacct = NULL;
-            rv = md_acme_acct_disable(acct);
+            md_acme_acct_disable(acct);
+            rv = APR_ENOENT;
         }
     }
     return rv;
@@ -93,52 +92,53 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checking previous account %s",
                       d->proto->protocol, md->ca_account);
         if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, d->store, md->ca_account, d->p))) {
-            rv = ad_acct_validate(d, &acct);
+            if (APR_SUCCESS == ad_acct_validate(d, acct)) {
+                goto out;
+            }
         }
-        else if (APR_ENOENT == rv) {
-            rv = APR_SUCCESS;
+        else if (APR_ENOENT != rv) {
+            goto out;
         }
     }
     
     /* If MD has no account, find a local account for server, store at MD */ 
-    if (APR_SUCCESS == rv && NULL == acct) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
-                      d->proto->protocol);
-        while (NULL == acct 
-               && APR_SUCCESS == (rv = md_acme_acct_find(&acct, d->store, ad->acme, d->p))) {
-            rv = ad_acct_validate(d, &acct);
-        }
-        if (!acct && APR_ENOENT == rv) {
-            rv = APR_SUCCESS;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
+                  d->proto->protocol);
+    while (APR_SUCCESS == md_acme_acct_find(&acct, d->store, ad->acme, d->p)) {
+        if (APR_SUCCESS == ad_acct_validate(d, acct)) {
+            goto out;
         }
     }
     
-    if (APR_SUCCESS == rv && NULL == acct) {
-        /* 2.2 No local account exists, create a new one */
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: creating new account", 
-                      d->proto->protocol);
-
-        if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
-                "no contact information for md %s", md->name);            
-            return APR_EINVAL;
-        }
-        
-        rv = md_acme_register(&acct, d->store, ad->acme, md->contacts, md->ca_agreement);
-        if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "register new account");
-        }
+    /* 2.2 No local account exists, create a new one */
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: creating new account", 
+                  d->proto->protocol);
+    if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
+                      "no contact information for md %s", md->name);            
+        rv = APR_EINVAL;
+        goto out;
     }
     
+    rv = md_acme_register(&acct, d->store, ad->acme, md->contacts, md->ca_agreement);
+    
+out:
     if (APR_SUCCESS == rv) {
-        ad->acct = acct;
+        int fields = 0;
         /* Persist the account chosen at the md so we use the same on future runs */
         if (!md->ca_account || strcmp(md->ca_account, acct->id)) {
+            fields |= MD_UPD_CA_ACCOUNT;
             md->ca_account = acct->id;
-            rv = md_reg_update(d->reg, md->name, md, MD_UPD_CA_ACCOUNT);
+        }
+        if (!md->ca_agreement && acct->agreement) {
+            md->ca_agreement = acct->agreement;
+            fields |= MD_UPD_AGREEMENT;
+        }
+        if (fields) {
+            rv = md_reg_update(d->reg, md->name, md, fields);
         }
     }
-
+    ad->acct = (APR_SUCCESS == rv)? acct : NULL;
     return rv;
 }
 

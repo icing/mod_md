@@ -203,6 +203,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
         authz->domain, authz->location);
         
     if (APR_SUCCESS == (rv = md_acme_get_json(&json, acme, authz->location, p))) {
+        authz->resource = json;
         s = md_json_gets(json, "identifier", "type", NULL);
         if (!s || strcmp(s, "dns")) return APR_EINVAL;
         s = md_json_gets(json, "identifier", "value", NULL);
@@ -230,19 +231,6 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
 
 /**************************************************************************************************/
 /* response to a challenge */
-
-typedef struct {
-    apr_pool_t *p;
-    md_acme_t *acme;
-    
-    unsigned can_cha_http_01 : 1;
-    unsigned can_cha_tls_sni_01 : 1;
-    
-    md_acme_acct_t *acct;
-    md_acme_authz_t *authz;
-    md_acme_authz_cha_t *http_01;
-    md_acme_authz_cha_t *tls_sni_01;
-} cha_find_ctx;
 
 static md_acme_authz_cha_t *cha_from_json(apr_pool_t *p, size_t index, md_json_t *json)
 {
@@ -289,6 +277,10 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     int notify_server = 0;
     
     assert(acct);
+    
+    
+    
+    assert(acct->id);
     assert(acct->key);
     assert(cha);
     assert(cha->token);
@@ -335,6 +327,16 @@ static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz
     return APR_ENOTIMPL;
 }
 
+typedef struct {
+    apr_pool_t *p;
+    
+    int can_cha_http_01;
+    int can_cha_tls_sni_01;
+    
+    md_acme_authz_cha_t *http_01;
+    md_acme_authz_cha_t *tls_sni_01;
+} cha_find_ctx;
+
 static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
 {
     cha_find_ctx *ctx = baton;
@@ -358,14 +360,13 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme,
     apr_status_t rv;
     cha_find_ctx fctx;
     
+    assert(acme);
+    assert(acct);
     assert(authz);
     assert(authz->resource);
 
     memset(&fctx, 0, sizeof(fctx));
     fctx.p = p;
-    fctx.acme = acme;
-    fctx.acct = acct;
-    fctx.authz = authz;
     fctx.can_cha_http_01 = http_01;
     fctx.can_cha_tls_sni_01 = tls_sni_01;
     
