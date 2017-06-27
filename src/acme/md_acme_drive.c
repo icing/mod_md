@@ -344,7 +344,7 @@ static apr_status_t on_got_cert(md_acme_t *acme, const md_http_response_t *res, 
     
     
     if (APR_SUCCESS == (rv = read_http_cert(&ad->cert, d->p, res))) {
-        rv = md_store_save(d->store, MD_SG_DOMAINS, ad->md->name, MD_FN_CERT, 
+        rv = md_store_save(d->store, MD_SG_STAGING, ad->md->name, MD_FN_CERT, 
                            MD_SV_CERT, ad->cert, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed and saved");
     }
@@ -416,7 +416,7 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
     
     /* Check if it already was sent with this response */
     if (APR_SUCCESS == (rv = md_cert_read_http(&ad->cert, d->p, res))) {
-        rv = md_store_save(d->store, MD_SG_DOMAINS, ad->md->name, MD_FN_CERT, 
+        rv = md_store_save(d->store, MD_SG_STAGING, ad->md->name, MD_FN_CERT, 
                            MD_SV_CERT, ad->cert, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed and saved");
     }
@@ -450,10 +450,10 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
 
     ad->phase = "setup cert pkey";
     
-    rv = md_pkey_load(d->store, ad->md->name, &pkey, d->p);
+    rv = md_pkey_load(d->store, MD_SG_STAGING, ad->md->name, &pkey, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
         if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, d->p, ad->acme->pkey_bits))) {
-            rv = md_pkey_save(d->store, ad->md->name, pkey, 1);
+            rv = md_pkey_save(d->store, MD_SG_STAGING, ad->md->name, pkey, 1);
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate pkey", ad->md->name);
     }
@@ -540,7 +540,7 @@ static apr_status_t ad_chain_install(md_proto_driver_t *d)
     
     ad->chain = apr_array_make(d->p, 5, sizeof(md_cert_t *));
     if (APR_SUCCESS == (rv = md_util_try(get_chain, d, 0, ad->cert_poll_timeout, 0, 0, 0))) {
-        rv = md_store_save(d->store, MD_SG_DOMAINS, ad->md->name, MD_FN_CHAIN, 
+        rv = md_store_save(d->store, MD_SG_STAGING, ad->md->name, MD_FN_CHAIN, 
                            MD_SV_CHAIN, ad->chain, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "chain fetched and saved");
     }

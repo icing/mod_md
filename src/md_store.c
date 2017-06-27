@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,7 @@
 #define FS_DN_ACCOUNTS     "accounts"
 #define FS_DN_CHALLENGES   "challenges"
 #define FS_DN_DOMAINS      "domains"
+#define FS_DN_STAGING      "staging"
 
 #define ASPECT_MD           "md.json"
 #define ASPECT_CERT         "cert.pem"
@@ -47,6 +49,7 @@ static const char *SGROUP_FNAME[] = {
     FS_DN_ACCOUNTS,
     FS_DN_CHALLENGES,
     FS_DN_DOMAINS,
+    FS_DN_STAGING,
 };
 
 static const char *sgroup_filename(int group)
@@ -104,6 +107,153 @@ apr_status_t md_store_save_json(md_store_t *store, md_store_group_t group,
                                 struct md_json_t *data, int create)
 {
     return md_store_save(store, group, name, aspect, MD_SV_JSON, (void*)data, create);
+}
+
+/**************************************************************************************************/
+/* convenience */
+
+typedef struct {
+    md_store_t *store;
+    md_store_group_t group;
+} md_group_ctx;
+
+apr_status_t md_load(md_store_t *store, md_store_group_t group, 
+                     const char *name, md_t **pmd, apr_pool_t *p)
+{
+    md_json_t *json;
+    apr_status_t rv;
+    
+    rv = md_store_load_json(store, group, name, MD_FN_MD, &json, p);
+    if (APR_SUCCESS == rv) {
+        *pmd = md_from_json(json, p);
+        return APR_SUCCESS;
+    }
+    return rv;
+}
+
+static apr_status_t p_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_group_ctx *ctx = baton;
+    md_json_t *json;
+    md_t *md;
+    int create;
+    
+    md = va_arg(ap, md_t *);
+    create = va_arg(ap, int);
+
+    json = md_to_json(md, ptemp);
+    assert(json);
+    assert(md->name);
+    return md_store_save_json(ctx->store, ctx->group, md->name, MD_FN_MD, json, create);
+}
+
+apr_status_t md_save(md_store_t *store, md_store_group_t group, md_t *md, int create)
+{
+    md_group_ctx ctx;
+    
+    ctx.store = store;
+    ctx.group = group;
+    return md_util_pool_vdo(p_save, &ctx, store->p, md, create, NULL);
+}
+
+static apr_status_t p_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_group_ctx *ctx = baton;
+    const char *name;
+    int force;
+    
+    name = va_arg(ap, const char *);
+    force = va_arg(ap, int);
+
+    assert(name);
+    return md_store_remove(ctx->store, ctx->group, name, MD_FN_MD, ptemp, force);
+}
+
+apr_status_t md_remove(md_store_t *store, md_store_group_t group, const char *name, int force)
+{
+    md_group_ctx ctx;
+    
+    ctx.store = store;
+    ctx.group = group;
+    return md_util_pool_vdo(p_remove, &ctx, store->p, name, force, NULL);
+}
+
+typedef struct {
+    apr_pool_t *p;
+    apr_array_header_t *mds;
+} md_load_ctx;
+
+static int add_md(void *baton, const char *name, const char *aspect, 
+                  md_store_vtype_t vtype, void *value)
+{
+    md_load_ctx *ctx = baton;
+    
+    if (MD_SV_JSON == vtype && !strcmp(MD_FN_MD, aspect)) {
+        const md_t *md = md_from_json(value, ctx->p);
+        
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, "adding md %s", md->name);
+        APR_ARRAY_PUSH(ctx->mds, md_t *) = md_clone(ctx->p, md);
+    }
+    return 1;
+}
+
+static int md_name_cmp(const void *v1, const void *v2)
+{
+    return strcmp((*(const md_t**)v1)->name, (*(const md_t**)v2)->name);
+}
+
+
+apr_status_t md_load_all(apr_array_header_t **pmds, md_store_t *store, 
+                         md_store_group_t group, apr_pool_t *p)
+{
+    apr_status_t rv;
+    md_load_ctx ctx;
+    
+    ctx.p = p;
+    ctx.mds = apr_array_make(p, 5, sizeof(md_t *));
+    rv = store->iterate(add_md, &ctx, store, group, "*", MD_FN_MD, MD_SV_JSON);
+    if (APR_SUCCESS == rv) {
+        qsort(ctx.mds->elts, ctx.mds->nelts, sizeof(md_t *), md_name_cmp);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "found %d mds", ctx.mds->nelts);
+    }
+    *pmds = (APR_SUCCESS == rv)? ctx.mds : NULL;
+    return rv;
+}
+
+apr_status_t md_pkey_load(md_store_t *store, md_store_group_t group, const char *name, 
+                          md_pkey_t **ppkey, apr_pool_t *p)
+{
+    return md_store_load(store, group, name, MD_FN_PKEY, MD_SV_PKEY, (void**)ppkey, p);
+}
+
+apr_status_t md_pkey_save(md_store_t *store, md_store_group_t group, const char *name, 
+                          struct md_pkey_t *pkey, int create)
+{
+    return md_store_save(store, group, name, MD_FN_PKEY, MD_SV_PKEY, pkey, create);
+}
+
+apr_status_t md_cert_load(md_store_t *store, md_store_group_t group, const char *name, 
+                          struct md_cert_t **pcert, apr_pool_t *p)
+{
+    return md_store_load(store, group, name, MD_FN_CERT, MD_SV_CERT, (void**)pcert, p);
+}
+
+apr_status_t md_cert_save(md_store_t *store, md_store_group_t group, const char *name, 
+                          struct md_cert_t *cert, int create)
+{
+    return md_store_save(store, group, name, MD_FN_CERT, MD_SV_CERT, cert, create);
+}
+
+apr_status_t md_chain_load(md_store_t *store, md_store_group_t group, const char *name, 
+                           struct apr_array_header_t **pchain, apr_pool_t *p)
+{
+    return md_store_load(store, group, name, MD_FN_CHAIN, MD_SV_CHAIN, (void**)pchain, p);
+}
+
+apr_status_t md_chain_save(md_store_t *store, md_store_group_t group, const char *name, 
+                           struct apr_array_header_t *chain, int create)
+{
+    return md_store_save(store, group, name, MD_FN_CHAIN, MD_SV_CHAIN, chain, create);
 }
 
 /**************************************************************************************************/

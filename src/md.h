@@ -159,25 +159,6 @@ md_t *md_copy(apr_pool_t *p, const md_t *src);
 struct md_json_t *md_to_json (const md_t *md, apr_pool_t *p);
 md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
 
-/* Storage handling of managed domains */
-apr_status_t md_load(struct md_store_t *store, const char *name, md_t **pmd, apr_pool_t *p);
-apr_status_t md_save(struct md_store_t *store, md_t *md, int create);
-apr_status_t md_remove(struct md_store_t *store, const char *name, int force);
-apr_status_t md_load_all(struct apr_array_header_t **pmds, struct md_store_t *store, apr_pool_t *p);
-
-apr_status_t md_pkey_load(struct md_store_t *store, const char *name, 
-                          struct md_pkey_t **ppkey, apr_pool_t *p);
-apr_status_t md_pkey_save(struct md_store_t *store, const char *name, 
-                          struct md_pkey_t *pkey, int create);
-apr_status_t md_cert_load(struct md_store_t *store, const char *name, 
-                          struct md_cert_t **pcert, apr_pool_t *p);
-apr_status_t md_cert_save(struct md_store_t *store, const char *name, 
-                          struct md_cert_t *cert, int create);
-apr_status_t md_chain_load(struct md_store_t *store, const char *name, 
-                           struct apr_array_header_t **pchain, apr_pool_t *p);
-apr_status_t md_chain_save(struct md_store_t *store, const char *name, 
-                           struct apr_array_header_t *chain, int create);
-
 /**************************************************************************************************/
 /* domain credentials */
 

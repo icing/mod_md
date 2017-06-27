@@ -509,7 +509,7 @@ apr_status_t md_acme_authz_set_load(struct md_store_t *store, const char *md_nam
     md_json_t *json;
     md_acme_authz_set_t *authz_set;
     
-    rv = md_store_load_json(store, MD_SG_DOMAINS, md_name, MD_FN_AUTHZ, &json, p);
+    rv = md_store_load_json(store, MD_SG_STAGING, md_name, MD_FN_AUTHZ, &json, p);
     if (APR_SUCCESS == rv) {
         authz_set = md_acme_authz_set_from_json(json, p);
     }
@@ -532,7 +532,7 @@ static apr_status_t p_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_lis
     json = md_acme_authz_set_to_json(set, ptemp);
     assert(json);
     assert(set->acct_id);
-    return md_store_save_json(store, MD_SG_DOMAINS, md_name, MD_FN_AUTHZ, json, create);
+    return md_store_save_json(store, MD_SG_STAGING, md_name, MD_FN_AUTHZ, json, create);
 }
 
 apr_status_t md_acme_authz_set_save(struct md_store_t *store, const char *md_name, 

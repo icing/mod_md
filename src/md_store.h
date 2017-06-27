@@ -36,6 +36,7 @@ typedef enum {
     MD_SG_ACCOUNTS,
     MD_SG_CHALLENGES,
     MD_SG_DOMAINS,
+    MD_SG_STAGING,
 } md_store_group_t;
 
 typedef apr_status_t md_store_load_cb(md_store_t *store, md_store_group_t group, 
@@ -99,6 +100,32 @@ apr_status_t md_store_remove(md_store_t *store, md_store_group_t group,
 apr_status_t md_store_iter(md_store_inspect *inspect, void *baton, md_store_t *store, 
                            md_store_group_t group, const char *pattern, const char *aspect,
                            md_store_vtype_t vtype);
+
+/**************************************************************************************************/
+/* Storage handling utils */
+
+apr_status_t md_load(md_store_t *store, md_store_group_t group, 
+                     const char *name, md_t **pmd, apr_pool_t *p);
+apr_status_t md_save(struct md_store_t *store, md_store_group_t group, 
+                     md_t *md, int create);
+apr_status_t md_remove(md_store_t *store, md_store_group_t group, 
+                     const char *name, int force);
+apr_status_t md_load_all(struct apr_array_header_t **pmds, md_store_t *store, 
+                         md_store_group_t group, apr_pool_t *p);
+
+apr_status_t md_pkey_load(md_store_t *store, md_store_group_t group, 
+                          const char *name, struct md_pkey_t **ppkey, apr_pool_t *p);
+apr_status_t md_pkey_save(md_store_t *store, md_store_group_t group, 
+                          const char *name, struct md_pkey_t *pkey, int create);
+apr_status_t md_cert_load(md_store_t *store, md_store_group_t group, 
+                          const char *name, struct md_cert_t **pcert, apr_pool_t *p);
+apr_status_t md_cert_save(md_store_t *store, md_store_group_t group, 
+                          const char *name, struct md_cert_t *cert, int create);
+apr_status_t md_chain_load(md_store_t *store, md_store_group_t group, 
+                           const char *name, struct apr_array_header_t **pchain, apr_pool_t *p);
+apr_status_t md_chain_save(md_store_t *store, md_store_group_t group, 
+                           const char *name, struct apr_array_header_t *chain, int create);
+
 
 /**************************************************************************************************/
 /* file system based store */

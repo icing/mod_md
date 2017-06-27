@@ -134,28 +134,31 @@ class TestEnv:
     def clear_store( cls ) : 
         print("clear store dir: %s" % TestEnv.STORE_DIR)
         assert len(TestEnv.STORE_DIR) > 1
-        shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=False)
+        if os.path.exists(TestEnv.STORE_DIR):
+            shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=False)
         os.makedirs(TestEnv.STORE_DIR)
 
     @classmethod
     def path_account( cls, acct ) : 
-        return TestEnv.STORE_DIR + "/accounts/" + acct + "/account.json"
+        return os.path.join(TestEnv.STORE_DIR, 'accounts', acct, 'account.json')
 
     @classmethod
     def path_account_key( cls, acct ) : 
-        return TestEnv.STORE_DIR + "/accounts/" + acct + "/account.key"
+        return os.path.join(TestEnv.STORE_DIR, 'accounts', acct, 'account.key')
 
     @classmethod
-    def path_domain_authz( cls, domain ) : 
-        return TestEnv.STORE_DIR + "/domains/" + domain + "/authz.json"
+    def authz_save( cls, name, content ) :
+        dir = os.path.join(TestEnv.STORE_DIR, 'staging', name)
+        os.makedirs(dir)
+        open( os.path.join( dir, 'authz.json'), "w" ).write(content)
 
     @classmethod
     def path_domain_cert( cls, domain ) : 
-        return TestEnv.STORE_DIR + "/domains/" + domain + "/cert.pem"
+        return os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'cert.pem')
 
     @classmethod
     def path_domain_pkey( cls, domain ) : 
-        return TestEnv.STORE_DIR + "/domains/" + domain + "/pkey.pem"
+        return os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pkey.pem')
 
     # --------- control apache ---------
 

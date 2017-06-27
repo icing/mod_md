@@ -169,7 +169,7 @@ class TestDrive :
         assert run['rv'] == 0
         authz_url = re.match("authz: " + name + " (.*)$", run["stdout"]).group(1)
         # TODO: find storage-independent way to modify local authz data
-        open( TestEnv.path_domain_authz(name), "w" ).write(json.dumps({
+        TestEnv.authz_save(name, json.dumps({
             "account": acct,
             "authorizations": [{
                 "domain": name,

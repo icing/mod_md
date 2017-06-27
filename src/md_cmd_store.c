@@ -51,9 +51,9 @@ static apr_status_t cmd_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     md->ca_url = ctx->ca_url;
     md->ca_proto = "ACME";
     
-    rv = md_save(ctx->store, md, 1);
+    rv = md_save(ctx->store, MD_SG_DOMAINS, md, 1);
     if (APR_SUCCESS == rv) {
-        md_load(ctx->store, md->name, &nmd, ctx->p);
+        md_load(ctx->store, MD_SG_DOMAINS, md->name, &nmd, ctx->p);
         md_cmd_print_md(ctx, nmd);
     }
     return rv;
@@ -81,7 +81,7 @@ static apr_status_t cmd_remove(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     for (i = 0; i < ctx->argc; ++i) {
         name = ctx->argv[i];
-        rv = md_remove(ctx->store, name, md_cmd_ctx_has_option(ctx, "force"));
+        rv = md_remove(ctx->store, MD_SG_DOMAINS, name, md_cmd_ctx_has_option(ctx, "force"));
         if (APR_SUCCESS != rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "removing md %s", name);
             break;
@@ -125,7 +125,7 @@ static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     apr_status_t rv;
     int i;
     
-    rv = md_load_all(&mdlist, ctx->store, ctx->p);
+    rv = md_load_all(&mdlist, ctx->store, MD_SG_DOMAINS, ctx->p);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "loading store");
         return rv;
@@ -162,7 +162,7 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     name = ctx->argv[0];
     
-    rv = md_load(ctx->store, name, &md, ctx->p);
+    rv = md_load(ctx->store, MD_SG_DOMAINS, name, &md, ctx->p);
     if (APR_ENOENT == rv) {
         fprintf(stderr, "managed domain not found: %s\n", name);
         return rv;
@@ -199,14 +199,14 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     
     if (changed) {
-        rv = md_save(ctx->store, md, 0);
+        rv = md_save(ctx->store, MD_SG_DOMAINS, md, 0);
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "no changes necessary");
     }
 
     if (APR_SUCCESS == rv) {
-        rv = md_load(ctx->store, name, &md, ctx->p);
+        rv = md_load(ctx->store, MD_SG_DOMAINS, name, &md, ctx->p);
         md_cmd_print_md(ctx, md);
     }
     return rv;

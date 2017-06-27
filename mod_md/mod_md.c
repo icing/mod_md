@@ -244,7 +244,7 @@ static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *
     apr_array_header_t *store_mds;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = md_load_all(&store_mds, store, ptemp))) {
+    if (APR_SUCCESS == (rv = md_load_all(&store_mds, store, MD_SG_DOMAINS, ptemp))) {
         int i, added;
         md_t *md, *config_md, *smd, *omd;
         const char *common;
@@ -276,7 +276,7 @@ static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *
                         /* domain stored in omd, but no longer has the offending domain,
                            remove it from the store md. */
                         omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
-                        rv = md_save(store, omd, 0);
+                        rv = md_save(store, MD_SG_DOMAINS, omd, 0);
                     }
                     else {
                         /* domain in a store md that is no longer configured, warn about it.
@@ -291,14 +291,14 @@ static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *
                 }
 
                 if (added) {
-                    rv = md_save(store, md, 0);
+                    rv = md_save(store, MD_SG_DOMAINS, md, 0);
                     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
                                  "md %s updated with %d additional domains", md->name, added);
                 }
             }
             else {
                 /* new managed domain */
-                rv = md_save(store, md, 1);
+                rv = md_save(store, MD_SG_DOMAINS, md, 1);
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
                              "new md %s saved", md->name);
             }
