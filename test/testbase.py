@@ -110,6 +110,13 @@ class TestEnv:
 
     @classmethod
     def get_json( cls, url, timeout ) :
+        data = cls.get_plain( url, timeout )
+        if data:
+            return json.loads(data)
+        return None
+
+    @classmethod
+    def get_plain( cls, url, timeout ) :
         server = urlparse(url)
         try_until = time.time() + timeout
         while time.time() < try_until:
@@ -117,7 +124,7 @@ class TestEnv:
                 c = HTTPConnection(server.hostname, server.port, timeout=timeout)
                 c.request('GET', server.path)
                 resp = c.getresponse()
-                data = json.loads(resp.read())
+                data = resp.read()
                 c.close()
                 return data
             except IOError:
@@ -159,6 +166,10 @@ class TestEnv:
     @classmethod
     def path_domain_pkey( cls, domain ) : 
         return os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pkey.pem')
+
+    @classmethod
+    def path_domain_ca_chain( cls, domain ) : 
+        return TestEnv.STORE_DIR + "/domains/" + domain + "/chain.pem"
 
     # --------- control apache ---------
 
@@ -204,15 +215,22 @@ class CertUtil(object):
     # Utility class for inspecting certificates in test cases
     # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
 
-    def __init__(self, cert_path, privkey_path=None):
+    def __init__(self, cert_path):
         self.cert_path = cert_path
-        self.privkey_path = privkey_path
         # load certificate and private key
-        cert_data = self._load_binary_file(cert_path)
-        self.cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_data)
-        if privkey_path:
-            privkey_data = self._load_binary_file(privkey_path)
-            self.privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
+        if cert_path.startswith("http"):
+            cert_data = TestEnv.get_plain(cert_path, 1)
+        else:
+            cert_data = CertUtil._load_binary_file(cert_path)
+
+        for file_type in (OpenSSL.crypto.FILETYPE_PEM, OpenSSL.crypto.FILETYPE_ASN1):
+            try:
+                self.cert = OpenSSL.crypto.load_certificate(file_type, cert_data)
+            except Exception as error:
+                self.error = error
+
+        if self.cert is None:
+            raise self.error
 
     def get_serial(self):
         return self.cert.get_serial_number()
@@ -238,19 +256,18 @@ class CertUtil(object):
         def _strip_prefix(s): return s.split(":")[1]  if  s.strip().startswith("DNS:")  else  s.strip()
         return map(_strip_prefix, sans_list)
 
-    def validate_privkey(self):
-        return self.privkey.check()
+    @classmethod
+    def validate_privkey(cls, privkey_path):
+        privkey_data = cls._load_binary_file(privkey_path)
+        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
+        return privkey.check()
 
-    def validate_cert_sig(self, ca_cert_path):
-        ca_cert_data = self.load_binary_file(ca_cert_path)
-        ca_chain = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, ca_cert_data)
-        hash_name = self.cert.signature_hash_algorithm.name
-        OpenSSL.crypto.verify(ca_chain, self.cert.signature, self.cert.tbs_certificate_bytes, hash_name)
-
-    def validate_cert_matches_priv_key(self):
+    def validate_cert_matches_priv_key(self, privkey_path):
         # Verifies that the private key and cert match.
+        privkey_data = CertUtil._load_binary_file(privkey_path)
+        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
         context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
-        context.use_privatekey(self.privkey)
+        context.use_privatekey(privkey)
         context.use_certificate(self.cert)
         context.check_privatekey()
 
@@ -268,7 +285,8 @@ class CertUtil(object):
             tz_h, tz_m = int(m.group(1)),  int(m.group(2))  if  tz_h > 0  else  -1 * int(m.group(2))
         return timestamp.replace(tzinfo = self.FixedOffset(60 * tz_h + tz_m))
 
-    def _load_binary_file(self, path):
+    @classmethod
+    def _load_binary_file(cls, path):
         with open(path, mode="rb")	 as file:
             return file.read()
 

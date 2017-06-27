@@ -36,7 +36,7 @@ class TestDrive :
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    # --------- invalid precondition  ---------
+    # --------- invalid precondition ---------
 
     def test_100(self):
         # test case: md without contact info
@@ -86,7 +86,7 @@ class TestDrive :
         assert run['rv'] == 1
         assert re.search("unknown CA protocol", run["stderr"])
 
-    # --------- driving OK  ---------
+    # --------- driving OK ---------
 
     def test_200(self):
         # test case: md with one domain
@@ -101,12 +101,12 @@ class TestDrive :
     def test_201(self):
         # test case: md with 2 domains
         domain = "test201-" + TestDrive.dns_uniq
-        name = "test." + domain
-        self._prepare_md([ name, "www." + domain ])
+        name = "www." + domain
+        self._prepare_md([ name, "test." + domain ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        self._check_md_cert([ name, "www." + domain ])
+        self._check_md_cert([ name, "test." + domain ])
 
     def test_202(self):
         # test case: md with one domain, local TOS agreement and ACME account
@@ -122,9 +122,7 @@ class TestDrive :
         # setup: link md to account
         assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
-        run = TestEnv.a2md( [ "-vv", "drive", name ] )
-        print run["stderr"]
-        assert run['rv'] == 0
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
     def test_203(self):
@@ -144,9 +142,7 @@ class TestDrive :
         # setup: link md to account
         assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
-        run = TestEnv.a2md( [ "-vv", "drive", name ] )
-        print run["stderr"]
-        assert run['rv'] == 0
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
     def test_204(self):
@@ -178,18 +174,96 @@ class TestDrive :
             }]
             }, indent=2))
         # drive
-        run = TestEnv.a2md( [ "-vv", "drive", name ] )
-        print run["stderr"]
-        assert run['rv'] == 0
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
         auth_json = TestEnv.get_json( authz_url, 1 )
         assert auth_json['status'] == "valid"
 
-    # --------- network problems  ---------
+    def test_205(self):
+        # test case: md with one domain, local TOS agreement and ACME account that is deleted (!) on server
+        # setup: create md
+        domain = "test205-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: create account on server
+        run = TestEnv.a2md( ["acme", "newreg", "test@" + domain], raw=True )
+        assert run['rv'] == 0
+        acct = re.match("registered: (.*)$", run["stdout"]).group(1)
+        # setup: link md to account
+        assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
+        # setup: delete account on server
+        assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
+        # drive
+        run = TestEnv.a2md( [ "-vvvv", "drive", name ] )
+        print run["stderr"]
+        assert run['rv'] == 0
+        self._check_md_cert([ name ])
+
+    # --------- critical state change -> drive again ---------
 
     def test_300(self):
-        # test case: server not reachable
+        # test case: add dns name on existing valid md
+        # setup: create md in store
         domain = "test300-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: drive it
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        old_cert = CertUtil(TestEnv.path_domain_cert(name))
+        # setup: add second domain
+        assert TestEnv.a2md([ "update", name, "domains", name, "test." + domain ])['rv'] == 0
+        # drive
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        # check new cert
+        self._check_md_cert([ name, "test." + domain ])
+        new_cert = CertUtil(TestEnv.path_domain_cert(name))
+        assert old_cert.get_serial() != new_cert.get_serial()
+
+    # --------- non-critical state change -> keep data ---------
+
+    def test_400(self):
+        # test case: remove one domain name from existing valid md
+        # setup: create md in store
+        domain = "test400-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name, "test." + domain, "xxx." + domain ])
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: drive it
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        old_cert = CertUtil(TestEnv.path_domain_cert(name))
+        # setup: add second domain
+        assert TestEnv.a2md([ "update", name, "domains"] + [ name, "test." + domain ])['rv'] == 0
+        # drive
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        # compare cert serial
+        new_cert = CertUtil(TestEnv.path_domain_cert(name))
+        assert old_cert.get_serial() == new_cert.get_serial()
+
+    def test_401(self):
+        # test case: change contact info on existing valid md
+        # setup: create md in store
+        domain = "test401-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: drive it
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        old_cert = CertUtil(TestEnv.path_domain_cert(name))
+        # setup: add second domain
+        assert TestEnv.a2md([ "update", name, "contacts", "test@" + domain ])['rv'] == 0
+        # drive
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        # compare cert serial
+        new_cert = CertUtil(TestEnv.path_domain_cert(name))
+        assert old_cert.get_serial() == new_cert.get_serial()
+
+    # --------- network problems ---------
+
+    def test_500(self):
+        # test case: server not reachable
+        domain = "test500-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.a2md(
@@ -218,23 +292,26 @@ class TestDrive :
         # check tos agreement, cert url
         assert md['ca']['agreement'] == TestEnv.ACME_TOS
         assert "url" in md['cert']
+
         # check private key, validate certificate
-
         # TODO: find storage-independent way to read local certificate
-        cert = CertUtil(
-            TestEnv.path_domain_cert(name),
-            TestEnv.path_domain_pkey(name) )
-        cert.validate_privkey()
+        CertUtil.validate_privkey(TestEnv.path_domain_pkey(name))
+        cert = CertUtil( TestEnv.path_domain_cert(name) )
+        cert.validate_cert_matches_priv_key( TestEnv.path_domain_pkey(name) )
 
-        # Optional: read ca cert chain from store
-        # cert.validate_cert_sig( "path/to/local/ca/cert.pem" )
         # check SANs and CN
         assert cert.get_cn() == name
-        assert cert.get_san_list() == dnsList
+        # compare sets twice in opposite directions: SAN may not respect ordering
+        sanList = cert.get_san_list()
+        assert len(sanList) == len(dnsList)
+        assert set(sanList).issubset(dnsList)
+        assert set(dnsList).issubset(sanList)
         # check valid dates interval
         notBefore = cert.get_not_before()
         notAfter = cert.get_not_after()
         assert notBefore < datetime.now(notBefore.tzinfo)
         assert notAfter > datetime.now(notAfter.tzinfo)
-
+        # compare cert with resource on server
+        server_cert = CertUtil( md['cert']['url'] )
+        assert cert.get_serial() == server_cert.get_serial()
 
