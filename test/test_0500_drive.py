@@ -5,10 +5,10 @@ import re
 import sys
 import time
 import json
-# import crypto_util
 
 from datetime import datetime
 from testbase import TestEnv
+from testbase import CertUtil
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -25,10 +25,13 @@ def teardown_module(module):
 
 class TestDrive :
 
+    @classmethod
+    def setup_class(cls):
+        cls.dns_uniq = "%d.org" % time.time()
+
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.clear_store()
-        self.dns_uniq = "%d.org" % time.time()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -37,45 +40,49 @@ class TestDrive :
 
     def test_100(self):
         # test case: md without contact info
-        domain = "test100." + self.dns_uniq
-        assert TestEnv.a2md( [ "add", domain ] )['rv'] == 0
-        run = TestEnv.a2md( [ "drive", domain ] )
+        domain = "test100-" + TestDrive.dns_uniq
+        name = "www." + domain
+        assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
+        run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
         assert re.search("no contact information", run["stderr"])
 
     def test_101(self):
         # test case: md with contact, but without TOS
-        domain = "test101." + self.dns_uniq
-        assert TestEnv.a2md( [ "add", domain ] )['rv'] == 0
+        domain = "test101-" + TestDrive.dns_uniq
+        name = "www." + domain
+        assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
         assert TestEnv.a2md( 
-            [ "update", domain, "contacts", "admin@test1.example.org" ] 
+            [ "update", name, "contacts", "admin@test1.example.org" ] 
             )['rv'] == 0
-        run = TestEnv.a2md( [ "drive", domain ] )
+        run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
         assert re.search("need to accept terms-of-service", run["stderr"])
 
     def XXXXtest_102(self): # without URL it goes against the ACME LE production server
         # test case: md without ACME url
-        domain = "test102." + self.dns_uniq
-        assert TestEnv.run([TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", domain])['rv'] == 0
+        domain = "test102-" + TestDrive.dns_uniq
+        name = "www." + domain
+        assert TestEnv.run([TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", name])['rv'] == 0
         assert TestEnv.a2md( 
-            [ "update", domain, "contacts", "admin@test1.example.org" ] 
+            [ "update", name, "contacts", "admin@" + domain ] 
             )['rv'] == 0
         assert TestEnv.a2md( 
-            [ "update", domain, "agreement", TestEnv.ACME_TOS ] 
+            [ "update", name, "agreement", TestEnv.ACME_TOS ] 
             )['rv'] == 0
-        run = TestEnv.a2md( [ "drive", domain ] )
+        run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
         assert re.search("no CA server URL", run["stderr"])
 
     def test_103(self):
         # test case: md with unknown protocol FOO
-        domain = "test103." + self.dns_uniq
-        self._prepare_md([ domain ])
+        domain = "test103-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
         assert TestEnv.a2md(
-            [ "update", domain, "ca", TestEnv.ACME_URL, "FOO"]
+            [ "update", name, "ca", TestEnv.ACME_URL, "FOO"]
             )['rv'] == 0
-        run = TestEnv.a2md( [ "drive", domain ] )
+        run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
         assert re.search("unknown CA protocol", run["stderr"])
 
@@ -83,46 +90,50 @@ class TestDrive :
 
     def test_200(self):
         # test case: md with one domain
-        domain = "test200." + self.dns_uniq
-        self._prepare_md([ domain ])
+        domain = "test200-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # drive
-        assert TestEnv.a2md( [ "-vv", "drive", domain ] )['rv'] == 0
-        self._check_md_cert([ domain ])
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        self._check_md_cert([ name ])
 
     def test_201(self):
         # test case: md with 2 domains
-        domain = "test201." + self.dns_uniq
-        self._prepare_md([ domain, "www." + domain ])
+        domain = "test201-" + TestDrive.dns_uniq
+        name = "test." + domain
+        self._prepare_md([ name, "www." + domain ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # drive
-        assert TestEnv.a2md( [ "-vv", "drive", domain ] )['rv'] == 0
-        self._check_md_cert([ domain, "www." + domain ])
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        self._check_md_cert([ name, "www." + domain ])
 
     def test_202(self):
         # test case: md with one domain, local TOS agreement and ACME account
         # setup: create md
-        domain = "test202." + self.dns_uniq
-        self._prepare_md([ domain ])
+        domain = "test202-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # setup: create account on server
         run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
         assert run['rv'] == 0
         acct = re.match("registered: (.*)$", run["stdout"]).group(1)
         # setup: link md to account
-        assert TestEnv.a2md([ "update", domain, "account", acct])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
-        run = TestEnv.a2md( [ "-vv", "drive", domain ] )
+        run = TestEnv.a2md( [ "-vv", "drive", name ] )
         print run["stderr"]
         assert run['rv'] == 0
-        self._check_md_cert([ domain ])
+        self._check_md_cert([ name ])
 
     def test_203(self):
         # test case: md with one domain, ACME account and TOS agreement on server
         # setup: create md
-        domain = "test202." + self.dns_uniq
-        assert TestEnv.a2md(["add", domain])['rv'] == 0
-        assert TestEnv.a2md([ "update", domain, "contacts", "admin@" + domain ])['rv'] == 0
+        domain = "test203-" + TestDrive.dns_uniq
+        name = "www." + domain
+        assert TestEnv.a2md(["add", name])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "contacts", "admin@" + domain ])['rv'] == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # setup: create account on server
         run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
@@ -131,18 +142,19 @@ class TestDrive :
         # setup: send TOS agreement to server
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
         # setup: link md to account
-        assert TestEnv.a2md([ "update", domain, "account", acct])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
-        run = TestEnv.a2md( [ "-vv", "drive", domain ] )
+        run = TestEnv.a2md( [ "-vv", "drive", name ] )
         print run["stderr"]
         assert run['rv'] == 0
-        self._check_md_cert([ domain ])
+        self._check_md_cert([ name ])
 
     def test_204(self):
         # test case: md with one domain, TOS agreement, ACME account and authz challenge
         # setup: create md
-        domain = "test202." + self.dns_uniq
-        self._prepare_md([ domain ])
+        domain = "test204-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         # setup: create account on server
         run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
@@ -151,25 +163,25 @@ class TestDrive :
         # setup: send TOS agreement to server
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
         # setup: link md to account
-        assert TestEnv.a2md([ "update", domain, "account", acct])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # setup: create authz resource, write it into store
-        run = TestEnv.a2md( ["-vv", "acme", "authz", acct, domain], raw=True )
+        run = TestEnv.a2md( ["-vv", "acme", "authz", acct, name], raw=True )
         assert run['rv'] == 0
-        authz_url = re.match("authz: " + domain + " (.*)$", run["stdout"]).group(1)
+        authz_url = re.match("authz: " + name + " (.*)$", run["stdout"]).group(1)
         # TODO: find storage-independent way to modify local authz data
-        open( TestEnv.path_domain_authz(domain), "w" ).write(json.dumps({
+        open( TestEnv.path_domain_authz(name), "w" ).write(json.dumps({
             "account": acct,
             "authorizations": [{
-                "domain": domain,
+                "domain": name,
                 "location": authz_url,
                 "state": 0
             }]
             }, indent=2))
         # drive
-        run = TestEnv.a2md( [ "-vv", "drive", domain ] )
+        run = TestEnv.a2md( [ "-vv", "drive", name ] )
         print run["stderr"]
         assert run['rv'] == 0
-        self._check_md_cert([domain])
+        self._check_md_cert([ name ])
         auth_json = TestEnv.get_json( authz_url, 1 )
         assert auth_json['status'] == "valid"
 
@@ -177,13 +189,14 @@ class TestDrive :
 
     def test_300(self):
         # test case: server not reachable
-        domain = "test300." + self.dns_uniq
-        self._prepare_md([ domain ])
+        domain = "test300-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
         assert TestEnv.a2md(
-            [ "update", domain, "ca", "http://localhost:4711/directory"]
+            [ "update", name, "ca", "http://localhost:4711/directory"]
             )['rv'] == 0
         # drive
-        run = TestEnv.a2md( [ "drive", domain ] )
+        run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
         assert run['jout']['status'] == 61
         assert run['jout']['description'] == 'Connection refused'
@@ -206,23 +219,22 @@ class TestDrive :
         assert md['ca']['agreement'] == TestEnv.ACME_TOS
         assert "url" in md['cert']
         # check private key, validate certificate
-        priv_key = self._load_binary_file( TestEnv.path_domain_pkey(name) )
-        cert = self._load_binary_file( TestEnv.path_domain_cert(name) )
-        # crypto_util.validate_privkey(priv_key)
-        # TODO: read ca cert chain from store
-        # ca_cert = self._load_binary_file( os.path.join( TestEnv.TESTROOT, "data", "ca_cert.p12" ) )
-        # crypto_util.validate_cert(priv_key, cert, ca_cert)
-        # check SANs and CN
-        # assert crypto_util.get_cn_from_cert(cert) == name
-        # assert crypto_util.get_sans_from_cert(cert) == dnsList
-        # assert crypto_util.get_names_from_cert(cert) == dnsList
-        # check valid dates interval
-        # notBefore = crypto_util.get_not_before(cert)
-        # notAfter = crypto_util.get_not_after(cert)
-        # assert notBefore < datetime.now(notBefore.tzinfo)
-        # assert notAfter > datetime.now(notAfter.tzinfo)
 
-    def _load_binary_file(self, path):
-        with open(path, mode="rb")	 as file:
-            return file.read()
+        # TODO: find storage-independent way to read local certificate
+        cert = CertUtil(
+            TestEnv.path_domain_cert(name),
+            TestEnv.path_domain_pkey(name) )
+        cert.validate_privkey()
+
+        # Optional: read ca cert chain from store
+        # cert.validate_cert_sig( "path/to/local/ca/cert.pem" )
+        # check SANs and CN
+        assert cert.get_cn() == name
+        assert cert.get_san_list() == dnsList
+        # check valid dates interval
+        notBefore = cert.get_not_before()
+        notAfter = cert.get_not_after()
+        assert notBefore < datetime.now(notBefore.tzinfo)
+        assert notAfter > datetime.now(notAfter.tzinfo)
+
 

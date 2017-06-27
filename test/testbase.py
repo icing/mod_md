@@ -7,7 +7,11 @@ import re
 import sys
 import time
 import json
+import OpenSSL
 
+from datetime import datetime
+from datetime import tzinfo
+from datetime import timedelta
 from ConfigParser import SafeConfigParser
 from httplib import HTTPConnection
 from shutil import copyfile
@@ -130,7 +134,7 @@ class TestEnv:
     def clear_store( cls ) : 
         print("clear store dir: %s" % TestEnv.STORE_DIR)
         assert len(TestEnv.STORE_DIR) > 1
-        shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=True)
+        shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=False)
         os.makedirs(TestEnv.STORE_DIR)
 
     @classmethod
@@ -189,3 +193,92 @@ class TestEnv:
                     wcount += 1
             return (ecount, wcount)
 
+
+# --------- certificate handling ---------
+
+
+class CertUtil(object):
+    # Utility class for inspecting certificates in test cases
+    # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
+
+    def __init__(self, cert_path, privkey_path=None):
+        self.cert_path = cert_path
+        self.privkey_path = privkey_path
+        # load certificate and private key
+        cert_data = self._load_binary_file(cert_path)
+        self.cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_data)
+        if privkey_path:
+            privkey_data = self._load_binary_file(privkey_path)
+            self.privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
+
+    def get_serial(self):
+        return self.cert.get_serial_number()
+
+    def get_not_before(self):
+        tsp = self.cert.get_notBefore()
+        return self._parse_tsp(tsp)
+
+    def get_not_after(self):
+        tsp = self.cert.get_notAfter()
+        return self._parse_tsp(tsp)
+
+    def get_cn(self):
+        return self.cert.get_subject().CN
+
+    def get_san_list(self):
+        text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
+        m = re.search(r"X509v3 Subject Alternative Name:\s*(.*)", text)
+        sans_list = []
+        if m:
+            sans_list = m.group(1).split(",")
+
+        def _strip_prefix(s): return s.split(":")[1]  if  s.strip().startswith("DNS:")  else  s.strip()
+        return map(_strip_prefix, sans_list)
+
+    def validate_privkey(self):
+        return self.privkey.check()
+
+    def validate_cert_sig(self, ca_cert_path):
+        ca_cert_data = self.load_binary_file(ca_cert_path)
+        ca_chain = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, ca_cert_data)
+        hash_name = self.cert.signature_hash_algorithm.name
+        OpenSSL.crypto.verify(ca_chain, self.cert.signature, self.cert.tbs_certificate_bytes, hash_name)
+
+    def validate_cert_matches_priv_key(self):
+        # Verifies that the private key and cert match.
+        context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+        context.use_privatekey(self.privkey)
+        context.use_certificate(self.cert)
+        context.check_privatekey()
+
+    # --------- _utils_ ---------
+
+    def _parse_tsp(self, tsp):
+        # timestampss returned by PyOpenSSL are bytes
+        # parse date and time part
+        tsp_reformat = [tsp[0:4], b"-", tsp[4:6], b"-", tsp[6:8], b" ", tsp[8:10], b":", tsp[10:12], b":", tsp[12:14]]
+        timestamp =  datetime.strptime(b"".join(tsp_reformat), '%Y-%m-%d %H:%M:%S')
+        # adjust timezone
+        tz_h, tz_m = 0, 0
+        m = re.match(r"([+\-]\d{2})(\d{2})", b"".join([tsp[14:]]))
+        if m:
+            tz_h, tz_m = int(m.group(1)),  int(m.group(2))  if  tz_h > 0  else  -1 * int(m.group(2))
+        return timestamp.replace(tzinfo = self.FixedOffset(60 * tz_h + tz_m))
+
+    def _load_binary_file(self, path):
+        with open(path, mode="rb")	 as file:
+            return file.read()
+
+    class FixedOffset(tzinfo):
+
+        def __init__(self, offset):
+            self.__offset = timedelta(minutes = offset)
+
+        def utcoffset(self, dt):
+            return self.__offset
+
+        def tzname(self, dt):
+            return None
+
+        def dst(self, dt):
+            return timedelta(0)
