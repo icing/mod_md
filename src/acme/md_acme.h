@@ -59,6 +59,7 @@ struct md_acme_t {
     struct md_http_t *http;
     
     const char *nonce;
+    int max_retries;
     unsigned int pkey_bits;
 };
 
@@ -128,6 +129,7 @@ struct md_acme_req_t {
     md_acme_req_init_cb *on_init;  /* callback to initialize the request before submit */
     md_acme_req_json_cb *on_json;  /* callback on successful JSON response */
     md_acme_req_res_cb *on_res;    /* callback on generic HTTP response */
+    int max_retries;               /* how often this might be retried */
     void *baton;                   /* userdata for callbacks */
 };
 

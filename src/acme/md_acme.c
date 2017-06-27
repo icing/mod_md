@@ -42,7 +42,7 @@ struct acme_problem_status_t {
 
 static acme_problem_status_t Problems[] = {
     { "acme:error:badCSR",                       APR_EINVAL },
-    { "acme:error:badNonce",                     APR_EGENERAL },
+    { "acme:error:badNonce",                     APR_EAGAIN },
     { "acme:error:badSignatureAlgorithm",        APR_EINVAL },
     { "acme:error:invalidContact",               APR_BADARG },
     { "acme:error:unsupportedContact",           APR_EGENERAL },
@@ -108,6 +108,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     acme->pool = p;
     acme->store = store;
     acme->pkey_bits = 4096;
+    acme->max_retries = 3;
     
     if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri_parsed))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "parsing ACME uri: ", url);
@@ -209,6 +210,8 @@ static md_acme_req_t *md_acme_req_create(md_acme_t *acme, const char *method, co
         apr_pool_destroy(pool);
         return NULL;
     }
+    req->max_retries = acme->max_retries;
+    
     return req;
 }
  
@@ -389,8 +392,13 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
             rv = APR_ENOTIMPL;
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, "req sent");
-        req = NULL;
         md_http_await(acme->http, id);
+        
+        if (APR_EAGAIN == rv && req->max_retries > 0) {
+            --req->max_retries;
+            return md_acme_req_send(req);
+        }
+        req = NULL;
     }
 
     if (req) {
