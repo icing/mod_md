@@ -473,7 +473,10 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
 
 md_cert_state_t md_cert_state_get(md_cert_t *cert)
 {
-    return cert->x509? MD_CERT_VALID : MD_CERT_UNKNOWN;
+    if (cert->x509) {
+        return md_cert_is_valid_now(cert)? MD_CERT_VALID : MD_CERT_EXPIRED;
+    }
+    return MD_CERT_UNKNOWN;
 }
 
 apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const char *fname)

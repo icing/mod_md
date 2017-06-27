@@ -45,6 +45,7 @@ typedef struct {
     md_acme_t *acme;
     md_acme_acct_t *acct;
     md_t *md;
+    const md_creds_t *creds;
     
     unsigned can_http_01 : 1;
     unsigned can_tls_sni_01 : 1;
@@ -578,41 +579,50 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
 
-    if (ad->cert) {
-        return APR_SUCCESS;
-    }
-
-    ad->phase = "get certificate";
-
-    /* Chose (or create) and ACME account to use */
-    rv = ad_set_acct(d);
-    
-    /* Check that the account agreed to the terms-of-service, otherwise
-     * requests for new authorizations are denied. ToS may change during the
-     * lifetime of an account */
-    if (APR_SUCCESS == rv) {
-        ad->phase = "check agreement";
-        rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
-    }
-    
-    /* If we know a cert's location, try to get it. Previous download might
-     * have failed. If server 404 it, we clear our memory of it. */
-    if (APR_SUCCESS == rv && ad->md->cert_url) {
-        rv = ad_cert_poll(d, 1);
-        if (APR_STATUS_IS_ENOENT(rv)) {
-            /* Server reports to know nothing about it. */
-            ad->md->cert_url = NULL;
-            rv = md_reg_update(d->reg, ad->md->name, ad->md, MD_UPD_CERT_URL);
+    if (APR_SUCCESS == (rv = md_reg_creds_get(&ad->creds, d->reg, ad->md))) {
+        if (!ad->creds->expired && ad->creds->pkey && ad->creds->cert && ad->creds->chain) {
+            /* TODO: check renewal xx% BEFORE expiry */
+            return APR_SUCCESS;
         }
     }
+    else if (!APR_STATUS_IS_ENOENT(rv)) {
+        return rv;
+    }
     
-    if (APR_SUCCESS == rv && !ad->cert
-        && APR_SUCCESS == (rv = ad_setup_authz(d))
-        && APR_SUCCESS == (rv = ad_start_challenges(d))
-        && APR_SUCCESS == (rv = ad_monitor_challenges(d))
-        && APR_SUCCESS == (rv = ad_setup_certificate(d))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: certificate obtained", 
-                      ad->md->name);
+    if (!ad->cert) {
+        ad->phase = "get certificate";
+        
+        /* Chose (or create) and ACME account to use */
+        rv = ad_set_acct(d);
+        
+        /* Check that the account agreed to the terms-of-service, otherwise
+         * requests for new authorizations are denied. ToS may change during the
+         * lifetime of an account */
+        if (APR_SUCCESS == rv) {
+            ad->phase = "check agreement";
+            rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
+        }
+        
+        /* If we know a cert's location, try to get it. Previous download might
+         * have failed. If server 404 it, we clear our memory of it. */
+        if (APR_SUCCESS == rv && ad->md->cert_url) {
+            rv = ad_cert_poll(d, 1);
+            if (APR_STATUS_IS_ENOENT(rv)) {
+                /* Server reports to know nothing about it. */
+                ad->md->cert_url = NULL;
+                rv = md_reg_update(d->reg, ad->md->name, ad->md, MD_UPD_CERT_URL);
+            }
+        }
+        
+        if (APR_SUCCESS == rv && !ad->cert
+            && APR_SUCCESS == (rv = ad_setup_authz(d))
+            && APR_SUCCESS == (rv = ad_start_challenges(d))
+            && APR_SUCCESS == (rv = ad_monitor_challenges(d))
+            && APR_SUCCESS == (rv = ad_setup_certificate(d))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: certificate obtained", 
+                          ad->md->name);
+        }
+        
     }
 
     if (APR_SUCCESS == rv && !ad->chain) {
