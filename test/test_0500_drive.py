@@ -20,7 +20,7 @@ def setup_module(module):
 
 def teardown_module(module):
     print("teardown_module:%s" % module.__name__)
-    #status = TestEnv.apachectl(None, "stop")
+    status = TestEnv.apachectl(None, "stop")
 
 
 class TestDrive :

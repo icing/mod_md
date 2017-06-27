@@ -18,6 +18,7 @@
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_file_io.h>
+#include <apr_file_info.h>
 #include <apr_fnmatch.h>
 #include <apr_tables.h>
 #include <apr_time.h>
@@ -303,6 +304,57 @@ typedef struct {
     void *baton;
     md_util_fdo_cb *cb;
 } md_util_fwalk_t;
+
+static apr_status_t rm_recursive(const char *fpath, apr_pool_t *p, int max_level)
+{
+    apr_finfo_t info;
+    apr_status_t rv;
+    const char *npath;
+    
+    if (APR_SUCCESS != (rv = apr_stat(&info, fpath, (APR_FINFO_TYPE|APR_FINFO_LINK), p))) {
+        return rv;
+    }
+    
+    if (info.filetype == APR_DIR) {
+        if (max_level > 0) {
+            apr_dir_t *d;
+            
+            if (APR_SUCCESS == (rv = apr_dir_open(&d, fpath, p))) {
+            
+                while (APR_SUCCESS == rv && 
+                       APR_SUCCESS == (rv = apr_dir_read(&info, APR_FINFO_TYPE, d))) {
+                    if (!strcmp(".", info.name) || !strcmp("..", info.name)) {
+                        continue;
+                    }
+                    
+                    rv = md_util_path_merge(&npath, p, fpath, info.name, NULL);
+                    if (APR_SUCCESS == rv) {
+                        rv = md_util_rm_recursive(npath, p, max_level - 1);
+                    }
+                }
+                apr_dir_close(d);
+                if (APR_STATUS_IS_ENOENT(rv)) {
+                    rv = APR_SUCCESS;
+                }
+            }
+        }
+        return apr_dir_remove(fpath, p);
+    }
+    else {
+        return apr_file_remove(fpath, p);
+    }
+}
+
+static apr_status_t prm_recursive(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    int max_level = va_arg(ap, int);
+    return rm_recursive(baton, ptemp, max_level); 
+}
+
+apr_status_t md_util_rm_recursive(const char *fpath, apr_pool_t *p, int max_level)
+{
+    return md_util_pool_vdo(prm_recursive, (void*)fpath, p, max_level, NULL);
+}
 
 static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int depth, 
                                  apr_pool_t *p, apr_pool_t *ptemp)

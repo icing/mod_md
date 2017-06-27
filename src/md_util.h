@@ -77,6 +77,12 @@ typedef apr_status_t md_util_file_cb(void *baton, struct apr_file_t *f, apr_pool
 apr_status_t md_util_freplace(const char *fpath, apr_pool_t *p, 
                               md_util_file_cb *write, void *baton);
 
+/** 
+ * Remove a file/directory and all files/directories contain up to max_level. If max_level == 0,
+ * only an empty directory or a file can be removed.
+ */
+apr_status_t md_util_rm_recursive(const char *fpath, apr_pool_t *p, int max_level);
+
 typedef apr_status_t md_util_fdo_cb(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
                                          const char *dir, const char *name, 
                                          apr_filetype_e ftype);

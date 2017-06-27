@@ -523,12 +523,13 @@ static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     md_reg_t *reg = baton;
     const md_proto_t *proto;
     const md_t *md;
+    int reset;
     md_proto_driver_t *driver;
     apr_status_t rv;
     
     proto = va_arg(ap, const md_proto_t *);
     md = va_arg(ap, const md_t *);
-    
+    reset = va_arg(ap, int); 
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
     driver->proto = proto;
@@ -536,6 +537,7 @@ static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     driver->reg = reg;
     driver->store = md_reg_store_get(reg);
     driver->md = md;
+    driver->reset = reset;
     
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
@@ -549,7 +551,7 @@ static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     return rv;
 }
 
-apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, apr_pool_t *p)
+apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p)
 {
     const md_proto_t *proto;
     
@@ -567,5 +569,5 @@ apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, apr_pool_t *p)
         return APR_EINVAL;
     }
     
-    return md_util_pool_vdo(run_driver, reg, p, proto, md, NULL);
+    return md_util_pool_vdo(run_driver, reg, p, proto, md, reset, NULL);
 }

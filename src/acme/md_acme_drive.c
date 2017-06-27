@@ -41,14 +41,15 @@ typedef struct {
     md_proto_driver_t *driver;
     
     const char *phase;
+    int complete;
     
     md_acme_t *acme;
     md_acme_acct_t *acct;
     md_t *md;
     const md_creds_t *creds;
     
-    unsigned can_http_01 : 1;
-    unsigned can_tls_sni_01 : 1;
+    int can_http_01;
+    int can_tls_sni_01;
     md_acme_authz_set_t *authz_set;
     apr_interval_time_t authz_monitor_timeout;
     
@@ -579,6 +580,14 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
 
+    if (d->reset) {
+        /* reset the staging area for this domain */
+        rv = md_store_purge(d->store, MD_SG_STAGING, d->md->name);
+        if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
+            return rv;
+        }
+    }
+    
     if (APR_SUCCESS == (rv = md_reg_creds_get(&ad->creds, d->reg, ad->md))) {
         if (!ad->creds->expired && ad->creds->pkey && ad->creds->cert && ad->creds->chain) {
             /* TODO: check renewal xx% BEFORE expiry */

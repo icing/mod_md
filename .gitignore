@@ -4,6 +4,7 @@
 *.lo
 *.la
 *.pcap
+*.diff
 .libs
 .configured
 .deps

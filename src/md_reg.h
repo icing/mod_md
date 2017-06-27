@@ -123,6 +123,7 @@ struct md_proto_driver_t {
     md_reg_t *reg;
     const md_t *md;
     void *baton;
+    int reset;
 };
 
 typedef apr_status_t md_proto_driver_init_cb(md_proto_driver_t *driver);
@@ -138,6 +139,6 @@ struct md_proto_t {
 /**
  * Drive the given managed domain toward completeness, if possible.
  */
-apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */

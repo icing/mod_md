@@ -269,7 +269,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     rv = APR_SUCCESS;
     for (i = 0; i < mdlist->nelts; ++i) {
         const md_t *md = APR_ARRAY_IDX(mdlist, i, const md_t*);
-        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, ctx->p))) {
+        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, 0, ctx->p))) {
             break;
         }
     }

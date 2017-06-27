@@ -88,6 +88,12 @@ apr_status_t md_store_remove(md_store_t *store, md_store_group_t group,
     return store->remove(store, group, name, aspect, p, force);
 }
 
+apr_status_t md_store_purge(md_store_t *store, md_store_group_t group, 
+                             const char *name)
+{
+    return store->purge(store, group, name);
+}
+
 apr_status_t md_store_iter(md_store_inspect *inspect, void *baton, md_store_t *store, 
                            md_store_group_t group, const char *pattern, const char *aspect,
                            md_store_vtype_t vtype)
@@ -280,6 +286,7 @@ static apr_status_t fs_save(md_store_t *store, md_store_group_t group,
 static apr_status_t fs_remove(md_store_t *store, md_store_group_t group, 
                               const char *name, const char *aspect, 
                               apr_pool_t *p, int force);
+static apr_status_t fs_purge(md_store_t *store, md_store_group_t group, const char *name);
 static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_t *store, 
                                md_store_group_t group,  const char *pattern,
                                const char *aspect, md_store_vtype_t vtype);
@@ -297,6 +304,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.load = fs_load;
     s_fs->s.save = fs_save;
     s_fs->s.remove = fs_remove;
+    s_fs->s.purge = fs_purge;
     s_fs->s.iterate = fs_iterate;
 
     s_fs->base = apr_pstrdup(p, path);
@@ -483,6 +491,31 @@ static apr_status_t fs_remove(md_store_t *store, md_store_group_t group,
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     return md_util_pool_vdo(pfs_remove, s_fs, p, group, name, aspect, force, NULL);
+}
+
+static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *dir, *name, *groupname;
+    md_store_group_t group;
+    apr_status_t rv;
+    
+    group = va_arg(ap, int);
+    name = va_arg(ap, const char*);
+    
+    groupname = sgroup_filename(group);
+
+    if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, groupname, name, NULL))) {
+        /* Remove all files in dir, there should be no sub-dirs */
+        rv = md_util_rm_recursive(dir, ptemp, 1);
+    }
+    return APR_SUCCESS;
+}
+
+static apr_status_t fs_purge(md_store_t *store, md_store_group_t group, const char *name)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_purge, s_fs, store->p, group, name, NULL, NULL, NULL);
 }
 
 /**************************************************************************************************/
