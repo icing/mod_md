@@ -39,6 +39,7 @@
 #define FS_DN_CHALLENGES   "challenges"
 #define FS_DN_DOMAINS      "domains"
 #define FS_DN_STAGING      "staging"
+#define FS_DN_ARCHIVE      "archive"
 
 #define ASPECT_MD           "md.json"
 #define ASPECT_CERT         "cert.pem"
@@ -113,6 +114,12 @@ apr_status_t md_store_save_json(md_store_t *store, md_store_group_t group,
                                 struct md_json_t *data, int create)
 {
     return md_store_save(store, group, name, aspect, MD_SV_JSON, (void*)data, create);
+}
+
+apr_status_t md_store_move(md_store_t *store, md_store_group_t from, md_store_group_t to,
+                           const char *name, int archive)
+{
+    return store->move(store, from, to, name, archive);
 }
 
 /**************************************************************************************************/
@@ -287,6 +294,8 @@ static apr_status_t fs_remove(md_store_t *store, md_store_group_t group,
                               const char *name, const char *aspect, 
                               apr_pool_t *p, int force);
 static apr_status_t fs_purge(md_store_t *store, md_store_group_t group, const char *name);
+static apr_status_t fs_move(md_store_t *store, md_store_group_t from, md_store_group_t to, 
+                            const char *name, int archive);
 static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_t *store, 
                                md_store_group_t group,  const char *pattern,
                                const char *aspect, md_store_vtype_t vtype);
@@ -304,6 +313,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.load = fs_load;
     s_fs->s.save = fs_save;
     s_fs->s.remove = fs_remove;
+    s_fs->s.move = fs_move;
     s_fs->s.purge = fs_purge;
     s_fs->s.iterate = fs_iterate;
 
@@ -515,7 +525,7 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
 static apr_status_t fs_purge(md_store_t *store, md_store_group_t group, const char *name)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_purge, s_fs, store->p, group, name, NULL, NULL, NULL);
+    return md_util_pool_vdo(pfs_purge, s_fs, store->p, group, name, NULL);
 }
 
 /**************************************************************************************************/
@@ -571,4 +581,101 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
                           groupname, ctx.pattern, aspect, NULL);
     
     return rv;
+}
+
+/**************************************************************************************************/
+/* moving */
+
+static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *name, *from_group, *to_group, *from_dir, *to_dir, *arch_dir, *dir;
+    md_store_group_t from, to;
+    int archive;
+    apr_status_t rv;
+    
+    from = va_arg(ap, int);
+    to = va_arg(ap, int);
+    name = va_arg(ap, const char*);
+    archive = va_arg(ap, int);
+    
+    from_group = sgroup_filename(from);
+    to_group = sgroup_filename(to);
+    if (!strcmp(from_group, to_group)) {
+        return APR_EINVAL;
+    }
+
+    rv = md_util_path_merge(&from_dir, ptemp, s_fs->base, from_group, name, NULL);
+    if (APR_SUCCESS != rv) goto out;
+    rv = md_util_path_merge(&to_dir, ptemp, s_fs->base, to_group, name, NULL);
+    if (APR_SUCCESS != rv) goto out;
+    
+    if (APR_SUCCESS != (rv = md_util_is_dir(from_dir, ptemp))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "source is no dir: %s", from_dir);
+        goto out;
+    }
+    
+    rv = md_util_is_dir(to_dir, ptemp);
+    if (APR_SUCCESS == rv) {
+        int n = 1;
+        const char *narch_dir;
+
+        rv = md_util_path_merge(&dir, ptemp, s_fs->base, FS_DN_ARCHIVE, NULL);
+        if (APR_SUCCESS != rv) goto out;
+        rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, ptemp); 
+        if (APR_SUCCESS != rv) goto out;
+        rv = md_util_path_merge(&arch_dir, ptemp, dir, name, NULL);
+        if (APR_SUCCESS != rv) goto out;
+        
+        while (1) {
+            narch_dir = apr_psprintf(ptemp, "%s.%d", arch_dir, n);
+            rv = apr_dir_make(narch_dir, MD_FPROT_D_UONLY, ptemp);
+            if (APR_SUCCESS == rv) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "using archive dir: %s", 
+                              narch_dir);
+                break;
+            }
+            else if (APR_EEXIST == rv) {
+                ++n;
+            }
+            else {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "creating archive dir: %s", 
+                              narch_dir);
+                goto out;
+            }
+        } 
+        
+        if (APR_SUCCESS != (rv = apr_file_rename(to_dir, narch_dir, ptemp))) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "rename from %s to %s", 
+                              to_dir, narch_dir);
+                goto out;
+        }
+        if (APR_SUCCESS != (rv = apr_file_rename(from_dir, to_dir, ptemp))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "moving %s to %s: %s", 
+                          from_dir, to_dir);
+            apr_file_rename(narch_dir, to_dir, ptemp);
+            goto out;
+        }
+    }
+    else if (APR_STATUS_IS_ENOENT(rv)) {
+        if (APR_SUCCESS != (rv = apr_file_rename(from_dir, to_dir, ptemp))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "rename from %s to %s", 
+                          from_dir, to_dir);
+            goto out;
+        }
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "target is no dir: %s", to_dir);
+        goto out;
+    }
+    
+out:
+    return rv;
+}
+
+static apr_status_t fs_move(md_store_t *store, md_store_group_t from, md_store_group_t to, 
+                            const char *name, int archive)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_move, s_fs, store->p, from, to, name, archive, NULL);
 }

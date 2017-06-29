@@ -65,6 +65,9 @@ typedef apr_status_t md_store_iter_cb(md_store_inspect *inspect, void *baton, md
                                       md_store_group_t group, const char *pattern,
                                       const char *aspect, md_store_vtype_t vtype);
 
+typedef apr_status_t md_store_move_cb(md_store_t *store, md_store_group_t from, 
+                                      md_store_group_t to, const char *name, int archive);
+
 struct md_store_t {
     apr_pool_t *p;
     md_store_destroy_cb *destroy;
@@ -72,6 +75,7 @@ struct md_store_t {
     md_store_save_cb *save;
     md_store_load_cb *load;
     md_store_remove_cb *remove;
+    md_store_move_cb *move;
     md_store_iter_cb *iterate;
     md_store_purge_cb *purge;
 };
@@ -103,6 +107,9 @@ apr_status_t md_store_purge(md_store_t *store, md_store_group_t group, const cha
 apr_status_t md_store_iter(md_store_inspect *inspect, void *baton, md_store_t *store, 
                            md_store_group_t group, const char *pattern, const char *aspect,
                            md_store_vtype_t vtype);
+
+apr_status_t md_store_move(md_store_t *store, md_store_group_t from, md_store_group_t to,
+                           const char *name, int archive);
 
 /**************************************************************************************************/
 /* Storage handling utils */

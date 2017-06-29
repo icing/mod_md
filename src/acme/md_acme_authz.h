@@ -88,5 +88,6 @@ apr_status_t md_acme_authz_set_load(struct md_store_t *store, const char *md_nam
                                     md_acme_authz_set_t **pauthz_set, apr_pool_t *p);
 apr_status_t md_acme_authz_set_save(struct md_store_t *store, const char *md_name, 
                                     md_acme_authz_set_t *authz_set, int create);
+apr_status_t md_acme_authz_set_purge(struct md_store_t *store, const char *md_name);
 
 #endif /* md_acme_authz_h */

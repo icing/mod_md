@@ -145,7 +145,7 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    def test_204(self):
+    def Xtest_204(self):
         # test case: md with one domain, TOS agreement, ACME account and authz challenge
         # setup: create md
         domain = "test204-" + TestDrive.dns_uniq
@@ -233,7 +233,7 @@ class TestDrive :
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         old_cert = CertUtil(TestEnv.path_domain_cert(name))
-        # setup: add second domain
+        # setup: remove one domain
         assert TestEnv.a2md([ "update", name, "domains"] + [ name, "test." + domain ])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
@@ -254,7 +254,7 @@ class TestDrive :
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "contacts", "test@" + domain ])['rv'] == 0
         # drive
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vvvvv", "drive", name ] )['rv'] == 0
         # compare cert serial
         new_cert = CertUtil(TestEnv.path_domain_cert(name))
         assert old_cert.get_serial() == new_cert.get_serial()

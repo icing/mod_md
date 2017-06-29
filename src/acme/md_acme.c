@@ -326,8 +326,9 @@ static apr_status_t on_response(const md_http_response_t *res)
                           apr_table_get(res->headers, "Content-Type"));
         }
     }
-    else {
-        rv = inspect_problem(req, res);
+    else if (APR_EAGAIN == (rv = inspect_problem(req, res))) {
+        /* leave req alive */
+        return rv;
     }
 
 out:

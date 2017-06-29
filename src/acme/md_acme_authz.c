@@ -541,3 +541,18 @@ apr_status_t md_acme_authz_set_save(struct md_store_t *store, const char *md_nam
     return md_util_pool_vdo(p_save, store, store->p, md_name, authz_set, create, NULL);
 }
 
+static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_t *store = baton;
+    const char *md_name;
+    
+    md_name = va_arg(ap, const char *);
+
+    return md_store_remove(store, MD_SG_STAGING, md_name, MD_FN_AUTHZ, ptemp, 1);
+}
+
+apr_status_t md_acme_authz_set_purge(md_store_t *store, const char *md_name)
+{
+    return md_util_pool_vdo(p_purge, store, store->p, md_name, NULL);
+}
+

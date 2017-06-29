@@ -236,7 +236,6 @@ apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, md_store_t *store, const 
 typedef struct {
     apr_pool_t *p;
     md_acme_t *acme;
-    apr_status_t rv;
     const char *id;
 } find_ctx;
 
@@ -252,10 +251,10 @@ static int find_acct(void *baton, const char *name, const char *aspect,
     disabled = md_json_getb(json, MD_KEY_DISABLED, NULL);
     ca_url = md_json_gets(json, MD_KEY_CA_URL, NULL);
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
-                  "inspecting account %s for %s: %s, disabled=%d, ca-url=%s", 
-                  name, ctx->acme->url, id, disabled, ca_url);
     if (!disabled && ca_url && !strcmp(ctx->acme->url, ca_url)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
+                      "found account %s for %s: %s, disabled=%d, ca-url=%s", 
+                      name, ctx->acme->url, id, disabled, ca_url);
         ctx->id = id;
         return 0;
     }
@@ -270,26 +269,19 @@ apr_status_t md_acme_acct_find(md_acme_acct_t **pacct,
     
     ctx.p = p;
     ctx.acme = acme;
-    ctx.rv = APR_SUCCESS;
     ctx.id = NULL;
     
     rv = md_store_iter(find_acct, &ctx, store, MD_SG_ACCOUNTS, mk_acct_pattern(p, acme),
                        MD_FN_ACCOUNT, MD_SV_JSON);
-    if (APR_SUCCESS == rv) {
-        if (ctx.id) {
-            rv = md_acme_acct_load(pacct, store, ctx.id, p);
-        }
-        else {
-            *pacct = NULL;
-            rv = APR_ENOENT;
-        }
+    if (ctx.id) {
+        rv = md_acme_acct_load(pacct, store, ctx.id, p);
     }
-    if (APR_SUCCESS == rv || APR_EOF == rv) {
-        rv = ctx.rv;
-        if (APR_SUCCESS == rv && !ctx.id) {
-            rv = APR_ENOENT;
-        }
+    else {
+        *pacct = NULL;
+        rv = APR_ENOENT;
     }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                  "acct_find %s", (*pacct)? (*pacct)->id : "NULL"); 
     return rv;
 }
 

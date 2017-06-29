@@ -316,6 +316,7 @@ apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p,
 struct md_cert_t {
     apr_pool_t *pool;
     X509 *x509;
+    apr_array_header_t *alt_names;
 };
 
 static apr_status_t cert_cleanup(void *data)
@@ -354,6 +355,33 @@ int md_cert_has_expired(md_cert_t *cert)
     return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) > 0);
 }
 
+int md_cert_covers_md(md_cert_t *cert, const md_t *md)
+{
+    const char *name;
+    int i;
+    
+    if (!cert->alt_names) {
+        md_cert_get_alt_names(&cert->alt_names, cert, cert->pool);
+    }
+    if (cert->alt_names) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, cert->pool, "cert has %d alt names",
+                      cert->alt_names->nelts); 
+        for (i = 0; i < md->domains->nelts; ++i) {
+            name = APR_ARRAY_IDX(md->domains, i, const char *);
+            if (md_array_str_index(cert->alt_names, name, 0, 0) < 0) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, cert->pool, 
+                              "md domain %s not covered by cert", name);
+                return 0;
+            }
+        }
+        return 1;
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, cert->pool, "cert has NO alt names");
+    }
+    return 0;
+}
+
 apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p)
 {
     int i, ext_idx, nid = NID_info_access;
@@ -385,6 +413,38 @@ apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_poo
     return rv;
 }
 
+apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p)
+{
+    apr_array_header_t *names;
+    apr_status_t rv = APR_ENOENT;
+    STACK_OF(GENERAL_NAME) *xalt_names;
+    unsigned char *buf;
+    int i;
+    
+    xalt_names = (GENERAL_NAMES*)X509_get_ext_d2i(cert->x509, NID_subject_alt_name, NULL, NULL);
+    if (xalt_names) {
+        GENERAL_NAME *cval;
+        
+        names = apr_array_make(p, sk_GENERAL_NAME_num(xalt_names), sizeof(char *));
+        for (i = 0; i < sk_GENERAL_NAME_num(xalt_names); ++i) {
+            cval = sk_GENERAL_NAME_value(xalt_names, i);
+            switch (cval->type) {
+                case GEN_DNS:
+                case GEN_URI:
+                case GEN_IPADD:
+                    ASN1_STRING_to_UTF8(&buf, cval->d.ia5);
+                    APR_ARRAY_PUSH(names, const char *) = apr_pstrdup(p, (char*)buf);
+                    OPENSSL_free(buf);
+                    break;
+                default:
+                    break;
+            }
+        }
+        rv = APR_SUCCESS;
+    }
+    *pnames = (APR_SUCCESS == rv)? names : NULL;
+    return rv;
+}
 
 apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
 {

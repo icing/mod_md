@@ -58,12 +58,12 @@ class TestEnv:
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output, errput) = p.communicate()
         rv = p.wait()
-        # print "stderr: ", errput
-        # print "stdout: ", output
+        print "stderr: ", errput
         try:
             jout = json.loads(output)
         except:
             jout = None
+            print "stdout: ", output
         return { 
             "rv": rv, 
             "stdout": output, 
@@ -161,11 +161,11 @@ class TestEnv:
 
     @classmethod
     def path_domain_cert( cls, domain ) : 
-        return os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'cert.pem')
+        return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'cert.pem')
 
     @classmethod
     def path_domain_pkey( cls, domain ) : 
-        return os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pkey.pem')
+        return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'pkey.pem')
 
     @classmethod
     def path_domain_ca_chain( cls, domain ) : 
