@@ -119,25 +119,15 @@ static md_cmd_t RemoveCmd = {
 /**************************************************************************************************/
 /* command: store list */
 
+static int list_md(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp)
+{
+    md_cmd_print_md(baton, md);
+    return 1;
+}
+
 static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
-    apr_array_header_t *mdlist;
-    apr_status_t rv;
-    int i;
-    
-    rv = md_load_all(&mdlist, ctx->store, MD_SG_DOMAINS, ctx->p);
-    if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "loading store");
-        return rv;
-    }
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "mds loaded: %d", mdlist->nelts);
-    for (i = 0; i < mdlist->nelts; ++i) {
-        const md_t *md = APR_ARRAY_IDX(mdlist, i, const md_t*);
-        md_cmd_print_md(ctx, md);
-    }
-
-    return APR_SUCCESS;
+    return md_store_md_iter(list_md, ctx, ctx->store, MD_SG_DOMAINS, "*");
 }
 
 static md_cmd_t ListCmd = {

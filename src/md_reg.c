@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,7 +48,6 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
 {
     md_reg_t *reg;
     apr_status_t rv;
-    apr_array_header_t *mds;
     
     reg = apr_pcalloc(p, sizeof(*reg));
     reg->p = p;
@@ -55,20 +55,7 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg->protos = apr_hash_make(p);
     reg->creds = apr_hash_make(p);
     
-    if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, reg->p))) {
-        if (APR_SUCCESS == (rv = md_load_all(&mds, reg->store, MD_SG_DOMAINS, reg->p))) {
-            md_t *md;
-            int i;
-            
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "reg: %d mds loaded", mds->nelts);
-            for (i = 0; i < mds->nelts; ++i) {
-                md = APR_ARRAY_IDX(mds, i, md_t*);
-            }
-            
-            rv = md_reg_states_init(reg, 0);
-        }
-    }
-
+    rv = md_acme_protos_add(reg->protos, reg->p);
     *preg = (rv == APR_SUCCESS)? reg : NULL;
     return rv;
 }
@@ -522,6 +509,102 @@ apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;
     return rv;
 }
+
+/**************************************************************************************************/
+/* synching */
+
+typedef struct {
+    apr_pool_t *p;
+    apr_array_header_t *conf_mds;
+    apr_array_header_t *store_mds;
+} sync_ctx;
+
+static int find_changes(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp)
+{
+    sync_ctx *ctx = baton;
+
+    APR_ARRAY_PUSH(ctx->store_mds, const md_t*) = md_clone(ctx->p, md);
+    return 1;
+}
+
+apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
+                         apr_array_header_t *master_mds) 
+{
+    sync_ctx ctx;
+    md_store_t *store = reg->store;
+    apr_status_t rv;
+
+    ctx.p = ptemp;
+    ctx.conf_mds = master_mds;
+    ctx.store_mds = apr_array_make(ptemp, 100, sizeof(md_t *));
+    
+    if (APR_SUCCESS == (rv = md_store_md_iter(find_changes, &ctx, store, MD_SG_DOMAINS, "*"))) {
+        int i, added;
+        md_t *md, *config_md, *smd, *omd;
+        const char *common;
+        
+        for (i = 0; i < ctx.conf_mds->nelts; ++i) {
+            md = APR_ARRAY_IDX(ctx.conf_mds, i, md_t *);
+
+            /* find the store md that is closest match for the configured md */
+            smd = md_find_closest_match(ctx.store_mds, md);
+            if (smd) {
+                /* add any newly configured domains to the store md */
+                added = md_array_str_add_missing(smd->domains, md->domains, 0);
+
+                /* Look for other store mds which have domains now being part of smd */
+                while (APR_SUCCESS == rv && (omd = md_get_by_dns_overlap(ctx.store_mds, md))) {
+                    /* find the name now duplicate */
+                    common = md_common_name(md, omd);
+                    assert(common);
+                    
+                    /* Is this md still configured or has it been abandoned in the config? */
+                    config_md = md_get_by_name(ctx.conf_mds, omd->name);
+                    if (config_md && md_contains(config_md, common)) {
+                        /* domain used in two configured mds, not allowed */
+                        rv = APR_EINVAL;
+                        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                                      "domain %s used in md %s and %s", common, md->name, omd->name);
+                    }
+                    else if (config_md) {
+                        /* domain stored in omd, but no longer has the offending domain,
+                           remove it from the store md. */
+                        omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
+                        rv = md_save(store, MD_SG_DOMAINS, omd, 0);
+                    }
+                    else {
+                        /* domain in a store md that is no longer configured, warn about it.
+                         * Remove the domain here, so we can progress, but never save it. */
+                        omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
+                        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                                      "domain %s, configured in md %s, is part of the stored md %s. "
+                                      "That md however is no longer mentioned in the config. "
+                                      "If you longer want it, remove the md from the store.", 
+                                      common, md->name, omd->name);
+                    }
+                }
+
+                if (added) {
+                    rv = md_save(store, MD_SG_DOMAINS, md, 0);
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                                 "md %s updated with %d additional domains", md->name, added);
+                }
+            }
+            else {
+                /* new managed domain */
+                rv = md_save(store, MD_SG_DOMAINS, md, 1);
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p,  
+                             "new md %s saved", md->name);
+            }
+        }
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "loading mds");
+    }
+    
+    return rv;
+}
+
 
 /**************************************************************************************************/
 /* driving */

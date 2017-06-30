@@ -31,7 +31,7 @@ def teardown_module(module):
 class TestConf:
 
     def new_errors(self):
-        time.sleep(.1)
+        time.sleep(.2)
         (errors, warnings) = TestEnv.apache_err_count()
         return errors - self.errors
         
@@ -113,4 +113,4 @@ class TestConf:
         assert TestEnv.apachectl("test_012", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         assert self.new_errors() == 0
-        assert self.new_warnings() == 3
+        assert self.new_warnings() == 1

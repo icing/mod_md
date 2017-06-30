@@ -118,6 +118,38 @@ int md_contains_domains(const md_t *md1, const md_t *md2)
     return 0;
 }
 
+md_t *md_find_closest_match(apr_array_header_t *mds, const md_t *md)
+{
+    md_t *candidate, *m;
+    apr_size_t cand_n, n;
+    int i;
+    
+    candidate = md_get_by_name(mds, md->name);
+    if (!candidate) {
+        /* try to find an instance that contains all domain names from md */ 
+        for (i = 0; i < mds->nelts; ++i) {
+            m = APR_ARRAY_IDX(mds, i, md_t *);
+            if (md_contains_domains(m, md)) {
+                return m;
+            }
+        }
+        /* no matching name and no md in the list has all domains.
+         * We consider that managed domain as closest match that contains at least one
+         * domain name from md, ONLY if there is no other one that also has.
+         */
+        cand_n = 0;
+        for (i = 0; i < mds->nelts; ++i) {
+            m = APR_ARRAY_IDX(mds, i, md_t *);
+            n = md_common_name_count(md, m);
+            if (n > cand_n) {
+                candidate = m;
+                cand_n = n;
+            }
+        }
+    }
+    return candidate;
+}
+
 md_t *md_get_by_name(struct apr_array_header_t *mds, const char *name)
 {
     int i;

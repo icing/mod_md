@@ -115,8 +115,6 @@ apr_status_t md_save(struct md_store_t *store, md_store_group_t group,
                      md_t *md, int create);
 apr_status_t md_remove(md_store_t *store, md_store_group_t group, 
                      const char *name, int force);
-apr_status_t md_load_all(struct apr_array_header_t **pmds, md_store_t *store, 
-                         md_store_group_t group, apr_pool_t *p);
 
 typedef int md_store_md_inspect(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp);
 

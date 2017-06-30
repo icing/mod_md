@@ -26,6 +26,7 @@
 #include "mod_md.h"
 #include "md_config.h"
 #include "md_store.h"
+#include "md_reg.h"
 #include "md_util.h"
 #include "md_version.h"
 #include "acme/md_acme_authz.h"
@@ -206,114 +207,14 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
     return rv;
 }
 
-static md_t *find_closest_match(apr_array_header_t *mds, const md_t *md)
+static apr_status_t setup_reg(md_reg_t **preg, apr_pool_t *p, server_rec *s)
 {
-    md_t *candidate, *m;
-    apr_size_t cand_n, n;
-    int i;
-    
-    candidate = md_get_by_name(mds, md->name);
-    if (!candidate) {
-        /* try to find an instance that contains all domain names from md */ 
-        for (i = 0; i < mds->nelts; ++i) {
-            m = APR_ARRAY_IDX(mds, i, md_t *);
-            if (md_contains_domains(m, md)) {
-                return m;
-            }
-        }
-        /* no matching name and no md in the list has all domains.
-         * We consider that managed domain as closest match that contains at least one
-         * domain name from md, ONLY if there is no other one that also has.
-         */
-        cand_n = 0;
-        for (i = 0; i < mds->nelts; ++i) {
-            m = APR_ARRAY_IDX(mds, i, md_t *);
-            n = md_common_name_count(md, m);
-            if (n > cand_n) {
-                candidate = m;
-                cand_n = n;
-            }
-        }
-    }
-    return candidate;
-}
-
-static apr_status_t md_store_sync(md_store_t *store, apr_pool_t *p, apr_pool_t *ptemp, 
-                                  apr_array_header_t *mds, server_rec *s) 
-{
-    apr_array_header_t *store_mds;
+    md_store_t *store;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = md_load_all(&store_mds, store, MD_SG_DOMAINS, ptemp))) {
-        int i, added;
-        md_t *md, *config_md, *smd, *omd;
-        const char *common;
-        
-        for (i = 0; i < mds->nelts; ++i) {
-            md = APR_ARRAY_IDX(mds, i, md_t *);
-
-            /* find the store md that is closest match for the configured md */
-            smd = find_closest_match(store_mds, md);
-            if (smd) {
-                /* add any newly configured domains to the store md */
-                added = md_array_str_add_missing(smd->domains, md->domains, 0);
-
-                /* Look for other store mds which have domains now being part of smd */
-                while (APR_SUCCESS == rv && (omd = md_get_by_dns_overlap(store_mds, md))) {
-                    /* find the name now duplicate */
-                    common = md_common_name(md, omd);
-                    assert(common);
-                    
-                    /* Is this md still configured or has it been abandoned in the config? */
-                    config_md = md_get_by_name(mds, omd->name);
-                    if (config_md && md_contains(config_md, common)) {
-                        /* domain used in two configured mds, not allowed */
-                        rv = APR_EINVAL;
-                        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
-                                     "domain %s used in md %s and %s", common, md->name, omd->name);
-                    }
-                    else if (config_md) {
-                        /* domain stored in omd, but no longer has the offending domain,
-                           remove it from the store md. */
-                        omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
-                        rv = md_save(store, MD_SG_DOMAINS, omd, 0);
-                    }
-                    else {
-                        /* domain in a store md that is no longer configured, warn about it.
-                         * Remove the domain here, so we can progress, but never save it. */
-                        omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
-                        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, s, APLOGNO()
-                                     "domain %s, configured in md %s, is part of the stored md %s. "
-                                     "That md however is no longer mentioned in the config. "
-                                     "If you longer want it, remove the md from the store.", 
-                                     common, md->name, omd->name);
-                    }
-                }
-
-                if (added) {
-                    rv = md_save(store, MD_SG_DOMAINS, md, 0);
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
-                                 "md %s updated with %d additional domains", md->name, added);
-                }
-            }
-            else {
-                /* new managed domain */
-                rv = md_save(store, MD_SG_DOMAINS, md, 1);
-                ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() 
-                             "new md %s saved", md->name);
-            }
-
-
-            if (APR_SUCCESS == rv) {
-                if (smd) {
-                }
-            }
-        }
+    if (APR_SUCCESS == (rv = setup_store(&store, p, s))) {
+        return md_reg_init(preg, p, store);
     }
-    else {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "loading mds");
-    }
-    
     return rv;
 }
 
@@ -344,7 +245,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     void *data = NULL;
     const char *mod_md_init_key = "mod_md_init_counter";
     apr_array_header_t *mds;
-    md_store_t *store;
+    md_reg_t *reg;
     apr_status_t rv = APR_SUCCESS;
 
     apr_pool_userdata_get(&data, mod_md_init_key, base_server->process->pool);
@@ -369,8 +270,8 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     }
 
     /* 2. If config consistent, sync with store */
-    if (APR_SUCCESS == (rv = setup_store(&store, p, base_server))) {
-        rv = md_store_sync(store, p, ptemp, mds, base_server);
+    if (APR_SUCCESS == (rv = setup_reg(&reg, p, base_server))) {
+        rv = md_reg_sync(reg, p, ptemp, mds);
     }
      
     return rv;

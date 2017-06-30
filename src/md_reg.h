@@ -109,6 +109,12 @@ apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early);
  */
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md_t *md);
 
+/**
+ * Synchronise the give master mds with the store.
+ */
+apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
+                         apr_array_header_t *master_mds);
+
 /**************************************************************************************************/
 /* protocol drivers */
 
