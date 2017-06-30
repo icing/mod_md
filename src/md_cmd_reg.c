@@ -53,7 +53,7 @@ static apr_status_t cmd_reg_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     rv = md_reg_add(ctx->reg, md);
     if (APR_SUCCESS == rv) {
-        md_cmd_print_md(ctx, md_reg_get(ctx->reg, md->name));
+        md_cmd_print_md(ctx, md_reg_get(ctx->reg, md->name, ctx->p));
     }
     return rv;
 }
@@ -91,9 +91,9 @@ static apr_status_t cmd_reg_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     if (ctx->argc > 0) {
         for (i = 0; i < ctx->argc; ++i) {
             name = ctx->argv[i];
-            md = md_reg_get(ctx->reg, name);
+            md = md_reg_get(ctx->reg, name, ctx->p);
             if (!md) {
-                md = md_reg_find(ctx->reg, name);
+                md = md_reg_find(ctx->reg, name, ctx->p);
             }
             if (!md) {
                 fprintf(stderr, "managed domain not found: %s\n", name);
@@ -139,7 +139,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     name = ctx->argv[0];
     
-    md = md_reg_get(ctx->reg, name);
+    md = md_reg_get(ctx->reg, name, ctx->p);
     if (NULL == md) {
         fprintf(stderr, "managed domain not found: %s\n", name);
         return APR_ENOENT;
@@ -219,7 +219,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 
     if (fields) {
         if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, md->name, nmd, fields))) {
-            md = md_reg_get(ctx->reg, md->name);
+            md = md_reg_get(ctx->reg, md->name, ctx->p);
         }
     }
     else {
@@ -253,7 +253,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "drive do");
     if (ctx->argc > 0) {
         for (i = 0; i < ctx->argc; ++i) {
-            md = md_reg_get(ctx->reg, ctx->argv[i]);
+            md = md_reg_get(ctx->reg, ctx->argv[i], ctx->p);
             if (!md) {
                 fprintf(stderr, "md not found: %s\n", ctx->argv[i]);
                 return APR_ENOENT;

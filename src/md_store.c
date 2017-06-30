@@ -196,17 +196,13 @@ typedef struct {
     apr_array_header_t *mds;
 } md_load_ctx;
 
-static int add_md(void *baton, const char *name, const char *aspect, 
-                  md_store_vtype_t vtype, void *value)
+static int add_md(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp)
 {
     md_load_ctx *ctx = baton;
+    const md_t *mine = md_clone(ctx->p, md);
     
-    if (MD_SV_JSON == vtype && !strcmp(MD_FN_MD, aspect)) {
-        const md_t *md = md_from_json(value, ctx->p);
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, "adding md %s", md->name);
-        APR_ARRAY_PUSH(ctx->mds, md_t *) = md_clone(ctx->p, md);
-    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, "adding md %s", mine->name);
+    APR_ARRAY_PUSH(ctx->mds, md_t *) = md_clone(ctx->p, mine);
     return 1;
 }
 
@@ -224,7 +220,7 @@ apr_status_t md_load_all(apr_array_header_t **pmds, md_store_t *store,
     
     ctx.p = p;
     ctx.mds = apr_array_make(p, 5, sizeof(md_t *));
-    rv = store->iterate(add_md, &ctx, store, group, "*", MD_FN_MD, MD_SV_JSON);
+    rv = md_store_md_iter(add_md, &ctx, store, group, "*");
     if (APR_SUCCESS == rv) {
         qsort(ctx.mds->elts, ctx.mds->nelts, sizeof(md_t *), md_name_cmp);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "found %d mds", ctx.mds->nelts);
@@ -267,6 +263,41 @@ apr_status_t md_chain_save(md_store_t *store, md_store_group_t group, const char
                            struct apr_array_header_t *chain, int create)
 {
     return md_store_save(store, group, name, MD_FN_CHAIN, MD_SV_CHAIN, chain, create);
+}
+
+typedef struct {
+    md_store_t *store;
+    md_store_group_t group;
+    const char *pattern;
+    const char *aspect;
+    md_store_md_inspect *inspect;
+    void *baton;
+} inspect_md_ctx;
+
+static int insp_md(void *baton, const char *name, const char *aspect, 
+                   md_store_vtype_t vtype, void *value, apr_pool_t *ptemp)
+{
+    inspect_md_ctx *ctx = baton;
+    
+    if (!strcmp(MD_FN_MD, aspect) && vtype == MD_SV_JSON) {
+        const md_t *md = md_from_json(value, ptemp);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting md at: %s", name);
+        return ctx->inspect(ctx->baton, ctx->store, md, ptemp);
+    }
+    return 1;
+}
+
+apr_status_t md_store_md_iter(md_store_md_inspect *inspect, void *baton, md_store_t *store, 
+                              md_store_group_t group, const char *pattern)
+{
+    inspect_md_ctx ctx;
+    
+    ctx.store = store;
+    ctx.group = group;
+    ctx.inspect = inspect;
+    ctx.baton = baton;
+    
+    return md_store_iter(insp_md, &ctx, store, group, pattern, MD_FN_MD, MD_SV_JSON);
 }
 
 /**************************************************************************************************/
@@ -552,7 +583,7 @@ static apr_status_t insp(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting value at: %s/%s", dir, name);
     if (APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, name, NULL))
         && APR_SUCCESS == (rv = fs_fload(&value, fpath, ctx->vtype, p, ptemp))) {
-        if (!ctx->inspect(ctx->baton, name, ctx->aspect, ctx->vtype, value)) {
+        if (!ctx->inspect(ctx->baton, name, ctx->aspect, ctx->vtype, value, ptemp)) {
             return APR_EOF;
         }
     }
@@ -574,9 +605,8 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
     ctx.vtype = vtype;
     ctx.inspect = inspect;
     ctx.baton = baton;
-    
     groupname = sgroup_filename(group);
-    
+
     rv = md_util_files_do(insp, &ctx, ctx.s_fs->p, ctx.s_fs->base, 
                           groupname, ctx.pattern, aspect, NULL);
     

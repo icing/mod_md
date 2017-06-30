@@ -240,7 +240,7 @@ typedef struct {
 } find_ctx;
 
 static int find_acct(void *baton, const char *name, const char *aspect,
-                     md_store_vtype_t vtype, void *value)
+                     md_store_vtype_t vtype, void *value, apr_pool_t *ptemp)
 {
     find_ctx *ctx = baton;
     md_json_t *json = value;

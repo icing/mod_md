@@ -53,13 +53,8 @@ typedef apr_status_t md_store_remove_cb(md_store_t *store, md_store_group_t grou
 typedef apr_status_t md_store_purge_cb(md_store_t *store, md_store_group_t group, 
                                         const char *name);
 
-typedef apr_status_t md_store_load_all_cb(struct apr_array_header_t *values, apr_pool_t *p,
-                                          md_store_t *store, md_store_group_t group, 
-                                          const char *pattern, const char *aspect, 
-                                          md_store_vtype_t vtype);
-
 typedef int md_store_inspect(void *baton, const char *name, const char *aspect, 
-                             md_store_vtype_t vtype, void *value);
+                             md_store_vtype_t vtype, void *value, apr_pool_t *ptemp);
 
 typedef apr_status_t md_store_iter_cb(md_store_inspect *inspect, void *baton, md_store_t *store, 
                                       md_store_group_t group, const char *pattern,
@@ -122,6 +117,12 @@ apr_status_t md_remove(md_store_t *store, md_store_group_t group,
                      const char *name, int force);
 apr_status_t md_load_all(struct apr_array_header_t **pmds, md_store_t *store, 
                          md_store_group_t group, apr_pool_t *p);
+
+typedef int md_store_md_inspect(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp);
+
+apr_status_t md_store_md_iter(md_store_md_inspect *inspect, void *baton, md_store_t *store, 
+                              md_store_group_t group, const char *pattern);
+
 
 apr_status_t md_pkey_load(md_store_t *store, md_store_group_t group, 
                           const char *name, struct md_pkey_t **ppkey, apr_pool_t *p);

@@ -25,6 +25,7 @@
 #include "md.h"
 #include "md_crypt.h"
 #include "md_log.h"
+#include "md_json.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_util.h"
@@ -36,7 +37,6 @@ struct md_reg_t {
     struct md_store_t *store;
     struct apr_hash_t *protos;
 
-    struct apr_hash_t *mds;
     struct apr_hash_t *creds;
 };
 
@@ -53,7 +53,6 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg->p = p;
     reg->store = store;
     reg->protos = apr_hash_make(p);
-    reg->mds = apr_hash_make(p);
     reg->creds = apr_hash_make(p);
     
     if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, reg->p))) {
@@ -64,7 +63,6 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "reg: %d mds loaded", mds->nelts);
             for (i = 0; i < mds->nelts; ++i) {
                 md = APR_ARRAY_IDX(mds, i, md_t*);
-                apr_hash_set(reg->mds, md->name, strlen(md->name), md);
             }
             
             rv = md_reg_states_init(reg, 0);
@@ -78,45 +76,6 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
 struct md_store_t *md_reg_store_get(md_reg_t *reg)
 {
     return reg->store;
-}
-
-/**************************************************************************************************/
-/* iteration */
-
-typedef struct {
-    md_reg_t *reg;
-    md_reg_do_cb *cb;
-    void *baton;
-    const char *exclude;
-    const void *result;
-} reg_do_ctx;
-
-static int md_hash_do(void *baton, const void *key, apr_ssize_t klen, const void *value)
-{
-    reg_do_ctx *ctx = baton;
-    const md_t *md = value;
-    
-    if (!ctx->exclude || strcmp(ctx->exclude, md->name)) {
-        return ctx->cb(ctx->baton, ctx->reg, md);
-    }
-    return 1;
-}
-
-static int reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, const char *exclude)
-{
-    reg_do_ctx ctx;
-    
-    ctx.reg = reg;
-    ctx.cb = cb;
-    ctx.baton = baton;
-    ctx.exclude = exclude;
-    return apr_hash_do(md_hash_do, &ctx, reg->mds);
-}
-
-
-int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg)
-{
-    return reg_do(cb, baton, reg, NULL);
 }
 
 /**************************************************************************************************/
@@ -147,7 +106,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
             }
         }
 
-        if (NULL != (other = md_reg_find_overlap(reg, md, &domain))) {
+        if (NULL != (other = md_reg_find_overlap(reg, md, &domain, p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
                           "md %s shares domain '%s' with md %s", 
                           md->name, domain, other->name);
@@ -202,7 +161,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
 /**************************************************************************************************/
 /* state assessment */
 
-static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, const md_t *md)
+static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
 {
     md_state_t state = MD_S_UNKNOWN;
     const md_creds_t *creds;
@@ -241,7 +200,7 @@ static apr_status_t state_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     md_reg_t *reg = baton;
     md_t *md = va_arg(ap, md_t *);
     
-    return state_init(reg, p, ptemp, md);
+    return state_init(reg, p, md);
 }
 
 apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md)
@@ -260,7 +219,7 @@ static int state_ctx_init(void *baton, md_reg_t *reg, const md_t *md)
 {
     init_ctx *ctx = baton;
     
-    ctx->rv = state_init(reg, ctx->p, ctx->ptemp, (md_t*)md);
+    ctx->rv = state_init(reg, ctx->p, (md_t*)md);
     return (!ctx->fail_early || (APR_SUCCESS == ctx->rv))? 1 : 0;
 }
 
@@ -284,12 +243,66 @@ apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early)
     return md_util_pool_vdo(states_vinit, reg, reg->p, fail_early, NULL);
 }
 
+static const md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p) 
+{
+    if (md && md->state == MD_S_UNKNOWN) {
+        if (APR_SUCCESS == state_init(reg, p, md)) {
+            md_save(reg->store, MD_SG_DOMAINS, md, 0);
+        }
+    }
+    return md;
+}
+
+/**************************************************************************************************/
+/* iteration */
+
+typedef struct {
+    md_reg_t *reg;
+    md_reg_do_cb *cb;
+    void *baton;
+    const char *exclude;
+    const void *result;
+} reg_do_ctx;
+
+static int reg_md_iter(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp)
+{
+    reg_do_ctx *ctx = baton;
+    
+    if (!ctx->exclude || strcmp(ctx->exclude, md->name)) {
+        md = state_check(ctx->reg, (md_t*)md, ptemp);
+        return ctx->cb(ctx->baton, ctx->reg, md);
+    }
+    return 1;
+}
+
+static int reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, const char *exclude)
+{
+    reg_do_ctx ctx;
+    
+    ctx.reg = reg;
+    ctx.cb = cb;
+    ctx.baton = baton;
+    ctx.exclude = exclude;
+    return md_store_md_iter(reg_md_iter, &ctx, reg->store, MD_SG_DOMAINS, "*");
+}
+
+
+int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg)
+{
+    return reg_do(cb, baton, reg, NULL);
+}
+
 /**************************************************************************************************/
 /* lookup */
 
-const md_t *md_reg_get(const md_reg_t *reg, const char *name)
+const md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p)
 {
-    return apr_hash_get(reg->mds, name, strlen(name));
+    md_t *md;
+    
+    if (APR_SUCCESS == md_load(reg->store, MD_SG_DOMAINS, name, &md, p)) {
+        return state_check(reg, (md_t*)md, p);
+    }
+    return NULL;
 }
 
 typedef struct {
@@ -308,7 +321,7 @@ static int find_domain(void *baton, md_reg_t *reg, const md_t *md)
     return 1;
 }
 
-const md_t *md_reg_find(md_reg_t *reg, const char *domain)
+const md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p)
 {
     find_domain_ctx ctx;
 
@@ -316,7 +329,7 @@ const md_t *md_reg_find(md_reg_t *reg, const char *domain)
     ctx.md = NULL;
     
     md_reg_do(find_domain, &ctx, reg);
-    return ctx.md;
+    return state_check(reg, (md_t*)ctx.md, p);
 }
 
 typedef struct {
@@ -338,7 +351,7 @@ static int find_overlap(void *baton, md_reg_t *reg, const md_t *md)
     return 1;
 }
 
-const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain)
+const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, apr_pool_t *p)
 {
     find_overlap_ctx ctx;
     
@@ -350,7 +363,7 @@ const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdom
     if (pdomain && ctx.s) {
         *pdomain = ctx.s;
     }
-    return ctx.md;
+    return state_check(reg, (md_t*)ctx.md, p);
 }
 
 /**************************************************************************************************/
@@ -363,13 +376,10 @@ static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md_t *md, *mine;
     
     md = va_arg(ap, md_t *);
-    
+    mine = md_clone(ptemp, md);
     if (APR_SUCCESS == (rv = check_values(reg, ptemp, md, MD_UPD_ALL))
-        && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, md, 1))
-        && APR_SUCCESS == (rv = md_load(reg->store, MD_SG_DOMAINS, md->name, &mine, p))) {
-        apr_hash_set(reg->mds, mine->name, strlen(mine->name), mine);
-        
-        rv = md_reg_state_init(reg, mine);
+        && APR_SUCCESS == (rv = md_reg_state_init(reg, mine))
+        && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, mine, 1))) {
     }
     return rv;
 }
@@ -392,7 +402,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     updates = va_arg(ap, const md_t *);
     fields = va_arg(ap, int);
     
-    if (NULL == (md = md_reg_get(reg, name))) {
+    if (NULL == (md = md_reg_get(reg, name, ptemp))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_ENOENT, reg->p, "md %s", name);
         return APR_ENOENT;
     }
@@ -434,9 +444,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     
     if (fields 
-        && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, nmd, 0))
-        && APR_SUCCESS == (rv = md_load(reg->store, MD_SG_DOMAINS, name, &nmd, p))) {
-        apr_hash_set(reg->mds, nmd->name, strlen(nmd->name), nmd);
+        && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, nmd, 0))) {
 
         rv = md_reg_state_init(reg, nmd);
     }

@@ -29,17 +29,11 @@ SERVER_DIR      = @SERVER_DIR@
 test: $(SERVER_DIR)/.test-setup src/a2md
 	@cd test; py.test
 
-test-store: $(SERVER_DIR)/.test-setup
-	@cd test; py.test test_0001_store.py
-
 test-drive: $(SERVER_DIR)/.test-setup src/a2md
 	@cd test; py.test test_0500_drive.py
 
-test-authz: $(SERVER_DIR)/.test-setup src/a2md
-	@cd test; py.test test_0220_acme_authz.py
-
 test-configs: $(SERVER_DIR)/.test-setup src/a2md
-	@cd test; py.test test_1001_configs.py
+	@cd test; py.test test_1000_conf_validate.py test_1100_conf_store.py
 
 $(SERVER_DIR)/.test-setup: test/conf/* \
 		$(SERVER_DIR)/conf/ssl/cert.pem
