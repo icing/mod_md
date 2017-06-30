@@ -271,27 +271,6 @@ static void init_setups(apr_pool_t *p, server_rec *base_server)
     apr_pool_cleanup_register(p, NULL, cleanup_setups, apr_pool_cleanup_null);
 }
 
-/*
- * Config has been loaded completely for the given base server. Now,
- * before the actual request processing starts, is the time to prepare
- * everything based on this. Also, this is the last chance to fail the config.
- *
- * The following is done:
- * 1. Collect all defined "managed domains" (MD). Since DNS is one thing, it does
- *    not matter where a MD is defined. All MDs need to be unique and have no overlaps
- *    in their DNS names. Fail the config otherwise. Also, if a vhost matches an MD, it
- *    needs to *only* have ServerAliases from that MD. There can be no more than one
- *    matching MD for a vhost. But an MD can apply to several vhosts.
- * 2. Instantiate the Store. Iterator over all defined domains and 
- *   a. create them in the store if they do not already exist
- *   b. compare dns lists from store and config, if
- *      - store has dns name in other MD than from config, remove dns name from store def,
- *        issue WARNING. TODO: what if this was the last name???
- *      - store misses dns name from config, add dns name to store def
- *      - store misses MD, create it 
- *   c. compare MD acme url/protocol, update if changed
- *   
- */
 static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                                    apr_pool_t *ptemp, server_rec *base_server)
 {

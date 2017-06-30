@@ -527,6 +527,22 @@ static int find_changes(void *baton, md_store_t *store, const md_t *md, apr_pool
     return 1;
 }
 
+/**
+ * Procedure:
+ * 1. Collect all defined "managed domains" (MD). It does not matter where a MD is defined. 
+ *    All MDs need to be unique and have no overlaps in their domain names. 
+ *    Fail the config otherwise. Also, if a vhost matches an MD, it
+ *    needs to *only* have ServerAliases from that MD. There can be no more than one
+ *    matching MD for a vhost. But an MD can apply to several vhosts.
+ * 2. Synchronize with the persistent store. Iterate over all configured MDs and 
+ *   a. create them in the store if they do not already exist, neither under the
+ *      name or with a common domain.
+ *   b. compare domain lists from store and config, if
+ *      - store has dns name in other MD than from config, remove dns name from store def,
+ *        issue WARNING.
+ *      - store misses dns name from config, add dns name and update store
+ *   c. compare MD acme url/protocol, update if changed
+ */
 apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
                          apr_array_header_t *master_mds) 
 {
@@ -546,19 +562,25 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                   "sync: found %d mds in store", ctx.store_mds->nelts);
     if (APR_SUCCESS == rv) {
-        int i, added;
+        int i, added, fields;
         md_t *md, *config_md, *smd, *omd;
         const char *common;
         
         for (i = 0; i < ctx.conf_mds->nelts; ++i) {
             md = APR_ARRAY_IDX(ctx.conf_mds, i, md_t *);
-
+            
             /* find the store md that is closest match for the configured md */
             smd = md_find_closest_match(ctx.store_mds, md);
             if (smd) {
+                fields = 0;
                 /* add any newly configured domains to the store md */
                 added = md_array_str_add_missing(smd->domains, md->domains, 0);
-
+                if (added) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                                 "%s: %d domains added", smd->name, added);
+                    fields |= MD_UPD_DOMAINS;
+                }
+                
                 /* Look for other store mds which have domains now being part of smd */
                 while (APR_SUCCESS == rv && (omd = md_get_by_dns_overlap(ctx.store_mds, md))) {
                     /* find the name now duplicate */
@@ -592,10 +614,22 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     }
                 }
 
-                if (added) {
-                    rv = md_reg_update(reg, smd->name, smd, MD_UPD_DOMAINS);
-                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                                 "md %s updated with %d additional domains", smd->name, added);
+                if (MD_SVAL_UPDATE(md, smd, ca_url)) {
+                    smd->ca_url = md->ca_url;
+                    fields |= MD_UPD_CA_URL;
+                }
+                if (MD_SVAL_UPDATE(md, smd, ca_proto)) {
+                    smd->ca_proto = md->ca_proto;
+                    fields |= MD_UPD_CA_PROTO;
+                }
+                if (MD_SVAL_UPDATE(md, smd, ca_agreement)) {
+                    smd->ca_agreement = md->ca_agreement;
+                    fields |= MD_UPD_AGREEMENT;
+                }
+                
+                if (fields) {
+                    rv = md_reg_update(reg, smd->name, smd, fields);
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md %s updated", smd->name);
                 }
             }
             else {

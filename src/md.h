@@ -84,6 +84,10 @@ struct md_t {
 #define MD_FN_CERT              "cert.pem"
 #define MD_FN_CHAIN             "chain.pem"
 
+/* Check if a string member of a new MD (n) has 
+ * a value and if it differs from the old MD o
+ */
+#define MD_SVAL_UPDATE(n,o,s)   ((n)->s && (!(o)->s || strcmp((n)->s, (o)->s)))
 
 /**
  * Determine if the Managed Domain contains a specific domain name.
