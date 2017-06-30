@@ -26,6 +26,7 @@
 #include "mod_md.h"
 #include "md_config.h"
 #include "md_store.h"
+#include "md_log.h"
 #include "md_reg.h"
 #include "md_util.h"
 #include "md_version.h"
@@ -178,6 +179,9 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
     return rv;
 }
 
+/**************************************************************************************************/
+/* store & registry setup */
+
 static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *s)
 {
     const char *base_dir;
@@ -216,6 +220,55 @@ static apr_status_t setup_reg(md_reg_t **preg, apr_pool_t *p, server_rec *s)
         return md_reg_init(preg, p, store);
     }
     return rv;
+}
+
+/**************************************************************************************************/
+/* logging setup */
+
+static server_rec *log_server;
+
+static int log_is_level(void *baton, apr_pool_t *p, md_log_level_t level)
+{
+    if (log_server) {
+        return APLOG_IS_LEVEL(log_server, level);
+    }
+    return level <= MD_LOG_INFO;
+}
+
+#define LOG_BUF_LEN 16*1024
+
+static void log_print(const char *file, int line, md_log_level_t level, 
+                      apr_status_t rv, void *baton, apr_pool_t *p, const char *fmt, va_list ap)
+{
+    if (log_is_level(baton, p, level)) {
+        char buffer[LOG_BUF_LEN];
+        
+        apr_vsnprintf(buffer, LOG_BUF_LEN-1, fmt, ap);
+        buffer[LOG_BUF_LEN-1] = '\0';
+
+        if (log_server) {
+            ap_log_error(file, line, APLOG_MODULE_INDEX, level, rv, log_server, "%s",buffer);
+        }
+        else {
+            ap_log_perror(file, line, APLOG_MODULE_INDEX, level, rv, p, "%s", buffer);
+        }
+    }
+}
+
+/**************************************************************************************************/
+/* lifecycle */
+
+static apr_status_t cleanup_setups(void *dummy)
+{
+    (void)dummy;
+    log_server = NULL;
+    return APR_SUCCESS;
+}
+
+static void init_setups(apr_pool_t *p, server_rec *base_server) 
+{
+    log_server = base_server;
+    apr_pool_cleanup_register(p, NULL, cleanup_setups, apr_pool_cleanup_null);
 }
 
 /*
@@ -260,20 +313,37 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     ap_log_error( APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
                  "mod_md (v%s), initializing...", MOD_MD_VERSION);
 
-    /* 1. Check uniqueness of MDs, calculate global MD list */
-    if (APR_SUCCESS == (rv = md_calc_md_list(p, plog, ptemp, base_server, &mds))) {
-        /* Check mappings of MDs to VirtulHosts defined */
-        rv = md_check_vhost_mapping(p, plog, ptemp, base_server, mds);    
+    init_setups(p, base_server);
 
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, base_server, APLOGNO()
-                     "checked %d Managed Domains", mds->nelts);
+    md_log_set(log_is_level, log_print, NULL);
+
+    /* 1. Check uniqueness of MDs, calculate global MD list */
+    if (APR_SUCCESS != (rv = md_calc_md_list(p, plog, ptemp, base_server, &mds))) {
+        goto out;
+    }
+    
+    /* 2. Check mappings of MDs to VirtulHosts defined */
+    if (APR_SUCCESS != (rv = md_check_vhost_mapping(p, plog, ptemp, base_server, mds))) {
+        goto out;
+    }    
+    
+    /* 3. Config consistent, sync with store */
+    if (APR_SUCCESS != (rv = setup_reg(&reg, p, base_server))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, base_server, APLOGNO()
+                     "setup md registry");
+        goto out;
     }
 
-    /* 2. If config consistent, sync with store */
-    if (APR_SUCCESS == (rv = setup_reg(&reg, p, base_server))) {
-        rv = md_reg_sync(reg, p, ptemp, mds);
+    if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, mds))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, base_server, APLOGNO()
+                     "synching %d mds to registry", mds->nelts);
+        goto out;
     }
      
+    /* Now, do we need to do anything? */
+    
+    
+out:     
     return rv;
 }
 

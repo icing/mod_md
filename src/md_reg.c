@@ -538,7 +538,14 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     ctx.conf_mds = master_mds;
     ctx.store_mds = apr_array_make(ptemp, 100, sizeof(md_t *));
     
-    if (APR_SUCCESS == (rv = md_store_md_iter(find_changes, &ctx, store, MD_SG_DOMAINS, "*"))) {
+    rv = md_store_md_iter(find_changes, &ctx, store, MD_SG_DOMAINS, "*");
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_SUCCESS;
+    }
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                  "sync: found %d mds in store", ctx.store_mds->nelts);
+    if (APR_SUCCESS == rv) {
         int i, added;
         md_t *md, *config_md, *smd, *omd;
         const char *common;
@@ -563,38 +570,38 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     if (config_md && md_contains(config_md, common)) {
                         /* domain used in two configured mds, not allowed */
                         rv = APR_EINVAL;
-                        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                                      "domain %s used in md %s and %s", common, md->name, omd->name);
+                        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                                      "domain %s used in md %s and %s", 
+                                      common, md->name, omd->name);
                     }
                     else if (config_md) {
                         /* domain stored in omd, but no longer has the offending domain,
                            remove it from the store md. */
                         omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
-                        rv = md_save(store, MD_SG_DOMAINS, omd, 0);
+                        rv = md_reg_update(reg, omd->name, omd, MD_UPD_DOMAINS);
                     }
                     else {
                         /* domain in a store md that is no longer configured, warn about it.
                          * Remove the domain here, so we can progress, but never save it. */
                         omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
                         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                                      "domain %s, configured in md %s, is part of the stored md %s. "
-                                      "That md however is no longer mentioned in the config. "
+                                      "domain %s, configured in md %s, is part of the stored md %s."
+                                      " That md however is no longer mentioned in the config. "
                                       "If you longer want it, remove the md from the store.", 
                                       common, md->name, omd->name);
                     }
                 }
 
                 if (added) {
-                    rv = md_save(store, MD_SG_DOMAINS, md, 0);
+                    rv = md_reg_update(reg, smd->name, smd, MD_UPD_DOMAINS);
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                                 "md %s updated with %d additional domains", md->name, added);
+                                 "md %s updated with %d additional domains", smd->name, added);
                 }
             }
             else {
                 /* new managed domain */
-                rv = md_save(store, MD_SG_DOMAINS, md, 1);
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p,  
-                             "new md %s saved", md->name);
+                rv = md_reg_add(reg, md);
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "new md %s added", md->name);
             }
         }
     }
