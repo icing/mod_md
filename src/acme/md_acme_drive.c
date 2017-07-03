@@ -579,7 +579,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     }
     
     /* Load any credentials we currenlty have stored */
-    rv = md_reg_creds_get(&ad->creds, d->reg, d->md);
+    rv = md_reg_creds_get(&ad->creds, d->reg, d->md, d->p);
     if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
         return rv;
     }
@@ -689,7 +689,7 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
         if (APR_SUCCESS == rv) {
             ad->phase = "move live from staging";
             md_acme_authz_set_purge(d->store, ad->md->name);
-            rv = md_store_move(d->store, MD_SG_STAGING, MD_SG_DOMAINS, ad->md->name, 1);
+            md_reg_staging_complete(d->reg, ad->md->name, d->p);
         }
     }
     

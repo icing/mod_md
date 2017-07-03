@@ -107,13 +107,21 @@ apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early);
  * Get the credentials available for the managed domain md. Returns APR_ENOENT
  * when none is available. The returned values are immutable. 
  */
-apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md_t *md);
+apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
+                              const md_t *md, apr_pool_t *p);
 
 /**
  * Synchronise the give master mds with the store.
  */
 apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
                          apr_array_header_t *master_mds);
+
+/** 
+ * When a complete new set of files for the managed domain has been prepared in
+ * MD_SG_STAGING, archive the previous ones and activate the new. MD_SG_STATING/name
+ * is removed on success and the state of the md is updated.
+ */
+apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* protocol drivers */

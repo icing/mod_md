@@ -352,7 +352,7 @@ int md_cert_is_valid_now(md_cert_t *cert)
 
 int md_cert_has_expired(md_cert_t *cert)
 {
-    return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) > 0);
+    return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) <= 0);
 }
 
 int md_cert_covers_md(md_cert_t *cert, const md_t *md)

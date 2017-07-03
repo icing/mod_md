@@ -37,8 +37,6 @@ struct md_reg_t {
     apr_pool_t *p;
     struct md_store_t *store;
     struct apr_hash_t *protos;
-
-    struct apr_hash_t *creds;
 };
 
 /**************************************************************************************************/
@@ -53,7 +51,6 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg->p = p;
     reg->store = store;
     reg->protos = apr_hash_make(p);
-    reg->creds = apr_hash_make(p);
     
     rv = md_acme_protos_add(reg->protos, reg->p);
     *preg = (rv == APR_SUCCESS)? reg : NULL;
@@ -154,7 +151,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
     const md_creds_t *creds;
     apr_status_t rv;
 
-    if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, md))) {
+    if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, md, p))) {
         state = MD_S_INCOMPLETE;
         if (creds->cert && creds->pkey && creds->chain) {
             if (md_cert_has_expired(creds->cert)) {
@@ -170,6 +167,10 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
                 state = MD_S_COMPLETE;
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert valid", md->name);
             }
+        }
+        else {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: has cert=%d/pkey=%d/chain=%d", 
+                          md->name, !!creds->cert, !!creds->pkey, !!creds->chain);
         }
     }
     
@@ -232,8 +233,9 @@ apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early)
 
 static const md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p) 
 {
-    if (md && md->state == MD_S_UNKNOWN) {
-        if (APR_SUCCESS == state_init(reg, p, md)) {
+    if (md) {
+        int ostate = md->state;
+        if (APR_SUCCESS == state_init(reg, p, md) && md->state != ostate) {
             md_save(reg->store, MD_SG_DOMAINS, md, 0);
         }
     }
@@ -485,7 +487,7 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
                     break;
                 default:
                     md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
-                                  "md %s has unexpcted certificae state: %d", md->name, cert_state);
+                                  "md %s has unexpected cert state: %d", md->name, cert_state);
                     rv = APR_ENOTIMPL;
                     break;
             }
@@ -495,17 +497,13 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     return rv;
 }
 
-apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, const md_t *md)
+apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
+                              const md_t *md, apr_pool_t *p)
 {
     apr_status_t rv = APR_SUCCESS;
     md_creds_t *creds;
     
-    creds = apr_hash_get(reg->creds, md->name, strlen(md->name));
-    if (!creds) {
-        if (APR_SUCCESS == (rv = md_util_pool_vdo(creds_load, reg, reg->p, &creds, md, NULL))) {
-            apr_hash_set(reg->creds, md->name, strlen(md->name), creds);
-        }
-    }
+    rv = md_util_pool_vdo(creds_load, reg, p, &creds, md, NULL);
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;
     return rv;
 }
@@ -649,6 +647,30 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 
 /**************************************************************************************************/
 /* driving */
+
+apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t *p) 
+{
+    apr_status_t rv;
+    
+    rv = md_store_move(reg->store, MD_SG_STAGING, MD_SG_DOMAINS, name, 1);
+    if (APR_SUCCESS == rv) {
+        /* archive the old directory and made staging the new one. Access the new
+         * status of this md. */
+        const md_t *md;
+        
+        md = md_reg_get(reg, name, p);
+        if (!md) {
+            rv = APR_ENOENT;
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                          "loading md after staging complete");
+        }
+        else if (md->state != MD_S_COMPLETE) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                          "md has state %d after staging complete", md->state);
+        }
+    }
+    return rv;
+}
 
 static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
