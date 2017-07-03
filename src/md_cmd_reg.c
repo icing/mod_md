@@ -237,7 +237,7 @@ md_cmd_t MD_RegUpdateCmd = {
     NULL, cmd_reg_update, MD_NoOptions, NULL,
     "update name [ 'aspect' args ]",
     "update a managed domain's properties, where 'aspect' is one of: 'domains', 'ca', 'account', "
-    "'contacts' or 'tos'"
+    "'contacts' or 'agreement'"
 };
 
 /**************************************************************************************************/

@@ -97,6 +97,9 @@ class TestDrive :
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
+        # check state
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        assert md['state'] == TestEnv.MD_S_COMPLETE
 
     def test_201(self):
         # test case: md with 2 domains
@@ -145,7 +148,7 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    def Xtest_204(self):
+    def test_204(self):
         # test case: md with one domain, TOS agreement, ACME account and authz challenge
         # setup: create md
         domain = "test204-" + TestDrive.dns_uniq
@@ -176,8 +179,9 @@ class TestDrive :
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
+        # status of prepared authz still 'pending': drive didn't reuse it
         auth_json = TestEnv.get_json( authz_url, 1 )
-        assert auth_json['status'] == "valid"
+        assert auth_json['status'] == "pending"
 
     def test_205(self):
         # test case: md with one domain, local TOS agreement and ACME account that is deleted (!) on server

@@ -26,6 +26,7 @@ class TestEnv:
         cls.config.read('test.ini')
         cls.PREFIX = cls.config.get('global', 'prefix')
 
+        cls.ACME_URL_DEFAULT  = cls.config.get('acme', 'url_default')
         cls.ACME_URL  = cls.config.get('acme', 'url')
         cls.ACME_TOS  = cls.config.get('acme', 'tos')
         cls.ACME_TOS2 = cls.config.get('acme', 'tos2')
@@ -46,6 +47,12 @@ class TestEnv:
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
         cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
         cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
+
+        cls.MD_S_UNKNOWN = 0
+        cls.MD_S_INCOMPLETE = 1
+        cls.MD_S_COMPLETE = 2
+        cls.MD_S_EXPIRED = 3
+        cls.MD_S_ERROR = 4
 
     # --------- cmd execution ---------
 
