@@ -221,7 +221,31 @@ class TestConf:
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)
         self._check_md_names("example2.org", ["example2.org", "www.example2.org", "mail.example2.org"], 1, 2)
 
-    # --------- status reset ---------
+    def test_302(self):
+        # test case: change ca info
+        # setup: add md with ca info
+        name = "example.org"
+        assert TestEnv.apachectl("test_003", "graceful") == 0
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: sync with changed ca info
+        assert TestEnv.apachectl("test_006", "graceful") == 0
+        # check: md stays the same with previous ca info
+        self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
+        self._check_md_ca(name, "http://localhost:6666/directory", "ACME")
+
+    def test_303(self):
+        # test case: change server admin
+        # setup: add md with admin info
+        name = "example.org"
+        assert TestEnv.apachectl("test_004", "graceful") == 0
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: sync with changed admin info
+        assert TestEnv.apachectl("test_006", "graceful") == 0
+        # check: md stays the same with previous admin info
+        self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
+        self._check_md_contacts(name, ["webmaster@example.org"])
+
+    # --------- status reset on critical store changes ---------
 
     def test_400(self):
         # test case: add dns name on existing valid md
@@ -236,6 +260,23 @@ class TestConf:
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "domains", name, "test." + domain ])['rv'] == 0
+        # check: state reset to INCOMPLETE
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        assert md['state'] == TestEnv.MD_S_INCOMPLETE
+
+    def test_401(self):
+        # test case: change ca info
+        # setup: create complete md in store
+        domain = "test401-" + TestConf.dns_uniq
+        name = "www." + domain
+        assert TestEnv.a2md(["add", name])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        # setup: drive it
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        # setup: change CA URL
+        assert TestEnv.a2md([ "update", name, "ca", TestEnv.ACME_URL_DEFAULT ])['rv'] == 0
         # check: state reset to INCOMPLETE
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_INCOMPLETE
