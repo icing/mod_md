@@ -34,6 +34,7 @@ test-drive: $(SERVER_DIR)/.test-setup src/a2md
 
 test-configs: $(SERVER_DIR)/.test-setup src/a2md
 	@cd test; py.test test_1000_conf_validate.py
+	@cd test; py.test test_1100_conf_store.py
 
 $(SERVER_DIR)/.test-setup: test/conf/* \
 		$(SERVER_DIR)/conf/ssl/cert.pem

@@ -41,6 +41,9 @@ char *md_util_str_tolower(char *s);
 int md_array_str_index(const struct apr_array_header_t *array, const char *s, 
                        int start, int case_sensitive);
 
+int md_array_str_eq(const struct apr_array_header_t *a1, 
+                    const struct apr_array_header_t *a2, int case_sensitive);
+
 struct apr_array_header_t *md_array_str_clone(apr_pool_t *p, struct apr_array_header_t *array);
 
 struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src,

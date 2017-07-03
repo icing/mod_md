@@ -97,6 +97,26 @@ int md_array_str_index(const apr_array_header_t *array, const char *s,
     return -1;
 }
 
+int md_array_str_eq(const struct apr_array_header_t *a1, 
+                    const struct apr_array_header_t *a2, int case_sensitive)
+{
+    int i;
+    const char *s1, *s2;
+    
+    if (a1 == a2) return 1;
+    if (!a1) return 0;
+    if (a1->nelts != a2->nelts) return 0;
+    for (i = 0; i < a1->nelts; ++i) {
+        s1 = APR_ARRAY_IDX(a1, i, const char *);
+        s2 = APR_ARRAY_IDX(a2, i, const char *);
+        if ((case_sensitive && strcmp(s1, s2))
+            || (!case_sensitive && apr_strnatcasecmp(s1, s2))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 apr_array_header_t *md_array_str_clone(apr_pool_t *p, apr_array_header_t *src)
 {
     apr_array_header_t *dest = apr_array_make(p, src->nelts, sizeof(const char*));

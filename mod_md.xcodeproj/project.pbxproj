@@ -65,6 +65,11 @@
 		B262F6DD1EFCFE1100D396A1 /* test_011.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_011.conf; sourceTree = "<group>"; };
 		B262F6DE1EFCFE1100D396A1 /* test_012.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_012.conf; sourceTree = "<group>"; };
 		B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
+		B2B81E8D1F0A907900E35CA3 /* empty.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = empty.conf; sourceTree = "<group>"; };
+		B2B81E8E1F0A907900E35CA3 /* test_003.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_003.conf; sourceTree = "<group>"; };
+		B2B81E8F1F0A907900E35CA3 /* test_004.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_004.conf; sourceTree = "<group>"; };
+		B2B81E901F0A907900E35CA3 /* test_005.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_005.conf; sourceTree = "<group>"; };
+		B2B81E911F0A907900E35CA3 /* test_006.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_006.conf; sourceTree = "<group>"; };
 		B2BCAB851ED84A42002F4EB9 /* md_cmd_acme.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_acme.c; sourceTree = "<group>"; };
 		B2BCAB861ED84A42002F4EB9 /* md_cmd_acme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_acme.h; sourceTree = "<group>"; };
 		B2BCAB871ED84A86002F4EB9 /* md_cmd_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_store.c; sourceTree = "<group>"; };
@@ -124,6 +129,11 @@
 		B262F6CE1EFCFE1100D396A1 /* conf_store */ = {
 			isa = PBXGroup;
 			children = (
+				B2B81E8D1F0A907900E35CA3 /* empty.conf */,
+				B2B81E8E1F0A907900E35CA3 /* test_003.conf */,
+				B2B81E8F1F0A907900E35CA3 /* test_004.conf */,
+				B2B81E901F0A907900E35CA3 /* test_005.conf */,
+				B2B81E911F0A907900E35CA3 /* test_006.conf */,
 				B262F6D01EFCFE1100D396A1 /* test_001.conf */,
 				B262F6D11EFCFE1100D396A1 /* test_002.conf */,
 			);

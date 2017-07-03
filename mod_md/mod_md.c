@@ -86,6 +86,11 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
                 /* new managed domain not seen before */
                 nmd->ca_url = md_config_var_get(config, MD_CONFIG_CA_URL);
                 nmd->ca_proto = md_config_var_get(config, MD_CONFIG_CA_PROTO);
+                if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
+                    apr_array_clear(nmd->contacts);
+                    APR_ARRAY_PUSH(nmd->contacts, const char *) = s->server_admin;
+                }
+                
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
             }
         }

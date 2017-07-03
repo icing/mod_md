@@ -624,6 +624,10 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->ca_agreement = md->ca_agreement;
                     fields |= MD_UPD_AGREEMENT;
                 }
+                if (!md_array_str_eq(md->contacts, smd->contacts, 0)) {
+                    smd->contacts = md->contacts;
+                    fields |= MD_UPD_CONTACTS;
+                }
                 
                 if (fields) {
                     rv = md_reg_update(reg, smd->name, smd, fields);
