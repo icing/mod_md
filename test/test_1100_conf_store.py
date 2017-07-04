@@ -1,6 +1,6 @@
 # test mod_md basic configurations
 
-import os.path
+import os
 import pytest
 import re
 import subprocess
@@ -10,6 +10,7 @@ import time
 from ConfigParser import SafeConfigParser
 from datetime import datetime
 from httplib import HTTPConnection
+from shutil import copyfile
 from testbase import TestEnv
 
 config = SafeConfigParser()
@@ -86,7 +87,7 @@ class TestConf:
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL, "ACME")
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
 
     def test_104(self):
         # test case: add to existing md: acme url, acme protocol
@@ -97,26 +98,27 @@ class TestConf:
         assert TestEnv.apachectl("test_003", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL, "ACME")
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
 
-    def Xtest_105(self):
+    def test_105(self):
         # test case: add new md definition with server admin
         assert TestEnv.apachectl("test_004", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_contacts(name, ["admin@example.org"])
+        self._check_md_contacts(name, ["mailto:admin@example.org"])
 
-    def Xtest_106(self):
+    def test_106(self):
         # test case: add to existing md: server admin
         name = "example.org"
         TestEnv.a2md([name, "www.example.org", "mail.example.org"])
         assert TestEnv.apachectl("test_004", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_contacts(name, ["admin@example.org"])
+        self._check_md_contacts(name, ["mailto:admin@example.org"])
 
-    def Xtest_107(self):
+    @pytest.mark.skip(reason="not implemented: read ServerAdmin in vhost context")
+    def test_107(self):
         # test case: assign separate contact info based on VirtualHost
         assert TestEnv.apachectl("test_005", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
@@ -124,12 +126,12 @@ class TestConf:
         name2 = "example2.org"
         self._check_md_names(name1, [name1, "www." + name1, "mail." + name1], 1, 2)
         self._check_md_names(name2, [name2, "www." + name2, "mail." + name2], 1, 2)
-        self._check_md_contacts(name1, ["admin@" + name1])
-        self._check_md_contacts(name2, ["admin@" + name2])
+        self._check_md_contacts(name1, ["mailto:admin@" + name1])
+        self._check_md_contacts(name2, ["mailto:admin@" + name2])
 
     # --------- remove from store ---------
 
-    def Xtest_200(self):
+    def test_200(self):
         # test case: remove managed domain from config
         dnsList = ["example.org", "www.example.org", "mail.example.org"]
         TestEnv.a2md(["add"] + dnsList)
@@ -139,7 +141,7 @@ class TestConf:
         # check: md stays in store
         self._check_md_names("example.org", dnsList, 1, 1)
 
-    def Xtest_201(self):
+    def test_201(self):
         # test case: remove alias DNS from managed domain
         dnsList = ["example.org", "test.example.org", "www.example.org", "mail.example.org"]
         TestEnv.a2md(["add"] + dnsList)
@@ -149,7 +151,7 @@ class TestConf:
         # check: DNS stays part of md in store
         self._check_md_names("example.org", dnsList, 1, 1)
 
-    def Xtest_202(self):
+    def test_202(self):
         # test case: remove primary name from managed domain
         dnsList = ["name.example.org", "example.org", "www.example.org", "mail.example.org"]
         TestEnv.a2md([ "add"] + dnsList)
@@ -159,7 +161,7 @@ class TestConf:
         # check: md stays with previous name, complete dns list
         self._check_md_names("name.example.org", dnsList, 1, 1)
 
-    def Xtest_203(self):
+    def test_203(self):
         # test case: remove one md, keep another
         dnsList1 = ["greenybtes2.de", "www.greenybtes2.de", "mail.greenybtes2.de"]
         dnsList2 = ["example.org", "www.example.org", "mail.example.org"]
@@ -173,7 +175,8 @@ class TestConf:
         self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
         self._check_md_names("example.org", dnsList2, 1, 2)
 
-    def Xtest_204(self):
+    @pytest.mark.skip(reason="not implemented: ")
+    def test_204(self):
         # test case: remove ca info from md
         # setup: add md with ca info
         name = "example.org"
@@ -183,9 +186,10 @@ class TestConf:
         assert TestEnv.apachectl("test_001", "graceful") == 0
         # check: md stays the same with previous ca info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL, "ACME")
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
 
-    def Xtest_205(self):
+    @pytest.mark.skip(reason="not implemented: ")
+    def test_205(self):
         # test case: remove server admin from md
         # setup: add md with admin info
         name = "example.org"
@@ -199,7 +203,7 @@ class TestConf:
 
     # --------- change existing config definitions ---------
 
-    def Xtest_300(self):
+    def test_300(self):
         # test case: reorder DNS names in md definition
         dnsList = ["example.org", "mail.example.org", "www.example.org"]
         TestEnv.a2md(["add"] + dnsList)
@@ -209,7 +213,7 @@ class TestConf:
         # check: dns list stays as before
         self._check_md_names("example.org", dnsList, 1, 1)
 
-    def Xtest_301(self):
+    def test_301(self):
         # test case: move DNS from one md to another
         TestEnv.a2md([ "add", "example.org", "www.example.org", "mail.example.org", "mail.example2.org" ])
         TestEnv.a2md([ "add", "example2.org", "www.example2.org" ])
@@ -221,7 +225,7 @@ class TestConf:
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)
         self._check_md_names("example2.org", ["example2.org", "www.example2.org", "mail.example2.org"], 1, 2)
 
-    def Xtest_302(self):
+    def test_302(self):
         # test case: change ca info
         # setup: add md with ca info
         name = "example.org"
@@ -231,9 +235,9 @@ class TestConf:
         assert TestEnv.apachectl("test_006", "graceful") == 0
         # check: md stays the same with previous ca info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, "http://localhost:6666/directory", "ACME")
+        self._check_md_ca(name, "http://somewhere.com:6666/directory", "ACME")
 
-    def Xtest_303(self):
+    def test_303(self):
         # test case: change server admin
         # setup: add md with admin info
         name = "example.org"
@@ -243,11 +247,12 @@ class TestConf:
         assert TestEnv.apachectl("test_006", "graceful") == 0
         # check: md stays the same with previous admin info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_contacts(name, ["webmaster@example.org"])
+        self._check_md_contacts(name, ["mailto:webmaster@example.org"])
 
     # --------- status reset on critical store changes ---------
 
-    def Xtest_400(self):
+    @pytest.mark.skip(reason="not implemented: state reset when adding a dns name")
+    def test_400(self):
         # test case: add dns name on existing valid md
         # setup: create complete md in store
         domain = "test400-" + TestConf.dns_uniq
@@ -264,7 +269,8 @@ class TestConf:
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_INCOMPLETE
 
-    def Xtest_401(self):
+    @pytest.mark.skip(reason="not implemented: state reset when changing ca info")
+    def test_401(self):
         # test case: change ca info
         # setup: create complete md in store
         domain = "test401-" + TestConf.dns_uniq
@@ -280,6 +286,23 @@ class TestConf:
         # check: state reset to INCOMPLETE
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_INCOMPLETE
+
+    def test_402(self):
+        # test case: cert is expired
+        name = "example.org"
+        assert TestEnv.a2md(["add", name])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_pkey.pem"), TestEnv.path_domain_pkey(name))
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_pkey.pem"), TestEnv.path_domain_pkey(name))
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_EXPIRED
 
     # --------- _utils_ ---------
 

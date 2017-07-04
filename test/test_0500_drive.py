@@ -5,6 +5,7 @@ import re
 import sys
 import time
 import json
+import pytest
 
 from datetime import datetime
 from testbase import TestEnv
@@ -59,7 +60,8 @@ class TestDrive :
         assert run['rv'] == 1
         assert re.search("need to accept terms-of-service", run["stderr"])
 
-    def XXXXtest_102(self): # without URL it goes against the ACME LE production server
+    @pytest.mark.skip(reason="Without ACME URL it goes against the ACME LE production server")
+    def test_102(self):
         # test case: md without ACME url
         domain = "test102-" + TestDrive.dns_uniq
         name = "www." + domain
