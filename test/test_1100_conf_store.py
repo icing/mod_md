@@ -282,6 +282,7 @@ class TestConf:
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_COMPLETE
 
+    
     def test_402(self):
         # test case: cert is expired
         name = "example.org"
@@ -290,10 +291,10 @@ class TestConf:
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_cert.pem"), TestEnv.path_domain_ca_chain(name))
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_pkey.pem"), TestEnv.path_domain_pkey(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "valid_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "valid_pkey.pem"), TestEnv.path_domain_pkey(name))
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_cert(name))
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_ca_chain(name))
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_pkey.pem"), TestEnv.path_domain_pkey(name))

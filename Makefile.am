@@ -37,30 +37,13 @@ test-configs: $(SERVER_DIR)/.test-setup src/a2md
 	@cd test; py.test test_1100_conf_store.py
 
 $(SERVER_DIR)/.test-setup: test/conf/* \
-		$(SERVER_DIR)/conf/ssl/cert.pem
+		$(SERVER_DIR)/conf/ssl/cert.pem \
+		test/data/ssl/valid_cert.pem
 	@mkdir -p $(SERVER_DIR)/conf
 	@mkdir -p $(SERVER_DIR)/htdocs
 	@mkdir -p $(SERVER_DIR)/logs
 	@cp test/conf/*.* $(SERVER_DIR)/conf
 	@touch $(SERVER_DIR)/.test-setup
 
-$(SERVER_DIR)/conf/ssl/cert.key:
-	@mkdir -p $(SERVER_DIR)/conf/ssl
-	openssl genrsa -out $(SERVER_DIR)/conf/ssl/cert.key 4096
-
-$(SERVER_DIR)/conf/ssl/cert.req: \
-		$(SERVER_DIR)/conf/ssl/cert.key \
-        test/conf/ssl/cert-template.conf
-	openssl req -new -key $(SERVER_DIR)/conf/ssl/cert.key \
-		-out $(SERVER_DIR)/conf/ssl/cert.req \
-	    -config test/conf/ssl/cert-template.conf
-
-$(SERVER_DIR)/conf/ssl/cert.pem: \
-	$(SERVER_DIR)/conf/ssl/cert.key \
-	$(SERVER_DIR)/conf/ssl/cert.req \
-	test/conf/ssl/extensions.conf
-	openssl x509 -req -sha256 -days 1095 \
-		-signkey $(SERVER_DIR)/conf/ssl/cert.key \
-		-in $(SERVER_DIR)/conf/ssl/cert.req \
-		-out $(SERVER_DIR)/conf/ssl/cert.pem \
-        -extfile test/conf/ssl/extensions.conf -extensions ssl_test
+test/data/ssl/valid_cert.pem:
+	$(MAKE) -C test/ data/ssl/valid_cert.pem

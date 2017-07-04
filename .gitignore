@@ -33,10 +33,4 @@ Makefile
 mod_cert-*.tar.gz
 m4
 .cache
-__pycache__
 src/a2md
-test/test.ini
-test/gen
-test/conf/httpd.conf
-test/conf/modules.conf
-test/*.pyc
