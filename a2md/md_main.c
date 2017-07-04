@@ -33,10 +33,12 @@
 #include "md_util.h"
 #include "mod_md.h"
 #include "md_version.h"
+
 #include "md_cmd.h"
 #include "md_cmd_acme.h"
 #include "md_cmd_reg.h"
 #include "md_cmd_store.h"
+#include "md_curl.h"
 
 
 /**************************************************************************************************/
@@ -376,6 +378,7 @@ int main(int argc, const char *const *argv)
         return 1;
     }
     
+    md_http_use_implementation(md_curl_impl);
     md_acme_init(p);
     md_cmd_ctx_init(&ctx, p, argc, argv);
     

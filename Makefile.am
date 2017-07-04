@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 SUBDIRS         = @BUILD_SUBDIRS@
-DIST_SUBDIRS    = src mod_md
+DIST_SUBDIRS    = src mod_md a2md
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -26,13 +26,13 @@ mod_md: src
 
 SERVER_DIR      = @SERVER_DIR@
 
-test: $(SERVER_DIR)/.test-setup src/a2md
+test: $(SERVER_DIR)/.test-setup a2md/a2md
 	@cd test; py.test
 
-test-drive: $(SERVER_DIR)/.test-setup src/a2md
+test-drive: $(SERVER_DIR)/.test-setup a2md/a2md
 	@cd test; py.test test_0500_drive.py
 
-test-configs: $(SERVER_DIR)/.test-setup src/a2md
+test-configs: $(SERVER_DIR)/.test-setup a2md/a2md
 	@cd test; py.test test_1000_conf_validate.py
 	@cd test; py.test test_1100_conf_store.py
 

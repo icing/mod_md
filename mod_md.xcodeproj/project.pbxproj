@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		B20333301EDC527B00E5BE7E /* md_cmd_reg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_reg.c; sourceTree = "<group>"; };
-		B20333311EDC527B00E5BE7E /* md_cmd_reg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_reg.h; sourceTree = "<group>"; };
 		B20333361EDDA82300E5BE7E /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
 		B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_acme_regs.py; sourceTree = "<group>"; };
 		B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0210_acme_tos.py; sourceTree = "<group>"; };
@@ -77,11 +75,17 @@
 		B2B81E981F0BB66D00E35CA3 /* valid_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = valid_cert.pem; sourceTree = "<group>"; };
 		B2B81E991F0BB66D00E35CA3 /* valid_cert.req */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = valid_cert.req; sourceTree = "<group>"; };
 		B2B81E9A1F0BB66D00E35CA3 /* valid_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = valid_pkey.pem; sourceTree = "<group>"; };
-		B2BCAB851ED84A42002F4EB9 /* md_cmd_acme.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_acme.c; sourceTree = "<group>"; };
-		B2BCAB861ED84A42002F4EB9 /* md_cmd_acme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_acme.h; sourceTree = "<group>"; };
-		B2BCAB871ED84A86002F4EB9 /* md_cmd_store.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_cmd_store.c; sourceTree = "<group>"; };
-		B2BCAB881ED84A86002F4EB9 /* md_cmd_store.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd_store.h; sourceTree = "<group>"; };
-		B2BCAB891ED84ABE002F4EB9 /* md_cmd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_cmd.h; sourceTree = "<group>"; };
+		B2B81E9C1F0BBEB100E35CA3 /* md_cmd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd.h; sourceTree = "<group>"; };
+		B2B81E9D1F0BBEB100E35CA3 /* md_cmd_acme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_cmd_acme.c; sourceTree = "<group>"; };
+		B2B81E9E1F0BBEB100E35CA3 /* md_cmd_acme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd_acme.h; sourceTree = "<group>"; };
+		B2B81E9F1F0BBEB100E35CA3 /* md_cmd_reg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_cmd_reg.c; sourceTree = "<group>"; };
+		B2B81EA01F0BBEB100E35CA3 /* md_cmd_reg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd_reg.h; sourceTree = "<group>"; };
+		B2B81EA11F0BBEB100E35CA3 /* md_cmd_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_cmd_store.c; sourceTree = "<group>"; };
+		B2B81EA21F0BBEB100E35CA3 /* md_cmd_store.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd_store.h; sourceTree = "<group>"; };
+		B2B81EA31F0BBEB100E35CA3 /* md_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_main.c; sourceTree = "<group>"; };
+		B2B81EA41F0BBED200E35CA3 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		B2B81EA51F0BE6D200E35CA3 /* md_curl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_curl.c; sourceTree = "<group>"; };
+		B2B81EA61F0BE6D200E35CA3 /* md_curl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_curl.h; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -186,9 +190,28 @@
 			path = ssl;
 			sourceTree = "<group>";
 		};
+		B2B81E9B1F0BBEB100E35CA3 /* a2md */ = {
+			isa = PBXGroup;
+			children = (
+				B2B81EA41F0BBED200E35CA3 /* Makefile.am */,
+				B2B81E9C1F0BBEB100E35CA3 /* md_cmd.h */,
+				B2B81E9D1F0BBEB100E35CA3 /* md_cmd_acme.c */,
+				B2B81E9E1F0BBEB100E35CA3 /* md_cmd_acme.h */,
+				B2B81E9F1F0BBEB100E35CA3 /* md_cmd_reg.c */,
+				B2B81EA01F0BBEB100E35CA3 /* md_cmd_reg.h */,
+				B2B81EA11F0BBEB100E35CA3 /* md_cmd_store.c */,
+				B2B81EA21F0BBEB100E35CA3 /* md_cmd_store.h */,
+				B2B81EA31F0BBEB100E35CA3 /* md_main.c */,
+				B2B81EA51F0BE6D200E35CA3 /* md_curl.c */,
+				B2B81EA61F0BE6D200E35CA3 /* md_curl.h */,
+			);
+			path = a2md;
+			sourceTree = SOURCE_ROOT;
+		};
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
+				B2B81E9B1F0BBEB100E35CA3 /* a2md */,
 				B2D309A01EBA229F007BECC8 /* AUTHORS */,
 				B2D309A11EBA229F007BECC8 /* ChangeLog */,
 				B2D309A21EBA229F007BECC8 /* configure.ac */,
@@ -256,13 +279,6 @@
 			children = (
 				B24051EE1EF9145000E36701 /* acme */,
 				B2D31B071EC33CBE007BECC8 /* Makefile.am */,
-				B2BCAB851ED84A42002F4EB9 /* md_cmd_acme.c */,
-				B2BCAB861ED84A42002F4EB9 /* md_cmd_acme.h */,
-				B20333301EDC527B00E5BE7E /* md_cmd_reg.c */,
-				B20333311EDC527B00E5BE7E /* md_cmd_reg.h */,
-				B2BCAB871ED84A86002F4EB9 /* md_cmd_store.c */,
-				B2BCAB881ED84A86002F4EB9 /* md_cmd_store.h */,
-				B2BCAB891ED84ABE002F4EB9 /* md_cmd.h */,
 				B24052151EF9145000E36701 /* md_core.c */,
 				B24052161EF9145000E36701 /* md_crypt.c */,
 				B24052171EF9145000E36701 /* md_crypt.h */,

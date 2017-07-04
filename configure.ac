@@ -129,7 +129,7 @@ else
     AC_MSG_NOTICE("using APXS=$APXS as configured")
 fi
 
-export BUILD_SUBDIRS="src mod_md test"
+export BUILD_SUBDIRS="src mod_md a2md test"
 
 prefix="$($APXS -q prefix)"
 export PREFIX="${prefix}"
@@ -204,6 +204,7 @@ AC_SUBST(LIBEXEC_DIR)
 
 AC_CONFIG_FILES([
     Makefile
+    a2md/Makefile
     mod_md/Makefile
     src/md_version.h
     src/Makefile

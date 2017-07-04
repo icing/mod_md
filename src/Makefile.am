@@ -19,10 +19,9 @@ AUTOMAKE_OPTIONS = foreign
 
 
 lib_LTLIBRARIES    = libapachemd.la
-bin_PROGRAMS       = a2md
 
 libapachemd_la_CPPFLAGS = -g -std=c99 -D_GNU_SOURCE -Werror
-libapachemd_la_LDFLAGS  = @LDFLAGS@ -lapr-1 -laprutil-1  -lcurl -lssl -lcrypto
+libapachemd_la_LDFLAGS  = @LDFLAGS@ -lapr-1 -laprutil-1
 
 A2LIB_OBJECTS = \
     acme/md_acme.c \
@@ -57,19 +56,3 @@ A2LIB_HFILES = \
     
 libapachemd_la_SOURCES = $(A2LIB_HFILES) $(A2LIB_OBJECTS)
 
-a2md_CFLAGS  = -g
-a2md_LDFLAGS = @LDFLAGS@ -lapachemd
-
-A2MD_OBJECTS = \
-    md_main.c \
-    md_cmd_acme.c \
-    md_cmd_reg.c \
-    md_cmd_store.c
-
-A2MD_HFILES = \
-    md_cmd.h \
-    md_cmd_acme.h \
-    md_cmd_reg.h \
-    md_cmd_store.h
-
-a2md_SOURCES = $(A2MD_HFILES) $(A2MD_OBJECTS)

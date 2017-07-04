@@ -18,6 +18,7 @@
 
 struct apr_table_t;
 struct apr_bucket_brigade;
+struct apr_bucket_alloc_t;
 
 typedef struct md_http_t md_http_t;
 
@@ -30,6 +31,7 @@ struct md_http_request_t {
     long id;
     md_http_t *http;
     apr_pool_t *pool;
+    struct apr_bucket_alloc_t *bucket_alloc;
     const char *method;
     const char *url;
     apr_table_t *headers;
@@ -72,6 +74,24 @@ apr_status_t md_http_POSTd(md_http_t *http, const char *url,
                            md_http_cb *cb, void *baton, long *preq_id);
 
 apr_status_t md_http_await(md_http_t *http, long req_id);
+
+void md_http_req_destroy(md_http_request_t *req);
+
+/**************************************************************************************************/
+/* interface to implementation */
+
+typedef apr_status_t md_http_init_cb(void);
+typedef void md_http_req_cleanup_cb(md_http_request_t *req);
+typedef apr_status_t md_http_perform_cb(md_http_request_t *req);
+
+typedef struct md_http_impl_t md_http_impl_t;
+struct md_http_impl_t {
+    md_http_init_cb *init;
+    md_http_req_cleanup_cb *req_cleanup;
+    md_http_perform_cb *perform;
+};
+
+void md_http_use_implementation(md_http_impl_t *impl);
 
 
 

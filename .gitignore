@@ -33,4 +33,4 @@ Makefile
 mod_cert-*.tar.gz
 m4
 .cache
-src/a2md
+a2md/a2md

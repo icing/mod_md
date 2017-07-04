@@ -1,7 +1,7 @@
 # test configuration
 
 [global]
-a2md_bin = ../src/a2md
+a2md_bin = ../a2md/a2md
 a2md_version = @PACKAGE_VERSION@
 prefix = @PREFIX@
 server_name = @SERVER_NAME@
