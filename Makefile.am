@@ -37,7 +37,8 @@ test-configs: $(SERVER_DIR)/.test-setup src/a2md
 	@cd test; py.test test_1100_conf_store.py
 
 $(SERVER_DIR)/.test-setup: test/conf/* \
-		$(SERVER_DIR)/conf/ssl/cert.pem
+		$(SERVER_DIR)/conf/ssl/cert.pem \
+		test/data/ssl/valid_cert.pem
 	@mkdir -p $(SERVER_DIR)/conf
 	@mkdir -p $(SERVER_DIR)/htdocs
 	@mkdir -p $(SERVER_DIR)/logs
@@ -63,4 +64,7 @@ $(SERVER_DIR)/conf/ssl/cert.pem: \
 		-signkey $(SERVER_DIR)/conf/ssl/cert.key \
 		-in $(SERVER_DIR)/conf/ssl/cert.req \
 		-out $(SERVER_DIR)/conf/ssl/cert.pem \
-        -extfile test/conf/ssl/extensions.conf -extensions ssl_test
+		-extfile test/conf/ssl/extensions.conf -extensions ssl_test
+
+test/data/ssl/valid_cert.pem:
+	$(MAKE) -C test/ data/ssl/valid_cert.pem
