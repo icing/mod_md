@@ -26,12 +26,13 @@ typedef enum {
 
 typedef struct md_config {
     const char *name;
+    const server_rec *s;
     
     apr_array_header_t *mds; /* array of md_t pointers */
     const char *ca_url;
     const char *ca_proto;
-    const md_t *emd;         /* effective md */
     
+    const md_t *md;
     const char *base_dir;
     struct md_store_t *store;
 } md_config_t;
@@ -41,8 +42,13 @@ void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv);
 
 extern const command_rec md_cmds[];
 
-const md_config_t *md_config_get(conn_rec *c);
-const md_config_t *md_config_sget(server_rec *s);
+/* Get the effective md configuration for the connection */
+const md_config_t *md_config_cget(conn_rec *c);
+/* Get the effective md configuration for the server */
+const md_config_t *md_config_get(server_rec *s);
+/* Get the effective md configuration for the server, but make it
+ * unique to this server_rec, so that any changes only affect this server */
+const md_config_t *md_config_get_unique(server_rec *s, apr_pool_t *p);
 
 const char *md_config_var_get(const md_config_t *config, md_config_var_t var);
 

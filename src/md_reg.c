@@ -163,6 +163,11 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                               "md{%s}: cert not valid yet", md->name);
             }
+            else if (!md_cert_covers_md(creds->cert, md)) {
+                state = MD_S_INCOMPLETE;
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                              "md{%s}: pending, cert does not cover all domains", md->name);
+            }
             else {
                 state = MD_S_COMPLETE;
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert valid", md->name);
@@ -624,7 +629,8 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->ca_agreement = md->ca_agreement;
                     fields |= MD_UPD_AGREEMENT;
                 }
-                if (!md_array_str_eq(md->contacts, smd->contacts, 0)) {
+                if (!apr_is_empty_array(md->contacts) 
+                    && !md_array_str_eq(md->contacts, smd->contacts, 0)) {
                     smd->contacts = md->contacts;
                     fields |= MD_UPD_CONTACTS;
                 }

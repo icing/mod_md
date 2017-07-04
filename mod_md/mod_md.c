@@ -59,7 +59,7 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
 
     mds = apr_array_make(p, 5, sizeof(const md_t *));
     for (s = base_server; s; s = s->next) {
-        config = (md_config_t *)md_config_sget(s);
+        config = (md_config_t *)md_config_get(s);
         
         for (i = 0; i < config->mds->nelts; ++i) {
         
@@ -118,27 +118,26 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
         for (s = base_server; s; s = s->next) {
             r.server = s;
             
-            if (strcmp(ap_http_scheme(&r), "https")) {
-                /* Not a TLS enabled server */
-                continue;
-            }
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                         "Server %s:%d uses https", s->server_hostname, s->port);
-            
             /* try finding a matching server for the domain, might be more than  one */ 
             for (j = 0; j < md->domains->nelts; ++j) {
                 domain = APR_ARRAY_IDX(md->domains, j, const char*);
                 
                 if (ap_matches_request_vhost(&r, domain, s->port)) {
+                    /* We need a unique md_config_t record for this server, since
+                     * we store settings specific to this individual server here */
+                    config = (md_config_t *)md_config_get_unique(s, p);
                 
-                    config = (md_config_t *)md_config_sget(s);
-                    if (config->emd == md) {
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                                 "Server %s:%d matches md %s (config %s)", 
+                                 s->server_hostname, s->port, md->name, config->name);
+                    
+                    if (config->md == md) {
                         /* already matched via another domain name */
                     }
-                    else if (config->emd) {
+                    else if (config->md) {
                         ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                      "Managed Domain %s matches server %s, but MD %s also matches.",
-                                     md->name, s->server_hostname, config->emd->name);
+                                     md->name, s->server_hostname, config->md->name);
                         rv = APR_EINVAL;
                     }
                     /* This server matches a managed domain. If it contains names or
@@ -167,10 +166,17 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                         }
                     }
                     
-                    config->emd = md;
-                    ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+                    config->md = md;
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
                                  "Managed Domain %s applies to vhost %s:%d", md->name,
                                  s->server_hostname, s->port);
+                    if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
+                        apr_array_clear(md->contacts);
+                        APR_ARRAY_PUSH(md->contacts, const char *) = s->server_admin;
+                        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                                     "Managed Domain %s assigned server admin %s", md->name,
+                                     s->server_admin);
+                    }
                     break;
                 }
             }
@@ -194,17 +200,15 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
     md_store_t *store;
     apr_status_t rv;
     
-    config = (md_config_t *)md_config_sget(s);
+    config = (md_config_t *)md_config_get(s);
     base_dir = md_config_var_get(config, MD_CONFIG_BASE_DIR);
     base_dir = ap_server_root_relative(p, base_dir);
     
-    rv = md_store_fs_init(&store, p, base_dir, 1);
-    
-    if (APR_SUCCESS == rv) {
+    if (APR_SUCCESS == (rv = md_store_fs_init(&store, p, base_dir, 1))) {
         config->store = store;
         
         for (s = s->next; s; s = s->next) {
-            config = (md_config_t *)md_config_sget(s);
+            config = (md_config_t *)md_config_get(s);
             config->store = store;
         }
     }

@@ -130,12 +130,12 @@
 			isa = PBXGroup;
 			children = (
 				B2B81E8D1F0A907900E35CA3 /* empty.conf */,
+				B262F6D01EFCFE1100D396A1 /* test_001.conf */,
+				B262F6D11EFCFE1100D396A1 /* test_002.conf */,
 				B2B81E8E1F0A907900E35CA3 /* test_003.conf */,
 				B2B81E8F1F0A907900E35CA3 /* test_004.conf */,
 				B2B81E901F0A907900E35CA3 /* test_005.conf */,
 				B2B81E911F0A907900E35CA3 /* test_006.conf */,
-				B262F6D01EFCFE1100D396A1 /* test_001.conf */,
-				B262F6D11EFCFE1100D396A1 /* test_002.conf */,
 			);
 			path = conf_store;
 			sourceTree = "<group>";

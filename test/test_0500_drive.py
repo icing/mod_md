@@ -60,22 +60,9 @@ class TestDrive :
         assert run['rv'] == 1
         assert re.search("need to accept terms-of-service", run["stderr"])
 
-    @pytest.mark.skip(reason="Without ACME URL it goes against the ACME LE production server")
-    def test_102(self):
-        # test case: md without ACME url
-        domain = "test102-" + TestDrive.dns_uniq
-        name = "www." + domain
-        assert TestEnv.run([TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", name])['rv'] == 0
-        assert TestEnv.a2md( 
-            [ "update", name, "contacts", "admin@" + domain ] 
-            )['rv'] == 0
-        assert TestEnv.a2md( 
-            [ "update", name, "agreement", TestEnv.ACME_TOS ] 
-            )['rv'] == 0
-        run = TestEnv.a2md( [ "drive", name ] )
-        assert run['rv'] == 1
-        assert re.search("no CA server URL", run["stderr"])
-
+    
+    # test_102 removed, was based on false assumption
+    
     def test_103(self):
         # test case: md with unknown protocol FOO
         domain = "test103-" + TestDrive.dns_uniq

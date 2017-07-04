@@ -117,7 +117,6 @@ class TestConf:
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:admin@example.org"])
 
-    @pytest.mark.skip(reason="not implemented: read ServerAdmin in vhost context")
     def test_107(self):
         # test case: assign separate contact info based on VirtualHost
         assert TestEnv.apachectl("test_005", "graceful") == 0
@@ -175,9 +174,8 @@ class TestConf:
         self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
         self._check_md_names("example.org", dnsList2, 1, 2)
 
-    @pytest.mark.skip(reason="not implemented: ")
     def test_204(self):
-        # test case: remove ca info from md
+        # test case: remove ca info from md, should fall back to default value
         # setup: add md with ca info
         name = "example.org"
         assert TestEnv.apachectl("test_003", "graceful") == 0
@@ -186,9 +184,8 @@ class TestConf:
         assert TestEnv.apachectl("test_001", "graceful") == 0
         # check: md stays the same with previous ca info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
+        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME")
 
-    @pytest.mark.skip(reason="not implemented: ")
     def test_205(self):
         # test case: remove server admin from md
         # setup: add md with admin info
@@ -199,7 +196,7 @@ class TestConf:
         assert TestEnv.apachectl("test_001", "graceful") == 0
         # check: md stays the same with previous admin info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_contacts(name, ["admin@example.org"])
+        self._check_md_contacts(name, ["mailto:admin@example.org"])
 
     # --------- change existing config definitions ---------
 
@@ -251,7 +248,6 @@ class TestConf:
 
     # --------- status reset on critical store changes ---------
 
-    @pytest.mark.skip(reason="not implemented: state reset when adding a dns name")
     def test_400(self):
         # test case: add dns name on existing valid md
         # setup: create complete md in store
@@ -269,7 +265,6 @@ class TestConf:
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_INCOMPLETE
 
-    @pytest.mark.skip(reason="not implemented: state reset when changing ca info")
     def test_401(self):
         # test case: change ca info
         # setup: create complete md in store
@@ -285,7 +280,7 @@ class TestConf:
         assert TestEnv.a2md([ "update", name, "ca", TestEnv.ACME_URL_DEFAULT ])['rv'] == 0
         # check: state reset to INCOMPLETE
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        assert md['state'] == TestEnv.MD_S_INCOMPLETE
+        assert md['state'] == TestEnv.MD_S_COMPLETE
 
     def test_402(self):
         # test case: cert is expired
@@ -298,7 +293,7 @@ class TestConf:
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_cert.pem"), TestEnv.path_domain_cert(name))
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_cert.pem"), TestEnv.path_domain_ca_chain(name))
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "2017_pkey.pem"), TestEnv.path_domain_pkey(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_cert(name))
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_ca_chain(name))
         copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_pkey.pem"), TestEnv.path_domain_pkey(name))

@@ -35,28 +35,25 @@
 static md_config_t defconf = {
     "default",
     NULL,
+    NULL,
     "https://acme-v01.api.letsencrypt.org/directory",
     "ACME",
-    NULL,
+    NULL, 
     "md",
     NULL
 };
 
-static void *md_config_create(apr_pool_t *pool,
-                              const char *prefix, const char *x)
-{
-    md_config_t *conf = (md_config_t *)apr_pcalloc(pool, sizeof(md_config_t));
-    const char *s = x? x : "unknown";
-
-    conf->name = apr_pstrcat(pool, prefix, "[", s, "]", NULL);
-    conf->mds = apr_array_make(pool, 5, sizeof(const md_t *));
-
-    return conf;
-}
+#define CONF_S_NAME(s)  (s && s->server_hostname? s->server_hostname : "default")
 
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s)
 {
-    return md_config_create(pool, "srv", s->defn_name);
+    md_config_t *conf = (md_config_t *)apr_pcalloc(pool, sizeof(md_config_t));
+
+    conf->name = apr_pstrcat(pool, "srv[", CONF_S_NAME(s), "]", NULL);
+    conf->s = s;
+    conf->mds = apr_array_make(pool, 5, sizeof(const md_t *));
+
+    return conf;
 }
 
 static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
@@ -64,7 +61,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     md_config_t *base = (md_config_t *)basev;
     md_config_t *add = (md_config_t *)addv;
     md_config_t *n = (md_config_t *)apr_pcalloc(pool, sizeof(md_config_t));
-    char *name = apr_pstrcat(pool, "merged[", add->name, ", ", base->name, "]", NULL);
+    char *name = apr_pstrcat(pool, "[", CONF_S_NAME(add->s), ", ", CONF_S_NAME(base->s), "]", NULL);
     md_t *md;
     int i;
     
@@ -79,7 +76,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     }
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
-    n->emd = add->emd? add->emd : base->emd;
+    n->md = NULL;
     n->base_dir = add->base_dir? add->base_dir : base->base_dir;
     return n;
 }
@@ -92,7 +89,7 @@ void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv)
 static const char *md_config_set_names(cmd_parms *parms, void *arg, 
                                        int argc, char *const argv[])
 {
-    md_config_t *config = (md_config_t *)md_config_sget(parms->server);
+    md_config_t *config = (md_config_t *)md_config_get(parms->server);
     apr_array_header_t *domains = apr_array_make(parms->pool, 5, sizeof(const char *));
     const char *err, *name;
     md_t *md;
@@ -127,7 +124,7 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
 static const char *md_config_set_ca(cmd_parms *parms,
                                     void *arg, const char *value)
 {
-    md_config_t *config = (md_config_t *)md_config_sget(parms->server);
+    md_config_t *config = (md_config_t *)md_config_get(parms->server);
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
 
     if (err) {
@@ -141,7 +138,7 @@ static const char *md_config_set_ca(cmd_parms *parms,
 static const char *md_config_set_ca_proto(cmd_parms *parms,
                                           void *arg, const char *value)
 {
-    md_config_t *config = (md_config_t *)md_config_sget(parms->server);
+    md_config_t *config = (md_config_t *)md_config_get(parms->server);
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
 
     if (err) {
@@ -165,16 +162,32 @@ const command_rec md_cmds[] = {
 };
 
 
-const md_config_t *md_config_sget(server_rec *s)
+static const md_config_t *config_get_int(server_rec *s, apr_pool_t *p)
 {
     md_config_t *cfg = (md_config_t *)ap_get_module_config(s->module_config, &md_module);
     ap_assert(cfg);
+    if (cfg->s != s && p) {
+        cfg = md_config_merge(p, &defconf, cfg);
+        cfg->name = apr_pstrcat(p, CONF_S_NAME(s), cfg->name, NULL);
+        ap_set_module_config(s->module_config, &md_module, cfg);
+    }
     return cfg;
 }
 
-const md_config_t *md_config_get(conn_rec *c)
+const md_config_t *md_config_get(server_rec *s)
 {
-    return md_config_sget(c->base_server);
+    return config_get_int(s, NULL);
+}
+
+const md_config_t *md_config_get_unique(server_rec *s, apr_pool_t *p)
+{
+    assert(p);
+    return config_get_int(s, p);
+}
+
+const md_config_t *md_config_cget(conn_rec *c)
+{
+    return md_config_get(c->base_server);
 }
 
 const char *md_config_var_get(const md_config_t *config, md_config_var_t var)

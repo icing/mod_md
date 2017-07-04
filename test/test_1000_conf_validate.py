@@ -94,7 +94,7 @@ class TestConf:
     def test_009(self):
         # vhosts with overlapping MDs
         assert TestEnv.apachectl("test_009", "graceful") == 0
-        assert self.new_errors() == 3
+        assert self.new_errors() == 2
 
     def test_010(self):
         # ManagedDomain, vhost with matching ServerAlias
