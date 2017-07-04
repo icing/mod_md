@@ -19,10 +19,10 @@ data/ssl/valid_pkey.pem:
 
 data/ssl/valid_cert.req: \
 		data/ssl/valid_pkey.pem \
-		data/ssl/req-template.conf
+		data/ssl/req_template.conf
 	openssl req -new -key data/ssl/valid_pkey.pem \
 		-out data/ssl/valid_cert.req \
-		-config data/ssl/req-template.conf
+		-config data/ssl/req_template.conf
 
 data/ssl/valid_cert.pem: \
 		data/ssl/valid_pkey.pem \
@@ -30,7 +30,9 @@ data/ssl/valid_cert.pem: \
 	openssl x509 -req -sha256 -days 1095 \
 		-signkey data/ssl/valid_pkey.pem \
 		-in data/ssl/valid_cert.req \
-		-out data/ssl/valid_cert.pem
+		-out data/ssl/valid_cert.pem \
+		-extfile data/ssl/req_exts.conf -extensions v3_req_ext
 
 clean-local:
-	-rm -f data/ssl/valid_*
+	rm -f data/ssl/valid_*
+	rm -rf *.pyc __pycache__

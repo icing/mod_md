@@ -42,7 +42,7 @@ class TestRegAdd :
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
@@ -59,7 +59,7 @@ class TestRegAdd :
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
@@ -81,7 +81,7 @@ class TestRegAdd :
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }]
         assert len(TestEnv.a2md( [ "list" ] )['jout']['output']) == 2
 
@@ -104,7 +104,7 @@ class TestRegAdd :
             "ca": {
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }]
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
@@ -203,5 +203,5 @@ class TestRegAdd :
                     "url": TestEnv.ACME_URL,
                     "proto": "ACME"
                 },
-                "state": 1
+                "state": TestEnv.MD_S_INCOMPLETE
             }

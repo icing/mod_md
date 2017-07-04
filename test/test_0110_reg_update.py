@@ -54,7 +54,7 @@ class TestRegUpdate :
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }]
         # list store content
         assert TestEnv.a2md(["list"])['jout']['output'][0] == output1[0]
@@ -114,7 +114,7 @@ class TestRegUpdate :
                 "url": url,
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }]
 
     @pytest.mark.parametrize("invalidURL", [
@@ -148,7 +148,7 @@ class TestRegUpdate :
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }]
 
     def test_301(self):
@@ -197,7 +197,7 @@ class TestRegUpdate :
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }]
 
     def test_401(self):
@@ -251,7 +251,7 @@ class TestRegUpdate :
                 "proto": "ACME",
                 "agreement": TestEnv.ACME_TOS
             },
-            "state": 1
+            "state": TestEnv.MD_S_INCOMPLETE
         }]
 
     def test_501(self):
