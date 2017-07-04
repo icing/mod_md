@@ -86,9 +86,6 @@ class TestDrive :
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        # check state
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        assert md['state'] == TestEnv.MD_S_COMPLETE
 
     def test_201(self):
         # test case: md with 2 domains
@@ -283,6 +280,7 @@ class TestDrive :
         name = dnsList[0]
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         # check tos agreement, cert url
+        assert md['state'] == TestEnv.MD_S_COMPLETE
         assert md['ca']['agreement'] == TestEnv.ACME_TOS
         assert "url" in md['cert']
 

@@ -22,8 +22,7 @@ def setup_module(module):
     TestEnv.init()
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/conf_store"
-    status = TestEnv.apachectl(None, "start")
-    assert status == 0
+    assert TestEnv.apachectl(None, "start") == 0
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
@@ -281,24 +280,6 @@ class TestConf:
         # check: state reset to INCOMPLETE
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_COMPLETE
-
-    
-    def test_402(self):
-        # test case: cert is expired
-        name = "example.org"
-        assert TestEnv.a2md(["add", name])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "valid_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "valid_pkey.pem"), TestEnv.path_domain_pkey(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_cert.pem"), TestEnv.path_domain_ca_chain(name))
-        copyfile(os.path.join(TestEnv.TESTROOT, "data", "ssl", "expired_pkey.pem"), TestEnv.path_domain_pkey(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_EXPIRED
 
     # --------- _utils_ ---------
 

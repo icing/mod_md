@@ -172,36 +172,3 @@ class TestRegAdd :
         md = jout['output'][0]
         assert md['domains'] == dns
 
-    # --------- list ---------
-
-    def test_200(self):
-        # test case: list empty store
-        jout = TestEnv.a2md( [ "list" ] )['jout']
-        assert 'output' not in jout
-        assert jout['status'] == 0
-
-    def test_201(self):
-        # test case: list two managed domains
-        # setup: add managed domains
-        dnslist = [ 
-            [ "test-100.com", "test-101.com", "test-102.com" ],
-            [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"]
-        ]
-        for dns in dnslist:
-            assert TestEnv.a2md( [ "add" ] + dns )['rv'] == 0
-            
-        # list all store content
-        jout = TestEnv.a2md( [ "list" ] )['jout']
-        assert len(jout['output']) == len(dnslist)
-        dnslist.reverse()
-        for i in range (0, len(jout['output'])):
-            assert jout['output'][i] == {
-                "name": dnslist[i][0],
-                "domains": dnslist[i],
-                "contacts": [],
-                "ca": {
-                    "url": TestEnv.ACME_URL,
-                    "proto": "ACME"
-                },
-                "state": TestEnv.MD_S_INCOMPLETE
-            }
