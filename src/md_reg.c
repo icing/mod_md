@@ -149,7 +149,9 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
 {
     md_state_t state = MD_S_UNKNOWN;
     const md_creds_t *creds;
+    const md_cert_t *cert;
     apr_status_t rv;
+    int i;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, md, p))) {
         state = MD_S_INCOMPLETE;
@@ -157,31 +159,44 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
             if (md_cert_has_expired(creds->cert)) {
                 state = MD_S_EXPIRED;
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert expired", md->name);
+                goto out;
             }
-            else if (!md_cert_is_valid_now(creds->cert)) {
+            if (!md_cert_is_valid_now(creds->cert)) {
                 state = MD_S_ERROR;
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                               "md{%s}: cert not valid yet", md->name);
+                goto out;
             }
-            else if (!md_cert_covers_md(creds->cert, md)) {
+            if (!md_cert_covers_md(creds->cert, md)) {
                 state = MD_S_INCOMPLETE;
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                               "md{%s}: pending, cert does not cover all domains", md->name);
+                goto out;
             }
-            else {
-                state = MD_S_COMPLETE;
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert valid", md->name);
-            }
+
+            for (i = 0; i < creds->chain->nelts; ++i) {
+                cert = APR_ARRAY_IDX(creds->chain, i, const md_cert_t *);
+                if (!md_cert_is_valid_now(cert)) {
+                    state = MD_S_EXPIRED;
+                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                                  "md{%s}: chain cert #%d not valid", md->name, i);
+                    goto out;
+                }
+            } 
+
+            state = MD_S_COMPLETE;
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert valid", md->name);
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: has cert=%d/pkey=%d/chain=%d", 
                           md->name, !!creds->cert, !!creds->pkey, !!creds->chain);
         }
     }
-    
+
+out:    
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}{state}: %d", md->name, state);
         state = MD_S_ERROR;
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}{state}: %d", md->name, state);
     }
     /* break the constness, ugly but effective */
     ((md_t *)md)->state = state;

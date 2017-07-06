@@ -344,13 +344,13 @@ void md_cert_free(md_cert_t *cert)
     cert_cleanup(cert);
 }
 
-int md_cert_is_valid_now(md_cert_t *cert)
+int md_cert_is_valid_now(const md_cert_t *cert)
 {
     return ((X509_cmp_current_time(X509_get_notBefore(cert->x509)) < 0)
             && (X509_cmp_current_time(X509_get_notAfter(cert->x509)) > 0));
 }
 
-int md_cert_has_expired(md_cert_t *cert)
+int md_cert_has_expired(const md_cert_t *cert)
 {
     return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) <= 0);
 }
@@ -543,7 +543,7 @@ apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const ch
 {
     FILE *f;
     apr_status_t rv;
-    apr_array_header_t *certs;
+    apr_array_header_t *certs = NULL;
     X509 *x509;
     md_cert_t *cert;
     unsigned long err;
@@ -557,19 +557,33 @@ apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const ch
             cert = make_cert(p, x509);
             APR_ARRAY_PUSH(certs, md_cert_t *) = cert;
         }
-        
-        if (cert->x509 != NULL) {
-            rv = APR_SUCCESS;
-            apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
-        }
-        rv = fclose(f);
+        fclose(f);
         
         if (0 < (err =  ERR_get_error())
             && !(ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE)) {
             /* not the expected one when no more PEM encodings are found */
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "reading chain %s: %d", fname, err);
             rv = APR_EINVAL;
+            goto out;
         }
+        
+        if (certs->nelts == 0) {
+            /* Did not find any. This is acceptable unless the file has a certain size
+             * when we no longer accept it as empty chain file. Something seems to be
+             * wrong then. */
+            apr_finfo_t info;
+            if (APR_SUCCESS == apr_stat(&info, fname, APR_FINFO_SIZE, p) && info.size >= 1024) {
+                /* "Too big for a moon." */
+                rv = APR_EINVAL;
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                              "no certificates in non-empty chain %s", fname);
+                goto out;
+            }
+        }        
     }
+out:
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, p, "read chain file %s, found %d certs", 
+                  fname, certs? certs->nelts : 0);
     *pcerts = (APR_SUCCESS == rv)? certs : NULL;
     return rv;
 }
