@@ -82,7 +82,7 @@ class TestDrive :
         domain = "test200-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
@@ -92,7 +92,7 @@ class TestDrive :
         domain = "test201-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name, "test." + domain ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
@@ -103,7 +103,7 @@ class TestDrive :
         domain = "test202-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: create account on server
         run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
         assert run['rv'] == 0
@@ -121,7 +121,7 @@ class TestDrive :
         name = "www." + domain
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + domain ])['rv'] == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: create account on server
         run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
         assert run['rv'] == 0
@@ -140,7 +140,7 @@ class TestDrive :
         domain = "test204-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: create account on server
         run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
         assert run['rv'] == 0
@@ -175,7 +175,7 @@ class TestDrive :
         domain = "test205-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: create account on server
         run = TestEnv.a2md( ["acme", "newreg", "test@" + domain], raw=True )
         assert run['rv'] == 0
@@ -198,7 +198,7 @@ class TestDrive :
         domain = "test300-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         old_cert = CertUtil(TestEnv.path_domain_cert(name))
@@ -219,7 +219,7 @@ class TestDrive :
         domain = "test400-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name, "test." + domain, "xxx." + domain ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         old_cert = CertUtil(TestEnv.path_domain_cert(name))
@@ -237,7 +237,7 @@ class TestDrive :
         domain = "test401-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         old_cert = CertUtil(TestEnv.path_domain_cert(name))

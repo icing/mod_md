@@ -362,10 +362,27 @@ apr_status_t md_json_setj(md_json_t *value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
+    const char *key;
+    json_t *j;
     
-    va_start(ap, json);
-    rv = select_set(value->j, json, ap);
-    va_end(ap);
+    if (value) {
+        va_start(ap, json);
+        rv = select_set(value->j, json, ap);
+        va_end(ap);
+    }
+    else {
+        va_start(ap, json);
+        j = select_parent(&key, 1, json, ap);
+        va_end(ap);
+        
+        if (key && j && !json_is_object(j)) {
+            json_object_del(j, key);
+            rv = APR_SUCCESS;
+        }
+        else {
+            rv = APR_EINVAL;
+        }
+    }
     return rv;
 }
 

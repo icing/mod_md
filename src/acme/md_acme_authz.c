@@ -34,7 +34,6 @@
 #include "../md_util.h"
 
 #include "md_acme.h"
-#include "md_acme_acct.h"
 #include "md_acme_authz.h"
 
 md_acme_authz_t *md_acme_authz_create(apr_pool_t *p)
@@ -45,12 +44,12 @@ md_acme_authz_t *md_acme_authz_create(apr_pool_t *p)
     return authz;
 }
 
-md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p, const char *acct_id)
+md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p, md_acme_t *acme)
 {
     md_acme_authz_set_t *authz_set;
     
     authz_set = apr_pcalloc(p, sizeof(*authz_set));
-    authz_set->acct_id = acct_id;
+    authz_set->acct_id = md_acme_get_acct(acme);
     authz_set->authzs = apr_array_make(p, 5, sizeof(md_acme_authz_t *));
     
     return authz_set;
@@ -118,19 +117,17 @@ typedef struct {
 typedef struct {
     apr_pool_t *p;
     md_acme_t *acme;
-    md_acme_acct_t *acct;
     const char *domain;
     md_acme_authz_t *authz;
     md_acme_authz_cha_t *challenge;
 } authz_req_ctx;
 
-static void authz_req_ctx_init(authz_req_ctx *ctx, md_acme_t *acme, md_acme_acct_t *acct, 
+static void authz_req_ctx_init(authz_req_ctx *ctx, md_acme_t *acme, 
                                const char *domain, md_acme_authz_t *authz, apr_pool_t *p)
 {
     memset(ctx, 0, sizeof(*ctx));
     ctx->p = p;
     ctx->acme = acme;
-    ctx->acct = acct;
     ctx->domain = domain;
     ctx->authz = authz;
 }
@@ -140,12 +137,12 @@ static apr_status_t on_init_authz(md_acme_req_t *req, void *baton)
     authz_req_ctx *ctx = baton;
     md_json_t *jpayload;
 
-    jpayload = md_json_create(req->pool);
+    jpayload = md_json_create(req->p);
     md_json_sets("new-authz", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_sets("dns", jpayload, MD_KEY_IDENTIFIER, MD_KEY_TYPE, NULL);
     md_json_sets(ctx->domain, jpayload, MD_KEY_IDENTIFIER, MD_KEY_VALUE, NULL);
     
-    return md_acme_req_body_init(req, jpayload, ctx->acct->key);
+    return md_acme_req_body_init(req, jpayload);
 } 
 
 static apr_status_t authz_created(md_acme_t *acme, const apr_table_t *hdrs, 
@@ -170,14 +167,14 @@ static apr_status_t authz_created(md_acme_t *acme, const apr_table_t *hdrs,
 }
 
 apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *acme, 
-                                    const char *domain, md_acme_acct_t *acct, apr_pool_t *p)
+                                    const char *domain, apr_pool_t *p)
 {
     apr_status_t rv;
     authz_req_ctx ctx;
     
-    authz_req_ctx_init(&ctx, acme, acct, domain, NULL, p);
+    authz_req_ctx_init(&ctx, acme, domain, NULL, p);
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "create new authz");
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "create new authz");
     rv = md_acme_POST(acme, acme->new_authz, on_init_authz, authz_created, NULL, &ctx);
     
     *pauthz = (APR_SUCCESS == rv)? ctx.authz : NULL;
@@ -187,8 +184,7 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
 /**************************************************************************************************/
 /* Update an exiosting authorization */
 
-apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, 
-                                  md_acme_acct_t *acct, apr_pool_t *p)
+apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_pool_t *p)
 {
     md_json_t *json;
     const char *s;
@@ -199,7 +195,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
     assert(authz);
     assert(authz->location);
 
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "update authz for %s at %s",
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "update authz for %s at %s",
         authz->domain, authz->location);
         
     if (APR_SUCCESS == (rv = md_acme_get_json(&json, acme, authz->location, p))) {
@@ -221,7 +217,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
             authz->state = MD_ACME_AUTHZ_S_INVALID;
         }
         else if (s) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acct->pool, "unknown authz state '%s' "
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "unknown authz state '%s' "
                           "for %s in %s", s, authz->domain, authz->location);
             return APR_EINVAL;
         }
@@ -251,12 +247,12 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
     authz_req_ctx *ctx = baton;
     md_json_t *jpayload;
 
-    jpayload = md_json_create(req->pool);
+    jpayload = md_json_create(req->p);
     /*md_json_sets(ctx->challenge->type, jpayload, MD_KEY_TYPE, NULL);*/
     md_json_sets("challenge", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);
     
-    return md_acme_req_body_init(req, jpayload, ctx->acct->key);
+    return md_acme_req_body_init(req, jpayload);
 } 
 
 static apr_status_t authz_http_set(md_acme_t *acme, const apr_table_t *hdrs, 
@@ -269,23 +265,16 @@ static apr_status_t authz_http_set(md_acme_t *acme, const apr_table_t *hdrs,
 }
 
 static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                      md_acme_t *acme, md_acme_acct_t *acct, 
-                                      md_store_t *store, apr_pool_t *p)
+                                      md_acme_t *acme, apr_pool_t *p)
 {
     const char *thumb64, *key_authz, *data;
     apr_status_t rv;
     int notify_server = 0;
     
-    assert(acct);
-    
-    
-    
-    assert(acct->id);
-    assert(acct->key);
     assert(cha);
     assert(cha->token);
     
-    if (APR_SUCCESS == (rv = md_jws_pkey_thumb(&thumb64, p, acct->key))) {
+    if (APR_SUCCESS == (rv = md_jws_pkey_thumb(&thumb64, p, acme->acct_key))) {
         key_authz = apr_psprintf(p, "%s.%s", cha->token, thumb64);
         if (cha->key_authz) {
             if (strcmp(key_authz, cha->key_authz)) {
@@ -299,11 +288,11 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
         }
     }
     
-    rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
+    rv = md_store_load(acme->store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                        MD_SV_TEXT, (void**)&data, p);
     if ((APR_SUCCESS == rv && strcmp(key_authz, data)) 
         || APR_STATUS_IS_ENOENT(rv)) {
-        rv = md_store_save(store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
+        rv = md_store_save(acme->store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                            MD_SV_TEXT, (void*)key_authz, 0);
         notify_server = 1;
     }
@@ -313,7 +302,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
 
         /* challenge is setup or was changed from previous data, tell ACME server
          * so it may (re)try verification */        
-        authz_req_ctx_init(&ctx, acme, acct, NULL, authz, p);
+        authz_req_ctx_init(&ctx, acme, NULL, authz, p);
         ctx.challenge = cha;
         rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
     }
@@ -321,8 +310,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
 }
 
 static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                         md_acme_t *acme, md_acme_acct_t *acct, 
-                                         md_store_t *store, apr_pool_t *p)
+                                         md_acme_t *acme, apr_pool_t *p)
 {
     return APR_ENOTIMPL;
 }
@@ -354,14 +342,12 @@ static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
 }
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, 
-                                   md_acme_acct_t *acct, md_store_t *store,
                                    int http_01, int tls_sni_01, apr_pool_t *p)
 {
     apr_status_t rv;
     cha_find_ctx fctx;
     
     assert(acme);
-    assert(acct);
     assert(authz);
     assert(authz->resource);
 
@@ -373,10 +359,10 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme,
     md_json_itera(add_candidates, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
     
     if (fctx.http_01) {
-        rv = cha_http_01_setup(fctx.http_01, authz, acme, acct, store, p);
+        rv = cha_http_01_setup(fctx.http_01, authz, acme, p);
     }
     else if (fctx.tls_sni_01) {
-        rv = cha_tls_sni_01_setup(fctx.tls_sni_01, authz, acme, acct, store, p);
+        rv = cha_tls_sni_01_setup(fctx.tls_sni_01, authz, acme, p);
     }
     else {
         rv = APR_ENOTIMPL;
@@ -391,19 +377,17 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme,
 
 typedef struct {
     apr_pool_t *p;
-    md_acme_acct_t *acct;
     md_acme_authz_t *authz;
 } del_ctx;
 
 static apr_status_t on_init_authz_del(md_acme_req_t *req, void *baton)
 {
-    authz_req_ctx *ctx = baton;
     md_json_t *jpayload;
 
-    jpayload = md_json_create(req->pool);
+    jpayload = md_json_create(req->p);
     md_json_sets("deactivated", jpayload, MD_KEY_STATUS, NULL);
     
-    return md_acme_req_body_init(req, jpayload, ctx->acct->key);
+    return md_acme_req_body_init(req, jpayload);
 } 
 
 static apr_status_t authz_del(md_acme_t *acme, const apr_table_t *hdrs, 
@@ -412,16 +396,15 @@ static apr_status_t authz_del(md_acme_t *acme, const apr_table_t *hdrs,
     authz_req_ctx *ctx = baton;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "deleted authz %s", ctx->authz->location);
+    acme->acct = NULL;
     return APR_SUCCESS;
 }
 
-apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme, 
-                               md_acme_acct_t *acct, apr_pool_t *p)
+apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme, apr_pool_t *p)
 {
     authz_req_ctx ctx;
     
     ctx.p = p;
-    ctx.acct = acct;
     ctx.authz = authz;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "delete authz for %s from %s", 

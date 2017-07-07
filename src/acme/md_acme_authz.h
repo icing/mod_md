@@ -55,16 +55,13 @@ md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p);
 
 /* authz interaction with ACME server */
 apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, struct md_acme_t *acme, 
-                                    const char *domain, struct md_acme_acct_t *acct, apr_pool_t *p);
+                                    const char *domain, apr_pool_t *p);
 
-apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme, 
-                                  struct md_acme_acct_t *acct, apr_pool_t *p);
+apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme, apr_pool_t *p);
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, struct md_acme_t *acme, 
-                                   struct md_acme_acct_t *acct, struct md_store_t *store,
                                    int http_01, int tls_sni_01, apr_pool_t *p);
-apr_status_t md_acme_authz_del(md_acme_authz_t *authz, struct md_acme_t *acme, 
-                               struct md_acme_acct_t *acct, apr_pool_t *p);
+apr_status_t md_acme_authz_del(md_acme_authz_t *authz, struct md_acme_t *acme, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* set of authz data for a managed domain */
@@ -76,7 +73,7 @@ struct md_acme_authz_set_t {
     struct apr_array_header_t *authzs;
 };
 
-md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p, const char *acct_id);
+md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p, struct md_acme_t *acme);
 md_acme_authz_t *md_acme_authz_set_get(md_acme_authz_set_t *set, const char *domain);
 apr_status_t md_acme_authz_set_add(md_acme_authz_set_t *set, md_acme_authz_t *authz);
 apr_status_t md_acme_authz_set_remove(md_acme_authz_set_t *set, const char *domain);

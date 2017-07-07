@@ -43,7 +43,6 @@
 static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_status_t rv = APR_SUCCESS;
-    md_acme_acct_t *acct;
     int i;
     
     apr_array_header_t *contacts = apr_array_make(ctx->p, 5, sizeof(const char *));
@@ -54,10 +53,10 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
-    rv = md_acme_register(&acct, ctx->store, ctx->acme, contacts, ctx->tos);
+    rv = md_acme_create_acct(ctx->acme, contacts, ctx->tos);
     
     if (rv == APR_SUCCESS) {
-        fprintf(stdout, "registered: %s\n", acct->id);
+        fprintf(stdout, "registered: %s\n", md_acme_get_acct(ctx->acme));
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "register new account");
@@ -79,12 +78,11 @@ static md_cmd_t AcmeNewregCmd = {
 static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name, 
                                    const char *tos, apr_pool_t *p) 
 {
-    md_acme_acct_t *acct;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, name, p))) {
+    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, name))) {
         if (!tos) {
-            tos = acct->agreement;
+            tos = ctx->acme->acct->agreement;
             if (!tos) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
                               "terms-of-service not specified (--terms), using default %s", 
@@ -92,9 +90,9 @@ static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name,
                 tos = TOS_DEFAULT;
             }
         }
-        rv = md_acme_acct_agree_tos(ctx->acme, acct, tos);
+        rv = md_acme_agree(ctx->acme, tos);
         if (rv == APR_SUCCESS) {
-            fprintf(stdout, "agreed terms-of-service: %s\n", acct->url);
+            fprintf(stdout, "agreed terms-of-service: %s\n", ctx->acme->acct->url);
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "agree to terms-of-service %s", tos);
@@ -133,23 +131,17 @@ static md_cmd_t AcmeAgreeCmd = {
 
 static apr_status_t acct_validate(md_cmd_ctx *ctx, const char *name, apr_pool_t *p) 
 {
-    md_acme_acct_t *acct;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, name, p))) {
-    
-        rv = md_acme_acct_validate(ctx->acme, acct);
-        if (rv == APR_SUCCESS) {
-            fprintf(stdout, "account valid: %s\n", acct->url);
-        }
-        else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "validating account: %s", acct->url);
-        }
+    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, name))) {
+        fprintf(stdout, "account valid: %s\n", name);
     }
     else if (APR_ENOENT == rv) {
         fprintf(stderr, "unknown account: %s", name);
     }
-
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "validating account: %s", name);
+    }
     return rv;
 }
 
@@ -177,26 +169,32 @@ static md_cmd_t AcmeValidateCmd = {
 /**************************************************************************************************/
 /* command: acme delreg */
 
-static apr_status_t acme_delreg(md_store_t *store, const char *name, apr_pool_t *p) 
+static apr_status_t acme_delreg(md_cmd_ctx *ctx, const char *name, apr_pool_t *p) 
 {
-    md_acme_acct_t *acct;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, store, name, p))) {
-        rv = md_acme_acct_del(acct);
-        if (rv == APR_SUCCESS) {
-            fprintf(stdout, "deleted: %s\n", acct->url);
-            
+    if (ctx->acme) {
+        if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, name))) {
+            rv = md_acme_delete_acct(ctx->acme);
+            if (rv == APR_SUCCESS) {
+                fprintf(stdout, "deleted: %s\n", name);
+            }
+            else {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "delete account");
+            }
+        }
+        else if (APR_ENOENT == rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "unknown account: %s", name);
         }
         else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "delete account");
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "loading account: %s", name);
         }
     }
-    else if (APR_ENOENT == rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "unknown account: %s", name);
+    else if (ctx->store) {
+        rv = md_acme_unstore_acct(ctx->store, name);
     }
     else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "loading account: %s", name);
+        rv = APR_EGENERAL;
     }
     return rv;
 }
@@ -207,7 +205,7 @@ static apr_status_t cmd_acme_delreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     int i;
     
     for (i = 0; i < ctx->argc; ++i) {
-        rv = acme_delreg(ctx->store, ctx->argv[i], ctx->p);
+        rv = acme_delreg(ctx, ctx->argv[i], ctx->p);
         if (rv != APR_SUCCESS) {
             break;
         }
@@ -230,7 +228,7 @@ static apr_status_t acme_newauthz(md_cmd_ctx *ctx, md_acme_acct_t *acct, const c
     apr_status_t rv;
     md_acme_authz_t *authz;
     
-    rv = md_acme_authz_register(&authz, ctx->acme, domain, acct, ctx->p); 
+    rv = md_acme_authz_register(&authz, ctx->acme, domain, ctx->p); 
     
     if (rv == APR_SUCCESS) {
         fprintf(stdout, "authz: %s %s\n", domain, authz->location);
@@ -244,7 +242,6 @@ static apr_status_t acme_newauthz(md_cmd_ctx *ctx, md_acme_acct_t *acct, const c
 static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     const char *s;
-    md_acme_acct_t *acct;
     apr_status_t rv;
     int i;
     
@@ -252,9 +249,9 @@ static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, NULL);
     }
     s = ctx->argv[0];
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, ctx->store, s, ctx->p))) {
+    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, s))) {
         for (i = 1; i < ctx->argc; ++i) {
-            rv = acme_newauthz(ctx, acct, ctx->argv[i]);
+            rv = acme_newauthz(ctx, ctx->acme->acct, ctx->argv[i]);
             if (rv != APR_SUCCESS) {
                 break;
             }

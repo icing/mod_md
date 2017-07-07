@@ -48,7 +48,7 @@ class TestConf:
     def test_001(self):
         # test case: no md definitions in config
         assert TestEnv.apachectl("empty", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         jout = TestEnv.a2md(["list"])['jout']
         assert "output" not in jout
 
@@ -59,17 +59,17 @@ class TestConf:
     def test_100(self, confFile, dnsLists, mdCount):
         # test case: add md definitions on empty store
         assert TestEnv.apachectl(confFile, "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         for i in range (0, len(dnsLists)):
             self._check_md_names(dnsLists[i][0], dnsLists[i], 1, mdCount)
 
     def test_101(self):
         # test case: add managed domains as separate steps
         assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
         assert TestEnv.apachectl("test_002", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)
         self._check_md_names("example2.org", ["example2.org", "www.example2.org", "mail.example2.org"], 1, 2)
 
@@ -77,13 +77,13 @@ class TestConf:
         # test case: add dns to existing md
         TestEnv.a2md([ "add", "example.org", "www.example.org" ])
         assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
 
     def test_103(self):
         # test case: add new md definition with acme url, acme protocol
         assert TestEnv.apachectl("test_003", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
@@ -95,14 +95,14 @@ class TestConf:
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME")
         assert TestEnv.apachectl("test_003", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
 
     def test_105(self):
         # test case: add new md definition with server admin
         assert TestEnv.apachectl("test_004", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:admin@example.org"])
@@ -112,14 +112,14 @@ class TestConf:
         name = "example.org"
         TestEnv.a2md([name, "www.example.org", "mail.example.org"])
         assert TestEnv.apachectl("test_004", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:admin@example.org"])
 
     def test_107(self):
         # test case: assign separate contact info based on VirtualHost
         assert TestEnv.apachectl("test_005", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         name1 = "example.org"
         name2 = "example2.org"
         self._check_md_names(name1, [name1, "www." + name1, "mail." + name1], 1, 2)
@@ -135,7 +135,7 @@ class TestConf:
         TestEnv.a2md(["add"] + dnsList)
         self._check_md_names("example.org", dnsList, 1, 1)
         assert TestEnv.apachectl("empty", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # check: md stays in store
         self._check_md_names("example.org", dnsList, 1, 1)
 
@@ -145,7 +145,7 @@ class TestConf:
         TestEnv.a2md(["add"] + dnsList)
         self._check_md_names("example.org", dnsList, 1, 1)
         assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # check: DNS stays part of md in store
         self._check_md_names("example.org", dnsList, 1, 1)
 
@@ -155,7 +155,7 @@ class TestConf:
         TestEnv.a2md([ "add"] + dnsList)
         self._check_md_names("name.example.org", dnsList, 1, 1)
         assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # check: md stays with previous name, complete dns list
         self._check_md_names("name.example.org", dnsList, 1, 1)
 
@@ -168,7 +168,7 @@ class TestConf:
         self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
         self._check_md_names("example.org", dnsList2, 1, 2)
         assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # all mds stay in store
         self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
         self._check_md_names("example.org", dnsList2, 1, 2)
@@ -178,7 +178,7 @@ class TestConf:
         # setup: add md with ca info
         name = "example.org"
         assert TestEnv.apachectl("test_003", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: sync with ca info removed
         assert TestEnv.apachectl("test_001", "graceful") == 0
         # check: md stays the same with previous ca info
@@ -190,7 +190,7 @@ class TestConf:
         # setup: add md with admin info
         name = "example.org"
         assert TestEnv.apachectl("test_004", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: sync with admin info removed
         assert TestEnv.apachectl("test_001", "graceful") == 0
         # check: md stays the same with previous admin info
@@ -205,7 +205,7 @@ class TestConf:
         TestEnv.a2md(["add"] + dnsList)
         self._check_md_names("example.org", dnsList, 1, 1)
         assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # check: dns list stays as before
         self._check_md_names("example.org", dnsList, 1, 1)
 
@@ -217,7 +217,7 @@ class TestConf:
         self._check_md_names("example2.org", ["example2.org", "www.example2.org"], 1, 2)
         
         assert TestEnv.apachectl("test_002", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)
         self._check_md_names("example2.org", ["example2.org", "www.example2.org", "mail.example2.org"], 1, 2)
 
@@ -226,7 +226,7 @@ class TestConf:
         # setup: add md with ca info
         name = "example.org"
         assert TestEnv.apachectl("test_003", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: sync with changed ca info
         assert TestEnv.apachectl("test_006", "graceful") == 0
         # check: md stays the same with previous ca info
@@ -238,7 +238,7 @@ class TestConf:
         # setup: add md with admin info
         name = "example.org"
         assert TestEnv.apachectl("test_004", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: sync with changed admin info
         assert TestEnv.apachectl("test_006", "graceful") == 0
         # check: md stays the same with previous admin info
@@ -255,7 +255,7 @@ class TestConf:
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # setup: add second domain
@@ -272,7 +272,7 @@ class TestConf:
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # setup: change CA URL

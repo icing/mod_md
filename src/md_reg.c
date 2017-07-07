@@ -452,9 +452,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         nmd->cert_url = updates->cert_url;
     }
     
-    if (fields 
-        && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, nmd, 0))) {
-
+    if (fields && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, nmd, 0))) {
         rv = md_reg_state_init(reg, nmd);
     }
     return rv;

@@ -36,28 +36,21 @@
 #include "md_acme.h"
 #include "md_acme_acct.h"
 
-#define MD_ACME_ACCT_JSON_FMT_VERSION   0.01
-
-static apr_status_t acct_make(md_acme_acct_t **pacct, apr_pool_t *p, md_store_t *store,
-                              const char *ca_url, const char *id, apr_array_header_t *contacts,  
-                              void *pkey, int new_key)
+static apr_status_t acct_make(md_acme_acct_t **pacct, apr_pool_t *p, 
+                              const char *ca_url, const char *id, apr_array_header_t *contacts)
 {
     md_acme_acct_t *acct;
     
     acct = apr_pcalloc(p, sizeof(*acct));
 
     acct->id = id? apr_pstrdup(p, id) : NULL;
-    acct->pool = p;
     acct->ca_url = ca_url;
-    acct->key = pkey;
-    acct->key_changed = new_key;
-    acct->store = store;
     
     if (!contacts || apr_is_empty_array(contacts)) {
         acct->contacts = apr_array_make(p, 5, sizeof(const char *));
     }
     else {
-        acct->contacts = apr_array_copy(acct->pool, contacts);
+        acct->contacts = apr_array_copy(p, contacts);
     }
     
     *pacct = acct;
@@ -67,10 +60,6 @@ static apr_status_t acct_make(md_acme_acct_t **pacct, apr_pool_t *p, md_store_t 
 
 static void md_acme_acct_free(md_acme_acct_t *acct)
 {
-    if (acct->key) {
-        md_pkey_free(acct->key);
-        acct->key = NULL;
-    }
 }
 
 static const char *mk_acct_id(apr_pool_t *p, md_acme_t *acme, int i)
@@ -86,36 +75,74 @@ static const char *mk_acct_pattern(apr_pool_t *p, md_acme_t *acme)
 /**************************************************************************************************/
 /* json load/save */
 
-static apr_status_t acct_save(md_acme_acct_t *acct)
+static md_json_t *acct_to_json(md_acme_acct_t *acct, apr_pool_t *p)
+{
+    md_json_t *jacct;
+
+    assert(acct);
+    jacct = md_json_create(p);
+    md_json_sets(acct->id, jacct, MD_KEY_ID, NULL);
+    md_json_setb(acct->disabled, jacct, MD_KEY_DISABLED, NULL);
+    md_json_sets(acct->url, jacct, MD_KEY_URL, NULL);
+    md_json_sets(acct->ca_url, jacct, MD_KEY_CA_URL, NULL);
+    md_json_setj(acct->registration, jacct, MD_KEY_REGISTRATION, NULL);
+    if (acct->agreement) {
+        md_json_sets(acct->agreement, jacct, MD_KEY_AGREEMENT, NULL);
+    }
+    
+    return jacct;
+}
+
+static apr_status_t acct_from_json(md_acme_acct_t **pacct, md_json_t *json, apr_pool_t *p)
+{
+    apr_status_t rv = APR_EINVAL;
+    md_acme_acct_t *acct;
+    int disabled;
+    const char *ca_url, *url, *id;
+    apr_array_header_t *contacts;
+    
+    id = md_json_gets(json, MD_KEY_ID, NULL);
+    disabled = md_json_getb(json, MD_KEY_DISABLED, NULL);
+    ca_url = md_json_gets(json, MD_KEY_CA_URL, NULL);
+    if (!ca_url) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no CA url: %s", id);
+        goto out;
+    }
+    
+    url = md_json_gets(json, MD_KEY_URL, NULL);
+    if (!url) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no url: %s", id);
+        goto out;
+    }
+
+    contacts = apr_array_make(p, 5, sizeof(const char *));
+    md_json_getsa(contacts, json, MD_KEY_REGISTRATION, MD_KEY_CONTACT, NULL);
+    rv = acct_make(&acct, p, ca_url, id, contacts);
+    if (APR_SUCCESS == rv) {
+        acct->disabled = disabled;
+        acct->url = url;
+        acct->agreement = md_json_gets(json, "terms-of-service", NULL);
+    }
+
+out:
+    *pacct = (APR_SUCCESS == rv)? acct : NULL;
+    return rv;
+}
+
+static apr_status_t acct_save(md_acme_t *acme)
 {
     apr_pool_t *ptemp;
     md_json_t *jacct;
     apr_status_t rv;
     
-    rv = apr_pool_create(&ptemp, acct->pool);
-    if (APR_SUCCESS != rv) {
-        return rv;
+    assert(acme->acct->id);
+    if (APR_SUCCESS == (rv = apr_pool_create(&ptemp, acme->p))) {
+        jacct = acct_to_json(acme->acct, ptemp);
+        rv = md_store_save(acme->store, MD_SG_ACCOUNTS, 
+                           acme->acct->id, MD_FN_ACCOUNT, MD_SV_JSON, jacct, 0);
+        apr_pool_destroy(ptemp);
     }
     
-    jacct = md_json_create(ptemp);
-    md_json_sets(acct->id, jacct, MD_KEY_ID, NULL);
-    md_json_setb(acct->disabled, jacct, MD_KEY_DISABLED, NULL);
-    md_json_sets(acct->url, jacct, MD_KEY_URL, NULL);
-    md_json_sets(acct->ca_url, jacct, MD_KEY_CA_URL, NULL);
-    md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, MD_KEY_VERSION, NULL);
-    md_json_setj(acct->registration, jacct, MD_KEY_REGISTRATION, NULL);
-    if (acct->agreement) {
-        md_json_sets(acct->agreement, jacct, MD_KEY_AGREEMENT, NULL);
-    }
-
-    assert(acct->id);
-    if (APR_SUCCESS == (rv = md_store_save(acct->store, MD_SG_ACCOUNTS, acct->id, 
-                                           MD_FN_ACCOUNT, MD_SV_JSON, jacct, 0))) {
-        rv = md_store_save(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_ACCT_KEY, 
-                           MD_SV_PKEY, acct->key, 0);
-    }
-    
-    apr_pool_destroy(ptemp);
     return rv;
 }
 
@@ -127,106 +154,54 @@ static apr_status_t acct_create(md_acme_acct_t *acct, md_acme_t *acme)
     int i;
     apr_status_t rv;
     
-    rv = apr_pool_create(&ptemp, acct->pool);
+    rv = apr_pool_create(&ptemp, acme->p);
     if (APR_SUCCESS != rv) {
         return rv;
     }
     
-    jacct = md_json_create(ptemp);
-    md_json_sets(acct->url, jacct, MD_KEY_URL, NULL);
-    md_json_sets(acct->ca_url, jacct, MD_KEY_CA_URL, NULL);
-    md_json_setn(MD_ACME_ACCT_JSON_FMT_VERSION, jacct, MD_KEY_VERSION, NULL);
-    md_json_setj(acct->registration, jacct, MD_KEY_REGISTRATION, NULL);
-    if (acct->agreement) {
-        md_json_sets(acct->agreement, jacct, MD_KEY_AGREEMENT, NULL);
-    }
+    jacct = acct_to_json(acct, ptemp);
 
     rv = APR_EAGAIN;
     for (i = 0; i < 1000 && APR_SUCCESS != rv; ++i) {
-        id = mk_acct_id(acct->pool, acme, i);
+        id = mk_acct_id(acme->p, acme, i);
         md_json_sets(id, jacct, MD_KEY_ID, NULL);
-        rv = md_store_save(acct->store, MD_SG_ACCOUNTS, id, 
-                           MD_FN_ACCOUNT, MD_SV_JSON, jacct, 1);
+        rv = md_store_save(acme->store, MD_SG_ACCOUNTS, id, MD_FN_ACCOUNT, MD_SV_JSON, jacct, 1);
     }
     
     if (APR_SUCCESS == rv) {
         acct->id = id;
     }
     
-    if (APR_SUCCESS == rv) {
-        rv = md_store_save(acct->store, MD_SG_ACCOUNTS, id, 
-                           MD_FN_ACCOUNT, MD_SV_JSON, jacct, 1);
-        rv = md_store_save(acct->store, MD_SG_ACCOUNTS, id, 
-                           MD_FN_ACCT_KEY, MD_SV_PKEY, acct->key, 0);
-        if (APR_SUCCESS == rv) {
-            acct->key_changed = 0;
-        }
-    }
-    
     apr_pool_destroy(ptemp);
     return rv;
 }
 
-apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, md_store_t *store, const char *name,
-                               apr_pool_t *p)
+static apr_status_t acct_load(md_acme_acct_t **pacct, md_pkey_t **ppkey,
+                              md_store_t *store, const char *name, apr_pool_t *p)
 {
     md_json_t *json;
     apr_status_t rv;
-    md_pkey_t *pkey;
-    apr_array_header_t *contacts;
-    const char *url, *ca_url;
-    double version;
-    int disabled;
 
     rv = md_store_load_json(store, MD_SG_ACCOUNTS, name, MD_FN_ACCOUNT, &json, p);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "error reading account: %s", name);
-        return rv;
+        goto out;
     }
     
-    rv = md_store_load(store, MD_SG_ACCOUNTS, name, MD_FN_ACCT_KEY, MD_SV_PKEY, (void**)&pkey, p);
-    if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "loading key: %s", name);
-        return rv;
-    }
-        
-    version = md_json_getn(json, "version", NULL);
-    if (version == 0.0) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no version: %s", name);
-        return APR_EINVAL;
-    }
-    if (version > MD_ACME_ACCT_JSON_FMT_VERSION) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p,
-                      "account has newer version %f, expecting %f: %s", 
-                      version, MD_ACME_ACCT_JSON_FMT_VERSION, name);
-        return APR_EINVAL;
-    }
-    
-    disabled = md_json_getb(json, MD_KEY_DISABLED, NULL);
-    ca_url = md_json_gets(json, "ca-url", NULL);
-    if (!ca_url) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no CA url: %s", name);
-        return APR_EINVAL;
-    }
-    
-    url = md_json_gets(json, "url", NULL);
-    if (!url) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no url: %s", name);
-        return APR_EINVAL;
-    }
-
-    contacts = apr_array_make(p, 5, sizeof(const char *));
-    md_json_getsa(contacts, json, "registration", MD_KEY_CONTACT, NULL);
-    
-    rv = acct_make(pacct, p, store, ca_url, name, contacts, pkey, 0);
+    rv = acct_from_json(pacct, json, p);
     if (APR_SUCCESS == rv) {
-        (*pacct)->disabled = disabled;
-        (*pacct)->url = url;
-        (*pacct)->agreement = md_json_gets(json, "terms-of-service", NULL);
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "load account %s (%s)", name, url);
+        rv = md_store_load(store, MD_SG_ACCOUNTS, name, 
+                           MD_FN_ACCT_KEY, MD_SV_PKEY, (void**)ppkey, p);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "loading key: %s", name);
+            goto out;
+        }
     }
-
+out:
+    if (APR_SUCCESS != rv) {
+        *pacct = NULL;
+        *ppkey = NULL;
+    } 
     return rv;
 }
 
@@ -261,8 +236,8 @@ static int find_acct(void *baton, const char *name, const char *aspect,
     return 1;
 }
 
-apr_status_t md_acme_acct_find(md_acme_acct_t **pacct, 
-                               md_store_t *store, md_acme_t *acme, apr_pool_t *p)
+static apr_status_t acct_find(md_acme_acct_t **pacct, md_pkey_t **ppkey, 
+                              md_store_t *store, md_acme_t *acme, apr_pool_t *p)
 {
     apr_status_t rv;
     find_ctx ctx;
@@ -274,7 +249,7 @@ apr_status_t md_acme_acct_find(md_acme_acct_t **pacct,
     rv = md_store_iter(find_acct, &ctx, store, MD_SG_ACCOUNTS, mk_acct_pattern(p, acme),
                        MD_FN_ACCOUNT, MD_SV_JSON);
     if (ctx.id) {
-        rv = md_acme_acct_load(pacct, store, ctx.id, p);
+        rv = acct_load(pacct, ppkey, store, ctx.id, p);
     }
     else {
         *pacct = NULL;
@@ -290,136 +265,145 @@ apr_status_t md_acme_acct_find(md_acme_acct_t **pacct,
 
 static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
 {
-    md_acme_acct_t *acct = baton;
+    md_acme_t *acme = baton;
     md_json_t *jpayload;
 
-    jpayload = md_json_create(req->pool);
+    jpayload = md_json_create(req->p);
     md_json_sets("new-reg", jpayload, MD_KEY_RESOURCE, NULL);
-    md_json_setsa(acct->contacts, jpayload, MD_KEY_CONTACT, NULL);
-    if (acct->agreement) {
-        md_json_sets(acct->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
+    md_json_setsa(acme->acct->contacts, jpayload, MD_KEY_CONTACT, NULL);
+    if (acme->acct->agreement) {
+        md_json_sets(acme->acct->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
     }
     
-    return md_acme_req_body_init(req, jpayload, acct->key);
+    return md_acme_req_body_init(req, jpayload);
 } 
 
 static apr_status_t acct_upd(md_acme_t *acme, const apr_table_t *hdrs,
                              md_json_t *body, void *baton)
 {
-    md_acme_acct_t *acct = baton;
     apr_status_t rv = APR_SUCCESS;
+    apr_pool_t *p = acme->p;
+    md_acme_acct_t *acct = acme->acct;
     
     if (!acct->url) {
         const char *location = apr_table_get(hdrs, "location");
         if (!location) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EINVAL, acct->pool, 
-                          "new acct without location");
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, APR_EINVAL, p, "new acct without location");
             return APR_EINVAL;
         }
-        acct->url = apr_pstrdup(acct->pool, location);
+        acct->url = apr_pstrdup(p, location);
     }
     if (!acct->tos_required) {
-        acct->tos_required = md_link_find_relation(hdrs, acct->pool, "terms-of-service");
+        acct->tos_required = md_link_find_relation(hdrs, p, "terms-of-service");
         if (acct->tos_required) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                           "server requires agreement to <%s>", acct->tos_required);
         }
     }
     
     apr_array_clear(acct->contacts);
     md_json_getsa(acct->contacts, body, MD_KEY_CONTACT, NULL);
-    acct->registration = md_json_clone(acct->pool, body);
+    acct->registration = md_json_clone(p, body);
     
-    if (acct->store) {
-        rv = acct->id? acct_save(acct) : acct_create(acct, acme);
+    if (acme->store) {
+        if (acct->id) {
+            rv = acct_save(acme);
+        }
+        else {
+           rv = acct_create(acct, acme);
+            if (APR_SUCCESS == rv) {
+                rv = md_store_save(acme->store, MD_SG_ACCOUNTS, acct->id, 
+                                   MD_FN_ACCT_KEY, MD_SV_PKEY, acme->acct_key, 0);
+            }
+        }
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acct->pool, "updated acct %s", acct->url);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "updated acct %s", acct->url);
     return rv;
 }
 
-apr_status_t md_acme_register(md_acme_acct_t **pacct, md_store_t *store, md_acme_t *acme, 
-                              apr_array_header_t *contacts, const char *agreement)
+static apr_status_t acct_register(md_acme_t *acme, 
+                                  apr_array_header_t *contacts, const char *agreement)
 {
-    md_acme_acct_t *acct;
     apr_status_t rv;
     md_pkey_t *pkey;
     const char *err = NULL, *uri;
     int i;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->pool, "create new account");
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "create new account");
     
     if (agreement) {
-        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->pool, agreement, &err))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->pool, 
+        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, agreement, &err))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->p, 
                           "invalid agreement uri (%s): %s", err, agreement);
+            goto out;
         }
     }
     for (i = 0; i < contacts->nelts; ++i) {
         uri = APR_ARRAY_IDX(contacts, i, const char *);
-        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->pool, uri, &err))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->pool, 
+        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, uri, &err))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->p, 
                           "invalid contact uri (%s): %s", err, uri);
+            goto out;
         }
     }
     
-    if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, acme->pool, acme->pkey_bits))
-        && APR_SUCCESS == (rv = acct_make(&acct,  acme->pool, store, 
-                                          acme->url, NULL, contacts, pkey, 1))) {
+    if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, acme->p, acme->pkey_bits))
+        && APR_SUCCESS == (rv = acct_make(&acme->acct,  acme->p, acme->url, NULL, contacts))) {
 
+        acme->acct_key = pkey;
         if (agreement) {
-            acct->agreement = agreement;
+            acme->acct->agreement = agreement;
         }
 
-        rv = md_acme_POST(acme, acme->new_reg, on_init_acct_new, acct_upd, NULL, acct);
+        rv = md_acme_POST(acme, acme->new_reg, on_init_acct_new, acct_upd, NULL, acme);
         if (APR_SUCCESS == rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acme->pool, 
-                          "registered new account %s", acct->url);
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acme->p, 
+                          "registered new account %s", acme->acct->url);
         }
     }
-    
-    if (APR_SUCCESS != rv && acct) {
-        md_acme_acct_free(acct);
-        acct = NULL;
+
+out:    
+    if (APR_SUCCESS != rv && acme->acct) {
+        md_acme_acct_free(acme->acct);
+        acme->acct = NULL;
     }
-    *pacct = acct;
     return rv;
 }
 
 /**************************************************************************************************/
-/* validation */
+/* acct validation */
 
 static apr_status_t on_init_acct_valid(md_acme_req_t *req, void *baton)
 {
-    md_acme_acct_t *acct = baton;
     md_json_t *jpayload;
 
-    jpayload = md_json_create(req->pool);
+    jpayload = md_json_create(req->p);
     md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
     
-    return md_acme_req_body_init(req, jpayload, acct->key);
+    return md_acme_req_body_init(req, jpayload);
 } 
 
 static apr_status_t acct_valid(md_acme_t *acme, const apr_table_t *hdrs, 
                                md_json_t *body, void *baton)
 {
-    md_acme_acct_t *acct = baton;
+    md_acme_acct_t *acct = acme->acct;
     apr_status_t rv = APR_SUCCESS;
     const char *tos_required;
     
     apr_array_clear(acct->contacts);
     md_json_getsa(acct->contacts, body, MD_KEY_CONTACT, NULL);
-    acct->registration = md_json_clone(acct->pool, body);
+    acct->registration = md_json_clone(acme->p, body);
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acct->pool, "validate acct %s: %s", 
-                  acct->url, md_json_writep(body, MD_JSON_FMT_INDENT, acct->pool));
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, "validate acct %s: %s", 
+                  acct->url, md_json_writep(body, MD_JSON_FMT_INDENT, acme->p));
     
     acct->agreement = md_json_gets(acct->registration, MD_KEY_AGREEMENT, NULL);
     
-    tos_required = md_link_find_relation(hdrs, acct->pool, "terms-of-service");
+    tos_required = md_link_find_relation(hdrs, acme->p, "terms-of-service");
     if (tos_required) {
         if (!acct->agreement || strcmp(tos_required, acct->agreement)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acct->pool, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, 
                           "needs to agree to terms-of-service '%s', "
                           "has already agreed to '%s'", 
                           tos_required, acct->agreement);
@@ -430,10 +414,144 @@ static apr_status_t acct_valid(md_acme_t *acme, const apr_table_t *hdrs,
     return rv;
 }
 
-apr_status_t md_acme_acct_validate(md_acme_t *acme, md_acme_acct_t *acct)
+static apr_status_t md_acme_validate_acct(md_acme_t *acme)
 {
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "acct validation");
-    return md_acme_POST(acme, acct->url, on_init_acct_valid, acct_valid, NULL, acct);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "acct validation");
+    if (!acme->acct) {
+        return APR_EINVAL;
+    }
+    return md_acme_POST(acme, acme->acct->url, on_init_acct_valid, acct_valid, NULL, NULL);
+}
+
+/**************************************************************************************************/
+/* account setup */
+
+static apr_status_t acct_validate(md_acme_t *acme)
+{
+    apr_status_t rv;
+    
+    if (APR_SUCCESS != (rv = md_acme_validate_acct(acme))) {
+        if (acme->acct && (APR_ENOENT == rv || APR_EACCES == rv)) {
+            if (!acme->acct->disabled) {
+                acme->acct->disabled = 1;
+                if (acme->store) {
+                    acct_save(acme);
+                }
+            }
+            acme->acct = NULL;
+            acme->acct_key = NULL;
+            rv = APR_ENOENT;
+        }
+    }
+    return rv;
+}
+
+apr_status_t md_acme_use_acct(md_acme_t *acme, const char *acct_id)
+{
+    md_acme_acct_t *acct;
+    md_pkey_t *pkey;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = acct_load(&acct, &pkey, acme->store, acct_id, acme->p))) {
+        acme->acct = acct;
+        acme->acct_key = pkey;
+        rv = acct_validate(acme);
+    }
+    return rv;
+}
+
+const char *md_acme_get_acct(md_acme_t *acme)
+{
+    return acme->acct? acme->acct->id : NULL;
+}
+
+const char *md_acme_get_agreement(md_acme_t *acme)
+{
+    return acme->acct? acme->acct->agreement : NULL;
+}
+
+apr_status_t md_acme_find_acct(md_acme_t *acme)
+{
+    md_acme_acct_t *acct;
+    md_pkey_t *pkey;
+    apr_status_t rv;
+    
+    while (APR_SUCCESS == acct_find(&acct, &pkey, acme->store, acme, acme->p)) {
+        acme->acct = acct;
+        acme->acct_key = pkey;
+        rv = acct_validate(acme);
+        
+        if (APR_SUCCESS == rv) {
+            return rv;
+        }
+        else {
+            acme->acct = NULL;
+            acme->acct_key = NULL;
+            if (!APR_STATUS_IS_ENOENT(rv)) {
+                /* encountered error with server */
+                return rv;
+            }
+        }
+    }
+    return APR_ENOENT;
+}
+
+apr_status_t md_acme_create_acct(md_acme_t *acme, apr_array_header_t *contacts, 
+                                 const char *agreement)
+{
+    return acct_register(acme, contacts, agreement);
+}
+
+/**************************************************************************************************/
+/* Delete the account */
+
+apr_status_t md_acme_unstore_acct(md_store_t *store, const char *acct_id) 
+{
+    apr_status_t rv = APR_SUCCESS;
+    apr_pool_t *p = store->p;
+    
+    rv = md_store_remove(store, MD_SG_ACCOUNTS, acct_id, MD_FN_ACCOUNT, p, 1);
+    if (APR_SUCCESS == rv) {
+        md_store_remove(store, MD_SG_ACCOUNTS, acct_id, MD_FN_ACCT_KEY, p, 1);
+    }
+    return rv;
+}
+
+static apr_status_t on_init_acct_del(md_acme_req_t *req, void *baton)
+{
+    md_json_t *jpayload;
+
+    jpayload = md_json_create(req->p);
+    md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
+    md_json_setb(1, jpayload, "delete", NULL);
+    
+    return md_acme_req_body_init(req, jpayload);
+} 
+
+static apr_status_t acct_del(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
+{
+    apr_status_t rv = APR_SUCCESS;
+    apr_pool_t *p = acme->p;
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, "deleted account %s", acme->acct->url);
+    if (acme->store) {
+        rv = md_acme_unstore_acct(acme->store, acme->acct->id);
+        acme->acct = NULL;
+        acme->acct_key = NULL;
+    }
+    return rv;
+}
+
+apr_status_t md_acme_delete_acct(md_acme_t *acme)
+{
+    md_acme_acct_t *acct = acme->acct;
+    
+    if (!acct) {
+        return APR_EINVAL;
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "delete account %s from %s", 
+                  acct->url, acct->ca_url);
+    return md_acme_POST(acme, acct->url, on_init_acct_del, acct_del, NULL, NULL);
 }
 
 /**************************************************************************************************/
@@ -441,20 +559,20 @@ apr_status_t md_acme_acct_validate(md_acme_t *acme, md_acme_acct_t *acct)
 
 static apr_status_t on_init_agree_tos(md_acme_req_t *req, void *baton)
 {
-    md_acme_acct_t *acct = baton;
+    md_acme_t *acme = baton;
     md_json_t *jpayload;
 
-    jpayload = md_json_create(req->pool);
+    jpayload = md_json_create(req->p);
     md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
-    md_json_sets(acct->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
+    md_json_sets(acme->acct->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
     
-    return md_acme_req_body_init(req, jpayload, acct->key);
+    return md_acme_req_body_init(req, jpayload);
 } 
 
-apr_status_t md_acme_acct_agree_tos(md_acme_t *acme, md_acme_acct_t *acct, const char *agreement)
+apr_status_t md_acme_agree(md_acme_t *acme, const char *agreement)
 {
-    acct->agreement = agreement;
-    return md_acme_POST(acme, acct->url, on_init_agree_tos, acct_upd, NULL, acct);
+    acme->acct->agreement = agreement;
+    return md_acme_POST(acme, acme->acct->url, on_init_agree_tos, acct_upd, NULL, acme);
 }
 
 static int agreement_required(md_acme_acct_t *acct)
@@ -463,95 +581,39 @@ static int agreement_required(md_acme_acct_t *acct)
             || (acct->tos_required && strcmp(acct->tos_required, acct->agreement)));
 }
 
-apr_status_t md_acme_acct_check_agreement(md_acme_t *acme, md_acme_acct_t *acct, 
-                                          const char *agreement)
+apr_status_t md_acme_check_agreement(md_acme_t *acme, const char *agreement)
 {
     apr_status_t rv = APR_SUCCESS;
     
     /* Check if (correct) Terms-of-Service for account were accepted */
-    if (agreement_required(acct)) {
-        const char *tos = acct->tos_required;
+    if (agreement_required(acme->acct)) {
+        const char *tos = acme->acct->tos_required;
         if (!tos) {
-            if (APR_SUCCESS != (rv = md_acme_acct_validate(acme, acct))) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acct->pool, 
-                              "validate for account %", acct->id); 
+            if (APR_SUCCESS != (rv = md_acme_validate_acct(acme))) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, 
+                              "validate for account %", acme->acct->id); 
                 return rv;
             }
-            tos = acct->tos_required; 
+            tos = acme->acct->tos_required; 
             if (!tos) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acct->pool, "unknown terms-of-service "
-                              "required after validation of account %", acct->id); 
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, "unknown terms-of-service "
+                              "required after validation of account %", acme->acct->id); 
                 return APR_EGENERAL;
             }
         }
         
-        if (acct->agreement && !strcmp(tos, acct->agreement)) {
-            rv = md_acme_acct_agree_tos(acme, acct, tos);
+        if (acme->acct->agreement && !strcmp(tos, acme->acct->agreement)) {
+            rv = md_acme_agree(acme, tos);
         }
         else if (agreement && !strcmp(tos, agreement)) {
-            rv = md_acme_acct_agree_tos(acme, acct, tos);
+            rv = md_acme_agree(acme, tos);
         }
         else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acct->pool, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->p, 
                           "need to accept terms-of-service <%s> for account %s", 
-                          tos, acct->id);
+                          tos, acme->acct->id);
             rv = APR_EACCES;
         }
     }
     return rv;
 }        
-
-/**************************************************************************************************/
-/* Delete an existing account */
-
-static apr_status_t on_init_acct_del(md_acme_req_t *req, void *baton)
-{
-    md_acme_acct_t *acct = baton;
-    md_json_t *jpayload;
-
-    jpayload = md_json_create(req->pool);
-    md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
-    md_json_setb(1, jpayload, "delete", NULL);
-    
-    return md_acme_req_body_init(req, jpayload, acct->key);
-} 
-
-static apr_status_t acct_del(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
-{
-    md_acme_acct_t *acct = baton;
-    apr_status_t rv = APR_SUCCESS;
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acct->pool, "deleted account %s", acct->url);
-    if (acct->store) {
-        rv = md_store_remove(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_ACCOUNT, acct->pool, 1);
-        if (APR_SUCCESS == rv) {
-            md_store_remove(acct->store, MD_SG_ACCOUNTS, acct->id, MD_FN_ACCT_KEY, acct->pool, 1);
-        }
-    }
-    return rv;
-}
-
-apr_status_t md_acme_acct_del(md_acme_acct_t *acct)
-{
-    md_acme_t *acme;
-    apr_status_t rv;
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acct->pool, "delete account %s from %s", 
-                  acct->url, acct->ca_url);
-    if (APR_SUCCESS == (rv = md_acme_create(&acme, acct->pool, acct->ca_url, acct->store))) {
-        rv = md_acme_POST(acme, acct->url, on_init_acct_del, acct_del, NULL, acct);
-    }
-    return rv;
-}
-
-apr_status_t md_acme_acct_disable(md_acme_acct_t *acct)
-{
-    apr_status_t rv = APR_SUCCESS;
-    
-    if (!acct->disabled) {
-        acct->disabled = 1;
-        rv = acct_save(acct);
-    }
-    return rv;
-}
-

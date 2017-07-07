@@ -33,7 +33,6 @@
 #include "../md_util.h"
 
 #include "md_acme.h"
-#include "md_acme_acct.h"
 #include "md_acme_authz.h"
 #include "md_acme_drive.h"
 
@@ -48,7 +47,6 @@ typedef struct {
     apr_array_header_t *chain;
 
     md_acme_t *acme;
-    md_acme_acct_t *acct;
     md_t *md;
     const md_creds_t *creds;
     
@@ -67,83 +65,72 @@ typedef struct {
 /**************************************************************************************************/
 /* account setup */
 
-static apr_status_t ad_acct_validate(md_proto_driver_t *d, md_acme_acct_t *acct)
-{
-    md_acme_driver_t *ad = d->baton;
-    apr_status_t rv;
-    
-    if (APR_SUCCESS != (rv = md_acme_acct_validate(ad->acme, acct))) {
-        if (APR_ENOENT == rv || APR_EACCES == rv) {
-            md_acme_acct_disable(acct);
-            rv = APR_ENOENT;
-        }
-    }
-    return rv;
-}
-
 static apr_status_t ad_set_acct(md_proto_driver_t *d) 
 {
     md_acme_driver_t *ad = d->baton;
     md_t *md = ad->md;
-    md_acme_acct_t *acct = NULL;
     apr_status_t rv = APR_SUCCESS;
-
-    ad->phase = "choose account";
-    ad->acct = NULL;
+    int update = 0;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: finding account",
-                  d->proto->protocol);
-    
-    /* Get an account for the ACME server for this MD */
-    if (ad->md->ca_account) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checking previous account %s",
-                      d->proto->protocol, md->ca_account);
-        if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, d->store, md->ca_account, d->p))) {
-            if (acct && APR_SUCCESS == ad_acct_validate(d, acct)) {
-                goto out;
-            }
-        }
-        else if (APR_ENOENT != rv) {
-            goto out;
-        }
-    }
-    
-    /* If MD has no account, find a local account for server, store at MD */ 
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
-                  d->proto->protocol);
-    while (APR_SUCCESS == md_acme_acct_find(&acct, d->store, ad->acme, d->p)) {
-        if (APR_SUCCESS == ad_acct_validate(d, acct)) {
-            goto out;
-        }
-    }
-    
-    /* 2.2 No local account exists, create a new one */
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: creating new account", 
-                  d->proto->protocol);
-    if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
-                      "no contact information for md %s", md->name);            
-        rv = APR_EINVAL;
+    ad->phase = "setup acme";
+    if (!ad->acme 
+        && APR_SUCCESS != (rv = md_acme_create(&ad->acme, d->p, md->ca_url, d->store))) {
         goto out;
     }
+
+    ad->phase = "choose account";
+    /* Get an account for the ACME server for this MD */
+    if (md->ca_account) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-use account %s", md->ca_account);
+        rv = md_acme_use_acct(ad->acme, md->ca_account);
+        if (APR_STATUS_IS_ENOENT(rv) || APR_STATUS_IS_EINVAL(rv)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "rejected %s", md->ca_account);
+            md->ca_account = NULL;
+            update = 1;
+            rv = APR_SUCCESS;
+        }
+    }
+
+    if (APR_SUCCESS == rv && !md->ca_account) {
+        /* Find a local account for server, store at MD */ 
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
+                      d->proto->protocol);
+        if (APR_SUCCESS == md_acme_find_acct(ad->acme)) {
+            md->ca_account = md_acme_get_acct(ad->acme);
+            update = 1;
+        }
+    }
     
-    rv = md_acme_register(&acct, d->store, ad->acme, md->contacts, md->ca_agreement);
+    if (APR_SUCCESS == rv && !md->ca_account) {
+        /* 2.2 No local account exists, create a new one */
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: creating new account", 
+                      d->proto->protocol);
+        
+        if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
+                          "no contact information for md %s", md->name);            
+            rv = APR_EINVAL;
+            goto out;
+        }
+    
+        if (APR_SUCCESS == (rv = md_acme_create_acct(ad->acme, md->contacts, md->ca_agreement))) {
+            md->ca_account = md_acme_get_acct(ad->acme);
+            update = 1;
+        }
+    }
     
 out:
     if (APR_SUCCESS == rv) {
-        int fields = 0;
+        const char *agreement = md_acme_get_agreement(ad->acme);
         /* Persist the account chosen at the md so we use the same on future runs */
-        if (!md->ca_account || strcmp(md->ca_account, acct->id)) {
-            md->ca_account = acct->id;
+        if (agreement && (!md->ca_agreement || strcmp(agreement, md->ca_agreement))) { 
+            md->ca_agreement = agreement;
+            update = 1;
         }
-        if (!md->ca_agreement && acct->agreement) {
-            md->ca_agreement = acct->agreement;
-        }
-        if (fields) {
+        if (update) {
             rv = md_save(d->store, MD_SG_STAGING, ad->md, 0);
         }
     }
-    ad->acct = (APR_SUCCESS == rv)? acct : NULL;
     return rv;
 }
 
@@ -166,7 +153,6 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     
     assert(ad->md);
     assert(ad->acme);
-    assert(ad->acct);
 
     ad->phase = "check authz";
     
@@ -178,7 +164,7 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     rv = md_acme_authz_set_load(d->store, md->name, &ad->authz_set, d->p);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading authz data", md->name);
     if (APR_ENOENT == rv) {
-        ad->authz_set = md_acme_authz_set_create(d->p, ad->acct->id);
+        ad->authz_set = md_acme_authz_set_create(d->p, ad->acme);
         rv = APR_SUCCESS;
     }
     
@@ -188,7 +174,7 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
         authz = md_acme_authz_set_get(ad->authz_set, domain);
         if (authz) {
             /* check valid */
-            rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p);
+            rv = md_acme_authz_update(authz, ad->acme, d->p);
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: updated authz for %s", 
                           md->name, domain);
             if (APR_SUCCESS != rv) {
@@ -199,7 +185,7 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
         }
         if (!authz) {
             /* create new one */
-            rv = md_acme_authz_register(&authz, ad->acme, domain, ad->acct, d->p);
+            rv = md_acme_authz_register(&authz, ad->acme, domain, d->p);
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: created authz for %s", 
                           md->name, domain);
             if (APR_SUCCESS == rv) {
@@ -236,7 +222,6 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
     
     assert(ad->md);
     assert(ad->acme);
-    assert(ad->acct);
     assert(ad->authz_set);
     assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
 
@@ -246,12 +231,12 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
         authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
                       ad->md->name, authz->domain);
-        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p))) {
+        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, d->p))) {
             switch (authz->state) {
                 case MD_ACME_AUTHZ_S_VALID:
                     break;
                 case MD_ACME_AUTHZ_S_PENDING:
-                    rv = md_acme_authz_respond(authz, ad->acme, ad->acct, d->store,
+                    rv = md_acme_authz_respond(authz, ad->acme, 
                                                ad->can_http_01, ad->can_tls_sni_01, d->p);
                     break;
                 default:
@@ -279,7 +264,7 @@ static apr_status_t check_challenges(void *baton, int attemmpt)
         authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
                       ad->md->name, authz->domain);
-        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, ad->acct, d->p))) {
+        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, d->p))) {
             switch (authz->state) {
                 case MD_ACME_AUTHZ_S_VALID:
                     break;
@@ -307,7 +292,6 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
     
     assert(ad->md);
     assert(ad->acme);
-    assert(ad->acct);
     assert(ad->authz_set);
     assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
 
@@ -390,11 +374,11 @@ static apr_status_t on_init_csr_req(md_acme_req_t *req, void *baton)
     md_acme_driver_t *ad = d->baton;
     md_json_t *jpayload;
 
-    jpayload = md_json_create(req->pool);
+    jpayload = md_json_create(req->p);
     md_json_sets("new-cert", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_sets(ad->csr_der_64, jpayload, MD_KEY_CSR, NULL);
     
-    return md_acme_req_body_init(req, jpayload, ad->acct->key);
+    return md_acme_req_body_init(req, jpayload);
 } 
 
 static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void *baton)
@@ -578,7 +562,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         }
     }
     
-    /* Load any credentials we currenlty have stored */
+    /* Load any credentials we currently have stored */
     rv = md_reg_creds_get(&ad->creds, d->reg, d->md, d->p);
     if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
         return rv;
@@ -656,7 +640,7 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
              * lifetime of an account */
             if (APR_SUCCESS == rv) {
                 ad->phase = "check agreement";
-                rv = md_acme_acct_check_agreement(ad->acme, ad->acct, ad->md->ca_agreement);
+                rv = md_acme_check_agreement(ad->acme, ad->md->ca_agreement);
             }
             
             /* If we know a cert's location, try to get it. Previous download might

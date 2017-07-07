@@ -24,7 +24,7 @@ struct md_http_t;
 struct md_json_t;
 struct md_pkey_t;
 struct md_t;
-struct md_acme_acct;
+struct md_acme_acct_t;
 struct md_proto_t;
 
 
@@ -48,8 +48,10 @@ typedef struct md_acme_t md_acme_t;
 struct md_acme_t {
     const char *url;                /* directory url of the ACME service */
     const char *sname;              /* short name for the service, not necessarily unique */
-    apr_pool_t *pool;
+    apr_pool_t *p;
     struct md_store_t *store;
+    struct md_acme_acct_t *acct;
+    struct md_pkey_t *acct_key;
     
     const char *new_authz;
     const char *new_cert;
@@ -87,6 +89,68 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
  */
 apr_status_t md_acme_setup(md_acme_t *acme);
 
+/**************************************************************************************************/
+/* account handling */
+
+/** 
+ * Specify the account to use by name in local store. On success, the account
+ * the "current" one used by the acme instance.
+ */
+apr_status_t md_acme_use_acct(md_acme_t *acme, const char *acct_id);
+
+/**
+ * Get the local name of the account currently used by the acme instance.
+ * Will be NULL if no account has been setup successfully.
+ */
+const char *md_acme_get_acct(md_acme_t *acme);
+
+/**
+ * Agree to the given Terms-of-Service url for the current account.
+ */
+apr_status_t md_acme_agree(md_acme_t *acme, const char *tos);
+
+/**
+ * Confirm with the server that the current account agrees to the Terms-of-Service
+ * given in the agreement url.
+ * If the known agreement is equal to this, nothing is done.
+ * If it differs, the account is re-validated in the hope that the server
+ * accounces the Tos URL it wants. If this is equal to the agreement specified,
+ * the server is notified of this. If the server requires a ToS that the account
+ * thinks it has already given, it is resend.
+ */
+apr_status_t md_acme_check_agreement(md_acme_t *acme, const char *agreement);
+
+/**
+ * Get the ToS agreement for current account.
+ */
+const char *md_acme_get_agreement(md_acme_t *acme);
+
+
+/** 
+ * Find an existing account in the local store. On APR_SUCCESS, the acme
+ * instance will have a current, validated account to use.
+ */ 
+apr_status_t md_acme_find_acct(md_acme_t *acme);
+
+/**
+ * Create a new account at the ACME server and save in local store. The
+ * new account is the one used by the acme instance afterwards.
+ */
+apr_status_t md_acme_create_acct(md_acme_t *acme, apr_array_header_t *contacts, 
+                                 const char *agreement);
+
+/**
+ * Delete the current account at the ACME server and remove it from store. 
+ */
+apr_status_t md_acme_delete_acct(md_acme_t *acme);
+
+/**
+ * Delete the account from the local store without contacting the ACME server.
+ */
+apr_status_t md_acme_unstore_acct(struct md_store_t *store, const char *acct_id);
+
+/**************************************************************************************************/
+/* request handling */
 
 /**
  * Request callback on a successfull HTTP response (status 2xx).
@@ -114,7 +178,7 @@ typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, const apr_table_t *hea
 
 struct md_acme_req_t {
     md_acme_t *acme;               /* the ACME server to talk to */
-    apr_pool_t *pool;              /* pool for the request duration */
+    apr_pool_t *p;                 /* pool for the request duration */
     
     const char *url;               /* url to POST the request to */
     const char *method;            /* HTTP method to use */
@@ -171,8 +235,7 @@ apr_status_t md_acme_get_json(struct md_json_t **pjson, md_acme_t *acme,
                               const char *url, apr_pool_t *p);
 
 
-apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *jpayload, 
-                                   struct md_pkey_t *key);
+apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *jpayload);
 
 apr_status_t md_acme_protos_add(apr_hash_t *protos, apr_pool_t *p);
 

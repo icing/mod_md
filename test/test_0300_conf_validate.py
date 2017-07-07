@@ -54,12 +54,12 @@ class TestConf:
     def test_001(self):
         # just one ManagedDomain definition
         assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
 
     def test_002(self):
         # two ManagedDomain definitions, non-overlapping
         assert TestEnv.apachectl("test_002", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
 
     def test_003(self):
         # two ManagedDomain definitions, exactly the same
@@ -99,7 +99,7 @@ class TestConf:
     def test_010(self):
         # ManagedDomain, vhost with matching ServerAlias
         assert TestEnv.apachectl("test_010", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         assert self.new_errors() == 0
         assert self.new_warnings() == 0
 
@@ -112,6 +112,6 @@ class TestConf:
     def test_012(self):
         # ManagedDomain does not match any vhost
         assert TestEnv.apachectl("test_012", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 1)
+        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         assert self.new_errors() == 0
         assert self.new_warnings() == 3

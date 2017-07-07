@@ -20,28 +20,36 @@ struct apr_array_header_t;
 struct md_t;
 struct md_http_response_t;
 
-typedef struct md_cert_t md_cert_t;
+/**************************************************************************************************/
+/* digests */
+
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
+                                      const char *d, size_t dlen);
+
+/**************************************************************************************************/
+/* private keys */
+
 typedef struct md_pkey_t md_pkey_t;
 
 apr_status_t md_crypt_init(apr_pool_t *pool);
 
-apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
-apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
-
-void md_pkey_free(md_pkey_t *pkey);
-
-apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, const char *fname);
-
 apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, int bits);
+void md_pkey_free(md_pkey_t *pkey);
 
 const char *md_pkey_get_rsa_e64(md_pkey_t *pkey, apr_pool_t *p);
 const char *md_pkey_get_rsa_n64(md_pkey_t *pkey, apr_pool_t *p);
 
+apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, const char *fname);
+
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
 
-apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
-                                      const char *d, size_t dlen);
+/**************************************************************************************************/
+/* X509 certificates */
+
+typedef struct md_cert_t md_cert_t;
 
 typedef enum {
     MD_CERT_UNKNOWN,
@@ -58,6 +66,13 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *pool,
                                const struct md_http_response_t *res);
 
 md_cert_state_t md_cert_state_get(md_cert_t *cert);
+int md_cert_is_valid_now(const md_cert_t *cert);
+int md_cert_has_expired(const md_cert_t *cert);
+int md_cert_covers_md(md_cert_t *cert, const struct md_t *md);
+
+apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p);
+
 
 apr_status_t md_chain_fload(struct apr_array_header_t **pcerts, 
                             apr_pool_t *p, const char *fname);
@@ -66,12 +81,5 @@ apr_status_t md_chain_fsave(struct apr_array_header_t *certs,
 
 apr_status_t md_cert_req_create(const char **pcsr_der_64, const struct md_t *md, 
                                 md_pkey_t *pkey, apr_pool_t *p);
-
-int md_cert_is_valid_now(const md_cert_t *cert);
-int md_cert_has_expired(const md_cert_t *cert);
-int md_cert_covers_md(md_cert_t *cert, const struct md_t *md);
-
-apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p);
-apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p);
 
 #endif /* md_crypt_h */
