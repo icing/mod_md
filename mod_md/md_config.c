@@ -149,6 +149,20 @@ static const char *md_config_set_ca_proto(cmd_parms *parms,
     return NULL;
 }
 
+static const char *md_config_set_store_dir(cmd_parms *parms,
+                                           void *arg, const char *value)
+{
+    md_config_t *config = (md_config_t *)md_config_get(parms->server);
+    const char *err = ap_check_cmd_context(parms, GLOBAL_ONLY);
+
+    if (err) {
+        return err;
+    }
+    config->base_dir = value;
+    (void)arg;
+    return NULL;
+}
+
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
@@ -156,6 +170,8 @@ const command_rec md_cmds[] = {
                       "A group of domain names with one certificate"),
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issueing the certificates"),
+    AP_INIT_TAKE1("MDStoreDir", md_config_set_store_dir, NULL, RSRC_CONF, 
+                  "the directory for file system storage of managed domain data."),
     AP_INIT_TAKE1("MDCertificateProtocol", md_config_set_ca_proto, NULL, RSRC_CONF, 
                   "Protocol used to obtain/renew certificates"),
     AP_END_CMD

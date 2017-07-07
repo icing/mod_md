@@ -295,6 +295,16 @@ apr_array_header_t *md_cmd_gather_args(md_cmd_ctx *ctx, int index)
 /**************************************************************************************************/
 /* command: main() */
 
+static void init_json_out(md_cmd_ctx *ctx) 
+{
+    apr_array_header_t *empty = apr_array_make(ctx->p, 1, sizeof(char*));
+    
+    ctx->json_out = md_json_create(ctx->p);
+    
+    md_json_setsa(empty, ctx->json_out, "output", NULL);
+    md_json_setl(0, ctx->json_out, "status", NULL);
+}
+
 static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
 {
     switch (option) {
@@ -308,7 +318,7 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
             md_cmd_ctx_set_option(ctx, "help", "1");
             break;
         case 'j':
-            ctx->json_out = md_json_create(ctx->p);
+            init_json_out(ctx);
             break;
         case 'q':
             if (active_level > 0) {

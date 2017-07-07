@@ -31,7 +31,6 @@ class TestEnv:
         cls.ACME_TOS  = cls.config.get('acme', 'tos')
         cls.ACME_TOS2 = cls.config.get('acme', 'tos2')
         cls.WEBROOT   = cls.config.get('global', 'server_dir')
-        cls.STORE_DIR = os.path.join(cls.WEBROOT, 'md')
         cls.TESTROOT   = os.path.join(cls.WEBROOT, '..', '..')
 
         cls.APACHECTL = os.path.join(cls.PREFIX, 'bin', 'apachectl')
@@ -45,8 +44,6 @@ class TestEnv:
         cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
 
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
-        cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
-        cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
 
         cls.MD_S_UNKNOWN = 0
         cls.MD_S_INCOMPLETE = 1
@@ -54,6 +51,17 @@ class TestEnv:
         cls.MD_S_EXPIRED = 3
         cls.MD_S_ERROR = 4
 
+        cls.set_store_dir('md')
+        cls.EMPTY_JOUT = { 'status' : 0, 'output' : [] }
+
+
+    @classmethod
+    def set_store_dir( cls, dir ) :
+        cls.STORE_DIR = os.path.join(cls.WEBROOT, dir)
+        cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
+        cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
+        
+        
     # --------- cmd execution ---------
 
     _a2md_args = []

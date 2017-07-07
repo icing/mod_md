@@ -85,10 +85,10 @@
 		B2B81EA71F0E35B000E35CA3 /* test_0120_reg_list.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0120_reg_list.py; sourceTree = "<group>"; };
 		B2B81EA81F0E35B000E35CA3 /* test_0300_conf_validate.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0300_conf_validate.py; sourceTree = "<group>"; };
 		B2B81EA91F0E35B000E35CA3 /* test_0310_conf_store.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0310_conf_store.py; sourceTree = "<group>"; };
-		B2B81EB11F0E680800E35CA3 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		B2B81EBE1F0F981C00E35CA3 /* md_store_fs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store_fs.c; sourceTree = "<group>"; };
 		B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store_fs.h; sourceTree = "<group>"; };
 		B2B81EC01F0F998F00E35CA3 /* md_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
+		B2B81EC11F0FAC2000E35CA3 /* other_base.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = other_base.conf; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -147,6 +147,7 @@
 				B2B81E8F1F0A907900E35CA3 /* test_004.conf */,
 				B2B81E901F0A907900E35CA3 /* test_005.conf */,
 				B2B81E911F0A907900E35CA3 /* test_006.conf */,
+				B2B81EC11F0FAC2000E35CA3 /* other_base.conf */,
 			);
 			path = conf_store;
 			sourceTree = "<group>";
@@ -209,22 +210,6 @@
 			path = a2md;
 			sourceTree = SOURCE_ROOT;
 		};
-		B2B81EAF1F0E680800E35CA3 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		B2B81EB01F0E680800E35CA3 /* all */ = {
-			isa = PBXGroup;
-			children = (
-				B2B81EB11F0E680800E35CA3 /* main.c */,
-			);
-			name = all;
-			path = ../../mod_md/all;
-			sourceTree = "<group>";
-		};
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
@@ -243,8 +228,6 @@
 				B2D309AA1EBA229F007BECC8 /* README.md */,
 				B2D31B061EC33CBE007BECC8 /* src */,
 				B2D309EF1EC1AD26007BECC8 /* test */,
-				B2B81EB01F0E680800E35CA3 /* all */,
-				B2B81EAF1F0E680800E35CA3 /* Products */,
 			);
 			path = /Users/sei/projects/mod_cert/mod_cert.xcodeproj;
 			sourceTree = "<absolute>";
@@ -415,7 +398,7 @@
 				en,
 			);
 			mainGroup = B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */;
-			productRefGroup = B2B81EAF1F0E680800E35CA3 /* Products */;
+			productRefGroup = B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

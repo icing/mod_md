@@ -32,9 +32,7 @@ class TestRegAdd :
 
     def test_100(self):
         # test case: list empty store
-        jout = TestEnv.a2md( [ "list" ] )['jout']
-        assert 'output' not in jout
-        assert jout['status'] == 0
+        assert TestEnv.a2md( [ "list" ] )['jout'] == TestEnv.EMPTY_JOUT
 
     def test_101(self):
         # test case: list two managed domains

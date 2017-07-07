@@ -50,7 +50,7 @@ class TestConf:
         assert TestEnv.apachectl("empty", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         jout = TestEnv.a2md(["list"])['jout']
-        assert "output" not in jout
+        assert 0 == len(jout["output"])
 
     @pytest.mark.parametrize("confFile,dnsLists,mdCount", [
         ("test_001", [["example.org", "www.example.org", "mail.example.org"]], 1),
@@ -118,6 +118,7 @@ class TestConf:
 
     def test_107(self):
         # test case: assign separate contact info based on VirtualHost
+        # this config uses another store dir
         assert TestEnv.apachectl("test_005", "graceful") == 0
         assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
         name1 = "example.org"
@@ -281,6 +282,17 @@ class TestConf:
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_COMPLETE
 
+    # --------- configure another base dir ---------
+    
+    def test_500(self):
+        assert TestEnv.apachectl("other_base", "graceful") == 0
+        jout = TestEnv.a2md([ "list" ])['jout']
+        assert len(jout['output']) == 0
+        TestEnv.set_store_dir("md-other")
+        self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
+
+    
+
     # --------- _utils_ ---------
 
     def _new_errors(self):
@@ -292,7 +304,7 @@ class TestConf:
         return warnings - self.warnings
 
     def _check_md_names(self, name, dnsList, state, mdCount):
-        jout = TestEnv.a2md(["list"])['jout']
+        jout = TestEnv.a2md([ "-j", "list" ])['jout']
         assert jout
         output = jout['output']
         assert len(output) == mdCount

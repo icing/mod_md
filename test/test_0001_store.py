@@ -120,7 +120,7 @@ class TestStore:
 
     def test_200(self):
         # test case: list empty store
-        assert TestEnv.a2md( [ "store", "list" ] )['jout'] == { 'status' : 0 }
+        assert TestEnv.a2md( [ "store", "list" ] )['jout'] == TestEnv.EMPTY_JOUT
 
     def test_201(self):
         # test case: list two managed domains
@@ -156,9 +156,9 @@ class TestStore:
         dns = "test-100.com"
         assert TestEnv.a2md( [ "store", "add", dns ] )['rv'] == 0
         # remove managed domain
-        assert TestEnv.a2md( [ "store", "remove", dns ] )['jout'] == { 'status' : 0 }
+        assert TestEnv.a2md( [ "store", "remove", dns ] )['jout'] == TestEnv.EMPTY_JOUT
         # list store content
-        assert TestEnv.a2md( [ "store", "list" ] )['jout'] == { 'status' : 0 }
+        assert TestEnv.a2md( [ "store", "list" ] )['jout'] == TestEnv.EMPTY_JOUT
 
     def test_301(self):
         # test case: remove from list of managed domains 
@@ -169,7 +169,7 @@ class TestStore:
         dns2 = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         jout1 = TestEnv.a2md( [ "store", "add" ] + dns2 )['jout']
         # remove managed domain
-        assert TestEnv.a2md( [ "store", "remove", "test-100.com" ] )['jout'] == { 'status' : 0 }
+        assert TestEnv.a2md( [ "store", "remove", "test-100.com" ] )['jout'] == TestEnv.EMPTY_JOUT
         # list store content
         assert TestEnv.a2md( [ "store", "list" ] )['jout'] == jout1
 
@@ -179,12 +179,14 @@ class TestStore:
         dns1 = "test-100.com"
         run = TestEnv.a2md([ "store", "remove", dns1 ] )
         assert run['rv'] == 1
-        assert run['jout'] == { 'status' : 2, 'description' : 'No such file or directory' }
+        assert run['jout'] == { 
+            'status' : 2, 'description' : 'No such file or directory', 'output' : [] 
+        }
 
     def test_303(self):
         # test case: force remove nonexisting managed domain
         dns1 = "test-100.com"
-        assert TestEnv.a2md( [ "store", "remove", "-f", dns1 ] )['jout'] == { 'status' : 0 }
+        assert TestEnv.a2md( [ "store", "remove", "-f", dns1 ] )['jout'] == TestEnv.EMPTY_JOUT
 
     # --------- store update ---------
 
