@@ -34,7 +34,6 @@
 
 #include "md_acme.h"
 #include "md_acme_authz.h"
-#include "md_acme_drive.h"
 
 typedef struct {
     md_proto_driver_t *driver;

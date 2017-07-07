@@ -18,7 +18,6 @@
 		B24052051EF9145000E36701 /* md_acme_authz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
 		B24052061EF9145000E36701 /* md_acme_authz.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_authz.h; sourceTree = "<group>"; };
 		B24052081EF9145000E36701 /* md_acme_drive.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_drive.c; sourceTree = "<group>"; };
-		B24052091EF9145000E36701 /* md_acme_drive.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_drive.h; sourceTree = "<group>"; };
 		B24052151EF9145000E36701 /* md_core.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_core.c; sourceTree = "<group>"; };
 		B24052161EF9145000E36701 /* md_crypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_crypt.c; sourceTree = "<group>"; };
 		B24052171EF9145000E36701 /* md_crypt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_crypt.h; sourceTree = "<group>"; };
@@ -33,7 +32,6 @@
 		B24052201EF9145000E36701 /* md_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_private.h; sourceTree = "<group>"; };
 		B24052211EF9145000E36701 /* md_reg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_reg.c; sourceTree = "<group>"; };
 		B24052221EF9145000E36701 /* md_reg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_reg.h; sourceTree = "<group>"; };
-		B24052231EF9145000E36701 /* md_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B24052241EF9145000E36701 /* md_store.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_store.h; sourceTree = "<group>"; };
 		B24052251EF9145000E36701 /* md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_util.c; sourceTree = "<group>"; };
 		B24052261EF9145000E36701 /* md_util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_util.h; sourceTree = "<group>"; };
@@ -88,6 +86,9 @@
 		B2B81EA81F0E35B000E35CA3 /* test_0300_conf_validate.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0300_conf_validate.py; sourceTree = "<group>"; };
 		B2B81EA91F0E35B000E35CA3 /* test_0310_conf_store.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0310_conf_store.py; sourceTree = "<group>"; };
 		B2B81EB11F0E680800E35CA3 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		B2B81EBE1F0F981C00E35CA3 /* md_store_fs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store_fs.c; sourceTree = "<group>"; };
+		B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store_fs.h; sourceTree = "<group>"; };
+		B2B81EC01F0F998F00E35CA3 /* md_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -121,7 +122,6 @@
 				B24052051EF9145000E36701 /* md_acme_authz.c */,
 				B24052061EF9145000E36701 /* md_acme_authz.h */,
 				B24052081EF9145000E36701 /* md_acme_drive.c */,
-				B24052091EF9145000E36701 /* md_acme_drive.h */,
 			);
 			path = acme;
 			sourceTree = "<group>";
@@ -313,7 +313,9 @@
 				B24052201EF9145000E36701 /* md_private.h */,
 				B24052211EF9145000E36701 /* md_reg.c */,
 				B24052221EF9145000E36701 /* md_reg.h */,
-				B24052231EF9145000E36701 /* md_store.c */,
+				B2B81EBE1F0F981C00E35CA3 /* md_store_fs.c */,
+				B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */,
+				B2B81EC01F0F998F00E35CA3 /* md_store.c */,
 				B24052241EF9145000E36701 /* md_store.h */,
 				B24052251EF9145000E36701 /* md_util.c */,
 				B24052261EF9145000E36701 /* md_util.h */,

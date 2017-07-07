@@ -26,6 +26,7 @@
 #include "mod_md.h"
 #include "md_config.h"
 #include "md_store.h"
+#include "md_store_fs.h"
 #include "md_log.h"
 #include "md_reg.h"
 #include "md_util.h"

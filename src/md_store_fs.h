@@ -13,9 +13,12 @@
  * limitations under the License.
  */
 
-#ifndef mod_md_md_acme_drive_h
-#define mod_md_md_acme_drive_h
+#ifndef mod_md_md_store_fs_h
+#define mod_md_md_store_fs_h
 
+struct md_store_t;
 
+apr_status_t md_store_fs_init(struct md_store_t **pstore, apr_pool_t *p, 
+                              const char *path, int create);
 
-#endif /* mod_md_md_acme_drive_h */
+#endif /* mod_md_md_store_fs_h */

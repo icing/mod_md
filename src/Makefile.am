@@ -36,13 +36,13 @@ A2LIB_OBJECTS = \
     md_log.c \
     md_reg.c \
     md_store.c \
+    md_store_fs.c \
     md_util.c
 
 A2LIB_HFILES = \
     acme/md_acme.h \
     acme/md_acme_acct.h \
     acme/md_acme_authz.h \
-    acme/md_acme_drive.h \
     md_crypt.h \
     md_http.h \
     md_json.h \
@@ -50,6 +50,7 @@ A2LIB_HFILES = \
     md_log.h \
     md_reg.h \
     md_store.h \
+    md_store_fs.h \
     md_util.h \
     md.h
     

@@ -136,9 +136,4 @@ apr_status_t md_chain_save(md_store_t *store, md_store_group_t group,
                            const char *name, struct apr_array_header_t *chain, int create);
 
 
-/**************************************************************************************************/
-/* file system based store */
-
-apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path, int create);
-
 #endif /* mod_md_md_store_h */
