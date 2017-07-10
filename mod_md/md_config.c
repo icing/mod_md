@@ -39,6 +39,7 @@ static md_config_t defconf = {
     "https://acme-v01.api.letsencrypt.org/directory",
     "ACME",
     NULL, 
+    NULL, 
     "md",
     NULL
 };
@@ -76,6 +77,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     }
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
+    n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
     n->md = NULL;
     n->base_dir = add->base_dir? add->base_dir : base->base_dir;
     return n;
@@ -149,6 +151,20 @@ static const char *md_config_set_ca_proto(cmd_parms *parms,
     return NULL;
 }
 
+static const char *md_config_set_agreement(cmd_parms *parms,
+                                           void *arg, const char *value)
+{
+    md_config_t *config = (md_config_t *)md_config_get(parms->server);
+    const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
+
+    if (err) {
+        return err;
+    }
+    config->ca_agreement = value;
+    (void)arg;
+    return NULL;
+}
+
 static const char *md_config_set_store_dir(cmd_parms *parms,
                                            void *arg, const char *value)
 {
@@ -174,6 +190,8 @@ const command_rec md_cmds[] = {
                   "the directory for file system storage of managed domain data."),
     AP_INIT_TAKE1("MDCertificateProtocol", md_config_set_ca_proto, NULL, RSRC_CONF, 
                   "Protocol used to obtain/renew certificates"),
+    AP_INIT_TAKE1("MDCertificateAgreement", md_config_set_agreement, NULL, RSRC_CONF, 
+                  "URL of CA Terms-of-Service agreement you accept"),
     AP_END_CMD
 };
 
@@ -215,6 +233,8 @@ const char *md_config_var_get(const md_config_t *config, md_config_var_t var)
             return config->ca_proto? config->ca_proto : defconf.ca_proto;
         case MD_CONFIG_BASE_DIR:
             return config->base_dir? config->base_dir : defconf.base_dir;
+        case MD_CONFIG_CA_AGREEMENT:
+            return config->ca_agreement? config->ca_agreement : defconf.ca_agreement;
     }
     return NULL;
 }

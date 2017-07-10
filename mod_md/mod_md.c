@@ -87,9 +87,11 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
                 /* new managed domain not seen before */
                 nmd->ca_url = md_config_var_get(config, MD_CONFIG_CA_URL);
                 nmd->ca_proto = md_config_var_get(config, MD_CONFIG_CA_PROTO);
+                nmd->ca_agreement = md_config_var_get(config, MD_CONFIG_CA_AGREEMENT);
                 if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
                     apr_array_clear(nmd->contacts);
-                    APR_ARRAY_PUSH(nmd->contacts, const char *) = s->server_admin;
+                    APR_ARRAY_PUSH(nmd->contacts, const char *) = 
+                        md_util_schemify(p, s->server_admin, "mailto");
                 }
                 
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
@@ -153,7 +155,8 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                                  s->server_hostname, s->port);
                     if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
                         apr_array_clear(md->contacts);
-                        APR_ARRAY_PUSH(md->contacts, const char *) = s->server_admin;
+                        APR_ARRAY_PUSH(md->contacts, const char *) = 
+                            md_util_schemify(p, s->server_admin, "mailto");
                         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
                                      "Managed Domain %s assigned server admin %s", md->name,
                                      s->server_admin);
@@ -295,21 +298,10 @@ static void init_setups(apr_pool_t *p, server_rec *base_server)
 static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                                    apr_pool_t *ptemp, server_rec *base_server)
 {
-    void *data = NULL;
-    const char *mod_md_init_key = "mod_md_init_counter";
     apr_array_header_t *mds;
     md_reg_t *reg;
     apr_status_t rv = APR_SUCCESS;
 
-    apr_pool_userdata_get(&data, mod_md_init_key, base_server->process->pool);
-    if ( data == NULL ) {
-        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                     "initializing post config dry run");
-        apr_pool_userdata_set((const void *)1, mod_md_init_key,
-                              apr_pool_cleanup_null, base_server->process->pool);
-        return APR_SUCCESS;
-    }
-    
     ap_log_error( APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
                  "mod_md (v%s), initializing...", MOD_MD_VERSION);
 
@@ -355,24 +347,40 @@ out:
 
 static int md_is_managed(server_rec *s)
 {
-    md_config_t *config = (md_config_t *)md_config_get(s);
-    return config && config->md;
+    md_config_t *conf = (md_config_t *)md_config_get(s);
+
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, 
+                  "has conf = %d, has md %s", 
+                 !!conf, (conf && conf->md)? conf->md->name : "(none)");
+    return conf && conf->md;
 }
 
 static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
                                        const char **pkeyfile, const char **pcertfile,
                                        const char **pchainfile)
 {
-    md_config_t *config = (md_config_t *)md_config_get(s);
-    if (config && config->md) {
-        *pkeyfile = NULL;
-        *pcertfile = NULL;
-        *pchainfile = NULL;
-        return APR_EAGAIN;
+    apr_status_t rv = APR_ENOENT;    
+    md_config_t *conf;
+    md_reg_t *reg;
+    const md_t *md;
+    
+    *pkeyfile = NULL;
+    *pcertfile = NULL;
+    *pchainfile = NULL;
+    conf = (md_config_t *)md_config_get(s);
+    
+    if (conf && conf->md) {
+        
+        if (APR_SUCCESS == (rv = md_reg_init(&reg, p, conf->store))) {
+            md = md_reg_get(reg, conf->md->name, p);
+            if (md->state != MD_S_COMPLETE) {
+                return APR_EAGAIN;
+            }
+            return md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile, pchainfile);
+        }
     }
-    return APR_ENOENT;
+    return rv;
 }
-
 
 /**************************************************************************************************/
 /* ACME challenge responses */

@@ -87,6 +87,7 @@
 		B2B81EC31F0FB63400E35CA3 /* md_store_mem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store_mem.h; sourceTree = "<group>"; };
 		B2B81ECB1F13830600E35CA3 /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
 		B2B81ECC1F13830600E35CA3 /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
+		B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mytest.org.conf; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -266,6 +267,7 @@
 				B2D31AFB1EC1BC83007BECC8 /* httpd.conf.in */,
 				B2D31AEC1EC1B506007BECC8 /* mime.types */,
 				B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */,
+				B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */,
 				B2D31AED1EC1B506007BECC8 /* test.conf */,
 			);
 			path = conf;

@@ -376,6 +376,26 @@ const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdom
     return state_check(reg, (md_t*)ctx.md, p);
 }
 
+apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
+                                   const char **pkeyfile, const char **pcertfile,
+                                   const char **pchainfile)
+{
+    apr_status_t rv;
+    
+    rv = md_store_get_fname(pkeyfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PKEY, p);
+    if (APR_SUCCESS == rv) {
+        rv = md_store_get_fname(pcertfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_CERT, p);
+    }
+    if (APR_SUCCESS == rv) {
+        rv = md_store_get_fname(pchainfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_CHAIN, p);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            *pchainfile = NULL;
+            rv = APR_SUCCESS;
+        }
+    }
+    return rv;
+}
+
 /**************************************************************************************************/
 /* manipulation */
 

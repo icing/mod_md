@@ -22,6 +22,7 @@ typedef enum {
     MD_CONFIG_CA_URL,
     MD_CONFIG_CA_PROTO,
     MD_CONFIG_BASE_DIR,
+    MD_CONFIG_CA_AGREEMENT,
 } md_config_var_t;
 
 typedef struct md_config {
@@ -31,6 +32,7 @@ typedef struct md_config {
     apr_array_header_t *mds; /* array of md_t pointers */
     const char *ca_url;
     const char *ca_proto;
+    const char *ca_agreement;
     
     const md_t *md;
     const char *base_dir;

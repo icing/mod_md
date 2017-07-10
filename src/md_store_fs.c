@@ -64,6 +64,10 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
                                md_store_group_t group,  const char *pattern,
                                const char *aspect, md_store_vtype_t vtype);
 
+static apr_status_t fs_get_fname(const char **pfname, 
+                                 md_store_t *store, md_store_group_t group, 
+                                 const char *name, const char *aspect, 
+                                 apr_pool_t *p);
 
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path, int create)
 {
@@ -80,6 +84,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.move = fs_move;
     s_fs->s.purge = fs_purge;
     s_fs->s.iterate = fs_iterate;
+    s_fs->s.get_fname = fs_get_fname;
 
     s_fs->base = apr_pstrdup(p, path);
     
@@ -99,6 +104,16 @@ static void fs_destroy(md_store_t *store)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     s_fs->s.p = NULL;
+}
+
+static apr_status_t fs_get_fname(const char **pfname, 
+                                 md_store_t *store, md_store_group_t group, 
+                                 const char *name, const char *aspect, 
+                                 apr_pool_t *p)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_path_merge(pfname, p, 
+                              s_fs->base, md_store_group_name(group), name, aspect, NULL);
 }
 
 static apr_status_t fs_fload(void **pvalue, const char *fpath, md_store_vtype_t vtype, 
@@ -151,7 +166,7 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         
     groupname = md_store_group_name(group);
     
-    rv = md_util_path_merge(&fpath, ptemp, s_fs->base, groupname, name, aspect, NULL);
+    rv = fs_get_fname(&fpath, &s_fs->s, group, name, aspect, ptemp);
     if (APR_SUCCESS == rv) {
         rv = fs_fload(pvalue, fpath, vtype, p, ptemp);
     }

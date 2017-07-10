@@ -123,6 +123,17 @@ apr_status_t md_store_move(md_store_t *store, md_store_group_t from, md_store_gr
     return store->move(store, from, to, name, archive);
 }
 
+apr_status_t md_store_get_fname(const char **pfname, 
+                                md_store_t *store, md_store_group_t group, 
+                                const char *name, const char *aspect, 
+                                apr_pool_t *p)
+{
+    if (store->get_fname) {
+        return store->get_fname(pfname, store, group, name, aspect, p);
+    }
+    return APR_ENOTIMPL;
+}
+
 /**************************************************************************************************/
 /* convenience */
 
