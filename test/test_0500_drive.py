@@ -14,7 +14,6 @@ from testbase import CertUtil
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.init()
-    assert TestEnv.is_live(TestEnv.ACME_URL, 1)
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/drive"
     status = TestEnv.apachectl("test1.example.org", "start")
@@ -32,6 +31,7 @@ class TestDrive :
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
+        TestEnv.check_acme()
         TestEnv.clear_store()
 
     def teardown_method(self, method):

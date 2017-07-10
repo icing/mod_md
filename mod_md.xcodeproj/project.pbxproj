@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0600_roundtrip.py; sourceTree = "<group>"; };
 		B20333361EDDA82300E5BE7E /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
 		B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_acme_regs.py; sourceTree = "<group>"; };
 		B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0210_acme_tos.py; sourceTree = "<group>"; };
@@ -255,6 +256,7 @@
 				B2B81EA81F0E35B000E35CA3 /* test_0300_conf_validate.py */,
 				B2B81EA91F0E35B000E35CA3 /* test_0310_conf_store.py */,
 				B255730D1EE956B000E0B132 /* test_0500_drive.py */,
+				75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
 				B255730C1EE6D11200E0B132 /* testbase.py */,
 			);
@@ -743,6 +745,7 @@
 				B2B81EBD1F0E693500E35CA3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
