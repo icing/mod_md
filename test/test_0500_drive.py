@@ -31,7 +31,7 @@ class TestDrive :
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.check_acme(1)
+        TestEnv.check_acme()
         TestEnv.clear_store()
 
     def teardown_method(self, method):

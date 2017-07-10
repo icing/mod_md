@@ -123,9 +123,10 @@ class TestEnv:
                 return True
             except IOError:
                 print "connect error:", sys.exc_info()[0]
-                time.sleep(.1)
+                time.sleep(.2)
             except:
                 print "Unexpected error:", sys.exc_info()[0]
+                time.sleep(.2)
         print "Unable to contact server after %d sec" % timeout
         return False
 
@@ -157,12 +158,13 @@ class TestEnv:
         return None
 
     @classmethod
-    def check_acme( cls, timeout ) :
-        if cls.ACME_SERVER_DOWN:
-            pytest.skip(msg="ACME server not running")
+    def check_acme( cls ) :
         if cls.ACME_SERVER_OK:
             return True
-        if cls.is_live(cls.ACME_URL, timeout):
+        if cls.ACME_SERVER_DOWN:
+            pytest.skip(msg="ACME server not running")
+            return False
+        if cls.is_live(cls.ACME_URL, 0.5):
             cls.ACME_SERVER_OK = True
             return True
         else:

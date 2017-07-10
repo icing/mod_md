@@ -37,7 +37,7 @@ class TestConf:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.check_acme(1)
+        TestEnv.check_acme()
         (self.errors, self.warnings) = TestEnv.apache_err_count()
         TestEnv.clear_store()
 
