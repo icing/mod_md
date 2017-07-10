@@ -20,11 +20,15 @@ ACLOCAL_AMFLAGS = -I m4
 
 dist_doc_DATA   = README README.md LICENSE
 
-.PHONY: test
+.PHONY: test libmd
 
-mod_md: src
+libmd:
+	$(MAKE) -C src
 
-SERVER_DIR      = @SERVER_DIR@
+a2md/a2md: libmd
+	$(MAKE) -C a2md
+
+mod_md: libmd
 
 test: a2md/a2md
 	$(MAKE) -C test/ test

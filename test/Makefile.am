@@ -39,12 +39,12 @@ $(SERVER_DIR)/conf/ssl/valid_cert.pem: \
 test: $(SERVER_DIR)/.test-setup
 	py.test
 
-test-drive: $(SERVER_DIR)/.test-setup a2md/a2md
-	@cd test; py.test test_0500_drive.py
+test-drive: $(SERVER_DIR)/.test-setup
+	@py.test test_0500_drive.py
 
-test-configs: $(SERVER_DIR)/.test-setup a2md/a2md
-	@cd test; py.test test_0300_conf_validate.py
-	@cd test; py.test test_0310_conf_store.py
+test-configs: $(SERVER_DIR)/.test-setup
+	@py.test test_0300_conf_validate.py
+	@py.test test_0310_conf_store.py
 
 $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/conf/ssl/cert.pem \
