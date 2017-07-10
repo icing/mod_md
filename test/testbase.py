@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import re
+import pytest
 import sys
 import time
 import json
@@ -55,6 +56,9 @@ class TestEnv:
 
         cls.set_store_dir('md')
         cls.EMPTY_JOUT = { 'status' : 0, 'output' : [] }
+
+        cls.ACME_SERVER_DOWN = False
+        cls.ACME_SERVER_OK = False
 
 
     @classmethod
@@ -151,6 +155,21 @@ class TestEnv:
                 print "Unexpected error:", sys.exc_info()[0]
         print "Unable to contact server after %d sec" % timeout
         return None
+
+    @classmethod
+    def check_acme( cls, timeout ) :
+        if cls.ACME_SERVER_DOWN:
+            pytest.skip(msg="ACME server not running")
+        if cls.ACME_SERVER_OK:
+            return True
+        if cls.is_live(cls.ACME_URL, timeout):
+            cls.ACME_SERVER_OK = True
+            return True
+        else:
+            cls.ACME_SERVER_DOWN = True
+            pytest.fail(msg="ACME server not running", pytrace=False)
+            return False
+
 
     # --------- access local store ---------
 
