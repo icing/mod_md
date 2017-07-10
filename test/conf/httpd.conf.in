@@ -18,8 +18,7 @@ DocumentRoot "@SERVER_DIR@/htdocs"
 </IfModule>
 
 LogLevel md:debug
-
-SSLEngine off
+LogLevel ssl:debug
 
 <VirtualHost *:@HTTP_PORT@>
     DocumentRoot "@SERVER_DIR@/htdocs"
@@ -32,8 +31,8 @@ SSLEngine off
     DocumentRoot "@SERVER_DIR@/htdocs"
     
     SSLEngine on
-    SSLCertificateFile conf/ssl/cert.pem
-    SSLCertificateKeyFile conf/ssl/cert.key
+    SSLCertificateFile conf/ssl/valid_cert.pem
+    SSLCertificateKeyFile conf/ssl/valid_pkey.pem
 
 </VirtualHost>
 

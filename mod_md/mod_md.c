@@ -353,8 +353,25 @@ out:
 /**************************************************************************************************/
 /* Access API to other httpd components */
 
-apr_status_t md_is_managed(server_rec *s);
-apr_status_t md_get_credentials(server_rec *s);
+static int md_is_managed(server_rec *s)
+{
+    md_config_t *config = (md_config_t *)md_config_get(s);
+    return config && config->md;
+}
+
+static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
+                                       const char **pkeyfile, const char **pcertfile,
+                                       const char **pchainfile)
+{
+    md_config_t *config = (md_config_t *)md_config_get(s);
+    if (config && config->md) {
+        *pkeyfile = NULL;
+        *pcertfile = NULL;
+        *pchainfile = NULL;
+        return APR_EAGAIN;
+    }
+    return APR_ENOENT;
+}
 
 
 /**************************************************************************************************/
@@ -428,8 +445,11 @@ static void md_hooks(apr_pool_t *pool)
     
     /* Run once after a child process has been created.
      */
-    ap_hook_child_init(md_child_init, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_child_init(md_child_init, NULL, mod_ssl, APR_HOOK_MIDDLE);
 
     /* answer challenges *very* early, before any configured authentication may strike */
     ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
+
+    APR_REGISTER_OPTIONAL_FN(md_is_managed);
+    APR_REGISTER_OPTIONAL_FN(md_get_credentials);
 }

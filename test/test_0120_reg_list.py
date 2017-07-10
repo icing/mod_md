@@ -132,4 +132,4 @@ class TestRegAdd :
         assert TestEnv.a2md([ "-vvv", "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
     def _data_ssl(self, name):
-        return os.path.join(TestEnv.TESTROOT, "data", "ssl", name) 
+        return os.path.join(TestEnv.APACHE_SSL_DIR, name) 

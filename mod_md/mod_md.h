@@ -16,34 +16,16 @@
 #ifndef mod_md_mod_md_h
 #define mod_md_mod_md_h
 
-struct apr_array_header_t;
+struct server_rec;
 
+APR_DECLARE_OPTIONAL_FN(int, 
+                        md_is_managed, (struct server_rec *));
 
-#define MD_INCOMPLETE     0x0
-#define MD_LIVE           0x1
-#define MD_EXPIRED        0x2
+APR_DECLARE_OPTIONAL_FN(apr_status_t, 
+                        md_get_credentials, (struct server_rec *, apr_pool_t *,
+                                             const char **pkeyfile, 
+                                             const char **pcertfile, 
+                                             const char **pchainfile));
 
-/**
- * Get the status of the Managed Domain that contains the given DNS name.
- *
- * @param domain the DNS name to get the status for
- * @param pstate receives the status of the Managed Domain on success 
- * @return APR_ENOENT if domain is not known.
- */
-apr_status_t md_get_status(const char *domain, int *pstate);
-
-/**
- * Get the certificate files and keys for the domain. Only valid for Managed Domains in
- * state LIVE or EXPIRED. Certificate files and key files will be handed out in matching order.
- * The certificate files will first contain the domain certificate, followed by the
- * certificate chain files. A file may contain all together. Key files may be empty. 
- *
- * @param domain the DNS name to get the certificates for
- * @param certs  the list to be filled with the certificate file paths
- * @param keys   the list to be filled with the private key file paths
- */
-apr_status_t md_get_cert_files(const char *domain, 
-                               struct apr_array_header_t *certs, 
-                               struct apr_array_header_t *keys);
 
 #endif /* mod_md_mod_md_h */

@@ -35,7 +35,9 @@ class TestEnv:
 
         cls.APACHECTL = os.path.join(cls.PREFIX, 'bin', 'apachectl')
         cls.ERROR_LOG = os.path.join(cls.WEBROOT, "logs", "error_log")
-        cls.APACHE_TEST_CONF = os.path.join(cls.WEBROOT, "conf", "test.conf")
+        cls.APACHE_CONF_DIR = os.path.join(cls.WEBROOT, "conf")
+        cls.APACHE_SSL_DIR = os.path.join(cls.APACHE_CONF_DIR, "ssl")
+        cls.APACHE_TEST_CONF = os.path.join(cls.APACHE_CONF_DIR, "test.conf")
         cls.APACHE_CONF_SRC = "data"
 
         cls.HTTP_PORT = cls.config.get('global', 'http_port')
