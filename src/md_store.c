@@ -40,6 +40,28 @@
 #define ASPECT_PKEY         "key.pem"
 #define ASPECT_CHAIN        "chain.pem"
 
+#define GNAME_ACCOUNTS     "accounts"
+#define GNAME_CHALLENGES   "challenges"
+#define GNAME_DOMAINS      "domains"
+#define GNAME_STAGING      "staging"
+#define GNAME_ARCHIVE      "archive"
+
+static const char *GROUP_FNAME[] = {
+    GNAME_ACCOUNTS,
+    GNAME_CHALLENGES,
+    GNAME_DOMAINS,
+    GNAME_STAGING,
+    GNAME_ARCHIVE,
+};
+
+const char *md_store_group_name(int group)
+{
+    if (group < sizeof(GROUP_FNAME)/sizeof(GROUP_FNAME[0])) {
+        return GROUP_FNAME[group];
+    }
+    return "UNKNOWN";
+}
+
 void md_store_destroy(md_store_t *store)
 {
     if (store->destroy) store->destroy(store);

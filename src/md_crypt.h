@@ -22,7 +22,6 @@ struct md_http_response_t;
 
 /**************************************************************************************************/
 /* digests */
-
 apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
                                       const char *d, size_t dlen);
 
@@ -38,6 +37,9 @@ void md_pkey_free(md_pkey_t *pkey);
 
 const char *md_pkey_get_rsa_e64(md_pkey_t *pkey, apr_pool_t *p);
 const char *md_pkey_get_rsa_n64(md_pkey_t *pkey, apr_pool_t *p);
+
+apr_status_t md_pkey_to_base64url(const char **ps64, md_pkey_t *pkey, apr_pool_t *p);
+apr_status_t md_pkey_from_base64url(md_pkey_t **ppkey, const char *s64, apr_pool_t *p);
 
 apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
 apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
@@ -73,6 +75,8 @@ int md_cert_covers_md(md_cert_t *cert, const struct md_t *md);
 apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p);
 
+apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool_t *p);
 
 apr_status_t md_chain_fload(struct apr_array_header_t **pcerts, 
                             apr_pool_t *p, const char *fname);

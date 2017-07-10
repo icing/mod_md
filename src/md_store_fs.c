@@ -36,27 +36,6 @@
 /**************************************************************************************************/
 /* file system based implementation of md_store_t */
 
-#define FS_DN_ACCOUNTS     "accounts"
-#define FS_DN_CHALLENGES   "challenges"
-#define FS_DN_DOMAINS      "domains"
-#define FS_DN_STAGING      "staging"
-#define FS_DN_ARCHIVE      "archive"
-
-static const char *SGROUP_FNAME[] = {
-    FS_DN_ACCOUNTS,
-    FS_DN_CHALLENGES,
-    FS_DN_DOMAINS,
-    FS_DN_STAGING,
-};
-
-static const char *sgroup_filename(int group)
-{
-    if (group < sizeof(SGROUP_FNAME)/sizeof(SGROUP_FNAME[0])) {
-        return SGROUP_FNAME[group];
-    }
-    return "UNKNOWN";
-}
-
 typedef struct md_store_fs_t md_store_fs_t;
 struct md_store_fs_t {
     md_store_t s;
@@ -170,7 +149,7 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     vtype = va_arg(ap, int);
     pvalue= va_arg(ap, void **);
         
-    groupname = sgroup_filename(group);
+    groupname = md_store_group_name(group);
     
     rv = md_util_path_merge(&fpath, ptemp, s_fs->base, groupname, name, aspect, NULL);
     if (APR_SUCCESS == rv) {
@@ -196,7 +175,7 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     value = va_arg(ap, void *);
     create = va_arg(ap, int);
     
-    groupname = sgroup_filename(group);
+    groupname = md_store_group_name(group);
     
     if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, groupname, name, NULL))
         && APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, p)) 
@@ -242,7 +221,7 @@ static apr_status_t pfs_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     aspect = va_arg(ap, const char *);
     force = va_arg(ap, int);
     
-    groupname = sgroup_filename(group);
+    groupname = md_store_group_name(group);
     
     if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, groupname, name, NULL))
         && APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, aspect, NULL))) {
@@ -298,7 +277,7 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     group = va_arg(ap, int);
     name = va_arg(ap, const char*);
     
-    groupname = sgroup_filename(group);
+    groupname = md_store_group_name(group);
 
     if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, groupname, name, NULL))) {
         /* Remove all files in dir, there should be no sub-dirs */
@@ -359,7 +338,7 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
     ctx.vtype = vtype;
     ctx.inspect = inspect;
     ctx.baton = baton;
-    groupname = sgroup_filename(group);
+    groupname = md_store_group_name(group);
 
     rv = md_util_files_do(insp, &ctx, ctx.s_fs->p, ctx.s_fs->base, 
                           groupname, ctx.pattern, aspect, NULL);
@@ -383,8 +362,8 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     name = va_arg(ap, const char*);
     archive = va_arg(ap, int);
     
-    from_group = sgroup_filename(from);
-    to_group = sgroup_filename(to);
+    from_group = md_store_group_name(from);
+    to_group = md_store_group_name(to);
     if (!strcmp(from_group, to_group)) {
         return APR_EINVAL;
     }
@@ -404,7 +383,7 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         int n = 1;
         const char *narch_dir;
 
-        rv = md_util_path_merge(&dir, ptemp, s_fs->base, FS_DN_ARCHIVE, NULL);
+        rv = md_util_path_merge(&dir, ptemp, s_fs->base, md_store_group_name(MD_SG_ARCHIVE), NULL);
         if (APR_SUCCESS != rv) goto out;
         rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, ptemp); 
         if (APR_SUCCESS != rv) goto out;

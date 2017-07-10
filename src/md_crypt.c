@@ -61,6 +61,17 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
     return APR_SUCCESS;
 }
 
+typedef struct {
+    char *data;
+    apr_size_t len;
+} buffer;
+
+static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p) 
+{
+    buffer *buf = baton;
+    return apr_file_write_full(f, buf->data, buf->len, &buf->len);
+}
+
 /**************************************************************************************************/
 /* private keys */
 
@@ -123,28 +134,51 @@ apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fna
     return rv;
 }
 
-apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, const char *fname)
+static apr_status_t pkey_to_buffer(buffer *buffer, md_pkey_t *pkey, apr_pool_t *p)
 {
-    FILE *f;
+    BIO *bio = BIO_new(BIO_s_mem());
+    
+    if (!bio) {
+        return APR_ENOMEM;
+    }
+
+    ERR_clear_error();
+    PEM_write_bio_PrivateKey(bio, pkey->pkey, NULL, NULL, 0, NULL, NULL);
+    if (ERR_get_error() > 0) {
+        BIO_free(bio);
+        return APR_EINVAL;
+    }
+
+    buffer->len = BIO_pending(bio);
+    if (buffer->len > 0) {
+        buffer->data = apr_palloc(p, buffer->len+1);
+        buffer->len = BIO_read(bio, buffer->data, (int)buffer->len);
+        buffer->data[buffer->len] = '\0';
+    }
+    BIO_free(bio);
+    return APR_SUCCESS;
+}
+
+apr_status_t md_pkey_to_base64url(const char **ps64, md_pkey_t *pkey, apr_pool_t *p)
+{
+    buffer buffer;
     apr_status_t rv;
     
-    rv = md_util_fopen(&f, fname, "w");
-    if (rv == APR_SUCCESS) {
-        rv = apr_file_perms_set(fname, MD_FPROT_F_UONLY);
-        if (rv == APR_ENOTIMPL) {
-            /* TODO: Windows, OS2 do not implement this. Do we have other
-             * means to secure the file? */
-            rv = APR_SUCCESS;
-        }
+    if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p))) {
+        *ps64 = md_util_base64url_encode(buffer.data, buffer.len, p);
+        return APR_SUCCESS;
+    }
+    *ps64 = NULL;
+    return rv;
+}
 
-        if (rv == APR_SUCCESS) {
-            if (PEM_write_PrivateKey(f, pkey->pkey, NULL, NULL, 0, NULL, NULL) < 0) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "error writing key: %s", fname); 
-                rv = APR_EGENERAL;
-            }
-        }
-        
-        fclose(f);
+apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, const char *fname)
+{
+    buffer buffer;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p))) {
+        return md_util_freplace(fname, p, fwrite_buffer, &buffer); 
     }
     return rv;
 }
@@ -470,29 +504,52 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
     return rv;
 }
 
+static apr_status_t cert_to_buffer(buffer *buffer, md_cert_t *cert, apr_pool_t *p)
+{
+    BIO *bio = BIO_new(BIO_s_mem());
+    
+    if (!bio) {
+        return APR_ENOMEM;
+    }
+
+    ERR_clear_error();
+    PEM_write_bio_X509(bio, cert->x509);
+    if (ERR_get_error() > 0) {
+        BIO_free(bio);
+        return APR_EINVAL;
+    }
+
+    buffer->len = BIO_pending(bio);
+    if (buffer->len > 0) {
+        buffer->data = apr_palloc(p, buffer->len+1);
+        buffer->len = BIO_read(bio, buffer->data, (int)buffer->len);
+        buffer->data[buffer->len] = '\0';
+    }
+    BIO_free(bio);
+    return APR_SUCCESS;
+}
 
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, const char *fname)
 {
-    FILE *f;
+    buffer buffer;
     apr_status_t rv;
     
-    rv = md_util_fopen(&f, fname, "w");
-    if (rv == APR_SUCCESS) {
-        rv = apr_file_perms_set(fname, MD_FPROT_F_UONLY);
-        if (rv == APR_ENOTIMPL) {
-            /* TODO: Windows, OS2 do not implement this. Do we have other
-             * means to secure the file? */
-            rv = APR_SUCCESS;
-        }
-        ERR_clear_error();
-        
-        PEM_write_X509(f, cert->x509);
-        rv = fclose(f);
-        
-        if (ERR_get_error() > 0) {
-            rv = APR_EINVAL;
-        }
+    if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
+        return md_util_freplace(fname, p, fwrite_buffer, &buffer); 
     }
+    return rv;
+}
+
+apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p)
+{
+    buffer buffer;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
+        *ps64 = md_util_base64url_encode(buffer.data, buffer.len, p);
+        return APR_SUCCESS;
+    }
+    *ps64 = NULL;
     return rv;
 }
 

@@ -37,7 +37,11 @@ typedef enum {
     MD_SG_CHALLENGES,
     MD_SG_DOMAINS,
     MD_SG_STAGING,
+    MD_SG_ARCHIVE,
 } md_store_group_t;
+
+const char *md_store_group_name(int group);
+
 
 typedef apr_status_t md_store_load_cb(md_store_t *store, md_store_group_t group, 
                                       const char *name, const char *aspect, 

@@ -89,6 +89,8 @@
 		B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store_fs.h; sourceTree = "<group>"; };
 		B2B81EC01F0F998F00E35CA3 /* md_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
 		B2B81EC11F0FAC2000E35CA3 /* other_base.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = other_base.conf; sourceTree = "<group>"; };
+		B2B81EC21F0FB63400E35CA3 /* md_store_mem.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store_mem.c; sourceTree = "<group>"; };
+		B2B81EC31F0FB63400E35CA3 /* md_store_mem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store_mem.h; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -298,6 +300,8 @@
 				B24052221EF9145000E36701 /* md_reg.h */,
 				B2B81EBE1F0F981C00E35CA3 /* md_store_fs.c */,
 				B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */,
+				B2B81EC21F0FB63400E35CA3 /* md_store_mem.c */,
+				B2B81EC31F0FB63400E35CA3 /* md_store_mem.h */,
 				B2B81EC01F0F998F00E35CA3 /* md_store.c */,
 				B24052241EF9145000E36701 /* md_store.h */,
 				B24052251EF9145000E36701 /* md_util.c */,

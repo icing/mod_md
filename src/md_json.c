@@ -83,6 +83,11 @@ md_json_t *md_json_create(apr_pool_t *pool)
     return json_create(pool, json_object());
 }
 
+md_json_t *md_json_create_s(apr_pool_t *pool, const char *s)
+{
+    return json_create(pool, json_string(s));
+}
+
 void md_json_destroy(md_json_t *json)
 {
     if (json && json->j) {

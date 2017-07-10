@@ -49,6 +49,7 @@ long md_json_getl(md_json_t *json, ...);
 apr_status_t md_json_setl(long value, md_json_t *json, ...);
 
 /* string manipulation */
+md_json_t *md_json_create_s(apr_pool_t *pool, const char *s);
 const char *md_json_gets(md_json_t *json, ...);
 const char *md_json_dups(apr_pool_t *p, md_json_t *json, ...);
 apr_status_t md_json_sets(const char *s, md_json_t *json, ...);
