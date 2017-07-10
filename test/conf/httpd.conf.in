@@ -3,7 +3,8 @@
 ServerName @SERVER_NAME@
 ServerRoot "@SERVER_DIR@"
 
-Listen @HTTP_PORT@ @HTTPS_PORT@
+Listen @HTTP_PORT@
+Listen @HTTPS_PORT@
 
 Include conf/modules.conf
 
@@ -25,7 +26,15 @@ SSLEngine off
 </VirtualHost>
 
 <VirtualHost *:@HTTPS_PORT@>
+    ServerName example.org
+    ServerAlias www.example.org
+    
     DocumentRoot "@SERVER_DIR@/htdocs"
+    
+    SSLEngine on
+    SSLCertificateFile conf/ssl/cert.pem
+    SSLCertificateKeyFile conf/ssl/cert.key
+
 </VirtualHost>
 
 Include "conf/test.conf"

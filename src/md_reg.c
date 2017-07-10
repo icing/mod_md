@@ -174,6 +174,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
                 goto out;
             }
 
+            /* TODO: Do we consider an empty chain complete? */
             for (i = 0; i < creds->chain->nelts; ++i) {
                 cert = APR_ARRAY_IDX(creds->chain, i, const md_cert_t *);
                 if (!md_cert_is_valid_now(cert)) {

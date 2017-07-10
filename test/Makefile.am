@@ -13,26 +13,49 @@
 # limitations under the License.
 #
 
-data/ssl/valid_pkey.pem:
-	@mkdir -p data/ssl
-	openssl genrsa -out data/ssl/valid_pkey.pem 4096
+SERVER_DIR     = @SERVER_DIR@
+GEN            = gen
 
-data/ssl/valid_cert.req: \
-		data/ssl/valid_pkey.pem \
+$(SERVER_DIR)/conf/ssl/valid_pkey.pem:
+	@mkdir -p $(SERVER_DIR)/conf/ssl
+	openssl genrsa -out $(SERVER_DIR)/conf/ssl/valid_pkey.pem 4096
+
+$(SERVER_DIR)/conf/ssl/valid_cert.req: \
+		$(SERVER_DIR)/conf/ssl/valid_pkey.pem \
 		data/ssl/req_template.conf
 	openssl req -new -key data/ssl/valid_pkey.pem \
-		-out data/ssl/valid_cert.req \
+		-out $(SERVER_DIR)/conf/ssl/valid_cert.req \
 		-config data/ssl/req_template.conf
 
-data/ssl/valid_cert.pem: \
-		data/ssl/valid_pkey.pem \
-		data/ssl/valid_cert.req
+$(SERVER_DIR)/conf/ssl/valid_cert.pem: \
+		$(SERVER_DIR)/conf/ssl/valid_pkey.pem \
+		$(SERVER_DIR)/conf/ssl/valid_cert.req
 	openssl x509 -req -sha256 -days 1095 \
-		-signkey data/ssl/valid_pkey.pem \
-		-in data/ssl/valid_cert.req \
-		-out data/ssl/valid_cert.pem \
+		-signkey $(SERVER_DIR)/conf/ssl/valid_pkey.pem \
+		-in $(SERVER_DIR)/conf/ssl/valid_cert.req \
+		-out $(SERVER_DIR)/conf/ssl/valid_cert.pem \
 		-extfile data/ssl/req_exts.conf -extensions v3_req_ext
 
+test: $(SERVER_DIR)/.test-setup
+	py.test
+
+test-drive: $(SERVER_DIR)/.test-setup a2md/a2md
+	@cd test; py.test test_0500_drive.py
+
+test-configs: $(SERVER_DIR)/.test-setup a2md/a2md
+	@cd test; py.test test_0300_conf_validate.py
+	@cd test; py.test test_0310_conf_store.py
+
+$(SERVER_DIR)/.test-setup: conf/* \
+		$(SERVER_DIR)/conf/ssl/cert.pem \
+		$(SERVER_DIR)/conf/ssl/valid_cert.pem
+	@mkdir -p $(SERVER_DIR)/conf
+	@mkdir -p $(SERVER_DIR)/htdocs
+	@mkdir -p $(SERVER_DIR)/logs
+	@cp conf/*.* $(SERVER_DIR)/conf
+	@touch $(SERVER_DIR)/.test-setup
+
+
 clean-local:
-	rm -f data/ssl/valid_*
+	rm -f $(SERVER_DIR)/conf/ssl/*
 	rm -rf *.pyc __pycache__

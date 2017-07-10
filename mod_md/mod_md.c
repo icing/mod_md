@@ -112,20 +112,24 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
     int i, j, k;
     const char *domain, *name;
     
+    /* Find the (at most one) managed domain for each vhost/base server and
+     * remember it at our config for it. 
+     * The config is not accepted, if a vhost matches 2 or more managed domains.
+     * 
+     */
     memset(&r, 0, sizeof(r));
     for (i = 0; i < mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mds, i, md_t*);
         config = NULL;
+        /* This MD may apply to 0, 1 or more sever_recs */
         for (s = base_server; s; s = s->next) {
             r.server = s;
-            
-            /* try finding a matching server for the domain, might be more than  one */ 
             for (j = 0; j < md->domains->nelts; ++j) {
                 domain = APR_ARRAY_IDX(md->domains, j, const char*);
                 
                 if (ap_matches_request_vhost(&r, domain, s->port)) {
-                    /* We need a unique md_config_t record for this server, since
-                     * we store settings specific to this individual server here */
+                    /* Create a unique md_config_t record for this server. 
+                     * We keep local information here. */
                     config = (md_config_t *)md_config_get_unique(s, p);
                 
                     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
@@ -136,14 +140,28 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                         /* already matched via another domain name */
                     }
                     else if (config->md) {
+                         
                         ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
-                                     "Managed Domain %s matches server %s, but MD %s also matches.",
+                                     "conflict: MD %s matches server %s, but MD %s also matches.",
                                      md->name, s->server_hostname, config->md->name);
                         rv = APR_EINVAL;
+                        goto next_server;
                     }
+                    
+                    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                                 "Managed Domain %s applies to vhost %s:%d", md->name,
+                                 s->server_hostname, s->port);
+                    if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
+                        apr_array_clear(md->contacts);
+                        APR_ARRAY_PUSH(md->contacts, const char *) = s->server_admin;
+                        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                                     "Managed Domain %s assigned server admin %s", md->name,
+                                     s->server_admin);
+                    }
+                    config->md = md;
+
                     /* This server matches a managed domain. If it contains names or
-                     * alias that are not in this md, a generated certificate will not match.
-                     */
+                     * alias that are not in this md, a generated certificate will not match. */
                     if (!md_contains(md, s->server_hostname)) {
                         ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                      "Virtual Host %s:%d matches Managed Domain %s, but the name"
@@ -151,6 +169,7 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                                      "not match ServerName.",
                                      s->server_hostname, s->port, md->name);
                         rv = APR_EINVAL;
+                        goto next_server;
                     }
                     else {
                         for (k = 0; k < s->names->nelts; ++k) {
@@ -163,27 +182,19 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                                              "alias.", s->server_hostname, s->port, md->name,
                                              name);
                                 rv = APR_EINVAL;
+                                goto next_server;
                             }
                         }
                     }
-                    
-                    config->md = md;
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                                 "Managed Domain %s applies to vhost %s:%d", md->name,
-                                 s->server_hostname, s->port);
-                    if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
-                        apr_array_clear(md->contacts);
-                        APR_ARRAY_PUSH(md->contacts, const char *) = s->server_admin;
-                        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                                     "Managed Domain %s assigned server admin %s", md->name,
-                                     s->server_admin);
-                    }
-                    break;
+                    goto next_server;
                 }
             }
+next_server:
+            continue;
         }
         
         if (config == NULL) {
+            /* Not an error, but looks suspicious */
             ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
                          "No VirtualHost matches Managed Domain %s", md->name);
         }
@@ -306,23 +317,25 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
 
     md_log_set(log_is_level, log_print, NULL);
 
-    /* 1. Check uniqueness of MDs, calculate global MD list */
+    /* 1. Check uniqueness of MDs, calculate global, configured MD list.
+     * If successful, we have a list of MD definitions that do not overlap. */
     if (APR_SUCCESS != (rv = md_calc_md_list(p, plog, ptemp, base_server, &mds))) {
         goto out;
     }
     
-    /* 2. Check mappings of MDs to VirtulHosts defined */
+    /* 2. Check mappings of MDs to VirtulHosts defined.
+     * If successful, we have asigned MDs to server_recs in a unique way. Each server_rec
+     * config will carry 0 or 1 MD record. */
     if (APR_SUCCESS != (rv = md_check_vhost_mapping(p, plog, ptemp, base_server, mds))) {
         goto out;
     }    
     
-    /* 3. Config consistent, sync with store */
+    /* 3. Synchronize the defintions we now have with the store via a registry (reg). */
     if (APR_SUCCESS != (rv = setup_reg(&reg, p, base_server))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, base_server, APLOGNO()
                      "setup md registry");
         goto out;
     }
-
     if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, mds))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, base_server, APLOGNO()
                      "synching %d mds to registry", mds->nelts);
@@ -331,10 +344,21 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
      
     /* Now, do we need to do anything? */
     
+    /* TODO: start thread taking care of signups/renewals/graceful restarts */
     
 out:     
     return rv;
 }
+
+/**************************************************************************************************/
+/* Access API to other httpd components */
+
+apr_status_t md_is_managed(server_rec *s);
+apr_status_t md_get_credentials(server_rec *s);
+
+
+/**************************************************************************************************/
+/* ACME challenge responses */
 
 #define ACME_CHALLENGE_PREFIX       "/.well-known/acme-challenge/"
 

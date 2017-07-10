@@ -26,24 +26,12 @@ mod_md: src
 
 SERVER_DIR      = @SERVER_DIR@
 
-test: $(SERVER_DIR)/.test-setup a2md/a2md
-	@cd test; py.test
+test: a2md/a2md
+	$(MAKE) -C test/ test
 
-test-drive: $(SERVER_DIR)/.test-setup a2md/a2md
-	@cd test; py.test test_0500_drive.py
+test-drive: a2md/a2md
+	$(MAKE) -C test/ test-drive
 
-test-configs: $(SERVER_DIR)/.test-setup a2md/a2md
-	@cd test; py.test test_0300_conf_validate.py
-	@cd test; py.test test_0310_conf_store.py
+test-configs: a2md/a2md
+	$(MAKE) -C test/ test-configs
 
-$(SERVER_DIR)/.test-setup: test/conf/* \
-		$(SERVER_DIR)/conf/ssl/cert.pem \
-		test/data/ssl/valid_cert.pem
-	@mkdir -p $(SERVER_DIR)/conf
-	@mkdir -p $(SERVER_DIR)/htdocs
-	@mkdir -p $(SERVER_DIR)/logs
-	@cp test/conf/*.* $(SERVER_DIR)/conf
-	@touch $(SERVER_DIR)/.test-setup
-
-test/data/ssl/valid_cert.pem:
-	$(MAKE) -C test/ data/ssl/valid_cert.pem
