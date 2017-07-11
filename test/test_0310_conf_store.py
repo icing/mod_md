@@ -131,6 +131,13 @@ class TestConf:
         self._check_md_contacts(name1, ["mailto:admin@" + name1])
         self._check_md_contacts(name2, ["mailto:admin@" + name2])
 
+    def test_108(self):
+        # test case: normalize names - lowercase
+        TestEnv.install_test_conf("one_md_caps");
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
+
+
     # --------- remove from store ---------
 
     def test_200(self):
@@ -312,7 +319,6 @@ class TestConf:
             md = output[i]
             if name == md['name']:
                 mdFound = True
-                assert md['state'] == TestEnv.MD_S_INCOMPLETE
                 assert md['domains'] == dnsList
                 assert md['state'] == state
         assert mdFound == True

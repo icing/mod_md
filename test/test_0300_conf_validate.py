@@ -113,3 +113,9 @@ class TestConf:
         TestEnv.install_test_conf("test_012");
         assert TestEnv.apache_restart() == 0
         assert (0, 1) == TestEnv.apache_err_count()
+
+    def test_013(self):
+        # one md covers two vhosts
+        TestEnv.install_test_conf("test_013");
+        assert TestEnv.apache_restart() == 0
+        assert (0, 0) == TestEnv.apache_err_count()
