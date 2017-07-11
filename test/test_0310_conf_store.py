@@ -83,12 +83,12 @@ class TestConf:
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
 
     def test_103(self):
-        # test case: add new md definition with acme url, acme protocol
+        # test case: add new md definition with acme url, acme protocol, acme agreement
         TestEnv.install_test_conf("one_md_ca");
         assert TestEnv.apache_restart() == 0
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", TestEnv.ACME_TOS)
 
     def test_104(self):
         # test case: add to existing md: acme url, acme protocol
@@ -96,11 +96,11 @@ class TestConf:
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME")
+        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME", None)
         TestEnv.install_test_conf("one_md_ca");
         assert TestEnv.apache_restart() == 0
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", TestEnv.ACME_TOS)
 
     def test_105(self):
         # test case: add new md definition with server admin
@@ -188,7 +188,7 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous ca info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME")
+        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME", TestEnv.ACME_TOS)
 
     def test_205(self):
         # test case: remove server admin from md
@@ -238,7 +238,7 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous ca info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, "http://somewhere.com:6666/directory", "ACME")
+        self._check_md_ca(name, "http://somewhere.com:6666/directory", "ACME", "http://somewhere.com:6666/terms/v1")
 
     def test_303(self):
         # test case: change server admin
@@ -317,7 +317,7 @@ class TestConf:
                 assert md['state'] == state
         assert mdFound == True
 
-    def _check_md_ca(self, name, ca_url, ca_proto):
+    def _check_md_ca(self, name, ca_url, ca_proto, ca_tos):
         md = TestEnv.a2md(["list", name])['jout']['output'][0]
         if ca_url:
             assert md['ca']['url'] == ca_url
@@ -327,6 +327,10 @@ class TestConf:
             assert md['ca']['proto'] == ca_proto
         else:
             assert "proto" not in md['ca']
+        if ca_tos:
+            assert md['ca']['agreement'] == ca_tos
+        else:
+            assert "agreement" not in md['ca']
 
     def _check_md_contacts(self, name, contactList):
         md = TestEnv.a2md(["list", name])['jout']['output'][0]
