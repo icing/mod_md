@@ -73,14 +73,14 @@ class TestRegAdd :
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # check: valid pkey/cert -> COMPLETE
-        copyfile(self._data_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: expired cert -> EXPIRED
-        copyfile(self._data_ssl("expired_pkey.pem"), TestEnv.path_domain_pkey(name))
-        copyfile(self._data_ssl("expired_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(self._data_ssl("expired_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(self._path_conf_ssl("expired_pkey.pem"), TestEnv.path_domain_pkey(name))
+        copyfile(self._path_conf_ssl("expired_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(self._path_conf_ssl("expired_cert.pem"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_EXPIRED
 
     def test_103(self):
@@ -91,12 +91,12 @@ class TestRegAdd :
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         # check: valid pkey/cert -> COMPLETE
-        copyfile(self._data_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: replace cert by broken file -> ERROR
-        copyfile(self._data_ssl("valid_cert.req"), TestEnv.path_domain_cert(name))
+        copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_cert(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
     def test_104(self):
@@ -107,12 +107,12 @@ class TestRegAdd :
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         # check: valid pkey/cert -> COMPLETE
-        copyfile(self._data_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: replace private key by broken file -> ERROR
-        copyfile(self._data_ssl("valid_cert.req"), TestEnv.path_domain_pkey(name))
+        copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_pkey(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
     def test_105(self):
@@ -123,13 +123,13 @@ class TestRegAdd :
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         # check: valid pkey/cert -> COMPLETE
-        copyfile(self._data_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
-        copyfile(self._data_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
+        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.path_domain_pkey(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_cert(name))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: replace chain by broken file -> ERROR
-        copyfile(self._data_ssl("valid_cert.req"), TestEnv.path_domain_ca_chain(name))
+        copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "-vvv", "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
-    def _data_ssl(self, name):
+    def _path_conf_ssl(self, name):
         return os.path.join(TestEnv.APACHE_SSL_DIR, name) 

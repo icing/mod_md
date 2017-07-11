@@ -11,103 +11,121 @@ import time
 from datetime import datetime
 from httplib import HTTPSConnection
 from testbase import TestEnv
+from testbase import CertUtil
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.init()
     # TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/roundtrip"
-    # assert TestEnv.apachectl(None, "start") == 0
+    TestEnv.install_test_conf(None);
+    assert TestEnv.apache_start() == 0
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    # status = TestEnv.apachectl(None, "stop")
+    assert TestEnv.apache_stop() == 0
 
 
-class TestConf:
+class TestRoundtrip:
 
 
     @classmethod
     def setup_class(cls):
-        cls.dns_uniq = "1499674813.org"
+        cls.dns_uniq = "%d.org" % time.time()
+        cls.TMP_CONF = os.path.join(TestEnv.APACHE_CONF_SRC, "temp.conf")
 
-    """
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.check_acme()
-        # TestEnv.clear_store()
+        TestEnv.clear_store()
+        if os.path.isfile(TestRoundtrip.TMP_CONF):
+            os.remove(TestRoundtrip.TMP_CONF)
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
-    """
 
     # --------- add to store ---------
 
-    """
     def test_100(self):
-        # test case: 
-        domain = "test200-" + TestConf.dns_uniq
-        # assert TestEnv.apachectl("empty", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
-        # self._prepare_md([ domain ])
-        assert self._tls_is_live("www."+ domain)
+        # test case: generate config with md -> restart -> drive -> generate config with vhost and ssl -> restart -> check HTTPS access
+        domain = "test100-" + TestRoundtrip.dns_uniq
+        # - generate config with one md
+        dnsList = [ domain, "www." + domain ]
+        self._append_conf_acme(TestRoundtrip.TMP_CONF)
+        self._append_conf_admin(TestRoundtrip.TMP_CONF, "admin@" + domain)
+        self._append_conf_md(TestRoundtrip.TMP_CONF, dnsList)
+        # - restart, check that md is in store
+        TestEnv.install_test_conf("temp");
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names(domain, dnsList)
+        # - drive
+        assert TestEnv.a2md( [ "-v", "drive", domain ] )['rv'] == 0
+        self._check_md_cert(dnsList)
+        # - append vhost to config
+        self._append_conf_vhost(TestRoundtrip.TMP_CONF, TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True)
+        TestEnv.install_test_conf("temp");
+        assert TestEnv.apache_restart() == 0
+        # check: SSL is running OK
+        test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
+        dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
+        assert TestEnv.run([ "curl", "--resolve", dnsResolve, "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
 
     # --------- _utils_ ---------
 
-    def _prepare_md(self, dnsList):
-        assert TestEnv.a2md(["add"] + dnsList)['rv'] == 0
-        assert TestEnv.a2md(
-            [ "update", dnsList[0], "contacts", "admin@" + dnsList[0] ]
-            )['rv'] == 0
-        assert TestEnv.a2md( 
-            [ "update", dnsList[0], "agreement", TestEnv.ACME_TOS ]
-            )['rv'] == 0
-    """
+    def _append_conf_acme(self, confPath):
+        acmeConf = "MDCertificateAuthority %s\nMDCertificateProtocol ACME\nMDCertificateAgreement %s\n\n" % (TestEnv.ACME_URL, TestEnv.ACME_TOS)
+        open(confPath, "a").write( acmeConf )
 
-    def _tls_is_live(self, domain):
+    def _append_conf_admin(self, confPath, email):
+        open(confPath, "a").write("ServerAdmin mailto:%s\n\n" % email)
 
-        """"
-        # CREATE SOCKET
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(60)
+    def _append_conf_md(self, confPath, dnsList):
+        open(confPath, "a").write("ManagedDomains %s\n\n" % " ".join(dnsList))
 
-        sslCtx = ssl.create_default_context( purpose=ssl.Purpose.SERVER_AUTH, cafile=TestEnv.path_domain_ca_chain(domain) )
-        # sslCtx = ssl.create_default_context( purpose=ssl.Purpose.SERVER_AUTH, cafile=None )
-        sslSocket = sslCtx.wrap_socket(sock, server_side=False, do_handshake_on_connect=True, server_hostname=domain)
-        # CONNECT AND PRINT REPLY
-        sslSocket.connect(('localhost', int(TestEnv.HTTPS_PORT)))
-        sslSocket.send("GET /hello.txt HTTP/1.1\r\n")
-        sslSocket.send("Host: %s\r\n" % domain)
-        print sslSocket.recv(1280)
+    def _append_conf_vhost(self, confPath, port, name, aliasList, withSSL):
+        open(confPath, "a").write("<VirtualHost *:%s>\n    ServerName %s\n" % (port, name) )
+        if len(aliasList) > 0:
+            for alias in aliasList:
+                open(confPath, "a").write("    ServerAlias %s\n" % alias )
+        open(confPath, "a").write("    DocumentRoot htdocs\n\n")
+        if withSSL:
+            certPath = TestEnv.path_domain_cert(name)
+            keyPath = TestEnv.path_domain_pkey(name)
+            open(confPath, "a").write("    SSLEngine on\n    SSLCertificateFile %s\n    SSLCertificateKeyFile %s\n" % (certPath, keyPath) )
+        
+        open(confPath, "a").write("</VirtualHost>")
 
-        # CLOSE SOCKET CONNECTION
-        sslSocket.close()
-        """
 
-        timeout = 2
-        port = TestEnv.HTTPS_PORT
-        caCert = TestEnv.path_domain_ca_chain(domain)
-        print("Validate server using CA cert: %s" % caCert)
-        try_until = time.time() + timeout
-        sslCtx = ssl.create_default_context( purpose=ssl.Purpose.SERVER_AUTH, cafile=caCert )
-        sslCtx.check_hostname = True
-        sslCtx.verify_mode = ssl.CERT_OPTIONAL
-        print("checking reachability of %s:%s" % (domain, port))
-        while time.time() < try_until:
-            try:
-                c = HTTPSConnection(host="127.0.0.1", port=int(port), context=sslCtx, timeout=timeout)
-                # c.set_tunnel(domain, int(port))
-                c.set_debuglevel(1)
-                c.connect()
-                c.request('GET', "/hello.txt")
-                resp = c.getresponse()
-                c.close()
-                return True
-            except IOError:
-                print "connect error:", sys.exc_info()
-                time.sleep(.5)
-            except:
-                print "Unexpected error:", sys.exc_info()
-                time.sleep(.5)
-        print "Unable to contact server after %d sec" % timeout
-        return False
+    def _check_md_names(self, name, dnsList):
+        md = TestEnv.a2md([ "-j", "list", name ])['jout']['output'][0]
+        assert md['name'] == name
+        assert md['domains'] == dnsList
+
+    def _check_md_cert(self, dnsList):
+        name = dnsList[0]
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        # check tos agreement, cert url
+        assert md['state'] == TestEnv.MD_S_COMPLETE
+        assert "url" in md['cert']
+
+        # check private key, validate certificate
+        # TODO: find storage-independent way to read local certificate
+        CertUtil.validate_privkey(TestEnv.path_domain_pkey(name))
+        cert = CertUtil( TestEnv.path_domain_cert(name) )
+        cert.validate_cert_matches_priv_key( TestEnv.path_domain_pkey(name) )
+
+        # check SANs and CN
+        assert cert.get_cn() == name
+        # compare sets twice in opposite directions: SAN may not respect ordering
+        sanList = cert.get_san_list()
+        assert len(sanList) == len(dnsList)
+        assert set(sanList).issubset(dnsList)
+        assert set(dnsList).issubset(sanList)
+        # check valid dates interval
+        notBefore = cert.get_not_before()
+        notAfter = cert.get_not_after()
+        assert notBefore < datetime.now(notBefore.tzinfo)
+        assert notAfter > datetime.now(notAfter.tzinfo)
+        # compare cert with resource on server
+        server_cert = CertUtil( md['cert']['url'] )
+        assert cert.get_serial() == server_cert.get_serial()

@@ -247,28 +247,29 @@ class TestEnv:
     def apache_restart( cls ) :
         rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"])
         if rv == 0:
-            rv = cls.is_live(cls.HTTPD_URL, 5)
+            rv = 0 if cls.is_live(cls.HTTPD_URL, 5) else -1
         return rv
         
     @classmethod
     def apache_start( cls ) :
         rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "start"])
         if rv == 0:
-            rv = cls.is_live(cls.HTTPD_URL, 5)
+            rv = 0 if cls.is_live(cls.HTTPD_URL, 5) else -1
         return rv
 
     @classmethod
     def apache_stop( cls ) :
         rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "stop"])
         if rv == 0:
-            rv = cls.is_dead(cls.HTTPD_URL, 5)
+            rv = 0 if cls.is_dead(cls.HTTPD_URL, 5) else -1
         return rv
 
     @classmethod
     def apache_fail( cls ) :
-        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"])
+        rv = 0 if subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]) != 0 else -1
         if rv == 0:
-            rv = cls.is_dead(cls.HTTPD_URL, 5)
+            print "check, if dead: " + cls.HTTPD_URL
+            rv = 0 if cls.is_dead(cls.HTTPD_URL, 5) else -1
         return rv
         
     @classmethod

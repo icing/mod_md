@@ -23,12 +23,12 @@ def setup_module(module):
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/conf_store"
     TestEnv.install_test_conf(None);
-    TestEnv.apache_start()
+    assert TestEnv.apache_start() == 0
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
     TestEnv.install_test_conf(None);
-    TestEnv.apache_stop()
+    assert TestEnv.apache_stop() == 0
 
 
 class TestConf:
@@ -50,7 +50,7 @@ class TestConf:
     def test_001(self):
         # test case: no md definitions in config
         TestEnv.install_test_conf("empty");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         jout = TestEnv.a2md(["list"])['jout']
         assert 0 == len(jout["output"])
 
@@ -61,17 +61,17 @@ class TestConf:
     def test_100(self, confFile, dnsLists, mdCount):
         # test case: add md definitions on empty store
         TestEnv.install_test_conf(confFile);
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         for i in range (0, len(dnsLists)):
             self._check_md_names(dnsLists[i][0], dnsLists[i], 1, mdCount)
 
     def test_101(self):
         # test case: add managed domains as separate steps
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
         TestEnv.install_test_conf("test_002");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)
         self._check_md_names("example2.org", ["example2.org", "www.example2.org", "mail.example2.org"], 1, 2)
 
@@ -79,13 +79,13 @@ class TestConf:
         # test case: add dns to existing md
         TestEnv.a2md([ "add", "example.org", "www.example.org" ])
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
 
     def test_103(self):
         # test case: add new md definition with acme url, acme protocol
         TestEnv.install_test_conf("test_003");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
@@ -94,18 +94,18 @@ class TestConf:
         # test case: add to existing md: acme url, acme protocol
         name = "example.org"
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME")
         TestEnv.install_test_conf("test_003");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME")
 
     def test_105(self):
         # test case: add new md definition with server admin
         TestEnv.install_test_conf("test_004");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:admin@example.org"])
@@ -115,7 +115,7 @@ class TestConf:
         name = "example.org"
         TestEnv.a2md([name, "www.example.org", "mail.example.org"])
         TestEnv.install_test_conf("test_004");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:admin@example.org"])
 
@@ -123,7 +123,7 @@ class TestConf:
         # test case: assign separate contact info based on VirtualHost
         # this config uses another store dir
         TestEnv.install_test_conf("test_005");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         name1 = "example.org"
         name2 = "example2.org"
         self._check_md_names(name1, [name1, "www." + name1, "mail." + name1], 1, 2)
@@ -139,7 +139,7 @@ class TestConf:
         TestEnv.a2md(["add"] + dnsList)
         self._check_md_names("example.org", dnsList, 1, 1)
         TestEnv.install_test_conf("empty");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: md stays in store
         self._check_md_names("example.org", dnsList, 1, 1)
 
@@ -149,7 +149,7 @@ class TestConf:
         TestEnv.a2md(["add"] + dnsList)
         self._check_md_names("example.org", dnsList, 1, 1)
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: DNS stays part of md in store
         self._check_md_names("example.org", dnsList, 1, 1)
 
@@ -159,7 +159,7 @@ class TestConf:
         TestEnv.a2md([ "add"] + dnsList)
         self._check_md_names("name.example.org", dnsList, 1, 1)
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: md stays with previous name, complete dns list
         self._check_md_names("name.example.org", dnsList, 1, 1)
 
@@ -172,7 +172,7 @@ class TestConf:
         self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
         self._check_md_names("example.org", dnsList2, 1, 2)
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # all mds stay in store
         self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
         self._check_md_names("example.org", dnsList2, 1, 2)
@@ -182,10 +182,10 @@ class TestConf:
         # setup: add md with ca info
         name = "example.org"
         TestEnv.install_test_conf("test_003");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # setup: sync with ca info removed
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous ca info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME")
@@ -195,10 +195,10 @@ class TestConf:
         # setup: add md with admin info
         name = "example.org"
         TestEnv.install_test_conf("test_004");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # setup: sync with admin info removed
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous admin info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:admin@example.org"])
@@ -211,7 +211,7 @@ class TestConf:
         TestEnv.a2md(["add"] + dnsList)
         self._check_md_names("example.org", dnsList, 1, 1)
         TestEnv.install_test_conf("test_001");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: dns list stays as before
         self._check_md_names("example.org", dnsList, 1, 1)
 
@@ -223,7 +223,7 @@ class TestConf:
         self._check_md_names("example2.org", ["example2.org", "www.example2.org"], 1, 2)
         
         TestEnv.install_test_conf("test_002");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 2)
         self._check_md_names("example2.org", ["example2.org", "www.example2.org", "mail.example2.org"], 1, 2)
 
@@ -232,10 +232,10 @@ class TestConf:
         # setup: add md with ca info
         name = "example.org"
         TestEnv.install_test_conf("test_003");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # setup: sync with changed ca info
         TestEnv.install_test_conf("test_006");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous ca info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_ca(name, "http://somewhere.com:6666/directory", "ACME")
@@ -245,10 +245,10 @@ class TestConf:
         # setup: add md with admin info
         name = "example.org"
         TestEnv.install_test_conf("test_004");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # setup: sync with changed admin info
         TestEnv.install_test_conf("test_006");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous admin info
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:webmaster@example.org"])
@@ -263,7 +263,7 @@ class TestConf:
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
-        assert TestEnv.apache_start()
+        assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # setup: add second domain
@@ -280,7 +280,7 @@ class TestConf:
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
-        assert TestEnv.apache_start()
+        assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # setup: change CA URL
@@ -293,7 +293,7 @@ class TestConf:
     
     def test_500(self):
         TestEnv.install_test_conf("other_base");
-        assert TestEnv.apache_restart()
+        assert TestEnv.apache_restart() == 0
         jout = TestEnv.a2md([ "list" ])['jout']
         assert len(jout['output']) == 0
         TestEnv.set_store_dir("md-other")

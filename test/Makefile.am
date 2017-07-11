@@ -25,7 +25,7 @@ $(SERVER_DIR)/conf/ssl/valid_pkey.pem:
 $(SERVER_DIR)/conf/ssl/valid_cert.req: \
 		$(SERVER_DIR)/conf/ssl/valid_pkey.pem \
 		data/ssl/req_template.conf
-	openssl req -new -key data/ssl/valid_pkey.pem \
+	openssl req -new -key $(SERVER_DIR)/conf/ssl/valid_pkey.pem \
 		-out $(SERVER_DIR)/conf/ssl/valid_cert.req \
 		-config data/ssl/req_template.conf
 
@@ -67,3 +67,4 @@ $(SERVER_DIR)/conf/ssl/expired_pkey.pem: data/ssl/expired_pkey.pem
 clean-local:
 	rm -f $(SERVER_DIR)/conf/ssl/*
 	rm -rf *.pyc __pycache__
+	rm -f data/ssl/valid*
