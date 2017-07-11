@@ -20,7 +20,7 @@ def setup_module(module):
     TestEnv.init()
     TestEnv.apache_err_reset()
     TestEnv.clear_store()
-    TestEnv.APACHE_CONF_SRC = "data/conf_validate"
+    TestEnv.APACHE_CONF_SRC = "data/test_conf_validate"
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)

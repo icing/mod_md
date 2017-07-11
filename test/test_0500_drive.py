@@ -15,7 +15,7 @@ def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.init()
     TestEnv.apache_err_reset()
-    TestEnv.APACHE_CONF_SRC = "data/drive"
+    TestEnv.APACHE_CONF_SRC = "data/test_drive"
     TestEnv.install_test_conf("test1.example.org");
     assert TestEnv.apache_restart() == 0
 

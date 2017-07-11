@@ -17,7 +17,7 @@ def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.init()
     # TestEnv.apache_err_reset()
-    TestEnv.APACHE_CONF_SRC = "data/roundtrip"
+    TestEnv.APACHE_CONF_SRC = "data/test_roundtrip"
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)

@@ -115,12 +115,12 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		75EDD0841F14E76E003CBD39 /* roundtrip */ = {
+		75EDD0841F14E76E003CBD39 /* test_roundtrip */ = {
 			isa = PBXGroup;
 			children = (
 				75EDD0851F14E85E003CBD39 /* empty.conf */,
 			);
-			path = roundtrip;
+			path = test_roundtrip;
 			sourceTree = "<group>";
 		};
 		B24051EE1EF9145000E36701 /* acme */ = {
@@ -141,15 +141,15 @@
 			isa = PBXGroup;
 			children = (
 				B2B81EC81F13830600E35CA3 /* ssl */,
-				B262F6CE1EFCFE1100D396A1 /* conf_store */,
-				B262F6D21EFCFE1100D396A1 /* conf_validate */,
-				B262F6DF1EFCFE1100D396A1 /* drive */,
-				75EDD0841F14E76E003CBD39 /* roundtrip */,
+				B262F6CE1EFCFE1100D396A1 /* test_conf_store */,
+				B262F6D21EFCFE1100D396A1 /* test_conf_validate */,
+				B262F6DF1EFCFE1100D396A1 /* test_drive */,
+				75EDD0841F14E76E003CBD39 /* test_roundtrip */,
 			);
 			path = data;
 			sourceTree = "<group>";
 		};
-		B262F6CE1EFCFE1100D396A1 /* conf_store */ = {
+		B262F6CE1EFCFE1100D396A1 /* test_conf_store */ = {
 			isa = PBXGroup;
 			children = (
 				B2B81E8D1F0A907900E35CA3 /* empty.conf */,
@@ -161,10 +161,10 @@
 				B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */,
 				B2B81EC11F0FAC2000E35CA3 /* other_base.conf */,
 			);
-			path = conf_store;
+			path = test_conf_store;
 			sourceTree = "<group>";
 		};
-		B262F6D21EFCFE1100D396A1 /* conf_validate */ = {
+		B262F6D21EFCFE1100D396A1 /* test_conf_validate */ = {
 			isa = PBXGroup;
 			children = (
 				B262F6D31EFCFE1100D396A1 /* test_001.conf */,
@@ -180,15 +180,15 @@
 				B262F6DD1EFCFE1100D396A1 /* test_011.conf */,
 				B262F6DE1EFCFE1100D396A1 /* test_012.conf */,
 			);
-			path = conf_validate;
+			path = test_conf_validate;
 			sourceTree = "<group>";
 		};
-		B262F6DF1EFCFE1100D396A1 /* drive */ = {
+		B262F6DF1EFCFE1100D396A1 /* test_drive */ = {
 			isa = PBXGroup;
 			children = (
 				B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */,
 			);
-			path = drive;
+			path = test_drive;
 			sourceTree = "<group>";
 		};
 		B2B81E9B1F0BBEB100E35CA3 /* a2md */ = {
