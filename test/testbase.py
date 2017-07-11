@@ -131,6 +131,25 @@ class TestEnv:
         return False
 
     @classmethod
+    def is_dead( cls, url, timeout ) :
+        server = urlparse(url)
+        try_until = time.time() + timeout
+        print("checking reachability of %s" % url)
+        while time.time() < try_until:
+            try:
+                c = HTTPConnection(server.hostname, server.port, timeout=timeout)
+                c.request('HEAD', server.path)
+                resp = c.getresponse()
+                c.close()
+                time.sleep(.2)
+            except IOError:
+                return True
+            except:
+                return True
+        print "Server still responding after %d sec" % timeout
+        return False
+
+    @classmethod
     def get_json( cls, url, timeout ) :
         data = cls.get_plain( url, timeout )
         if data:
@@ -212,19 +231,52 @@ class TestEnv:
     # --------- control apache ---------
 
     @classmethod
-    def apachectl( cls, conf, cmd ) :
+    def install_test_conf( cls, conf) :
         if conf is None:
             conf_src = os.path.join("conf", "test.conf")
         else:
             conf_src = os.path.join(cls.APACHE_CONF_SRC, conf + ".conf")
         copyfile(conf_src, cls.APACHE_TEST_CONF)
+    
+    @classmethod
+    def apachectl( cls, conf, cmd ) :
+        cls.install_test_conf(conf)
         return subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd])
 
+    @classmethod
+    def apache_restart( cls ) :
+        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"])
+        if rv == 0:
+            rv = cls.is_live(cls.HTTPD_URL, 5)
+        return rv
+        
+    @classmethod
+    def apache_start( cls ) :
+        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "start"])
+        if rv == 0:
+            rv = cls.is_live(cls.HTTPD_URL, 5)
+        return rv
+
+    @classmethod
+    def apache_stop( cls ) :
+        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "stop"])
+        if rv == 0:
+            rv = cls.is_dead(cls.HTTPD_URL, 5)
+        return rv
+
+    @classmethod
+    def apache_fail( cls ) :
+        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"])
+        if rv == 0:
+            rv = cls.is_dead(cls.HTTPD_URL, 5)
+        return rv
+        
     @classmethod
     def apache_err_reset( cls ):
         if os.path.isfile(cls.ERROR_LOG):
             os.remove(cls.ERROR_LOG)
 
+    RE_MD_RESET = re.compile('.*\[md:info\].*initializing\.\.\.')
     RE_MD_ERROR = re.compile('.*\[md:error\].*')
     RE_MD_WARN  = re.compile('.*\[md:warn\].*')
 
@@ -240,9 +292,15 @@ class TestEnv:
                 m = cls.RE_MD_ERROR.match(line)
                 if m:
                     ecount += 1
+                    continue
                 m = cls.RE_MD_WARN.match(line)
                 if m:
                     wcount += 1
+                    continue
+                m = cls.RE_MD_RESET.match(line)
+                if m:
+                    ecount = 0
+                    wcount = 0
             return (ecount, wcount)
 
 

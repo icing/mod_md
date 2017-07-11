@@ -21,12 +21,10 @@ def setup_module(module):
     TestEnv.apache_err_reset()
     TestEnv.clear_store()
     TestEnv.APACHE_CONF_SRC = "data/conf_validate"
-    status = TestEnv.apachectl(None, "start")
-    assert status == 0
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    status = TestEnv.apachectl(None, "stop")
+    TestEnv.apache_stop()
 
 
 class TestConf:
@@ -34,17 +32,15 @@ class TestConf:
     def new_errors(self):
         time.sleep(.2)
         (errors, warnings) = TestEnv.apache_err_count()
-        return errors - self.errors
+        return errors
         
     def new_warnings(self):
         time.sleep(.1)
         (errors, warnings) = TestEnv.apache_err_count()
-        return warnings - self.warnings
+        return warnings
         
     def setup_method(self, method):
-        time.sleep(.1)
         print("setup_method: %s" % method.__name__)
-        (self.errors, self.warnings) = TestEnv.apache_err_count()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -53,65 +49,63 @@ class TestConf:
 
     def test_001(self):
         # just one ManagedDomain definition
-        assert TestEnv.apachectl("test_001", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
+        TestEnv.install_test_conf("test_001");
+        assert TestEnv.apache_restart()
 
     def test_002(self):
         # two ManagedDomain definitions, non-overlapping
-        assert TestEnv.apachectl("test_002", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
+        TestEnv.install_test_conf("test_002");
+        assert TestEnv.apache_restart()
 
     def test_003(self):
         # two ManagedDomain definitions, exactly the same
-        assert TestEnv.apachectl("test_003", "graceful") == 0
-        assert self.new_errors() == 1
+        TestEnv.install_test_conf("test_003");
+        assert TestEnv.apache_fail()
         
     def test_004(self):
         # two ManagedDomain definitions, overlapping
-        assert TestEnv.apachectl("test_004", "graceful") == 0
-        assert self.new_errors() == 1
+        TestEnv.install_test_conf("test_004");
+        assert TestEnv.apache_restart()
 
     def test_005(self):
         # two ManagedDomains, one inside a virtual host
-        assert TestEnv.apachectl("test_005", "graceful") == 0
-        assert self.new_errors() == 0
+        TestEnv.install_test_conf("test_005");
+        assert TestEnv.apache_restart()
 
     def test_006(self):
         # two ManagedDomains, one correct vhost name
-        assert TestEnv.apachectl("test_006", "graceful") == 0
-        assert self.new_errors() == 0
+        TestEnv.install_test_conf("test_006");
+        assert TestEnv.apache_restart()
 
     def test_007(self):
         # two ManagedDomains, two correct vhost names
-        assert TestEnv.apachectl("test_007", "graceful") == 0
-        assert self.new_errors() == 0
+        TestEnv.install_test_conf("test_007");
+        assert TestEnv.apache_restart()
 
     def test_008(self):
         # two ManagedDomains, overlapping vhosts
-        assert TestEnv.apachectl("test_008", "graceful") == 0
-        assert self.new_errors() == 0
+        TestEnv.install_test_conf("test_008");
+        assert TestEnv.apache_restart()
 
     def test_009(self):
         # vhosts with overlapping MDs
-        assert TestEnv.apachectl("test_009", "graceful") == 0
-        assert self.new_errors() == 2
+        TestEnv.install_test_conf("test_009");
+        assert TestEnv.apache_fail()
 
     def test_010(self):
         # ManagedDomain, vhost with matching ServerAlias
-        assert TestEnv.apachectl("test_010", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
-        assert self.new_errors() == 0
-        assert self.new_warnings() == 0
+        TestEnv.install_test_conf("test_010");
+        assert TestEnv.apache_restart()
+        assert (0, 0) == TestEnv.apache_err_count()
 
     def test_011(self):
         # ManagedDomain, misses one ServerAlias
-        assert TestEnv.apachectl("test_011", "graceful") == 0
-        assert self.new_errors() == 1
-        assert self.new_warnings() == 0
+        TestEnv.install_test_conf("test_011");
+        assert TestEnv.apache_fail()
+        assert (1, 0) == TestEnv.apache_err_count()
 
     def test_012(self):
         # ManagedDomain does not match any vhost
-        assert TestEnv.apachectl("test_012", "graceful") == 0
-        assert TestEnv.is_live(TestEnv.HTTPD_URL, 5)
-        assert self.new_errors() == 0
-        assert self.new_warnings() == 3
+        TestEnv.install_test_conf("test_012");
+        assert TestEnv.apache_restart()
+        assert (0, 1) == TestEnv.apache_err_count()
