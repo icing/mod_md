@@ -18,8 +18,6 @@ def setup_module(module):
     TestEnv.init()
     # TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/roundtrip"
-    TestEnv.install_test_conf(None);
-    assert TestEnv.apache_start() == 0
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
@@ -40,6 +38,9 @@ class TestRoundtrip:
         TestEnv.clear_store()
         if os.path.isfile(TestRoundtrip.TMP_CONF):
             os.remove(TestRoundtrip.TMP_CONF)
+        TestEnv.install_test_conf(None);
+        assert TestEnv.apache_start() == 0
+
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -107,25 +108,5 @@ class TestRoundtrip:
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
         assert "url" in md['cert']
-
-        # check private key, validate certificate
-        # TODO: find storage-independent way to read local certificate
-        CertUtil.validate_privkey(TestEnv.path_domain_pkey(name))
-        cert = CertUtil( TestEnv.path_domain_cert(name) )
-        cert.validate_cert_matches_priv_key( TestEnv.path_domain_pkey(name) )
-
-        # check SANs and CN
-        assert cert.get_cn() == name
-        # compare sets twice in opposite directions: SAN may not respect ordering
-        sanList = cert.get_san_list()
-        assert len(sanList) == len(dnsList)
-        assert set(sanList).issubset(dnsList)
-        assert set(dnsList).issubset(sanList)
-        # check valid dates interval
-        notBefore = cert.get_not_before()
-        notAfter = cert.get_not_after()
-        assert notBefore < datetime.now(notBefore.tzinfo)
-        assert notAfter > datetime.now(notAfter.tzinfo)
-        # compare cert with resource on server
-        server_cert = CertUtil( md['cert']['url'] )
-        assert cert.get_serial() == server_cert.get_serial()
+        assert os.path.isfile( TestEnv.path_domain_pkey(name) )
+        assert os.path.isfile( TestEnv.path_domain_cert(name) )
