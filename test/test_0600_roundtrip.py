@@ -26,20 +26,24 @@ def teardown_module(module):
 
 class TestConf:
 
+
     @classmethod
     def setup_class(cls):
         cls.dns_uniq = "1499674813.org"
 
+    """
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.check_acme(1)
+        TestEnv.check_acme()
         # TestEnv.clear_store()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
+    """
 
     # --------- add to store ---------
 
+    """
     def test_100(self):
         # test case: 
         domain = "test200-" + TestConf.dns_uniq
@@ -58,6 +62,7 @@ class TestConf:
         assert TestEnv.a2md( 
             [ "update", dnsList[0], "agreement", TestEnv.ACME_TOS ]
             )['rv'] == 0
+    """
 
     def _tls_is_live(self, domain):
 
