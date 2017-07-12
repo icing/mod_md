@@ -1,3 +1,14 @@
+v0.1.0
+----------------------------------------------------------------------------------------------------
+ * new directive "MDDriveMode auto|manual". In "auto" mode (more precisely, if auto mode is enabled
+   for any managed domain), mod_md will require mod_watchdog to be present and regularly check
+   those domains and attempt to retrieve credentials if some are missing
+ * drive mode "auto" lacks still various features, function- and security-wise. tbd.
+
+v0.0.2 - v0.0.9
+----------------------------------------------------------------------------------------------------
+ * various development steps not recorded here
+ 
 v0.0.1
 ----------------------------------------------------------------------------------------------------
  * new command 'acme validate' to check that account is still known to server and key works

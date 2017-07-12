@@ -27,14 +27,12 @@ A2MD_OBJECTS = \
     md_main.c \
     md_cmd_acme.c \
     md_cmd_reg.c \
-    md_cmd_store.c \
-    md_curl.c
+    md_cmd_store.c
 
 A2MD_HFILES = \
     md_cmd.h \
     md_cmd_acme.h \
     md_cmd_reg.h \
-    md_cmd_store.h \
-    md_curl.h
+    md_cmd_store.h
 
 a2md_SOURCES = $(A2MD_HFILES) $(A2MD_OBJECTS)

@@ -39,6 +39,7 @@ static md_config_t defconf = {
     "https://acme-v01.api.letsencrypt.org/directory",
     "ACME",
     NULL, 
+    MD_DRIVE_AUTO, 
     NULL, 
     "md",
     NULL
@@ -52,6 +53,7 @@ void *md_config_create_svr(apr_pool_t *pool, server_rec *s)
 
     conf->name = apr_pstrcat(pool, "srv[", CONF_S_NAME(s), "]", NULL);
     conf->s = s;
+    conf->drive_mode = DEF_VAL;
     conf->mds = apr_array_make(pool, 5, sizeof(const md_t *));
 
     return conf;
@@ -78,6 +80,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
+    n->drive_mode = (add->drive_mode == DEF_VAL)? add->drive_mode : base->drive_mode;
     n->md = NULL;
     n->base_dir = add->base_dir? add->base_dir : base->base_dir;
     return n;
@@ -123,8 +126,7 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
     return NULL;
 }
 
-static const char *md_config_set_ca(cmd_parms *parms,
-                                    void *arg, const char *value)
+static const char *md_config_set_ca(cmd_parms *parms, void *arg, const char *value)
 {
     md_config_t *config = (md_config_t *)md_config_get(parms->server);
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
@@ -137,8 +139,7 @@ static const char *md_config_set_ca(cmd_parms *parms,
     return NULL;
 }
 
-static const char *md_config_set_ca_proto(cmd_parms *parms,
-                                          void *arg, const char *value)
+static const char *md_config_set_ca_proto(cmd_parms *parms, void *arg, const char *value)
 {
     md_config_t *config = (md_config_t *)md_config_get(parms->server);
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
@@ -151,8 +152,7 @@ static const char *md_config_set_ca_proto(cmd_parms *parms,
     return NULL;
 }
 
-static const char *md_config_set_agreement(cmd_parms *parms,
-                                           void *arg, const char *value)
+static const char *md_config_set_agreement(cmd_parms *parms, void *arg, const char *value)
 {
     md_config_t *config = (md_config_t *)md_config_get(parms->server);
     const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
@@ -165,8 +165,7 @@ static const char *md_config_set_agreement(cmd_parms *parms,
     return NULL;
 }
 
-static const char *md_config_set_store_dir(cmd_parms *parms,
-                                           void *arg, const char *value)
+static const char *md_config_set_store_dir(cmd_parms *parms, void *arg, const char *value)
 {
     md_config_t *config = (md_config_t *)md_config_get(parms->server);
     const char *err = ap_check_cmd_context(parms, GLOBAL_ONLY);
@@ -175,6 +174,24 @@ static const char *md_config_set_store_dir(cmd_parms *parms,
         return err;
     }
     config->base_dir = value;
+    (void)arg;
+    return NULL;
+}
+
+static const char *md_config_set_drive_mode(cmd_parms *parms, void *arg, const char *value)
+{
+    md_config_t *config = (md_config_t *)md_config_get(parms->server);
+    const char *err = ap_check_cmd_context(parms, GLOBAL_ONLY);
+
+    if (err) {
+        return err;
+    }
+    if (!apr_strnatcasecmp("auto", value) || !apr_strnatcasecmp("automatic", value)) {
+        config->drive_mode = MD_DRIVE_AUTO;
+    }
+    else if (!apr_strnatcasecmp("manual", value) || !apr_strnatcasecmp("stick", value)) {
+        config->drive_mode = MD_DRIVE_MANUAL;
+    }
     (void)arg;
     return NULL;
 }
@@ -192,6 +209,8 @@ const command_rec md_cmds[] = {
                   "Protocol used to obtain/renew certificates"),
     AP_INIT_TAKE1("MDCertificateAgreement", md_config_set_agreement, NULL, RSRC_CONF, 
                   "URL of CA Terms-of-Service agreement you accept"),
+    AP_INIT_TAKE1("MDDriveMode", md_config_set_drive_mode, NULL, RSRC_CONF, 
+                  "method of obtaining certificates for the managed domain"),
     AP_END_CMD
 };
 
@@ -224,7 +243,7 @@ const md_config_t *md_config_cget(conn_rec *c)
     return md_config_get(c->base_server);
 }
 
-const char *md_config_var_get(const md_config_t *config, md_config_var_t var)
+const char *md_config_gets(const md_config_t *config, md_config_var_t var)
 {
     switch (var) {
         case MD_CONFIG_CA_URL:
@@ -235,6 +254,17 @@ const char *md_config_var_get(const md_config_t *config, md_config_var_t var)
             return config->base_dir? config->base_dir : defconf.base_dir;
         case MD_CONFIG_CA_AGREEMENT:
             return config->ca_agreement? config->ca_agreement : defconf.ca_agreement;
+        default:
+            return NULL;
     }
-    return NULL;
+}
+
+int md_config_geti(const md_config_t *config, md_config_var_t var)
+{
+    switch (var) {
+        case MD_CONFIG_DRIVE_MODE:
+            return (config->drive_mode != DEF_VAL)? config->drive_mode : defconf.drive_mode;
+        default:
+            return 0;
+    }
 }

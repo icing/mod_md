@@ -43,6 +43,7 @@ test: $(SERVER_DIR)/.test-setup
 
 test-drive: $(SERVER_DIR)/.test-setup
 	@py.test test_0500_drive.py
+	@py.test test_0600_roundtrip.py
 
 test-configs: $(SERVER_DIR)/.test-setup
 	@py.test test_0300_conf_validate.py

@@ -31,6 +31,11 @@ typedef enum {
     MD_S_ERROR,                     /* MD data is flawed, unable to be processed as is */ 
 } md_state_t;
 
+typedef enum {
+    MD_DRIVE_MANUAL,                /* manually triggered transmission of credentials */
+    MD_DRIVE_AUTO,                  /* automatic process performed by httpd */
+} md_drive_mode_t;
+
 typedef struct md_t md_t;
 struct md_t {
     const char *name;               /* unique name of this MD */
@@ -38,7 +43,8 @@ struct md_t {
     unsigned must_staple : 1;
     
     md_state_t state;               /* state of this MD */
-    int proto_state;                /* state of renewal process, protocol specific */
+    
+    md_drive_mode_t drive_mode;     /* mode of obtaining credentials */
 
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */

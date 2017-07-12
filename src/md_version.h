@@ -26,7 +26,7 @@
  * @macro
  * Version number of the http2 module as c string
  */
-#define MOD_MD_VERSION "0.0.1-git"
+#define MOD_MD_VERSION "0.1.0-git"
 
 /**
  * @macro
@@ -34,7 +34,7 @@
  * release. This is a 24 bit number with 8 bits for major number, 8 bits
  * for minor and 8 bits for patch. Version 1.2.3 becomes 0x010203.
  */
-#define MOD_MD_VERSION_NUM 0x000001
+#define MOD_MD_VERSION_NUM 0x000100
 
 
 #endif /* mod_h2_h2_version_h */

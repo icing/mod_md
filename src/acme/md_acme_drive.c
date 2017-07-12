@@ -222,7 +222,10 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
     assert(ad->md);
     assert(ad->acme);
     assert(ad->authz_set);
-    assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
+    if (ad->authz_set->authzs->nelts != ad->md->domains->nelts) {
+        /* has the MD changed in the meantime? */
+        return APR_EAGAIN;
+    }
 
     ad->phase = "start challenges";
 

@@ -29,6 +29,7 @@ A2LIB_OBJECTS = \
     acme/md_acme_authz.c \
     acme/md_acme_drive.c \
     md_core.c \
+    md_curl.c \
     md_crypt.c \
     md_http.c \
     md_json.c \
@@ -44,6 +45,7 @@ A2LIB_HFILES = \
     acme/md_acme.h \
     acme/md_acme_acct.h \
     acme/md_acme_authz.h \
+    md_curl.h \
     md_crypt.h \
     md_http.h \
     md_json.h \

@@ -92,6 +92,8 @@
 		B2B81ECB1F13830600E35CA3 /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
 		B2B81ECC1F13830600E35CA3 /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
 		B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mytest.org.conf; sourceTree = "<group>"; };
+		B2B81ED11F164AA600E35CA3 /* md_curl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_curl.c; sourceTree = "<group>"; };
+		B2B81ED21F164AA600E35CA3 /* md_curl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_curl.h; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -297,6 +299,8 @@
 				B24052151EF9145000E36701 /* md_core.c */,
 				B24052161EF9145000E36701 /* md_crypt.c */,
 				B24052171EF9145000E36701 /* md_crypt.h */,
+				B2B81ED11F164AA600E35CA3 /* md_curl.c */,
+				B2B81ED21F164AA600E35CA3 /* md_curl.h */,
 				B24052181EF9145000E36701 /* md_http.c */,
 				B24052191EF9145000E36701 /* md_http.h */,
 				B240521A1EF9145000E36701 /* md_json.c */,

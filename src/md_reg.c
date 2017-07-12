@@ -740,9 +740,7 @@ static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
                       "md %s driver run for proto %s", md->name, driver->proto->protocol);
-        while (APR_EAGAIN == (rv = proto->run(driver))) {
-            /* TODO: put some retry-after logic here, manage several drivers */
-        }
+        rv = proto->run(driver);
     }
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
                   "md %s driver done for proto %s", md->name, driver->proto->protocol);

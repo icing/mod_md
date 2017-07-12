@@ -19,7 +19,7 @@ ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES    = mod_md.la
 
 mod_md_la_CPPFLAGS = -g -I../src -std=c99 -D_GNU_SOURCE -Werror
-mod_md_la_LDFLAGS  = -module -L../src/.libs -lapachemd
+mod_md_la_LDFLAGS  = -module -L../src/ -lapachemd
 
 OBJECTS = \
     md_config.c \

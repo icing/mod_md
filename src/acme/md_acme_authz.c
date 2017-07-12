@@ -49,7 +49,7 @@ md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p, md_acme_t *acme)
     md_acme_authz_set_t *authz_set;
     
     authz_set = apr_pcalloc(p, sizeof(*authz_set));
-    authz_set->acct_id = md_acme_get_acct(acme);
+    authz_set->acct_id = acme? md_acme_get_acct(acme) : NULL;
     authz_set->authzs = apr_array_make(p, 5, sizeof(md_acme_authz_t *));
     
     return authz_set;

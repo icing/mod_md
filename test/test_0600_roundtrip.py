@@ -74,14 +74,14 @@ class TestRoundtrip:
     # --------- _utils_ ---------
 
     def _append_conf_acme(self, confPath):
-        acmeConf = "MDCertificateAuthority %s\nMDCertificateProtocol ACME\nMDCertificateAgreement %s\n\n" % (TestEnv.ACME_URL, TestEnv.ACME_TOS)
+        acmeConf = "  MDDriveMode manual\n  MDCertificateAuthority %s\n  MDCertificateProtocol ACME\n  MDCertificateAgreement %s\n\n" % (TestEnv.ACME_URL, TestEnv.ACME_TOS)
         open(confPath, "a").write( acmeConf )
 
     def _append_conf_admin(self, confPath, email):
-        open(confPath, "a").write("ServerAdmin mailto:%s\n\n" % email)
+        open(confPath, "a").write("  ServerAdmin mailto:%s\n\n" % email)
 
     def _append_conf_md(self, confPath, dnsList):
-        open(confPath, "a").write("ManagedDomains %s\n\n" % " ".join(dnsList))
+        open(confPath, "a").write("  ManagedDomains %s\n\n" % " ".join(dnsList))
 
     def _append_conf_vhost(self, confPath, port, name, aliasList, withSSL):
         open(confPath, "a").write("<VirtualHost *:%s>\n    ServerName %s\n" % (port, name) )

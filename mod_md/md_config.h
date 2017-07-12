@@ -23,6 +23,7 @@ typedef enum {
     MD_CONFIG_CA_PROTO,
     MD_CONFIG_BASE_DIR,
     MD_CONFIG_CA_AGREEMENT,
+    MD_CONFIG_DRIVE_MODE,
 } md_config_var_t;
 
 typedef struct md_config {
@@ -33,6 +34,8 @@ typedef struct md_config {
     const char *ca_url;
     const char *ca_proto;
     const char *ca_agreement;
+    
+    int drive_mode;
     
     const md_t *md;
     const char *base_dir;
@@ -52,6 +55,7 @@ const md_config_t *md_config_get(server_rec *s);
  * unique to this server_rec, so that any changes only affect this server */
 const md_config_t *md_config_get_unique(server_rec *s, apr_pool_t *p);
 
-const char *md_config_var_get(const md_config_t *config, md_config_var_t var);
+const char *md_config_gets(const md_config_t *config, md_config_var_t var);
+int md_config_geti(const md_config_t *config, md_config_var_t var);
 
 #endif /* md_config_h */

@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <apr_strings.h>
 
+#include <mpm_common.h>
 #include <httpd.h>
 #include <http_protocol.h>
 #include <http_request.h>
@@ -25,6 +26,8 @@
 #include "md.h"
 #include "mod_md.h"
 #include "md_config.h"
+#include "md_curl.h"
+#include "md_http.h"
 #include "md_store.h"
 #include "md_store_fs.h"
 #include "md_log.h"
@@ -32,6 +35,15 @@
 #include "md_util.h"
 #include "md_version.h"
 #include "acme/md_acme_authz.h"
+
+#include "mod_watchdog.h"
+
+#if APR_HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef WIN32
+#include "mpm_winnt.h"
+#endif
 
 static void md_hooks(apr_pool_t *pool);
 
@@ -85,14 +97,15 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
             
             if (nmd) {
                 /* new managed domain not seen before */
-                nmd->ca_url = md_config_var_get(config, MD_CONFIG_CA_URL);
-                nmd->ca_proto = md_config_var_get(config, MD_CONFIG_CA_PROTO);
-                nmd->ca_agreement = md_config_var_get(config, MD_CONFIG_CA_AGREEMENT);
+                nmd->ca_url = md_config_gets(config, MD_CONFIG_CA_URL);
+                nmd->ca_proto = md_config_gets(config, MD_CONFIG_CA_PROTO);
+                nmd->ca_agreement = md_config_gets(config, MD_CONFIG_CA_AGREEMENT);
                 if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
                     apr_array_clear(nmd->contacts);
                     APR_ARRAY_PUSH(nmd->contacts, const char *) = 
                         md_util_schemify(p, s->server_admin, "mailto");
                 }
+                nmd->drive_mode = md_config_geti(config, MD_CONFIG_DRIVE_MODE);
                 
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
             }
@@ -216,7 +229,7 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
     apr_status_t rv;
     
     config = (md_config_t *)md_config_get(s);
-    base_dir = md_config_var_get(config, MD_CONFIG_BASE_DIR);
+    base_dir = md_config_gets(config, MD_CONFIG_BASE_DIR);
     base_dir = ap_server_root_relative(p, base_dir);
     
     if (APR_SUCCESS == (rv = md_store_fs_init(&store, p, base_dir, 1))) {
@@ -295,49 +308,280 @@ static void init_setups(apr_pool_t *p, server_rec *base_server)
     apr_pool_cleanup_register(p, NULL, cleanup_setups, apr_pool_cleanup_null);
 }
 
+#if 0
+
+#define MD_ERRFN_USERDATA_KEY         "MDCHILDERRFN"
+
+static void grace_child_errfn(apr_pool_t *pool, apr_status_t err, const char *description)
+{
+    server_rec *s;
+    void *v;
+
+    apr_pool_userdata_get(&v, MD_ERRFN_USERDATA_KEY, pool);
+    s = v;
+
+    if (s) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, err, s, APLOGNO() "%s", description);
+    }
+}
+
+static apr_status_t server_graceful(apr_proc_t **pproc, apr_pool_t *p, server_rec *s) 
+{
+    apr_procattr_t *attr;
+    apr_status_t rv;
+    const char **argv;
+    apr_proc_t *proc;
+    
+    if (APR_SUCCESS != (rv = apr_procattr_create(&attr, p))
+        || APR_SUCCESS != (rv = apr_procattr_io_set(attr, APR_NO_PIPE, APR_NO_PIPE, APR_NO_PIPE))
+        || APR_SUCCESS != (rv = apr_procattr_cmdtype_set(attr, APR_PROGRAM_PATH))
+        || APR_SUCCESS != (rv = apr_procattr_detach_set(attr, 1))
+        || APR_SUCCESS != (rv = apr_procattr_child_errfn_set(attr, grace_child_errfn))) {
+        return rv;
+    }
+    apr_pool_userdata_set(s, MD_ERRFN_USERDATA_KEY, apr_pool_cleanup_null, p);
+    
+    proc = apr_pcalloc(p, sizeof(*proc));
+    proc->pid = -1;
+    proc->err = proc->in = proc->out = NULL;
+
+    argv = (const char **)apr_pcalloc(p, 6 * sizeof(const char *));
+    argv[0] = "/opt/apache-trunk/bin/apachectl";
+    argv[1] = "-d";
+    argv[2] = ap_server_root_relative(p, "");
+    argv[3] = "-k";
+    argv[4] = "graceful";
+    argv[5] = NULL;
+    
+    ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() "%s started (%s)", argv[0], argv[2]);
+    /*rv = apr_proc_create(proc, argv[0], argv, NULL, attr, p); 
+    ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() "graceful restart");
+    *pproc = proc;
+    
+    return rv;*/
+    return APR_ENOTIMPL;
+}
+
+#ifdef WIN32
+
+/* FIXME: test if this has a chance to work on WIN32 systems */
+extern void mpm_signal_service(apr_pool_t *ptemp, int signal);
+
+static apr_status_t server_graceful(apr_pool_t *p, server_rec *s)
+{
+    mpm_signal_service(p, 1);
+    return APR_SUCCESS;
+}
+ 
+#else
+
+static apr_status_t server_graceful(int pid, apr_pool_t *p, server_rec *s)
+{ 
+    if (kill(pid, AP_SIG_GRACEFUL) < 0) {
+        ap_log_error(APLOG_MARK, APLOG_STARTUP, errno, NULL, APLOGNO()
+                     "sending signal to server");
+        return APR_EGENERAL;
+    }
+    return APR_SUCCESS;
+}
+
+#endif
+#endif /* 0 */
+
+/**************************************************************************************************/
+/* watchdog based impl. */
+
+#define MD_WATCHDOG_NAME   "_md_"
+
+static APR_OPTIONAL_FN_TYPE(ap_watchdog_get_instance) *wd_get_instance;
+static APR_OPTIONAL_FN_TYPE(ap_watchdog_register_callback) *wd_register_callback;
+static APR_OPTIONAL_FN_TYPE(ap_watchdog_set_callback_interval) *wd_set_interval;
+
+typedef struct {
+    apr_pool_t *p;
+    server_rec *s;
+    ap_watchdog_t *watchdog;
+    apr_interval_time_t interval;
+    
+    apr_array_header_t *drive_names;
+    md_reg_t *reg;
+} md_watchdog;
+
+static apr_status_t process_md(md_watchdog *wd, const char *name, apr_pool_t *ptemp)
+{
+    const md_t *md;
+    apr_status_t rv = APR_SUCCESS;
+    
+    md = md_reg_get(wd->reg, name, ptemp);
+    if (md) {
+        switch (md->state) {
+            case MD_S_UNKNOWN:
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                             "md(%s): in unkown state", name);
+                break;
+            case MD_S_INCOMPLETE:
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                             "md(%s): is incomplete, driving", name);
+                rv = md_reg_drive(wd->reg, md, 0, ptemp);
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, wd->s, APLOGNO() 
+                             "md(%s): driven", name);
+                break;
+            case MD_S_COMPLETE:
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                             "md(%s): is complete", name);
+                break;
+            case MD_S_EXPIRED:
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                             "md(%s): is expired", name);
+                break;
+            case MD_S_ERROR:
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                             "md(%s): in error state", name);
+                break;
+        }
+    }
+    return rv;
+}
+
+static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
+{
+    md_watchdog *wd = baton;
+    apr_status_t rv = APR_SUCCESS;
+    int i;
+    const char *name;
+    
+    switch (state) {
+        case AP_WATCHDOG_STATE_STARTING:
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
+                         "md watchdog start, auto drive %d mds", wd->drive_names->nelts);
+            /* Check if all Managed Domains are ok or if we have to do something */
+            if (APR_SUCCESS != (rv = setup_reg(&wd->reg, wd->p, wd->s))) {
+                ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() "setup md registry");
+            }
+            break;
+        case AP_WATCHDOG_STATE_RUNNING:
+            assert(wd->reg);
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
+                         "md watchdog run, auto drive %d mds", wd->drive_names->nelts);
+            for (i = 0; i < wd->drive_names->nelts; ++i) {
+                name = APR_ARRAY_IDX(wd->drive_names, i, const char*);
+                if (APR_SUCCESS != (rv = process_md(wd, name, ptemp))) {
+                    ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() 
+                                 "processing %s", name);
+                }
+            }
+            wd_set_interval(wd->watchdog, wd->interval, wd, run_watchdog);
+            break;
+        case AP_WATCHDOG_STATE_STOPPING:
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
+                         "md watchdog stopping");
+            break;
+    }
+    return rv;
+}
+
+static apr_status_t start_watchdog(apr_array_header_t *mds, apr_pool_t *p, server_rec *s)
+{
+    apr_allocator_t *allocator;
+    md_watchdog *wd;
+    apr_status_t rv;
+    
+    wd_get_instance = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_get_instance);
+    wd_register_callback = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_register_callback);
+    wd_set_interval = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_set_callback_interval);
+    
+    if (!wd_get_instance || !wd_register_callback || !wd_set_interval) {
+        ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s, APLOGNO() "mod_watchdog is required");
+        return !OK;
+    }
+    
+    wd = apr_pcalloc(p, sizeof(*wd));
+
+    /* We want our own pool with own allocator to keep data across watchdog invocations */
+    apr_allocator_create(&allocator);
+    apr_allocator_max_free_set(allocator, ap_max_mem_free);
+    rv = apr_pool_create_ex(&wd->p, p, NULL, allocator);
+    if (rv != APR_SUCCESS) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "md_watchdog: create pool");
+        return rv;
+    }
+    apr_allocator_owner_set(allocator, wd->p);
+    apr_pool_tag(wd->p, "md_watchdog");
+
+    wd->s = s;
+    wd->interval = apr_time_from_sec(5);
+    wd->drive_names = apr_array_make(wd->p, 10, sizeof(const char *));
+
+    if (APR_SUCCESS != (rv = wd_get_instance(&wd->watchdog, MD_WATCHDOG_NAME, 0, 1, wd->p))) {
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO() 
+                     "create md watchdog(%s)", MD_WATCHDOG_NAME);
+        return rv;
+    }
+    rv = wd_register_callback(wd->watchdog, 0, wd, run_watchdog);
+    ap_log_error(APLOG_MARK, rv? APLOG_CRIT : APLOG_DEBUG, rv, s, APLOGNO() 
+                 "register md watchdog(%s)", MD_WATCHDOG_NAME);
+    return rv;
+}
+ 
 static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
-                                   apr_pool_t *ptemp, server_rec *base_server)
+                                   apr_pool_t *ptemp, server_rec *s)
 {
     apr_array_header_t *mds;
+    apr_array_header_t *drive_names;
     md_reg_t *reg;
     apr_status_t rv = APR_SUCCESS;
-
-    ap_log_error( APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+    const md_t *md;
+    int i;
+    
+    ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO()
                  "mod_md (v%s), initializing...", MOD_MD_VERSION);
 
-    init_setups(p, base_server);
+    init_setups(p, s);
 
     md_log_set(log_is_level, log_print, NULL);
 
     /* 1. Check uniqueness of MDs, calculate global, configured MD list.
      * If successful, we have a list of MD definitions that do not overlap. */
-    if (APR_SUCCESS != (rv = md_calc_md_list(p, plog, ptemp, base_server, &mds))) {
+    if (APR_SUCCESS != (rv = md_calc_md_list(p, plog, ptemp, s, &mds))) {
         goto out;
     }
     
     /* 2. Check mappings of MDs to VirtulHosts defined.
      * If successful, we have asigned MDs to server_recs in a unique way. Each server_rec
      * config will carry 0 or 1 MD record. */
-    if (APR_SUCCESS != (rv = md_check_vhost_mapping(p, plog, ptemp, base_server, mds))) {
+    if (APR_SUCCESS != (rv = md_check_vhost_mapping(p, plog, ptemp, s, mds))) {
         goto out;
     }    
     
     /* 3. Synchronize the defintions we now have with the store via a registry (reg). */
-    if (APR_SUCCESS != (rv = setup_reg(&reg, p, base_server))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, base_server, APLOGNO()
+    if (APR_SUCCESS != (rv = setup_reg(&reg, p, s))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
                      "setup md registry");
         goto out;
     }
     if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, mds))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, base_server, APLOGNO()
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
                      "synching %d mds to registry", mds->nelts);
         goto out;
     }
-     
+    
+    drive_names = apr_array_make(ptemp, mds->nelts+1, sizeof(const char *));
+    for (i = 0; i < mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mds, i, const md_t *);
+        if (md->drive_mode == MD_DRIVE_AUTO) {
+            APR_ARRAY_PUSH(drive_names, const char *) = md->name; 
+        }
+    }
+    
     /* Now, do we need to do anything? */
-    
-    /* TODO: start thread taking care of signups/renewals/graceful restarts */
-    
+    if (drive_names->nelts > 0) {
+        md_http_use_implementation(md_curl_impl);
+        rv = start_watchdog(mds, p, s);
+    }
+    else {
+        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()
+                     "no mds to auto drive, no watchdog needed");
+    }
 out:     
     return rv;
 }
@@ -397,7 +641,7 @@ static int md_http_challenge_pr(request_rec *r)
     if (r->method_number == M_GET) {
         if (!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
             conf = ap_get_module_config(r->server->module_config, &md_module);
-            base_dir = md_config_var_get(conf, MD_CONFIG_BASE_DIR);
+            base_dir = md_config_gets(conf, MD_CONFIG_BASE_DIR);
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
 
             r->status = HTTP_NOT_FOUND;
