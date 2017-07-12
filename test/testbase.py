@@ -40,6 +40,7 @@ class TestEnv:
         cls.APACHE_SSL_DIR = os.path.join(cls.APACHE_CONF_DIR, "ssl")
         cls.APACHE_TEST_CONF = os.path.join(cls.APACHE_CONF_DIR, "test.conf")
         cls.APACHE_CONF_SRC = "data"
+        cls.APACHE_HTDOCS_DIR = os.path.join(cls.WEBROOT, "htdocs")
 
         cls.HTTP_PORT = cls.config.get('global', 'http_port')
         cls.HTTPS_PORT = cls.config.get('global', 'https_port')

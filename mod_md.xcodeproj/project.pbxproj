@@ -11,6 +11,8 @@
 		75EDD0821F14E75A003CBD39 /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		75EDD0831F14E75A003CBD39 /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
 		75EDD0851F14E85E003CBD39 /* empty.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = empty.conf; sourceTree = "<group>"; };
+		75EDD0861F15063B003CBD39 /* one_md_caps.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_caps.conf; sourceTree = "<group>"; };
+		75EDD0871F15064A003CBD39 /* test_013.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_013.conf; sourceTree = "<group>"; };
 		B20333361EDDA82300E5BE7E /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
 		B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_acme_regs.py; sourceTree = "<group>"; };
 		B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0210_acme_tos.py; sourceTree = "<group>"; };
@@ -159,6 +161,7 @@
 				B2B81E8F1F0A907900E35CA3 /* one_md_admin.conf */,
 				B2B81E8E1F0A907900E35CA3 /* one_md_ca.conf */,
 				B2B81E911F0A907900E35CA3 /* one_md_ca_admin.conf */,
+				75EDD0861F15063B003CBD39 /* one_md_caps.conf */,
 				B262F6D11EFCFE1100D396A1 /* two_mds.conf */,
 				B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */,
 				B2B81EC11F0FAC2000E35CA3 /* other_base.conf */,
@@ -181,6 +184,7 @@
 				B262F6DC1EFCFE1100D396A1 /* test_010.conf */,
 				B262F6DD1EFCFE1100D396A1 /* test_011.conf */,
 				B262F6DE1EFCFE1100D396A1 /* test_012.conf */,
+				75EDD0871F15064A003CBD39 /* test_013.conf */,
 			);
 			path = test_conf_validate;
 			sourceTree = "<group>";
