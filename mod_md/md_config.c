@@ -199,8 +199,8 @@ static const char *md_config_set_drive_mode(cmd_parms *parms, void *arg, const c
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
-    AP_INIT_TAKE_ARGV("ManagedDomains", md_config_set_names, NULL, RSRC_CONF | EXEC_ON_READ, 
-                      "A group of domain names with one certificate"),
+    AP_INIT_TAKE_ARGV("ManagedDomain", md_config_set_names, NULL, RSRC_CONF | EXEC_ON_READ, 
+                      "A group of server names with one certificate"),
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issueing the certificates"),
     AP_INIT_TAKE1("MDStoreDir", md_config_set_store_dir, NULL, RSRC_CONF, 
