@@ -50,11 +50,11 @@ test-configs: $(SERVER_DIR)/.test-setup
 	@py.test test_0310_conf_store.py
 
 $(SERVER_DIR)/.test-setup: conf/* \
+		$(SERVER_DIR)/htdocs/index.html \
 		$(SERVER_DIR)/conf/ssl/valid_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_pkey.pem
 	@mkdir -p $(SERVER_DIR)/conf/ssl
-	@mkdir -p $(SERVER_DIR)/htdocs
 	@mkdir -p $(SERVER_DIR)/logs
 	@cp conf/*.* $(SERVER_DIR)/conf
 	@touch $(SERVER_DIR)/.test-setup
@@ -64,6 +64,10 @@ $(SERVER_DIR)/conf/ssl/expired_cert.pem: data/ssl/expired_cert.pem
 
 $(SERVER_DIR)/conf/ssl/expired_pkey.pem: data/ssl/expired_pkey.pem
 	@cp $<  $@
+
+$(SERVER_DIR)/htdocs/index.html: htdocs/index.html
+	@mkdir -p $(SERVER_DIR)/htdocs
+	@cp htdocs/*.* $(SERVER_DIR)/htdocs 
 
 clean-local:
 	rm -f $(SERVER_DIR)/conf/ssl/*

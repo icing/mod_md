@@ -96,6 +96,7 @@
 		B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mytest.org.conf; sourceTree = "<group>"; };
 		B2B81ED11F164AA600E35CA3 /* md_curl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_curl.c; sourceTree = "<group>"; };
 		B2B81ED21F164AA600E35CA3 /* md_curl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_curl.h; sourceTree = "<group>"; };
+		B2B81ED41F165F8300E35CA3 /* index.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -226,6 +227,14 @@
 			path = ssl;
 			sourceTree = "<group>";
 		};
+		B2B81ED31F165F8300E35CA3 /* htdocs */ = {
+			isa = PBXGroup;
+			children = (
+				B2B81ED41F165F8300E35CA3 /* index.html */,
+			);
+			path = htdocs;
+			sourceTree = "<group>";
+		};
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
@@ -263,6 +272,7 @@
 		B2D309EF1EC1AD26007BECC8 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				B2B81ED31F165F8300E35CA3 /* htdocs */,
 				B2D31AEA1EC1B506007BECC8 /* conf */,
 				B262F6CD1EFCFE1100D396A1 /* data */,
 				B2B81E931F0BB4F300E35CA3 /* Makefile.am */,
