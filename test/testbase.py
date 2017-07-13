@@ -27,6 +27,8 @@ class TestEnv:
         cls.config.read('test.ini')
         cls.PREFIX = cls.config.get('global', 'prefix')
 
+        cls.GEN_DIR   = cls.config.get('global', 'gen_dir')
+        
         cls.ACME_URL_DEFAULT  = cls.config.get('acme', 'url_default')
         cls.ACME_URL  = cls.config.get('acme', 'url')
         cls.ACME_TOS  = cls.config.get('acme', 'tos')
@@ -235,6 +237,8 @@ class TestEnv:
     def install_test_conf( cls, conf) :
         if conf is None:
             conf_src = os.path.join("conf", "test.conf")
+        elif os.path.isabs(conf):
+            conf_src = conf
         else:
             conf_src = os.path.join(cls.APACHE_CONF_SRC, conf + ".conf")
         copyfile(conf_src, cls.APACHE_TEST_CONF)
@@ -305,6 +309,47 @@ class TestEnv:
                     wcount = 0
             return (ecount, wcount)
 
+
+# --------- certificate handling ---------
+
+class HttpdConf(object):
+    # Utility class for creating Apache httpd test configurations
+
+    def __init__(self, path):
+        self.path = path
+        if os.path.isfile(self.path):
+            os.remove(self.path)
+        open(self.path, "a").write(("  MDCertificateAuthority %s\n"
+                                    "  MDCertificateProtocol ACME\n"
+                                    "  MDCertificateAgreement %s\n\n")
+                                   % (TestEnv.ACME_URL, TestEnv.ACME_TOS))
+
+    def add_drive_mode(self, mode):
+        open(self.path, "a").write("  MDDriveMode %s\n" % mode)
+        
+    def add_admin(self, email):
+        open(self.path, "a").write("  ServerAdmin mailto:%s\n\n" % email)
+
+    def add_md(self, dnsList):
+        open(self.path, "a").write("  ManagedDomain %s\n\n" % " ".join(dnsList))
+
+    def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
+                  withSSL=True, certPath=None, keyPath=None):
+        f = open(self.path, "a") 
+        f.write("<VirtualHost *:%s>\n    ServerName %s\n" % (port, name))
+        if len(aliasList) > 0:
+            for alias in aliasList:
+                f.write("    ServerAlias %s\n" % alias )
+        f.write("    DocumentRoot %s\n\n" % docRoot)
+        if withSSL:
+            certPath = certPath if certPath else TestEnv.path_domain_cert(name)
+            keyPath = keyPath if keyPath else TestEnv.path_domain_pkey(name)
+            f.write(("    SSLEngine on\n    SSLCertificateFile %s\n"
+                     "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
+        f.write("</VirtualHost>\n\n")
+        
+    def install(self):
+        TestEnv.install_test_conf(self.path)
 
 # --------- certificate handling ---------
 

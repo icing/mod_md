@@ -8,6 +8,7 @@ server_name = @SERVER_NAME@
 server_dir = @SERVER_DIR@
 http_port = @HTTP_PORT@
 https_port = @HTTPS_PORT@
+gen_dir = @GEN_DIR@
 
 [acme]
 url_default=https://acme-v01.api.letsencrypt.org/directory

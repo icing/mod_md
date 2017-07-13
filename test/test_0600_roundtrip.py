@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from httplib import HTTPSConnection
 from testbase import TestEnv
+from testbase import HttpdConf
 from testbase import CertUtil
 
 def setup_module(module):
@@ -30,7 +31,7 @@ class TestRoundtrip:
     @classmethod
     def setup_class(cls):
         cls.dns_uniq = "%d.org" % time.time()
-        cls.TMP_CONF = os.path.join(TestEnv.APACHE_CONF_SRC, "temp.conf")
+        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "temp.conf")
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -48,28 +49,32 @@ class TestRoundtrip:
     # --------- add to store ---------
 
     def test_100(self):
-        # test case: generate config with md -> restart -> drive -> generate config with vhost and ssl -> restart -> check HTTPS access
+        # test case: generate config with md -> restart -> drive -> generate config
+        # with vhost and ssl -> restart -> check HTTPS access
         domain = "test100-" + TestRoundtrip.dns_uniq
-        # - generate config with one md
         dnsList = [ domain, "www." + domain ]
-        self._append_conf_acme(TestRoundtrip.TMP_CONF)
-        self._append_conf_admin(TestRoundtrip.TMP_CONF, "admin@" + domain)
-        self._append_conf_md(TestRoundtrip.TMP_CONF, dnsList)
+
+        # - generate config with one md
+        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf.add_admin("admin@" + domain)
+        conf.add_drive_mode("manual")
+        conf.add_md(dnsList)
+        conf.install()
         # - restart, check that md is in store
-        TestEnv.install_test_conf("temp");
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dnsList)
         # - drive
         assert TestEnv.a2md( [ "-v", "drive", domain ] )['rv'] == 0
         self._check_md_cert(dnsList)
         # - append vhost to config
-        self._append_conf_vhost(TestRoundtrip.TMP_CONF, TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True)
-        TestEnv.install_test_conf("temp");
+        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True)
+        conf.install()
         assert TestEnv.apache_restart() == 0
         # check: SSL is running OK
         test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
         dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
-        assert TestEnv.run([ "curl", "--resolve", dnsResolve, "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
+        assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
+                            "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
 
     def test_101(self):
         # test case: same as test_100, but with two parallel managed domains
@@ -78,94 +83,92 @@ class TestRoundtrip:
         # - generate config with one md
         dnsListA = [ domainA, "www." + domainA ]
         dnsListB = [ domainB, "www." + domainB ]
-        self._append_conf_acme(TestRoundtrip.TMP_CONF)
-        self._append_conf_admin(TestRoundtrip.TMP_CONF, "admin@example.org")
-        self._append_conf_md(TestRoundtrip.TMP_CONF, dnsListA)
-        self._append_conf_md(TestRoundtrip.TMP_CONF, dnsListB)
+
+        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf.add_admin("admin@example.org")
+        conf.add_drive_mode("manual")
+        conf.add_md(dnsListA)
+        conf.add_md(dnsListB)
+        conf.install()
+
         # - restart, check that md is in store
-        TestEnv.install_test_conf("temp");
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domainA, dnsListA)
         self._check_md_names(domainB, dnsListB)
+
         # - drive
         assert TestEnv.a2md( [ "-v", "drive", domainA ] )['rv'] == 0
         assert TestEnv.a2md( [ "-v", "drive", domainB ] )['rv'] == 0
         self._check_md_cert(dnsListA)
         self._check_md_cert(dnsListB)
+
         # - append vhost to config
-        self._append_conf_vhost(TestRoundtrip.TMP_CONF, TestEnv.HTTPS_PORT, domainA, aliasList=[ dnsListA[1] ], withSSL=True)
-        self._append_conf_vhost(TestRoundtrip.TMP_CONF, TestEnv.HTTPS_PORT, domainB, aliasList=[ dnsListB[1] ], withSSL=True)
-        TestEnv.install_test_conf("temp");
-        assert TestEnv.apache_restart() == 0
+        conf.add_vhost(TestEnv.HTTPS_PORT, domainA, aliasList=[ dnsListA[1] ], withSSL=True)
+        conf.add_vhost(TestEnv.HTTPS_PORT, domainB, aliasList=[ dnsListB[1] ], withSSL=True)
+        conf.install()
+
         # check: SSL is running OK
+        assert TestEnv.apache_restart() == 0
         test_url_a = "https://%s:%s/" % (domainA, TestEnv.HTTPS_PORT)
         test_url_b = "https://%s:%s/" % (domainB, TestEnv.HTTPS_PORT)
         dnsResolveA = "%s:%s:127.0.0.1" % (domainA, TestEnv.HTTPS_PORT)
         dnsResolveB = "%s:%s:127.0.0.1" % (domainB, TestEnv.HTTPS_PORT)
-        assert TestEnv.run([ "curl", "--resolve", dnsResolveA, "--cacert", TestEnv.path_domain_cert(domainA), test_url_a])['rv'] == 0
-        assert TestEnv.run([ "curl", "--resolve", dnsResolveB, "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
+        assert TestEnv.run([ "curl", "--resolve", dnsResolveA, 
+                            "--cacert", TestEnv.path_domain_cert(domainA), test_url_a])['rv'] == 0
+        assert TestEnv.run([ "curl", "--resolve", dnsResolveB, 
+                            "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
 
     def test_102(self):
         # test case: one md, that covers several vhosts
         domain = "test102-" + TestRoundtrip.dns_uniq
         nameA = "test-a." + domain
         nameB = "test-b." + domain
-        # - generate config with one md
         dnsList = [ domain, nameA, nameB ]
-        self._append_conf_acme(TestRoundtrip.TMP_CONF)
-        self._append_conf_admin(TestRoundtrip.TMP_CONF, "admin@" + domain)
-        self._append_conf_md(TestRoundtrip.TMP_CONF, dnsList)
+
+        # - generate config with one md
+        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf.add_admin("admin@" + domain)
+        conf.add_drive_mode("manual")
+        conf.add_md(dnsList)
+        conf.install()
+        
         # - restart, check that md is in store
-        TestEnv.install_test_conf("temp");
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dnsList)
+
         # - drive
         assert TestEnv.a2md( [ "-v", "drive", domain ] )['rv'] == 0
         self._check_md_cert(dnsList)
+
         # - append vhost to config
-        self._append_conf_vhost(TestRoundtrip.TMP_CONF, TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", withSSL=True, certPath=TestEnv.path_domain_cert(domain), keyPath=TestEnv.path_domain_pkey(domain))
-        self._append_conf_vhost(TestRoundtrip.TMP_CONF, TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", withSSL=True, certPath=TestEnv.path_domain_cert(domain), keyPath=TestEnv.path_domain_pkey(domain))
+        conf.add_vhost(TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
+                       withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
+                       keyPath=TestEnv.path_domain_pkey(domain))
+        conf.add_vhost(TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
+                       withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
+                       keyPath=TestEnv.path_domain_pkey(domain))
+        conf.install()
+        
         # - create docRoot folder
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "a"), "name.txt", nameA)
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "b"), "name.txt", nameB)
-        TestEnv.install_test_conf("temp");
-        assert TestEnv.apache_restart() == 0
+
         # check: SSL is running OK
+        assert TestEnv.apache_restart() == 0
         test_url_a = "https://%s:%s/name.txt" % (nameA, TestEnv.HTTPS_PORT)
         test_url_b = "https://%s:%s/name.txt" % (nameB, TestEnv.HTTPS_PORT)
         dnsResolveA = "%s:%s:127.0.0.1" % (nameA, TestEnv.HTTPS_PORT)
         dnsResolveB = "%s:%s:127.0.0.1" % (nameB, TestEnv.HTTPS_PORT)
-        result = TestEnv.run([ "curl", "--resolve", dnsResolveA, "--cacert", TestEnv.path_domain_cert(domain), test_url_a])
+        result = TestEnv.run([ "curl", "--resolve", dnsResolveA, 
+                              "--cacert", TestEnv.path_domain_cert(domain), test_url_a])
         assert result['rv'] == 0
         assert result['stdout'] == nameA
-        result = TestEnv.run([ "curl", "--resolve", dnsResolveB, "--cacert", TestEnv.path_domain_cert(domain), test_url_b])
+        result = TestEnv.run([ "curl", "--resolve", dnsResolveB, 
+                              "--cacert", TestEnv.path_domain_cert(domain), test_url_b])
         assert result['rv'] == 0
         assert result['stdout'] == nameB
 
     # --------- _utils_ ---------
-
-    def _append_conf_acme(self, confPath):
-        acmeConf = "  MDDriveMode manual\n  MDCertificateAuthority %s\n  MDCertificateProtocol ACME\n  MDCertificateAgreement %s\n\n" % (TestEnv.ACME_URL, TestEnv.ACME_TOS)
-        open(confPath, "a").write( acmeConf )
-
-    def _append_conf_admin(self, confPath, email):
-        open(confPath, "a").write("  ServerAdmin mailto:%s\n\n" % email)
-
-    def _append_conf_md(self, confPath, dnsList):
-        open(confPath, "a").write("  ManagedDomain %s\n\n" % " ".join(dnsList))
-
-    def _append_conf_vhost(self, confPath, port, name, aliasList, docRoot="htdocs", withSSL=True, certPath=None, keyPath=None):
-        open(confPath, "a").write("<VirtualHost *:%s>\n    ServerName %s\n" % (port, name) )
-        if len(aliasList) > 0:
-            for alias in aliasList:
-                open(confPath, "a").write("    ServerAlias %s\n" % alias )
-        open(confPath, "a").write("    DocumentRoot %s\n\n" % docRoot)
-        if withSSL:
-            certPath = certPath if certPath else TestEnv.path_domain_cert(name)
-            keyPath = keyPath if keyPath else TestEnv.path_domain_pkey(name)
-            open(confPath, "a").write("    SSLEngine on\n    SSLCertificateFile %s\n    SSLCertificateKeyFile %s\n" % (certPath, keyPath) )
-        
-        open(confPath, "a").write("</VirtualHost>\n\n")
 
     def _write_res_file(self, docRoot, name, content):
         if not os.path.exists(docRoot):

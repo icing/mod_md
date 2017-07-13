@@ -36,6 +36,7 @@
 #include "md_version.h"
 #include "acme/md_acme_authz.h"
 
+#include "md_os.h"
 #include "mod_watchdog.h"
 
 static void md_hooks(apr_pool_t *pool);
@@ -214,7 +215,45 @@ next_server:
 /**************************************************************************************************/
 /* store & registry setup */
 
-static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *s)
+static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
+                                    md_store_fs_ev_t ev, int group, 
+                                    const char *fname, apr_filetype_e ftype,  
+                                    apr_pool_t *p)
+{
+    server_rec *s = baton;
+    apr_status_t rv;
+    
+    ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, s, "store event=%d on %s %s (group %d)", 
+                 ev, (ftype == APR_DIR)? "dir" : "file", fname, group);
+                 
+    /* Directories in group CHALLENGES and STAGING are written to by our watchdog,
+     * running on certain mpms in a child process under a different user. Give them
+     * ownership. 
+     */
+    if (ftype == APR_DIR && (group == MD_SG_CHALLENGES || group == MD_SG_STAGING)) {
+        rv = md_make_worker_accessible(fname, p);
+        if (APR_ENOTIMPL != rv) {
+            return rv;
+        }
+    }
+    return APR_SUCCESS;
+}
+
+static apr_status_t check_group_dir(md_store_t *store, md_store_group_t group, 
+                                    apr_pool_t *p, server_rec *s)
+{
+    const char *dir;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = md_store_get_fname(&dir, store, group, NULL, NULL, p))
+        && APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UALL_GREAD, p))) {
+        rv = store_file_ev(s, store, MD_S_FS_EV_CREATED, group, dir, APR_DIR, p);
+    }
+    return rv;
+}
+
+static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *s,
+                                int post_config)
 {
     const char *base_dir;
     md_config_t *config;
@@ -225,28 +264,41 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
     base_dir = md_config_gets(config, MD_CONFIG_BASE_DIR);
     base_dir = ap_server_root_relative(p, base_dir);
     
-    if (APR_SUCCESS == (rv = md_store_fs_init(&store, p, base_dir))) {
-        config->store = store;
-        
-        for (s = s->next; s; s = s->next) {
-            config = (md_config_t *)md_config_get(s);
-            config->store = store;
+    if (APR_SUCCESS != (rv = md_store_fs_init(&store, p, base_dir))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()"setup store for %s", base_dir);
+        goto out;
+    }
+
+    if (post_config) {
+        md_store_fs_set_event_cb(store, store_file_ev, s);
+        if (APR_SUCCESS != (rv = check_group_dir(store, MD_SG_CHALLENGES, p, s))) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() 
+                         "setup challenges directory");
+            goto out;
+        }
+        if (APR_SUCCESS != (rv = check_group_dir(store, MD_SG_STAGING, p, s))) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() 
+                         "setup staging directory");
+            goto out;
         }
     }
-    else {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
-                     "setup store for %s", base_dir);
+    config->store = store;
+    
+    for (s = s->next; s; s = s->next) {
+        config = (md_config_t *)md_config_get(s);
+        config->store = store;
     }
+out:
     *pstore = (APR_SUCCESS == rv)? store : NULL;
     return rv;
 }
 
-static apr_status_t setup_reg(md_reg_t **preg, apr_pool_t *p, server_rec *s)
+static apr_status_t setup_reg(md_reg_t **preg, apr_pool_t *p, server_rec *s, int post_config)
 {
     md_store_t *store;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = setup_store(&store, p, s))) {
+    if (APR_SUCCESS == (rv = setup_store(&store, p, s, post_config))) {
         return md_reg_init(preg, p, store);
     }
     return rv;
@@ -368,7 +420,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
                          "md watchdog start, auto drive %d mds", wd->drive_names->nelts);
             /* Check if all Managed Domains are ok or if we have to do something */
-            if (APR_SUCCESS != (rv = setup_reg(&wd->reg, wd->p, wd->s))) {
+            if (APR_SUCCESS != (rv = setup_reg(&wd->reg, wd->p, wd->s, 0))) {
                 ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() "setup md registry");
             }
             break;
@@ -467,7 +519,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     }    
     
     /* 3. Synchronize the defintions we now have with the store via a registry (reg). */
-    if (APR_SUCCESS != (rv = setup_reg(&reg, p, s))) {
+    if (APR_SUCCESS != (rv = setup_reg(&reg, p, s, 1))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
                      "setup md registry");
         goto out;
