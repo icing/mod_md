@@ -172,13 +172,14 @@ apr_status_t md_pkey_to_base64url(const char **ps64, md_pkey_t *pkey, apr_pool_t
     return rv;
 }
 
-apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, 
+                           const char *fname, apr_fileperms_t perms)
 {
     buffer buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p))) {
-        return md_util_freplace(fname, p, fwrite_buffer, &buffer); 
+        return md_util_freplace(fname, perms, p, fwrite_buffer, &buffer); 
     }
     return rv;
 }
@@ -529,13 +530,14 @@ static apr_status_t cert_to_buffer(buffer *buffer, md_cert_t *cert, apr_pool_t *
     return APR_SUCCESS;
 }
 
-apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, const char *fname)
+apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
+                           const char *fname, apr_fileperms_t perms)
 {
     buffer buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
-        return md_util_freplace(fname, p, fwrite_buffer, &buffer); 
+        return md_util_freplace(fname, perms, p, fwrite_buffer, &buffer); 
     }
     return rv;
 }
@@ -645,7 +647,8 @@ out:
     return rv;
 }
 
-apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p, const char *fname)
+apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p, 
+                            const char *fname, apr_fileperms_t perms)
 {
     FILE *f;
     apr_status_t rv;
@@ -655,6 +658,7 @@ apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p, const char
     
     rv = md_util_fopen(&f, fname, "w");
     if (rv == APR_SUCCESS) {
+        apr_file_perms_set(fname, perms);
         ERR_clear_error();
         for (i = 0; i < certs->nelts; ++i) {
             cert = APR_ARRAY_IDX(certs, i, const md_cert_t *);

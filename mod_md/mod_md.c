@@ -38,13 +38,6 @@
 
 #include "mod_watchdog.h"
 
-#if APR_HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#ifdef WIN32
-#include "mpm_winnt.h"
-#endif
-
 static void md_hooks(apr_pool_t *pool);
 
 AP_DECLARE_MODULE(md) = {
@@ -232,7 +225,7 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
     base_dir = md_config_gets(config, MD_CONFIG_BASE_DIR);
     base_dir = ap_server_root_relative(p, base_dir);
     
-    if (APR_SUCCESS == (rv = md_store_fs_init(&store, p, base_dir, 1))) {
+    if (APR_SUCCESS == (rv = md_store_fs_init(&store, p, base_dir))) {
         config->store = store;
         
         for (s = s->next; s; s = s->next) {
@@ -307,86 +300,6 @@ static void init_setups(apr_pool_t *p, server_rec *base_server)
     log_server = base_server;
     apr_pool_cleanup_register(p, NULL, cleanup_setups, apr_pool_cleanup_null);
 }
-
-#if 0
-
-#define MD_ERRFN_USERDATA_KEY         "MDCHILDERRFN"
-
-static void grace_child_errfn(apr_pool_t *pool, apr_status_t err, const char *description)
-{
-    server_rec *s;
-    void *v;
-
-    apr_pool_userdata_get(&v, MD_ERRFN_USERDATA_KEY, pool);
-    s = v;
-
-    if (s) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, err, s, APLOGNO() "%s", description);
-    }
-}
-
-static apr_status_t server_graceful(apr_proc_t **pproc, apr_pool_t *p, server_rec *s) 
-{
-    apr_procattr_t *attr;
-    apr_status_t rv;
-    const char **argv;
-    apr_proc_t *proc;
-    
-    if (APR_SUCCESS != (rv = apr_procattr_create(&attr, p))
-        || APR_SUCCESS != (rv = apr_procattr_io_set(attr, APR_NO_PIPE, APR_NO_PIPE, APR_NO_PIPE))
-        || APR_SUCCESS != (rv = apr_procattr_cmdtype_set(attr, APR_PROGRAM_PATH))
-        || APR_SUCCESS != (rv = apr_procattr_detach_set(attr, 1))
-        || APR_SUCCESS != (rv = apr_procattr_child_errfn_set(attr, grace_child_errfn))) {
-        return rv;
-    }
-    apr_pool_userdata_set(s, MD_ERRFN_USERDATA_KEY, apr_pool_cleanup_null, p);
-    
-    proc = apr_pcalloc(p, sizeof(*proc));
-    proc->pid = -1;
-    proc->err = proc->in = proc->out = NULL;
-
-    argv = (const char **)apr_pcalloc(p, 6 * sizeof(const char *));
-    argv[0] = "/opt/apache-trunk/bin/apachectl";
-    argv[1] = "-d";
-    argv[2] = ap_server_root_relative(p, "");
-    argv[3] = "-k";
-    argv[4] = "graceful";
-    argv[5] = NULL;
-    
-    ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() "%s started (%s)", argv[0], argv[2]);
-    /*rv = apr_proc_create(proc, argv[0], argv, NULL, attr, p); 
-    ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() "graceful restart");
-    *pproc = proc;
-    
-    return rv;*/
-    return APR_ENOTIMPL;
-}
-
-#ifdef WIN32
-
-/* FIXME: test if this has a chance to work on WIN32 systems */
-extern void mpm_signal_service(apr_pool_t *ptemp, int signal);
-
-static apr_status_t server_graceful(apr_pool_t *p, server_rec *s)
-{
-    mpm_signal_service(p, 1);
-    return APR_SUCCESS;
-}
- 
-#else
-
-static apr_status_t server_graceful(int pid, apr_pool_t *p, server_rec *s)
-{ 
-    if (kill(pid, AP_SIG_GRACEFUL) < 0) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, errno, NULL, APLOGNO()
-                     "sending signal to server");
-        return APR_EGENERAL;
-    }
-    return APR_SUCCESS;
-}
-
-#endif
-#endif /* 0 */
 
 /**************************************************************************************************/
 /* watchdog based impl. */

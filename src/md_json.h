@@ -16,6 +16,8 @@
 #ifndef mod_md_md_json_h
 #define mod_md_md_json_h
 
+#include <apr_file_io.h>
+
 struct apr_bucket_brigade;
 struct apr_file_t;
 
@@ -97,8 +99,10 @@ apr_status_t md_json_setsa(apr_array_header_t *a, md_json_t *json, ...);
 apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, struct apr_bucket_brigade *bb);
 const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *pool);
 apr_status_t md_json_writef(md_json_t *json, md_json_fmt_t fmt, struct apr_file_t *f);
-apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
-apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath);
+apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
+                              const char *fpath, apr_fileperms_t perms);
+apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
+                              const char *fpath, apr_fileperms_t perms);
 
 apr_status_t md_json_readb(md_json_t **pjson, apr_pool_t *pool, struct apr_bucket_brigade *bb);
 apr_status_t md_json_readd(md_json_t **pjson, apr_pool_t *pool, const char *data, size_t data_len);

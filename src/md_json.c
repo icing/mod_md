@@ -780,12 +780,13 @@ apr_status_t md_json_writef(md_json_t *json, md_json_fmt_t fmt, apr_file_t *f)
     return rv? APR_EGENERAL : APR_SUCCESS;
 }
 
-apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
+apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
+                              const char *fpath, apr_fileperms_t perms)
 {
     apr_status_t rv;
     apr_file_t *f;
     
-    rv = md_util_fcreatex(&f, fpath, p);
+    rv = md_util_fcreatex(&f, fpath, perms, p);
     if (APR_SUCCESS == rv) {
         rv = md_json_writef(json, fmt, f);
         apr_file_close(f);
@@ -804,12 +805,13 @@ static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
     return md_json_writef(ctx->json, ctx->fmt, f);
 }
 
-apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, const char *fpath)
+apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
+                              const char *fpath, apr_fileperms_t perms)
 {
     j_write_ctx ctx;
     ctx.json = json;
     ctx.fmt = fmt;
-    return md_util_freplace(fpath, p, write_json, &ctx);
+    return md_util_freplace(fpath, perms, p, write_json, &ctx);
 }
 
 apr_status_t md_json_readd(md_json_t **pjson, apr_pool_t *pool, const char *data, size_t data_len)

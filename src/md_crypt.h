@@ -16,6 +16,8 @@
 #ifndef mod_md_md_crypt_h
 #define mod_md_md_crypt_h
 
+#include <apr_file_io.h>
+
 struct apr_array_header_t;
 struct md_t;
 struct md_http_response_t;
@@ -43,7 +45,8 @@ apr_status_t md_pkey_from_base64url(md_pkey_t **ppkey, const char *s64, apr_pool
 
 apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
 apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
-apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, 
+                           const char *fname, apr_fileperms_t perms);
 
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
@@ -62,7 +65,8 @@ typedef enum {
 void md_cert_free(md_cert_t *cert);
 
 apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname);
-apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, const char *fname);
+apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
+                           const char *fname, apr_fileperms_t perms);
 
 apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *pool, 
                                const struct md_http_response_t *res);
@@ -81,7 +85,7 @@ apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool
 apr_status_t md_chain_fload(struct apr_array_header_t **pcerts, 
                             apr_pool_t *p, const char *fname);
 apr_status_t md_chain_fsave(struct apr_array_header_t *certs, 
-                            apr_pool_t *p, const char *fname);
+                            apr_pool_t *p, const char *fname, apr_fileperms_t perms);
 
 apr_status_t md_cert_req_create(const char **pcsr_der_64, const struct md_t *md, 
                                 md_pkey_t *pkey, apr_pool_t *p);

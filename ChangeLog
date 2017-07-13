@@ -1,3 +1,5 @@
+ * filesystem store now with relaxed permissions on challenges
+
 v0.1.0
 ----------------------------------------------------------------------------------------------------
  * new directive "MDDriveMode auto|manual". In "auto" mode (more precisely, if auto mode is enabled

@@ -36,12 +36,21 @@
 /**************************************************************************************************/
 /* file system based implementation of md_store_t */
 
+typedef struct {
+    apr_fileperms_t dir;
+    apr_fileperms_t file;
+} perms_t;
+
 typedef struct md_store_fs_t md_store_fs_t;
 struct md_store_fs_t {
     md_store_t s;
     
     apr_pool_t *p;          /* duplicate for convenience */
     const char *base;       /* base directory of store */
+    perms_t def_perms;
+    perms_t group_perms[5];
+    md_store_fs_cb *event_cb;
+    void *event_baton;
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
@@ -69,7 +78,7 @@ static apr_status_t fs_get_fname(const char **pfname,
                                  const char *name, const char *aspect, 
                                  apr_pool_t *p);
 
-apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path, int create)
+apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
 {
     md_store_fs_t *s_fs;
     apr_status_t rv = APR_SUCCESS;
@@ -85,12 +94,23 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.purge = fs_purge;
     s_fs->s.iterate = fs_iterate;
     s_fs->s.get_fname = fs_get_fname;
-
+    
+    /* by default, everything is only readable by the current user */ 
+    s_fs->def_perms.dir = MD_FPROT_D_UONLY;
+    s_fs->def_perms.file = MD_FPROT_F_UONLY;
+    
+    /* challenges dir and files are readable by all, no secrets involved */ 
+    s_fs->group_perms[MD_SG_CHALLENGES].dir = MD_FPROT_D_UALL_WREAD;
+    s_fs->group_perms[MD_SG_CHALLENGES].file = MD_FPROT_F_UALL_WREAD;
+    
     s_fs->base = apr_pstrdup(p, path);
     
     if (APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
-        if (APR_STATUS_IS_ENOENT(rv) && create) {
-            rv = apr_dir_make_recursive(s_fs->base, MD_FPROT_D_UONLY, p);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            rv = apr_dir_make_recursive(s_fs->base, s_fs->def_perms.dir, p);
+            if (APR_SUCCESS == rv) {
+                apr_file_perms_set(s_fs->base, MD_FPROT_D_UALL_WREAD);
+            }
         }
         if (APR_SUCCESS != rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
@@ -104,6 +124,49 @@ static void fs_destroy(md_store_t *store)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     s_fs->s.p = NULL;
+}
+
+apr_status_t md_store_fs_default_perms_set(md_store_t *store, 
+                                           apr_fileperms_t file_perms,
+                                           apr_fileperms_t dir_perms)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    
+    s_fs->def_perms.file = file_perms;
+    s_fs->def_perms.dir = dir_perms;
+    return APR_SUCCESS;
+}
+
+apr_status_t md_store_fs_group_perms_set(md_store_t *store, md_store_group_t group, 
+                                         apr_fileperms_t file_perms,
+                                         apr_fileperms_t dir_perms)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    
+    if (group >= (sizeof(s_fs->group_perms)/sizeof(s_fs->group_perms[0]))) {
+        return APR_ENOTIMPL;
+    }
+    s_fs->group_perms[group].file = file_perms;
+    s_fs->group_perms[group].dir = dir_perms;
+    return APR_SUCCESS;
+}
+
+apr_status_t md_store_fs_set_event_cb(struct md_store_t *store, md_store_fs_cb *cb, void *baton)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    
+    s_fs->event_cb = cb;
+    s_fs->event_baton = baton;
+    return APR_SUCCESS;
+}
+
+static const perms_t *gperms(md_store_fs_t *s_fs, md_store_group_t group)
+{
+    if (group >= (sizeof(s_fs->group_perms)/sizeof(s_fs->group_perms[0]))
+        || !s_fs->group_perms[group].dir) {
+        return &s_fs->def_perms;
+    }
+    return &s_fs->group_perms[group];
 }
 
 static apr_status_t fs_get_fname(const char **pfname, 
@@ -173,15 +236,46 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     return rv;
 }
 
+static apr_status_t dispatch(md_store_fs_t *s_fs, md_store_fs_ev_t ev, int group, 
+                             const char *fname, apr_filetype_e ftype, apr_pool_t *p)
+{
+    if (s_fs->event_cb) {
+        return s_fs->event_cb(s_fs->event_baton, &s_fs->s, MD_S_FS_EV_CREATED, 
+                              group, fname, ftype, p);
+    }
+    return APR_SUCCESS;
+}
+
+static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs, 
+                                 md_store_group_t group, const char *name,
+                                 apr_pool_t *p)
+{
+    const char *groupname;
+    const perms_t *perms;
+    apr_status_t rv;
+    
+    groupname = md_store_group_name(group);
+    perms = gperms(s_fs, group);
+
+    if (APR_SUCCESS == (rv = md_util_path_merge(pdir, p, s_fs->base, groupname, name, NULL))
+        && APR_SUCCESS != md_util_is_dir(*pdir, p) 
+        && APR_SUCCESS == (rv = apr_dir_make_recursive(*pdir, perms->dir, p))) {
+        rv = dispatch(s_fs, MD_S_FS_EV_CREATED, group, *pdir, APR_DIR, p);
+    }
+    return rv;
+}
+ 
+ 
 static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
-    const char *dir, *fpath, *name, *aspect, *groupname;
+    const char *gdir, *dir, *fpath, *name, *aspect;
     md_store_vtype_t vtype;
     md_store_group_t group;
     void *value;
     int create;
     apr_status_t rv;
+    const perms_t *perms;
     
     group = va_arg(ap, int);
     name = va_arg(ap, const char*);
@@ -190,33 +284,39 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     value = va_arg(ap, void *);
     create = va_arg(ap, int);
     
-    groupname = md_store_group_name(group);
+    perms = gperms(s_fs, group);
     
-    if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, groupname, name, NULL))
-        && APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UONLY, p)) 
+    if (APR_SUCCESS == (rv = mk_group_dir(&gdir, s_fs, group, NULL, p)) 
+        && APR_SUCCESS == (rv = mk_group_dir(&dir, s_fs, group, name, p))
         && APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, aspect, NULL))) {
         
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "storing in %s", fpath);
         switch (vtype) {
             case MD_SV_TEXT:
-                rv = (create? md_text_fcreatex(fpath,p, value)
-                      : md_text_freplace(fpath, p, value));
+                rv = (create? md_text_fcreatex(fpath, perms->file, p, value)
+                      : md_text_freplace(fpath, perms->file, p, value));
                 break;
             case MD_SV_JSON:
-                rv = (create? md_json_fcreatex((md_json_t *)value, p, MD_JSON_FMT_INDENT, fpath)
-                      : md_json_freplace((md_json_t *)value, p, MD_JSON_FMT_INDENT, fpath));
+                rv = (create? md_json_fcreatex((md_json_t *)value, p, MD_JSON_FMT_INDENT, 
+                                               fpath, perms->file)
+                      : md_json_freplace((md_json_t *)value, p, MD_JSON_FMT_INDENT, 
+                                         fpath, perms->file));
                 break;
             case MD_SV_CERT:
-                rv = md_cert_fsave((md_cert_t *)value, ptemp, fpath);
+                rv = md_cert_fsave((md_cert_t *)value, ptemp, fpath, perms->file);
                 break;
             case MD_SV_PKEY:
-                rv = md_pkey_fsave((md_pkey_t *)value, ptemp, fpath);
+                /* private keys are only ever saved with access to the user alone */
+                rv = md_pkey_fsave((md_pkey_t *)value, ptemp, fpath, MD_FPROT_F_UONLY);
                 break;
             case MD_SV_CHAIN:
-                rv = md_chain_fsave((apr_array_header_t*)value, ptemp, fpath);
+                rv = md_chain_fsave((apr_array_header_t*)value, ptemp, fpath, perms->file);
                 break;
             default:
                 return APR_ENOTIMPL;
+        }
+        if (APR_SUCCESS == rv) {
+            rv = dispatch(s_fs, MD_S_FS_EV_CREATED, group, fpath, APR_REG, p);
         }
     }
     return rv;
@@ -433,6 +533,10 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
                           from_dir, to_dir);
             apr_file_rename(narch_dir, to_dir, ptemp);
             goto out;
+        }
+        rv = dispatch(s_fs, MD_S_FS_EV_MOVED, to, to_dir, APR_DIR, ptemp);
+        if (APR_SUCCESS == rv) {
+            rv = dispatch(s_fs, MD_S_FS_EV_MOVED, MD_SG_ARCHIVE, narch_dir, APR_DIR, ptemp);
         }
     }
     else if (APR_STATUS_IS_ENOENT(rv)) {

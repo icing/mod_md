@@ -191,10 +191,11 @@ apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode)
     return APR_SUCCESS;
 }
 
-apr_status_t md_util_fcreatex(apr_file_t **pf, const char *fn, apr_pool_t *p)
+apr_status_t md_util_fcreatex(apr_file_t **pf, const char *fn, 
+                              apr_fileperms_t perms, apr_pool_t *p)
 {
     return apr_file_open(pf, fn, (APR_FOPEN_WRITE|APR_FOPEN_CREATE|APR_FOPEN_EXCL),
-                         MD_FPROT_F_UONLY, p);
+                         perms, p);
 }
 
 apr_status_t md_util_is_dir(const char *path, apr_pool_t *pool)
@@ -234,7 +235,7 @@ apr_status_t md_util_path_merge(const char **ppath, apr_pool_t *p, ...)
     return rv;
 }
 
-apr_status_t md_util_freplace(const char *fpath, apr_pool_t *p, 
+apr_status_t md_util_freplace(const char *fpath, apr_fileperms_t perms, apr_pool_t *p, 
                               md_util_file_cb *write_cb, void *baton)
 {
     apr_status_t rv;
@@ -245,7 +246,7 @@ apr_status_t md_util_freplace(const char *fpath, apr_pool_t *p,
     tmp = apr_psprintf(p, "%s.tmp", fpath);
     i = 0; max = 20;
 creat:
-    while (i < max && APR_EEXIST == (rv = md_util_fcreatex(&f, tmp, p))) {
+    while (i < max && APR_EEXIST == (rv = md_util_fcreatex(&f, tmp, perms, p))) {
         ++i;
         apr_sleep(apr_time_msec(50));
     } 
@@ -299,12 +300,13 @@ static apr_status_t write_text(void *baton, struct apr_file_t *f, apr_pool_t *p)
     return apr_file_write_full(f, text, len, &len);
 }
 
-apr_status_t md_text_fcreatex(const char *fpath, apr_pool_t *p, const char *text)
+apr_status_t md_text_fcreatex(const char *fpath, apr_fileperms_t perms, 
+                              apr_pool_t *p, const char *text)
 {
     apr_status_t rv;
     apr_file_t *f;
     
-    rv = md_util_fcreatex(&f, fpath, p);
+    rv = md_util_fcreatex(&f, fpath, perms, p);
     if (APR_SUCCESS == rv) {
         rv = write_text((void*)text, f, p);
         apr_file_close(f);
@@ -312,9 +314,10 @@ apr_status_t md_text_fcreatex(const char *fpath, apr_pool_t *p, const char *text
     return rv;
 }
 
-apr_status_t md_text_freplace(const char *fpath, apr_pool_t *p, const char *text)
+apr_status_t md_text_freplace(const char *fpath, apr_fileperms_t perms, 
+                              apr_pool_t *p, const char *text)
 {
-    return md_util_freplace(fpath, p, write_text, (void*)text);
+    return md_util_freplace(fpath, perms, p, write_text, (void*)text);
 }
 
 typedef struct {

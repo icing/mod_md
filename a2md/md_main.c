@@ -159,7 +159,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             fprintf(stderr, "need store directory for command: %s\n", cmd->name);
             return APR_EINVAL;
         }
-        if (APR_SUCCESS != (rv = md_store_fs_init(&ctx->store, ctx->p, ctx->base_dir, 0))) {
+        if (APR_SUCCESS != (rv = md_store_fs_init(&ctx->store, ctx->p, ctx->base_dir))) {
             fprintf(stderr, "error %d creating store for: %s\n", rv, ctx->base_dir);
             return APR_EINVAL;
         }

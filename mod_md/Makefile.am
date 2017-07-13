@@ -23,10 +23,12 @@ mod_md_la_LDFLAGS  = -module -L../src/ -lapachemd
 
 OBJECTS = \
     md_config.c \
+    md_os.c \
     mod_md.c
 
 HFILES = \
     md_config.h \
+    md_os.h \
     mod_md.h
 
 mod_md_la_SOURCES = $(HFILES) $(OBJECTS)

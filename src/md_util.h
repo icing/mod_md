@@ -22,9 +22,6 @@
 struct apr_array_header_t;
 struct apr_table_t;
 
-#define MD_FPROT_F_UONLY      (APR_FPROT_UREAD|APR_FPROT_UWRITE)
-#define MD_FPROT_D_UONLY      (APR_FPROT_UREAD|APR_FPROT_UWRITE|APR_FPROT_UEXECUTE)
-
 /**************************************************************************************************/
 /* pool utils */
 
@@ -68,7 +65,8 @@ struct apr_finfo_t;
 
 apr_status_t md_util_fopen(FILE **pf, const char *fn, const char *mode);
 
-apr_status_t md_util_fcreatex(struct apr_file_t **pf, const char *fn, apr_pool_t *p);
+apr_status_t md_util_fcreatex(struct apr_file_t **pf, const char *fn, 
+                              apr_fileperms_t perms, apr_pool_t *p);
 
 apr_status_t md_util_path_merge(const char **ppath, apr_pool_t *p, ...);
 
@@ -77,7 +75,7 @@ apr_status_t md_util_is_file(const char *path, apr_pool_t *pool);
 
 typedef apr_status_t md_util_file_cb(void *baton, struct apr_file_t *f, apr_pool_t *p);
 
-apr_status_t md_util_freplace(const char *fpath, apr_pool_t *p, 
+apr_status_t md_util_freplace(const char *fpath, apr_fileperms_t perms, apr_pool_t *p, 
                               md_util_file_cb *write, void *baton);
 
 /** 
@@ -102,8 +100,10 @@ apr_status_t md_util_tree_do(md_util_fdo_cb *cb, void *baton, apr_pool_t *p,
 apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p);
 
 apr_status_t md_text_fread8k(const char **ptext, apr_pool_t *p, const char *fpath);
-apr_status_t md_text_fcreatex(const char *fpath, apr_pool_t *p, const char *text);
-apr_status_t md_text_freplace(const char *fpath, apr_pool_t *p, const char *text); 
+apr_status_t md_text_fcreatex(const char *fpath, apr_fileperms_t 
+                              perms, apr_pool_t *p, const char *text);
+apr_status_t md_text_freplace(const char *fpath, apr_fileperms_t perms, 
+                              apr_pool_t *p, const char *text); 
 
 /**************************************************************************************************/
 /* base64 url encodings */
