@@ -230,6 +230,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
     if (md) {
         md->state = src->state;
         md->name = apr_pstrdup(p, src->name);
+        md->drive_mode = src->drive_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
         md->contacts = md_array_str_clone(p, src->contacts);
         if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
@@ -262,6 +263,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_sets(md->cert_url, json, MD_KEY_CERT, MD_KEY_URL, NULL);
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
+        md_json_setl(md->drive_mode, json, MD_KEY_DRIVE, NULL);
         return json;
     }
     return NULL;
@@ -280,6 +282,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->ca_agreement = md_json_dups(p, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
         md->cert_url = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_URL, NULL);
         md->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);
+        md->drive_mode = (int)md_json_getl(json, MD_KEY_DRIVE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         return md;
     }

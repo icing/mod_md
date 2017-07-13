@@ -53,7 +53,8 @@ class TestStore:
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 0
+            "state": 0,
+            "drive": 0
         }
 
     def test_101(self):
@@ -67,7 +68,8 @@ class TestStore:
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 0
+            "state": 0,
+            "drive": 0
         }
 
     def test_102(self):
@@ -89,7 +91,8 @@ class TestStore:
                 "url": TestEnv.ACME_URL,
                 "proto": "ACME"
             },
-            "state": 0
+            "state": 0,
+            "drive": 0
         }
 
     def test_103(self):
@@ -113,7 +116,8 @@ class TestStore:
             "ca": {
                 "proto": "ACME"
             },
-            "state": 0
+            "state": 0,
+            "drive": 0
         }
 
     # --------- store list ---------
@@ -145,7 +149,8 @@ class TestStore:
                     "url": TestEnv.ACME_URL,
                     "proto": "ACME"
                 },
-                "state": 0
+                "state": 0,
+                "drive": 0
             }
 
     # --------- store remove ---------

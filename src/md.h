@@ -69,6 +69,7 @@ struct md_t {
 #define MD_KEY_CSR              "csr"
 #define MD_KEY_DISABLED         "disabled"
 #define MD_KEY_DOMAINS          "domains"
+#define MD_KEY_DRIVE            "drive"
 #define MD_KEY_ID               "id"
 #define MD_KEY_IDENTIFIER       "identifier"
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"

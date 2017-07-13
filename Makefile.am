@@ -33,6 +33,9 @@ mod_md: libmd
 test: a2md/a2md
 	$(MAKE) -C test/ test
 
+test-auto: a2md/a2md
+	$(MAKE) -C test/ test-auto
+
 test-drive: a2md/a2md
 	$(MAKE) -C test/ test-drive
 

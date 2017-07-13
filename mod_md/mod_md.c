@@ -69,11 +69,11 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
         config = (md_config_t *)md_config_get(s);
         
         for (i = 0; i < config->mds->nelts; ++i) {
-        
             nmd = APR_ARRAY_IDX(config->mds, i, md_t*);
+
             for (j = 0; j < mds->nelts; ++j) {
-            
                 md = APR_ARRAY_IDX(mds, j, md_t*);
+
                 if (nmd == md) {
                     nmd = NULL;
                     break; /* merged between different configs */
@@ -102,6 +102,11 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
                 nmd->drive_mode = md_config_geti(config, MD_CONFIG_DRIVE_MODE);
                 
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
+                
+                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                             "Added MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d]",
+                             nmd->name, nmd->ca_url, nmd->ca_proto, nmd->ca_agreement,
+                             nmd->drive_mode);
             }
         }
     }
@@ -445,11 +450,13 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
     return rv;
 }
 
-static apr_status_t start_watchdog(apr_array_header_t *mds, apr_pool_t *p, server_rec *s)
+static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p, server_rec *s)
 {
     apr_allocator_t *allocator;
     md_watchdog *wd;
     apr_status_t rv;
+    const char *name;
+    int i;
     
     wd_get_instance = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_get_instance);
     wd_register_callback = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_register_callback);
@@ -476,6 +483,10 @@ static apr_status_t start_watchdog(apr_array_header_t *mds, apr_pool_t *p, serve
     wd->s = s;
     wd->interval = apr_time_from_sec(5);
     wd->drive_names = apr_array_make(wd->p, 10, sizeof(const char *));
+    for (i = 0; i < names->nelts; ++i) {
+        name = APR_ARRAY_IDX(names, i, const char *);
+        APR_ARRAY_PUSH(wd->drive_names, const char*) = apr_pstrdup(wd->p, name);
+    }
 
     if (APR_SUCCESS != (rv = wd_get_instance(&wd->watchdog, MD_WATCHDOG_NAME, 0, 1, wd->p))) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO() 
@@ -540,8 +551,12 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     
     /* Now, do we need to do anything? */
     if (drive_names->nelts > 0) {
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
+                     "%d out of %d mds are configured for auto-drive", 
+                     drive_names->nelts, mds->nelts);
+    
         md_http_use_implementation(md_curl_impl);
-        rv = start_watchdog(mds, p, s);
+        rv = start_watchdog(drive_names, p, s);
     }
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()
@@ -559,7 +574,7 @@ static int md_is_managed(server_rec *s)
     md_config_t *conf = (md_config_t *)md_config_get(s);
 
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, 
-                  "has conf = %d, has md %s", 
+                  "%s: has conf = %d, has md %s", s->server_hostname,  
                  !!conf, (conf && conf->md)? conf->md->name : "(none)");
     return conf && conf->md;
 }

@@ -57,7 +57,8 @@ class TestRegAdd :
                     "url": TestEnv.ACME_URL,
                     "proto": "ACME"
                 },
-                "state": TestEnv.MD_S_INCOMPLETE
+                "state": TestEnv.MD_S_INCOMPLETE,
+                "drive": 0
             }
         # list md by name
         for dns in [ "test-100.com", "greenbytes2.de"]:

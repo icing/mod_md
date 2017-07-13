@@ -344,8 +344,9 @@ class HttpdConf(object):
         if withSSL:
             certPath = certPath if certPath else TestEnv.path_domain_cert(name)
             keyPath = keyPath if keyPath else TestEnv.path_domain_pkey(name)
-            f.write(("    SSLEngine on\n    SSLCertificateFile %s\n"
-                     "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
+            f.write(("    SSLEngine on\n"
+                     "    #SSLCertificateFile %s\n"
+                     "    #SSLCertificateKeyFile %s\n") % (certPath, keyPath))
         f.write("</VirtualHost>\n\n")
         
     def install(self):

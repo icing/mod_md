@@ -17,20 +17,21 @@ from testbase import CertUtil
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.init()
-    TestEnv.APACHE_CONF_SRC = "data/test_roundtrip"
+    TestEnv.APACHE_CONF_SRC = "data/test_auto"
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
+    TestEnv.install_test_conf(None);
     assert TestEnv.apache_stop() == 0
 
 
-class TestRoundtrip:
+class TestAuto:
 
 
     @classmethod
     def setup_class(cls):
         cls.dns_uniq = "%d.org" % time.time()
-        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "roundtrip.conf")
+        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -43,49 +44,52 @@ class TestRoundtrip:
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    # --------- add to store ---------
 
-    def test_100(self):
-        # test case: generate config with md -> restart -> drive -> generate config
-        # with vhost and ssl -> restart -> check HTTPS access
-        domain = "test100-" + TestRoundtrip.dns_uniq
+    def test_701(self):
+        # create a MD not used in any virtual host
+        # auto drive should NOT pick it up
+        domain = "test701-" + TestAuto.dns_uniq
         dnsList = [ domain, "www." + domain ]
 
         # - generate config with one md
-        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf = HttpdConf(TestAuto.TMP_CONF)
         conf.add_admin("admin@" + domain)
-        conf.add_drive_mode("manual")
+        conf.add_drive_mode("auto")
         conf.add_md(dnsList)
         conf.install()
         # - restart, check that md is in store
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dnsList)
-        # - drive
-        assert TestEnv.a2md( [ "-v", "drive", domain ] )['rv'] == 0
+        
+        # TODO: better check when it is ready
+        time.sleep(5)
+        
         self._check_md_cert(dnsList)
-        # - append vhost to config
+        
+        # - add vhost for the md, restart and check access
         conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        # check: SSL is running OK
         test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
         dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
         assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
                             "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
 
-    def test_101(self):
+    def test_702(self):
         # test case: same as test_100, but with two parallel managed domains
-        domainA = "test101-a-" + TestRoundtrip.dns_uniq
-        domainB = "test101-b-" + TestRoundtrip.dns_uniq
+        domainA = "test702-a-" + TestAuto.dns_uniq
+        domainB = "test702-b-" + TestAuto.dns_uniq
         # - generate config with one md
         dnsListA = [ domainA, "www." + domainA ]
         dnsListB = [ domainB, "www." + domainB ]
 
-        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf = HttpdConf(TestAuto.TMP_CONF)
         conf.add_admin("admin@example.org")
-        conf.add_drive_mode("manual")
+        conf.add_drive_mode("auto")
         conf.add_md(dnsListA)
         conf.add_md(dnsListB)
+        conf.add_vhost(TestEnv.HTTPS_PORT, domainA, aliasList=[ dnsListA[1] ], withSSL=True)
+        conf.add_vhost(TestEnv.HTTPS_PORT, domainB, aliasList=[ dnsListB[1] ], withSSL=True)
         conf.install()
 
         # - restart, check that md is in store
@@ -94,15 +98,10 @@ class TestRoundtrip:
         self._check_md_names(domainB, dnsListB)
 
         # - drive
-        assert TestEnv.a2md( [ "-v", "drive", domainA ] )['rv'] == 0
-        assert TestEnv.a2md( [ "-v", "drive", domainB ] )['rv'] == 0
+        # TODO: better check when it is ready
+        time.sleep(5)
         self._check_md_cert(dnsListA)
         self._check_md_cert(dnsListB)
-
-        # - append vhost to config
-        conf.add_vhost(TestEnv.HTTPS_PORT, domainA, aliasList=[ dnsListA[1] ], withSSL=True)
-        conf.add_vhost(TestEnv.HTTPS_PORT, domainB, aliasList=[ dnsListB[1] ], withSSL=True)
-        conf.install()
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
@@ -115,29 +114,17 @@ class TestRoundtrip:
         assert TestEnv.run([ "curl", "--resolve", dnsResolveB, 
                             "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
 
-    def test_102(self):
+    def test_703(self):
         # test case: one md, that covers several vhosts
-        domain = "test102-" + TestRoundtrip.dns_uniq
+        domain = "test703-" + TestAuto.dns_uniq
         nameA = "test-a." + domain
         nameB = "test-b." + domain
         dnsList = [ domain, nameA, nameB ]
 
         # - generate config with one md
-        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf = HttpdConf(TestAuto.TMP_CONF)
         conf.add_admin("admin@" + domain)
-        conf.add_drive_mode("manual")
         conf.add_md(dnsList)
-        conf.install()
-        
-        # - restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        self._check_md_names(domain, dnsList)
-
-        # - drive
-        assert TestEnv.a2md( [ "-v", "drive", domain ] )['rv'] == 0
-        self._check_md_cert(dnsList)
-
-        # - append vhost to config
         conf.add_vhost(TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
                        withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
                        keyPath=TestEnv.path_domain_pkey(domain))
@@ -145,10 +132,19 @@ class TestRoundtrip:
                        withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
                        keyPath=TestEnv.path_domain_pkey(domain))
         conf.install()
-        
+
         # - create docRoot folder
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "a"), "name.txt", nameA)
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "b"), "name.txt", nameB)
+
+        # - restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names(domain, dnsList)
+
+        # - drive
+        # TODO: better check when it is ready
+        time.sleep(5)
+        self._check_md_cert(dnsList)
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
@@ -185,3 +181,8 @@ class TestRoundtrip:
         assert "url" in md['cert']
         assert os.path.isfile( TestEnv.path_domain_pkey(name) )
         assert os.path.isfile( TestEnv.path_domain_cert(name) )
+
+    def _check_md_incomplete(self, dnsList):
+        name = dnsList[0]
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        assert md['state'] == TestEnv.MD_S_INCOMPLETE
