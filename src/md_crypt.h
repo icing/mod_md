@@ -23,6 +23,11 @@ struct md_t;
 struct md_http_response_t;
 
 /**************************************************************************************************/
+/* random */
+
+apr_status_t md_rand_bytes(const char *buf, apr_size_t len, apr_pool_t *p);
+
+/**************************************************************************************************/
 /* digests */
 apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
                                       const char *d, size_t dlen);
@@ -40,12 +45,14 @@ void md_pkey_free(md_pkey_t *pkey);
 const char *md_pkey_get_rsa_e64(md_pkey_t *pkey, apr_pool_t *p);
 const char *md_pkey_get_rsa_n64(md_pkey_t *pkey, apr_pool_t *p);
 
-apr_status_t md_pkey_to_base64url(const char **ps64, md_pkey_t *pkey, apr_pool_t *p);
-apr_status_t md_pkey_from_base64url(md_pkey_t **ppkey, const char *s64, apr_pool_t *p);
-
-apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
-apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname);
+apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, 
+                           const char *pass_phrase, apr_size_t pass_len,
+                           const char *fname);
+apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, 
+                               const char *pass_phrase, apr_size_t pass_len,
+                               const char *fname);
 apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, 
+                           const char *pass_phrase, apr_size_t pass_len, 
                            const char *fname, apr_fileperms_t perms);
 
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 

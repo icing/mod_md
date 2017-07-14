@@ -49,7 +49,8 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
 
     if (!initialized) {
         ERR_load_crypto_strings();
-    
+        OpenSSL_add_all_algorithms();
+        
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, pool, "initializing RAND"); 
         while (!RAND_status()) {
             arc4random_buf(seed, sizeof(seed));
@@ -70,6 +71,36 @@ static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p)
 {
     buffer *buf = baton;
     return apr_file_write_full(f, buf->data, buf->len, &buf->len);
+}
+
+apr_status_t md_rand_bytes(const char *buf, apr_size_t len, apr_pool_t *p)
+{
+    apr_status_t rv;
+    
+    if (len > INT_MAX) {
+        return APR_ENOTIMPL;
+    }
+    if (APR_SUCCESS == (rv = md_crypt_init(p))) {
+        RAND_bytes((unsigned char*)buf, (int)len);
+    }
+    return rv;
+}
+
+typedef struct {
+    const char *pass_phrase;
+    int pass_len;
+} passwd_ctx;
+
+static int pem_passwd(char *buf, int size, int rwflag, void *baton)
+{
+    passwd_ctx *ctx = baton;
+    if (ctx->pass_len > 0) {
+        if (ctx->pass_len < size) {
+            size = (int)ctx->pass_len;
+        }
+        memcpy(buf, ctx->pass_phrase, size);
+    }
+    return ctx->pass_len;
 }
 
 /**************************************************************************************************/
@@ -97,33 +128,43 @@ void md_pkey_free(md_pkey_t *pkey)
     pkey_cleanup(pkey);
 }
 
-apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, 
+                           const char *key, apr_size_t key_len,
+                           const char *fname)
 {
     FILE *f;
     apr_status_t rv;
     md_pkey_t *pkey;
+    passwd_ctx ctx;
     
     pkey =  make_pkey(p);
     rv = md_util_fopen(&f, fname, "r");
     if (rv == APR_SUCCESS) {
         rv = APR_EINVAL;
-        pkey->pkey = PEM_read_PrivateKey(f, NULL, NULL, NULL);
+        if (key_len > INT_MAX) {
+            goto out;
+        }
+        ctx.pass_phrase = key;
+        ctx.pass_len = (int)key_len;
+        pkey->pkey = PEM_read_PrivateKey(f, NULL, pem_passwd, &ctx);
         if (pkey->pkey != NULL) {
             rv = APR_SUCCESS;
             apr_pool_cleanup_register(p, pkey, pkey_cleanup, apr_pool_cleanup_null);
         }
         fclose(f);
     }
-
+out:
     *ppkey = (APR_SUCCESS == rv)? pkey : NULL;
     return rv;
 }
 
-apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fname)
+apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, 
+                               const char *pass_phrase, apr_size_t pass_len,
+                               const char *fname)
 {
     apr_status_t rv;
     
-    if ((rv = md_pkey_fload(ppkey, p, fname)) == APR_SUCCESS) {
+    if ((rv = md_pkey_fload(ppkey, p, pass_phrase, pass_len, fname)) == APR_SUCCESS) {
         if (EVP_PKEY_id((*ppkey)->pkey) != EVP_PKEY_RSA) {
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "key is not RSA: %s", fname); 
             md_pkey_free(*ppkey);
@@ -134,18 +175,39 @@ apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, const char *fna
     return rv;
 }
 
-static apr_status_t pkey_to_buffer(buffer *buffer, md_pkey_t *pkey, apr_pool_t *p)
+static apr_status_t pkey_to_buffer(buffer *buffer, md_pkey_t *pkey, apr_pool_t *p,
+                                   const char *pass, apr_size_t pass_len)
 {
     BIO *bio = BIO_new(BIO_s_mem());
+    const EVP_CIPHER *cipher = NULL;
+    pem_password_cb *cb = NULL;
+    void *cb_baton = NULL;
+    passwd_ctx ctx;
+    unsigned long err;
     
     if (!bio) {
         return APR_ENOMEM;
     }
-
+    if (pass_len > INT_MAX) {
+        return APR_EINVAL;
+    }
+    if (pass && pass_len > 0) {
+        ctx.pass_phrase = pass;
+        ctx.pass_len = (int)pass_len;
+        cb = pem_passwd;
+        cb_baton = &ctx;
+        cipher = EVP_aes_256_cbc();
+        if (!cipher) {
+            return APR_ENOTIMPL;
+        }
+    }
+    
     ERR_clear_error();
-    PEM_write_bio_PrivateKey(bio, pkey->pkey, NULL, NULL, 0, NULL, NULL);
-    if (ERR_get_error() > 0) {
+    if (!PEM_write_bio_PrivateKey(bio, pkey->pkey, cipher, NULL, 0, cb, cb_baton)) {
         BIO_free(bio);
+        err = ERR_get_error();
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "PEM_write key: %ld %s", 
+                      err, ERR_error_string(err, NULL)); 
         return APR_EINVAL;
     }
 
@@ -159,28 +221,18 @@ static apr_status_t pkey_to_buffer(buffer *buffer, md_pkey_t *pkey, apr_pool_t *
     return APR_SUCCESS;
 }
 
-apr_status_t md_pkey_to_base64url(const char **ps64, md_pkey_t *pkey, apr_pool_t *p)
-{
-    buffer buffer;
-    apr_status_t rv;
-    
-    if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p))) {
-        *ps64 = md_util_base64url_encode(buffer.data, buffer.len, p);
-        return APR_SUCCESS;
-    }
-    *ps64 = NULL;
-    return rv;
-}
-
 apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, 
+                           const char *pass_phrase, apr_size_t pass_len,
                            const char *fname, apr_fileperms_t perms)
 {
     buffer buffer;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p))) {
+    if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p, pass_phrase, pass_len))) {
         return md_util_freplace(fname, perms, p, fwrite_buffer, &buffer); 
     }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "save pkey %s (%s pass phrase, len=%d)",
+                  fname, pass_len > 0? "with" : "without", (int)pass_len); 
     return rv;
 }
 

@@ -72,6 +72,7 @@ struct md_t {
 #define MD_KEY_DRIVE            "drive"
 #define MD_KEY_ID               "id"
 #define MD_KEY_IDENTIFIER       "identifier"
+#define MD_KEY_KEY              "key"
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"
 #define MD_KEY_NAME             "name"
 #define MD_KEY_PROTO            "proto"

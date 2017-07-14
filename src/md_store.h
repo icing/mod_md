@@ -38,6 +38,7 @@ typedef enum {
     MD_SG_DOMAINS,
     MD_SG_STAGING,
     MD_SG_ARCHIVE,
+    MD_SG_COUNT,
 } md_store_group_t;
 
 const char *md_store_group_name(int group);

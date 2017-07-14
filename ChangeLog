@@ -1,3 +1,5 @@
+ * security: store generates on init a master pass phrase. All private keys outside of the "domains"
+   storage group are only stored encrypted.
  * filesystem store now with relaxed permissions on challenges
 
 v0.1.0

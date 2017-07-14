@@ -32,6 +32,7 @@
 #include "md_store.h"
 #include "md_store_fs.h"
 #include "md_util.h"
+#include "md_version.h"
 
 /**************************************************************************************************/
 /* file system based implementation of md_store_t */
@@ -48,12 +49,18 @@ struct md_store_fs_t {
     apr_pool_t *p;          /* duplicate for convenience */
     const char *base;       /* base directory of store */
     perms_t def_perms;
-    perms_t group_perms[5];
+    perms_t group_perms[MD_SG_COUNT];
     md_store_fs_cb *event_cb;
     void *event_baton;
+    
+    const char *key;
+    apr_size_t key_len;
+    int plain_pkey[MD_SG_COUNT];
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
+#define FS_STORE_JSON       "md_store.json"
+#define FS_STORE_KLEN       48
 
 static void fs_destroy(md_store_t *store);
 
@@ -78,9 +85,91 @@ static apr_status_t fs_get_fname(const char **pfname,
                                  const char *name, const char *aspect, 
                                  apr_pool_t *p);
 
+static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname, 
+                                    apr_pool_t *p, apr_pool_t *ptemp)
+{
+    md_json_t *json = md_json_create(p);
+    const char *key64;
+    apr_status_t rv;
+    
+    md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
+
+    s_fs->key_len = FS_STORE_KLEN;
+    s_fs->key = apr_pcalloc(p, s_fs->key_len + 1);
+
+    if (APR_SUCCESS != (rv = md_rand_bytes(s_fs->key, s_fs->key_len, p))) {
+        return rv;
+    }
+        
+    key64 = md_util_base64url_encode(s_fs->key, s_fs->key_len, ptemp);
+    md_json_sets(key64, json, MD_KEY_KEY, NULL);
+    
+    rv = md_json_fcreatex(json, ptemp, MD_JSON_FMT_INDENT, fname, MD_FPROT_F_UONLY);
+    memset((char*)key64, 0, strlen(key64));
+
+    return rv;
+}
+
+static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname, 
+                                    apr_pool_t *p, apr_pool_t *ptemp)
+{
+    md_json_t *json;
+    const char *s, *key64;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = md_json_readf(&json, p, fname))) {
+        s = md_json_gets(json, MD_KEY_VERSION, NULL);
+        if (!s) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "missing key: %s", MD_KEY_VERSION);
+            return APR_EINVAL;
+        }
+        if (strcmp(MOD_MD_VERSION, s) < 0) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "version too new: %s", s);
+            return APR_EINVAL;
+        }
+        /* TODO: need to migrate store? */
+        
+        key64 = md_json_gets(json, MD_KEY_KEY, NULL);
+        if (!key64) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "missing key: %s", MD_KEY_KEY);
+            return APR_EINVAL;
+        }
+        
+        s_fs->key_len = md_util_base64url_decode(&s_fs->key, key64, p);
+        if (s_fs->key_len < FS_STORE_KLEN) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "key too short: %d", s_fs->key_len);
+            return APR_EINVAL;
+        }
+    }
+    return rv;
+}
+
+static apr_status_t setup_store_file(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *fname;
+    apr_status_t rv;
+
+    s_fs->plain_pkey[MD_SG_DOMAINS] = 1;
+    
+    rv = md_util_path_merge(&fname, ptemp, s_fs->base, FS_STORE_JSON, NULL);
+    if (APR_SUCCESS != rv) {
+        return rv;
+    }
+    
+    if (APR_SUCCESS == (rv = md_util_is_file(fname, ptemp))) {
+        rv = read_store_file(s_fs, fname, p, ptemp);
+    }
+    else {
+        rv = init_store_file(s_fs, fname, p, ptemp);
+    }
+    return rv;
+}
+
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
 {
     md_store_fs_t *s_fs;
+    const char *store_file;
     apr_status_t rv = APR_SUCCESS;
     
     s_fs = apr_pcalloc(p, sizeof(*s_fs));
@@ -112,9 +201,11 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
                 apr_file_perms_set(s_fs->base, MD_FPROT_D_UALL_WREAD);
             }
         }
-        if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
-        }
+    }
+    rv = md_util_pool_vdo(setup_store_file, s_fs, p, store_file, NULL);
+    
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
     }
     *pstore = (rv == APR_SUCCESS)? &(s_fs->s) : NULL;
     return rv;
@@ -179,10 +270,27 @@ static apr_status_t fs_get_fname(const char **pfname,
                               s_fs->base, md_store_group_name(group), name, aspect, NULL);
 }
 
-static apr_status_t fs_fload(void **pvalue, const char *fpath, md_store_vtype_t vtype, 
+static void get_pass(const char **ppass, apr_size_t *plen, 
+                     md_store_fs_t *s_fs, md_store_group_t group)
+{
+    if (s_fs->plain_pkey[group]) {
+        *ppass = NULL;
+        *plen = 0;
+    }
+    else {
+        *ppass = s_fs->key;
+        *plen = s_fs->key_len;
+    }
+}
+ 
+static apr_status_t fs_fload(void **pvalue, md_store_fs_t *s_fs, const char *fpath, 
+                             md_store_group_t group, md_store_vtype_t vtype, 
                              apr_pool_t *p, apr_pool_t *ptemp)
 {
     apr_status_t rv;
+    const char *pass;
+    apr_size_t pass_len;
+    
     if (pvalue != NULL) {
         switch (vtype) {
             case MD_SV_TEXT:
@@ -195,7 +303,8 @@ static apr_status_t fs_fload(void **pvalue, const char *fpath, md_store_vtype_t 
                 rv = md_cert_fload((md_cert_t **)pvalue, p, fpath);
                 break;
             case MD_SV_PKEY:
-                rv = md_pkey_fload((md_pkey_t **)pvalue, p, fpath);
+                get_pass(&pass, &pass_len, s_fs, group);
+                rv = md_pkey_fload((md_pkey_t **)pvalue, p, pass, pass_len, fpath);
                 break;
             case MD_SV_CHAIN:
                 rv = md_chain_fload((apr_array_header_t **)pvalue, p, fpath);
@@ -231,7 +340,7 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     
     rv = fs_get_fname(&fpath, &s_fs->s, group, name, aspect, ptemp);
     if (APR_SUCCESS == rv) {
-        rv = fs_fload(pvalue, fpath, vtype, p, ptemp);
+        rv = fs_fload(pvalue, s_fs, fpath, group, vtype, p, ptemp);
     }
     return rv;
 }
@@ -276,6 +385,8 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     int create;
     apr_status_t rv;
     const perms_t *perms;
+    const char *pass;
+    apr_size_t pass_len;
     
     group = va_arg(ap, int);
     name = va_arg(ap, const char*);
@@ -307,7 +418,9 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
                 break;
             case MD_SV_PKEY:
                 /* private keys are only ever saved with access to the user alone */
-                rv = md_pkey_fsave((md_pkey_t *)value, ptemp, fpath, MD_FPROT_F_UONLY);
+                get_pass(&pass, &pass_len, s_fs, group);
+                rv = md_pkey_fsave((md_pkey_t *)value, ptemp, pass, pass_len, 
+                                   fpath, MD_FPROT_F_UONLY);
                 break;
             case MD_SV_CHAIN:
                 rv = md_chain_fsave((apr_array_header_t*)value, ptemp, fpath, perms->file);
@@ -429,9 +542,10 @@ static apr_status_t insp(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     const char *fpath;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting value at: %s/%s", dir, name);
-    if (APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, name, NULL))
-        && APR_SUCCESS == (rv = fs_fload(&value, fpath, ctx->vtype, p, ptemp))) {
-        if (!ctx->inspect(ctx->baton, name, ctx->aspect, ctx->vtype, value, ptemp)) {
+    if (APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, name, NULL))) {
+        rv = fs_fload(&value, ctx->s_fs, fpath, ctx->group, ctx->vtype, p, ptemp);
+        if (APR_SUCCESS == rv 
+            && !ctx->inspect(ctx->baton, name, ctx->aspect, ctx->vtype, value, ptemp)) {
             return APR_EOF;
         }
     }

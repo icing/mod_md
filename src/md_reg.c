@@ -695,12 +695,24 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t *p) 
 {
     apr_status_t rv;
+    md_pkey_t *pkey;
+    
+    /* STAGING private keys are encrypted, store decrypted when placing it under DOMAINS */
+    if (APR_SUCCESS != (rv = md_pkey_load(reg->store, MD_SG_STAGING, name, &pkey, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: loading staging private key", name);
+        return rv;
+    }
     
     rv = md_store_move(reg->store, MD_SG_STAGING, MD_SG_DOMAINS, name, 1);
     if (APR_SUCCESS == rv) {
         /* archive the old directory and made staging the new one. Access the new
          * status of this md. */
         const md_t *md;
+        
+        if (APR_SUCCESS != (rv = md_pkey_save(reg->store, MD_SG_DOMAINS, name, pkey, 0))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving domain private key", name);
+            return rv;
+        }
         
         md = md_reg_get(reg, name, p);
         if (!md) {
