@@ -30,15 +30,15 @@ class TestRegAdd :
         print("teardown_method: %s" % method.__name__)
 
 
-    def test_100(self):
+    def test_120_000(self):
         # test case: list empty store
         assert TestEnv.a2md( [ "list" ] )['jout'] == TestEnv.EMPTY_JOUT
 
-    def test_101(self):
+    def test_120_001(self):
         # test case: list two managed domains
         # setup: add managed domains
         dnslist = [ 
-            [ "test-100.com", "test-101.com", "test-102.com" ],
+            [ "test120-001.com", "test120-001a.com", "test120-001b.com" ],
             [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"]
         ]
         for dns in dnslist:
@@ -61,11 +61,11 @@ class TestRegAdd :
                 "drive-mode": 0
             }
         # list md by name
-        for dns in [ "test-100.com", "greenbytes2.de"]:
+        for dns in [ "test120-001.com", "greenbytes2.de"]:
             md = TestEnv.a2md( [ "list", dns ] )['jout']['output'][0]
             assert md['name'] == dns
 
-    def test_102(self):
+    def test_120_002(self):
         # test case: validate md state in store
         # check: md without pkey/cert -> INCOMPLETE
         name = "example.org"
@@ -84,7 +84,7 @@ class TestRegAdd :
         copyfile(self._path_conf_ssl("expired_cert.pem"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_EXPIRED
 
-    def test_103(self):
+    def test_120_003(self):
         # test case: broken cert file
         #setup: prepare md in store
         name = "example.org"
@@ -100,7 +100,7 @@ class TestRegAdd :
         copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_cert(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
-    def test_104(self):
+    def test_120_004(self):
         # test case: broken private key file
         #setup: prepare md in store
         name = "example.org"
@@ -116,7 +116,7 @@ class TestRegAdd :
         copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_pkey(name))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
-    def test_105(self):
+    def test_120_005(self):
         # test case: broken chain file
         #setup: prepare md in store
         name = "example.org"
@@ -131,6 +131,8 @@ class TestRegAdd :
         # check: replace chain by broken file -> ERROR
         copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_ca_chain(name))
         assert TestEnv.a2md([ "-vvv", "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
+
+    # --------- _utils_ ---------
 
     def _path_conf_ssl(self, name):
         return os.path.join(TestEnv.APACHE_SSL_DIR, name) 

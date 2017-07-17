@@ -38,18 +38,18 @@ class TestDrive :
 
     # --------- invalid precondition ---------
 
-    def test_100(self):
+    def test_500_000(self):
         # test case: md without contact info
-        domain = "test100-" + TestDrive.dns_uniq
+        domain = "test500-000-" + TestDrive.dns_uniq
         name = "www." + domain
         assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
         run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
         assert re.search("no contact information", run["stderr"])
 
-    def test_101(self):
+    def test_500_001(self):
         # test case: md with contact, but without TOS
-        domain = "test101-" + TestDrive.dns_uniq
+        domain = "test500-001-" + TestDrive.dns_uniq
         name = "www." + domain
         assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
         assert TestEnv.a2md( 
@@ -62,9 +62,9 @@ class TestDrive :
     
     # test_102 removed, was based on false assumption
     
-    def test_103(self):
+    def test_500_003(self):
         # test case: md with unknown protocol FOO
-        domain = "test103-" + TestDrive.dns_uniq
+        domain = "test500-003-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.a2md(
@@ -76,9 +76,9 @@ class TestDrive :
 
     # --------- driving OK ---------
 
-    def test_200(self):
+    def test_500_100(self):
         # test case: md with one domain
-        domain = "test200-" + TestDrive.dns_uniq
+        domain = "test500-100-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -86,9 +86,9 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    def test_201(self):
+    def test_500_101(self):
         # test case: md with 2 domains
-        domain = "test201-" + TestDrive.dns_uniq
+        domain = "test500-101-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name, "test." + domain ])
         assert TestEnv.apache_start() == 0
@@ -96,10 +96,10 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
-    def test_202(self):
+    def test_500_102(self):
         # test case: md with one domain, local TOS agreement and ACME account
         # setup: create md
-        domain = "test202-" + TestDrive.dns_uniq
+        domain = "test500-102-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -113,10 +113,10 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    def test_203(self):
+    def test_500_103(self):
         # test case: md with one domain, ACME account and TOS agreement on server
         # setup: create md
-        domain = "test203-" + TestDrive.dns_uniq
+        domain = "test500-103-" + TestDrive.dns_uniq
         name = "www." + domain
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + domain ])['rv'] == 0
@@ -133,10 +133,10 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    def test_204(self):
+    def test_500_104(self):
         # test case: md with one domain, TOS agreement, ACME account and authz challenge
         # setup: create md
-        domain = "test204-" + TestDrive.dns_uniq
+        domain = "test500-104-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -168,10 +168,10 @@ class TestDrive :
         auth_json = TestEnv.get_json( authz_url, 1 )
         assert auth_json['status'] == "pending"
 
-    def test_205(self):
+    def test_500_105(self):
         # test case: md with one domain, local TOS agreement and ACME account that is deleted (!) on server
         # setup: create md
-        domain = "test205-" + TestDrive.dns_uniq
+        domain = "test500-105-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -191,10 +191,10 @@ class TestDrive :
 
     # --------- critical state change -> drive again ---------
 
-    def test_300(self):
+    def test_500_200(self):
         # test case: add dns name on existing valid md
         # setup: create md in store
-        domain = "test300-" + TestDrive.dns_uniq
+        domain = "test500-200-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -212,10 +212,10 @@ class TestDrive :
 
     # --------- non-critical state change -> keep data ---------
 
-    def test_400(self):
+    def test_500_300(self):
         # test case: remove one domain name from existing valid md
         # setup: create md in store
-        domain = "test400-" + TestDrive.dns_uniq
+        domain = "test500-300-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name, "test." + domain, "xxx." + domain ])
         assert TestEnv.apache_start() == 0
@@ -230,10 +230,10 @@ class TestDrive :
         new_cert = CertUtil(TestEnv.path_domain_cert(name))
         assert old_cert.get_serial() == new_cert.get_serial()
 
-    def test_401(self):
+    def test_500_301(self):
         # test case: change contact info on existing valid md
         # setup: create md in store
-        domain = "test401-" + TestDrive.dns_uniq
+        domain = "test500-301-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -250,9 +250,9 @@ class TestDrive :
 
     # --------- network problems ---------
 
-    def test_500(self):
+    def test_500_400(self):
         # test case: server not reachable
-        domain = "test500-" + TestDrive.dns_uniq
+        domain = "test500-400" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.a2md(

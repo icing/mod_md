@@ -34,7 +34,7 @@ class TestAcmeAcc :
     @pytest.mark.parametrize("contact", [
         ("x@example.org"), ("xx@example.org"), ("xxx@example.org")
     ])
-    def test_100(self, contact):
+    def test_200_000(self, contact):
         # test case: register a new account, vary length to check base64 encoding
         run = TestEnv.a2md( ["acme", "newreg", contact], raw=True )
         assert run['rv'] == 0
@@ -45,7 +45,7 @@ class TestAcmeAcc :
         # verify account in local store
         self._check_account(acct, ["mailto:" + contact])
 
-    def test_101(self):
+    def test_200_001(self):
         # test case: respect 'mailto:' prefix in contact url
         contact = "mailto:xx@example.org"
         run = TestEnv.a2md( ["acme", "newreg", contact], raw=True )
@@ -60,11 +60,11 @@ class TestAcmeAcc :
         ("mehlto:xxx@example.org"), ("no.at.char"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
         ("double..dot@test.com"), ("double@at@test.com")
     ])
-    def test_102(self, invalidContact):
+    def test_200_002(self, invalidContact):
         # test case: fail on invalid contact url
         assert TestEnv.a2md( ["acme", "newreg", invalidContact] )['rv'] == 1
 
-    def test_103(self):
+    def test_200_003(self):
         # test case: use contact list
         contact = [ "xx@example.org", "aa@example.org" ]
         run = TestEnv.a2md( ["acme", "newreg"] + contact, raw=True )
@@ -78,16 +78,16 @@ class TestAcmeAcc :
 
     # --------- acme validate ---------
 
-    def test_200(self):
+    def test_200_100(self):
         # test case: validate new account
         acct = self._prepare_account(["tmp@example.org"])
         assert TestEnv.a2md( ["acme", "validate", acct] )['rv'] == 0
 
-    def test_201(self):
+    def test_200_101(self):
         # test case: fail on non-existing account
         assert TestEnv.a2md( ["acme", "validate", "ACME-localhost-1000"] )['rv'] == 1
 
-    def test_202(self):
+    def test_200_102(self):
         # test case: report fail on request signing problem
         # create new account
         acct = self._prepare_account(["tmp@example.org"])
@@ -102,12 +102,12 @@ class TestAcmeAcc :
 
     # --------- acme delreg ---------
 
-    def test_300(self):
+    def test_200_200(self):
         # test case: register and try delete an account, will fail without persistence
         acct = self._prepare_account(["tmp@example.org"])
         assert TestEnv.a2md( ["delreg", acct] )['rv'] == 1
 
-    def test_301(self):
+    def test_200_201(self):
         # test case: register and try delete an account with persistence
         acct = self._prepare_account(["tmp@example.org"])
         assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
@@ -116,12 +116,12 @@ class TestAcmeAcc :
         run = TestEnv.run(["find", TestEnv.STORE_DIR])
         assert re.match(TestEnv.STORE_DIR, run['stdout'])
 
-    def test_302(self):
+    def test_200_202(self):
         # test case: delete a persisted account without specifying url
         acct = self._prepare_account(["tmp@example.org"])
         assert TestEnv.run([TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "acme", "delreg", acct] )['rv'] == 0
 
-    def test_303(self):
+    def test_200_203(self):
         # test case: delete, then validate an account
         acct = self._prepare_account(["test014@example.org"])
         assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0

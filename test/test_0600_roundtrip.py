@@ -45,10 +45,10 @@ class TestRoundtrip:
 
     # --------- add to store ---------
 
-    def test_100(self):
+    def test_600_000(self):
         # test case: generate config with md -> restart -> drive -> generate config
         # with vhost and ssl -> restart -> check HTTPS access
-        domain = "test100-" + TestRoundtrip.dns_uniq
+        domain = "r000" + TestRoundtrip.dns_uniq
         dnsList = [ domain, "www." + domain ]
 
         # - generate config with one md
@@ -73,10 +73,10 @@ class TestRoundtrip:
         assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
                             "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
 
-    def test_101(self):
+    def test_600_001(self):
         # test case: same as test_100, but with two parallel managed domains
-        domainA = "test101-a-" + TestRoundtrip.dns_uniq
-        domainB = "test101-b-" + TestRoundtrip.dns_uniq
+        domainA = "r001a-" + TestRoundtrip.dns_uniq
+        domainB = "r001b-" + TestRoundtrip.dns_uniq
         # - generate config with one md
         dnsListA = [ domainA, "www." + domainA ]
         dnsListB = [ domainB, "www." + domainB ]
@@ -94,8 +94,8 @@ class TestRoundtrip:
         self._check_md_names(domainB, dnsListB)
 
         # - drive
-        assert TestEnv.a2md( [ "-v", "drive", domainA ] )['rv'] == 0
-        assert TestEnv.a2md( [ "-v", "drive", domainB ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vvv", "drive", domainA ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vvv", "drive", domainB ] )['rv'] == 0
         self._check_md_cert(dnsListA)
         self._check_md_cert(dnsListB)
 
@@ -115,9 +115,9 @@ class TestRoundtrip:
         assert TestEnv.run([ "curl", "--resolve", dnsResolveB, 
                             "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
 
-    def test_102(self):
+    def test_600_002(self):
         # test case: one md, that covers two vhosts
-        domain = "test102-" + TestRoundtrip.dns_uniq
+        domain = "r002-" + TestRoundtrip.dns_uniq
         nameA = "test-a." + domain
         nameB = "test-b." + domain
         dnsList = [ domain, nameA, nameB ]
@@ -134,7 +134,7 @@ class TestRoundtrip:
         self._check_md_names(domain, dnsList)
 
         # - drive
-        assert TestEnv.a2md( [ "-v", "drive", domain ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vvv", "drive", domain ] )['rv'] == 0
         self._check_md_cert(dnsList)
 
         # - append vhost to config

@@ -47,74 +47,74 @@ class TestConf:
 
     # --------- tests ---------
 
-    def test_001(self):
+    def test_300_001(self):
         # just one ManagedDomain definition
         TestEnv.install_test_conf("test_001");
         assert TestEnv.apache_restart() == 0
 
-    def test_002(self):
+    def test_300_002(self):
         # two ManagedDomain definitions, non-overlapping
         TestEnv.install_test_conf("test_002");
         assert TestEnv.apache_restart() == 0
 
-    def test_003(self):
+    def test_300_003(self):
         # two ManagedDomain definitions, exactly the same
         assert TestEnv.apache_stop() == 0
         TestEnv.install_test_conf("test_003");
         assert TestEnv.apache_fail() == 0
         
-    def test_004(self):
+    def test_300_004(self):
         # two ManagedDomain definitions, overlapping
         assert TestEnv.apache_stop() == 0
         TestEnv.install_test_conf("test_004");
         assert TestEnv.apache_fail() == 0
 
-    def test_005(self):
+    def test_300_005(self):
         # two ManagedDomains, one inside a virtual host
         TestEnv.install_test_conf("test_005");
         assert TestEnv.apache_restart() == 0
 
-    def test_006(self):
+    def test_300_006(self):
         # two ManagedDomains, one correct vhost name
         TestEnv.install_test_conf("test_006");
         assert TestEnv.apache_restart() == 0
 
-    def test_007(self):
+    def test_300_007(self):
         # two ManagedDomains, two correct vhost names
         TestEnv.install_test_conf("test_007");
         assert TestEnv.apache_restart() == 0
 
-    def test_008(self):
+    def test_300_008(self):
         # two ManagedDomains, overlapping vhosts
         TestEnv.install_test_conf("test_008");
         assert TestEnv.apache_restart() == 0
 
-    def test_009(self):
+    def test_300_009(self):
         # vhosts with overlapping MDs
         assert TestEnv.apache_stop() == 0
         TestEnv.install_test_conf("test_009");
         assert TestEnv.apache_fail() == 0
 
-    def test_010(self):
+    def test_300_010(self):
         # ManagedDomain, vhost with matching ServerAlias
         TestEnv.install_test_conf("test_010");
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.apache_err_count()
 
-    def test_011(self):
+    def test_300_011(self):
         # ManagedDomain, misses one ServerAlias
         assert TestEnv.apache_stop() == 0
         TestEnv.install_test_conf("test_011");
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.apache_err_count()
 
-    def test_012(self):
+    def test_300_012(self):
         # ManagedDomain does not match any vhost
         TestEnv.install_test_conf("test_012");
         assert TestEnv.apache_restart() == 0
         assert (0, 1) == TestEnv.apache_err_count()
 
-    def test_013(self):
+    def test_300_013(self):
         # one md covers two vhosts
         TestEnv.install_test_conf("test_013");
         assert TestEnv.apache_restart() == 0

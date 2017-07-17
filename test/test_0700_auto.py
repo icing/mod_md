@@ -45,10 +45,10 @@ class TestAuto:
         print("teardown_method: %s" % method.__name__)
 
 
-    def test_701(self):
+    def test_700_001(self):
         # create a MD not used in any virtual host
         # auto drive should NOT pick it up
-        domain = "test701-" + TestAuto.dns_uniq
+        domain = "a001-" + TestAuto.dns_uniq
         dnsList = [ domain, "www." + domain ]
 
         # - generate config with one md
@@ -74,10 +74,10 @@ class TestAuto:
         assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
                             "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
 
-    def test_702(self):
+    def test_700_002(self):
         # test case: same as test_100, but with two parallel managed domains
-        domainA = "test702-a-" + TestAuto.dns_uniq
-        domainB = "test702-b-" + TestAuto.dns_uniq
+        domainA = "a002a-" + TestAuto.dns_uniq
+        domainB = "a002b-" + TestAuto.dns_uniq
         # - generate config with one md
         dnsListA = [ domainA, "www." + domainA ]
         dnsListB = [ domainB, "www." + domainB ]
@@ -111,9 +111,9 @@ class TestAuto:
         assert TestEnv.run([ "curl", "--resolve", dnsResolveB, 
                             "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
 
-    def test_703(self):
+    def test_700_003(self):
         # test case: one md, that covers two vhosts
-        domain = "test703-" + TestAuto.dns_uniq
+        domain = "a003-" + TestAuto.dns_uniq
         nameA = "test-a." + domain
         nameB = "test-b." + domain
         dnsList = [ domain, nameA, nameB ]

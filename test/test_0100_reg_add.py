@@ -1,5 +1,6 @@
 # test mod_md acme terms-of-service handling
 
+import copy
 import json
 import re
 import shutil
@@ -30,65 +31,69 @@ class TestRegAdd :
 
     # --------- add ---------
 
-    def test_100(self):
+    def test_100_000(self):
         # test case: add a single dns managed domain
         dns = "greenbytes.de"
         jout1 = TestEnv.a2md( [ "add", dns ] )['jout']
-        assert jout1['output'][0] == {
-            "name": dns,
-            "domains": [ dns ],
-            "contacts": [],
-            "ca": {
-                "url": TestEnv.ACME_URL,
-                "proto": "ACME"
-            },
-            "state": TestEnv.MD_S_INCOMPLETE,
-            "drive-mode": 0
-        }
+        self._check_json_contains( jout1['output'][0],
+            {
+                "name": dns,
+                "domains": [ dns ],
+                "contacts": [],
+                "ca": {
+                    "url": TestEnv.ACME_URL,
+                    "proto": "ACME"
+                },
+                "state": TestEnv.MD_S_INCOMPLETE,
+                "drive-mode": 0
+            })
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
-    def test_101(self):
+    def test_100_001(self):
         # test case: add > 1 dns managed domain
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         jout1 = TestEnv.a2md( [ "add" ] + dns )['jout']
-        assert jout1['output'][0] == {
-            "name": dns[0],
-            "domains": dns,
-            "contacts": [],
-            "ca": {
-                "url": TestEnv.ACME_URL,
-                "proto": "ACME"
-            },
-            "state": TestEnv.MD_S_INCOMPLETE,
-            "drive-mode": 0
-        }
+        self._check_json_contains( jout1['output'][0],
+            {
+                "name": dns[0],
+                "domains": dns,
+                "contacts": [],
+                "ca": {
+                    "url": TestEnv.ACME_URL,
+                    "proto": "ACME"
+                },
+                "state": TestEnv.MD_S_INCOMPLETE,
+                "drive-mode": 0
+            })
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
-    def test_102(self):
+    def test_100_002(self):
         # test case: add second managed domain
         # setup: add first managed domain
-        dns1 = [ "test-100.com", "test-101.com", "test-102.com" ]
+        dns1 = [ "test100-002.com", "test100-002a.com", "test100-002b.com" ]
         TestEnv.a2md( [ "add" ] + dns1 )
         # add second managed domain
         dns2 = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         jout = TestEnv.a2md( [ "add" ] + dns2 )['jout']
         # assert: output covers only changed md
-        assert jout['output'] == [{
-            "name": dns2[0],
-            "domains": dns2,
-            "contacts": [],
-            "ca": {
-                "url": TestEnv.ACME_URL,
-                "proto": "ACME"
-            },
-            "state": TestEnv.MD_S_INCOMPLETE,
-            "drive-mode": 0
-        }]
+        assert len(jout['output']) == 1
+        self._check_json_contains( jout['output'][0],
+            {
+                "name": dns2[0],
+                "domains": dns2,
+                "contacts": [],
+                "ca": {
+                    "url": TestEnv.ACME_URL,
+                    "proto": "ACME"
+                },
+                "state": TestEnv.MD_S_INCOMPLETE,
+                "drive-mode": 0
+            })
         assert len(TestEnv.a2md( [ "list" ] )['jout']['output']) == 2
 
-    def test_103(self):
+    def test_100_003(self):
         # test case: add existing domain 
         # setup: add domain
         dns = "greenbytes.de"
@@ -96,27 +101,29 @@ class TestRegAdd :
         # add same domain again
         assert TestEnv.a2md( [ "add", dns ] )['rv'] == 1
 
-    def test_104(self):
+    def test_100_004(self):
         # test case: add without CA URL
         dns = "greenbytes.de"
         jout1 = TestEnv.run( [ TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", dns ] )['jout']
-        assert jout1['output'] == [{
-            "name": dns,
-            "domains": [ dns ],
-            "contacts": [],
-            "ca": {
-                "proto": "ACME"
-            },
-            "state": TestEnv.MD_S_INCOMPLETE,
-            "drive-mode": 0
-        }]
+        assert len(jout1['output']) == 1
+        self._check_json_contains( jout1['output'][0],
+            {
+                "name": dns,
+                "domains": [ dns ],
+                "contacts": [],
+                "ca": {
+                    "proto": "ACME"
+                },
+                "state": TestEnv.MD_S_INCOMPLETE,
+                "drive-mode": 0
+            })
         # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
     @pytest.mark.parametrize("invalidDNS", [
         ("tld"), ("white sp.ace"), ("*.wildcard.com"), ("k\xc3ller.idn.com")
     ])
-    def test_105(self, invalidDNS):
+    def test_100_005(self, invalidDNS):
         # test case: add with invalid DNS
         # dns as primary name
         assert TestEnv.a2md( [ "add", invalidDNS ] )["rv"] == 1
@@ -126,14 +133,14 @@ class TestRegAdd :
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
     ])
-    def test_106(self, invalidURL):
+    def test_100_006(self, invalidURL):
         # test case: add with invalid ACME URL
         args = [TestEnv.A2MD, "-a", invalidURL, "-d", TestEnv.STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "add", dns ])
         assert TestEnv.run(args)["rv"] == 1
 
-    def test_107(self):
+    def test_100_007(self):
         # test case: add overlapping dns names
         # setup: add first managed domain
         assert TestEnv.a2md( [ "add", "test-100.com", "test-101.com" ] )['rv'] == 0
@@ -144,14 +151,14 @@ class TestRegAdd :
         # 3: primary name exists as alternate DNS
         assert TestEnv.a2md( [ "add", "test-101.com" ] )['rv'] == 1
 
-    def test_108(self):
+    def test_100_008(self):
         # test case: add subdomains as separate managed domain
         # setup: add first managed domain
         assert TestEnv.a2md( [ "add", "test-100.com" ] )['rv'] == 0
         # add second managed domain
         assert TestEnv.a2md( [ "add", "sub.test-100.com" ] )['rv'] == 0
 
-    def test_109(self):
+    def test_100_009(self):
         # test case: add duplicate domain
         # setup: add managed domain
         dns1 = "test-100.com"
@@ -162,11 +169,11 @@ class TestRegAdd :
         md = jout['output'][0]
         assert md['domains'] == [ dns1, dns2 ]
 
-    def test_110(self):
+    def test_100_010(self):
         # test case: add pnuycode name
         assert TestEnv.a2md( [ "add", "xn--kller-jua.punycode.de" ] )['rv'] == 0
 
-    def test_111(self):
+    def test_100_011(self):
         # test case: don't sort alternate names
         # setup: add managed domain
         dns = [ "test-100.com", "test-xxx.com", "test-aaa.com" ]
@@ -176,3 +183,11 @@ class TestRegAdd :
         md = jout['output'][0]
         assert md['domains'] == dns
 
+    # --------- _utils_ ---------
+
+    def _check_json_contains(self, actual, expected):
+        # write all expected key:value bindings to a copy of the actual data ... 
+        # ... assert it stays unchanged 
+        testJson = copy.deepcopy(actual)
+        testJson.update(expected)
+        assert actual == testJson

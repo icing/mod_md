@@ -1,13 +1,14 @@
 # test mod_md acme terms-of-service handling
 
+import copy
+import json
+import pytest
+import re
 import os
 import shutil
 import subprocess
-import re
-import pytest
 import sys
 import time
-import json
 import OpenSSL
 
 from datetime import datetime

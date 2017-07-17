@@ -30,7 +30,7 @@ class TestAcmeAuthz :
 
     # --------- acme authz ---------
 
-    def test_001(self):
+    def test_220_001(self):
         # test case: create auth resource
         # setup: register a new account, agree to tos
         acct = self._prepare_account(["tmp@example.org"], TestEnv.ACME_TOS)
