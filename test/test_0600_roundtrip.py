@@ -52,7 +52,7 @@ class TestRoundtrip:
         dnsList = [ domain, "www." + domain ]
 
         # - generate config with one md
-        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf = HttpdConf(TestRoundtrip.TMP_CONF, True)
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md(dnsList)
@@ -81,7 +81,7 @@ class TestRoundtrip:
         dnsListA = [ domainA, "www." + domainA ]
         dnsListB = [ domainB, "www." + domainB ]
 
-        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf = HttpdConf(TestRoundtrip.TMP_CONF, True)
         conf.add_admin("admin@example.org")
         conf.add_drive_mode("manual")
         conf.add_md(dnsListA)
@@ -123,7 +123,7 @@ class TestRoundtrip:
         dnsList = [ domain, nameA, nameB ]
 
         # - generate config with one md
-        conf = HttpdConf(TestRoundtrip.TMP_CONF)
+        conf = HttpdConf(TestRoundtrip.TMP_CONF, True)
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md(dnsList)

@@ -18,6 +18,6 @@
 
 struct md_http_impl;
 
-extern struct md_http_impl_t *md_curl_impl;
+struct md_http_impl_t * md_curl_get_impl(apr_pool_t *p);
 
 #endif /* md_curl_h */

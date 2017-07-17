@@ -315,8 +315,9 @@ class TestEnv:
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, path):
+    def __init__(self, path, writeCertFiles=False):
         self.path = path
+        self.writeCertFiles = writeCertFiles
         if os.path.isfile(self.path):
             os.remove(self.path)
         open(self.path, "a").write(("  MDCertificateAuthority %s\n"
@@ -342,11 +343,12 @@ class HttpdConf(object):
                 f.write("    ServerAlias %s\n" % alias )
         f.write("    DocumentRoot %s\n\n" % docRoot)
         if withSSL:
-            certPath = certPath if certPath else TestEnv.path_domain_cert(name)
-            keyPath = keyPath if keyPath else TestEnv.path_domain_pkey(name)
-            f.write(("    SSLEngine on\n"
-                     "    SSLCertificateFile %s\n"
-                     "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
+            f.write("    SSLEngine on\n")
+            if self.writeCertFiles:
+                certPath = certPath if certPath else TestEnv.path_domain_cert(name)
+                keyPath = keyPath if keyPath else TestEnv.path_domain_pkey(name)
+                f.write(("    SSLCertificateFile %s\n"
+                         "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
         f.write("</VirtualHost>\n\n")
 
     def install(self):

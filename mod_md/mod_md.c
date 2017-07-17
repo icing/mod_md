@@ -555,7 +555,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "%d out of %d mds are configured for auto-drive", 
                      drive_names->nelts, mds->nelts);
     
-        md_http_use_implementation(md_curl_impl);
+        md_http_use_implementation(md_curl_get_impl(p));
         rv = start_watchdog(drive_names, p, s);
     }
     else {

@@ -388,7 +388,7 @@ int main(int argc, const char *const *argv)
         return 1;
     }
     
-    md_http_use_implementation(md_curl_impl);
+    md_http_use_implementation(md_curl_get_impl(p));
     md_acme_init(p);
     md_cmd_ctx_init(&ctx, p, argc, argv);
     

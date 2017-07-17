@@ -266,8 +266,13 @@ static apr_status_t curl_perform(md_http_request_t *req)
     return rv;
 }
 
+static int initialized;
+
 static apr_status_t md_curl_init(void) {
-    curl_global_init(CURL_GLOBAL_DEFAULT);
+    if (!initialized) {
+        initialized = 1;
+        curl_global_init(CURL_GLOBAL_DEFAULT);
+    }
     return APR_SUCCESS;
 }
 
@@ -284,4 +289,10 @@ static md_http_impl_t impl = {
     curl_req_cleanup,
     curl_perform
 };
-md_http_impl_t *md_curl_impl = &impl;
+
+md_http_impl_t * md_curl_get_impl(apr_pool_t *p)
+{
+    /* trigger early global curl init, before we are down a rabbit hole */
+    md_curl_init();
+    return &impl;
+}
