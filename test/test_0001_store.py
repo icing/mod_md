@@ -54,7 +54,7 @@ class TestStore:
                 "proto": "ACME"
             },
             "state": 0,
-            "drive": 0
+            "drive-mode": 0
         }
 
     def test_101(self):
@@ -69,7 +69,7 @@ class TestStore:
                 "proto": "ACME"
             },
             "state": 0,
-            "drive": 0
+            "drive-mode": 0
         }
 
     def test_102(self):
@@ -92,7 +92,7 @@ class TestStore:
                 "proto": "ACME"
             },
             "state": 0,
-            "drive": 0
+            "drive-mode": 0
         }
 
     def test_103(self):
@@ -117,7 +117,7 @@ class TestStore:
                 "proto": "ACME"
             },
             "state": 0,
-            "drive": 0
+            "drive-mode": 0
         }
 
     # --------- store list ---------
@@ -150,7 +150,7 @@ class TestStore:
                     "proto": "ACME"
                 },
                 "state": 0,
-                "drive": 0
+                "drive-mode": 0
             }
 
     # --------- store remove ---------

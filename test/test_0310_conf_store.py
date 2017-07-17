@@ -141,19 +141,19 @@ class TestConf:
         # test case: default drive mode - auto
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
 
     def test_110(self):
         # test case: drive mode manual
         TestEnv.install_test_conf("drive_manual");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive'] == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 0
 
     def test_111(self):
         # test case: drive mode auto
         TestEnv.install_test_conf("drive_auto");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
 
     # --------- remove from store ---------
 
@@ -277,17 +277,16 @@ class TestConf:
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:webmaster@example.org"])
 
-    @pytest.mark.skip(reason="flag not updated in store")
     def test_304(self):
         # test case: change drive mode - manual -> auto
         # setup: drive mode manual
         TestEnv.install_test_conf("drive_manual");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive'] == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 0
         # test case: drive mode auto
         TestEnv.install_test_conf("drive_auto");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
 
     # --------- status reset on critical store changes ---------
 

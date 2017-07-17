@@ -69,7 +69,7 @@ struct md_t {
 #define MD_KEY_CSR              "csr"
 #define MD_KEY_DISABLED         "disabled"
 #define MD_KEY_DOMAINS          "domains"
-#define MD_KEY_DRIVE            "drive"
+#define MD_KEY_DRIVE_MODE       "drive-mode"
 #define MD_KEY_ID               "id"
 #define MD_KEY_IDENTIFIER       "identifier"
 #define MD_KEY_KEY              "key"
@@ -95,6 +95,7 @@ struct md_t {
 /* Check if a string member of a new MD (n) has 
  * a value and if it differs from the old MD o
  */
+#define MD_VAL_UPDATE(n,o,s)    ((n)->s != (o)->s)
 #define MD_SVAL_UPDATE(n,o,s)   ((n)->s && (!(o)->s || strcmp((n)->s, (o)->s)))
 
 /**

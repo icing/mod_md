@@ -139,6 +139,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
             return APR_EINVAL;
         }
     }
+
     return rv;
 }
 
@@ -472,6 +473,10 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update cert url: %s", name);
         nmd->cert_url = updates->cert_url;
     }
+    if (MD_UPD_DRIVE_MODE & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update drive-mode: %s", name);
+        nmd->drive_mode = updates->drive_mode;
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, nmd, 0))) {
         rv = md_reg_state_init(reg, nmd);
@@ -662,6 +667,10 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 if (MD_SVAL_UPDATE(md, smd, ca_agreement)) {
                     smd->ca_agreement = md->ca_agreement;
                     fields |= MD_UPD_AGREEMENT;
+                }
+                if (MD_VAL_UPDATE(md, smd, drive_mode)) {
+                    smd->drive_mode = md->drive_mode;
+                    fields |= MD_UPD_DRIVE_MODE;
                 }
                 if (!apr_is_empty_array(md->contacts) 
                     && !md_array_str_eq(md->contacts, smd->contacts, 0)) {
