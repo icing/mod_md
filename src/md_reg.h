@@ -41,7 +41,7 @@ struct md_store_t *md_reg_store_get(md_reg_t *reg);
  * Add a new md to the registry. This will check the name for uniqueness and
  * that domain names do not overlap with already existing mds.
  */
-apr_status_t md_reg_add(md_reg_t *reg, md_t *md);
+apr_status_t md_reg_add(md_reg_t *reg, md_t *md, apr_pool_t *p);
 
 /**
  * Find the md, if any, that contains the given domain name. 
@@ -71,7 +71,7 @@ typedef int md_reg_do_cb(void *baton, md_reg_t *reg, const md_t *md);
  * If the callback returns 0, iteration stops. Returns 0 if iteration was
  * aborted.
  */
-int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg);
+int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
 
 /**
  * Bitmask for fields that are updated.
@@ -90,19 +90,20 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg);
  * Update the given fields for the managed domain. Take the new
  * values from the given md, all other values remain unchanged.
  */
-apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int fields);
+apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p, 
+                           const char *name, const md_t *md, int fields);
 
 /**
  * Initialize the state of the md (again), based on current properties and current
  * state of the store.
  */
-apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md);
+apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md, apr_pool_t *p);
 
 /**
  * Initialize all mds (again), based on current properties and current
  * state of the store.
  */
-apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early);
+apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early, apr_pool_t *p);
 
 /**
  * Get the credentials available for the managed domain md. Returns APR_ENOENT

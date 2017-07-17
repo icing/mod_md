@@ -310,7 +310,7 @@ static apr_status_t on_response(const md_http_response_t *res)
                     s = md_json_writep(req->resp_json, MD_JSON_FMT_INDENT, req->p);
                     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->p, "response: %s", s);
                 }
-                rv = req->on_json(req->acme, req->resp_hdrs, req->resp_json, req->baton);
+                rv = req->on_json(req->acme, req->p, req->resp_hdrs, req->resp_json, req->baton);
             }        
             else if (APR_STATUS_IS_ENOENT(rv)) {
                 /* not JSON content, fall through */
@@ -465,7 +465,7 @@ typedef struct {
     md_json_t *json;
 } json_ctx;
 
-static apr_status_t on_got_json(md_acme_t *acme, const apr_table_t *headers, 
+static apr_status_t on_got_json(md_acme_t *acme, apr_pool_t *p, const apr_table_t *headers, 
                                 md_json_t *jbody, void *baton)
 {
     json_ctx *ctx = baton;

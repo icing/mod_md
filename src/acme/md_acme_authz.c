@@ -49,7 +49,7 @@ md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p, md_acme_t *acme)
     md_acme_authz_set_t *authz_set;
     
     authz_set = apr_pcalloc(p, sizeof(*authz_set));
-    authz_set->acct_id = acme? md_acme_get_acct(acme) : NULL;
+    authz_set->acct_id = acme? md_acme_get_acct(acme, p) : NULL;
     authz_set->authzs = apr_array_make(p, 5, sizeof(md_acme_authz_t *));
     
     return authz_set;
@@ -145,7 +145,7 @@ static apr_status_t on_init_authz(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-static apr_status_t authz_created(md_acme_t *acme, const apr_table_t *hdrs, 
+static apr_status_t authz_created(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs, 
                                   md_json_t *body, void *baton)
 {
     authz_req_ctx *ctx = baton;
@@ -255,7 +255,7 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-static apr_status_t authz_http_set(md_acme_t *acme, const apr_table_t *hdrs, 
+static apr_status_t authz_http_set(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs, 
                                    md_json_t *body, void *baton)
 {
     authz_req_ctx *ctx = baton;
@@ -292,7 +292,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
                        MD_SV_TEXT, (void**)&data, p);
     if ((APR_SUCCESS == rv && strcmp(key_authz, data)) 
         || APR_STATUS_IS_ENOENT(rv)) {
-        rv = md_store_save(acme->store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
+        rv = md_store_save(acme->store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                            MD_SV_TEXT, (void*)key_authz, 0);
         notify_server = 1;
     }
@@ -390,7 +390,7 @@ static apr_status_t on_init_authz_del(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-static apr_status_t authz_del(md_acme_t *acme, const apr_table_t *hdrs, 
+static apr_status_t authz_del(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs, 
                               md_json_t *body, void *baton)
 {
     authz_req_ctx *ctx = baton;
@@ -515,13 +515,14 @@ static apr_status_t p_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_lis
     json = md_acme_authz_set_to_json(set, ptemp);
     assert(json);
     assert(set->acct_id);
-    return md_store_save_json(store, MD_SG_STAGING, md_name, MD_FN_AUTHZ, json, create);
+    return md_store_save_json(store, ptemp, MD_SG_STAGING, md_name, MD_FN_AUTHZ, json, create);
 }
 
-apr_status_t md_acme_authz_set_save(struct md_store_t *store, const char *md_name, 
-                                    md_acme_authz_set_t *authz_set, int create)
+apr_status_t md_acme_authz_set_save(struct md_store_t *store, apr_pool_t *p, 
+                                    const char *md_name, md_acme_authz_set_t *authz_set, 
+                                    int create)
 {
-    return md_util_pool_vdo(p_save, store, store->p, md_name, authz_set, create, NULL);
+    return md_util_pool_vdo(p_save, store, p, md_name, authz_set, create, NULL);
 }
 
 static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -534,8 +535,8 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
     return md_store_remove(store, MD_SG_STAGING, md_name, MD_FN_AUTHZ, ptemp, 1);
 }
 
-apr_status_t md_acme_authz_set_purge(md_store_t *store, const char *md_name)
+apr_status_t md_acme_authz_set_purge(md_store_t *store, apr_pool_t *p, const char *md_name)
 {
-    return md_util_pool_vdo(p_purge, store, store->p, md_name, NULL);
+    return md_util_pool_vdo(p_purge, store, p, md_name, NULL);
 }
 

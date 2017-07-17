@@ -50,7 +50,7 @@ static apr_status_t cmd_reg_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     md->ca_url = ctx->ca_url;
     md->ca_proto = "ACME";
     
-    rv = md_reg_add(ctx->reg, md);
+    rv = md_reg_add(ctx->reg, md, ctx->p);
     if (APR_SUCCESS == rv) {
         md_cmd_print_md(ctx, md_reg_get(ctx->reg, md->name, ctx->p));
     }
@@ -103,7 +103,7 @@ static apr_status_t cmd_reg_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
-        md_reg_do(list_add_md, mdlist, ctx->reg);
+        md_reg_do(list_add_md, mdlist, ctx->reg, ctx->p);
         qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     
         for (i = 0; i < mdlist->nelts; ++i) {
@@ -217,7 +217,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
 
     if (fields) {
-        if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, md->name, nmd, fields))) {
+        if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, ctx->p, md->name, nmd, fields))) {
             md = md_reg_get(ctx->reg, md->name, ctx->p);
         }
     }
@@ -261,7 +261,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         }
     }
     else {
-        md_reg_do(list_add_md, mdlist, ctx->reg);
+        md_reg_do(list_add_md, mdlist, ctx->reg, ctx->p);
         qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     }   
     

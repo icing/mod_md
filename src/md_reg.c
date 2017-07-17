@@ -34,7 +34,6 @@
 #include "acme/md_acme.h"
 
 struct md_reg_t {
-    apr_pool_t *p;
     struct md_store_t *store;
     struct apr_hash_t *protos;
 };
@@ -48,11 +47,10 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     apr_status_t rv;
     
     reg = apr_pcalloc(p, sizeof(*reg));
-    reg->p = p;
     reg->store = store;
     reg->protos = apr_hash_make(p);
     
-    rv = md_acme_protos_add(reg->protos, reg->p);
+    rv = md_acme_protos_add(reg->protos, p);
     *preg = (rv == APR_SUCCESS)? reg : NULL;
     return rv;
 }
@@ -213,9 +211,9 @@ static apr_status_t state_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     return state_init(reg, p, md);
 }
 
-apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md)
+apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md, apr_pool_t *p)
 {
-    return md_util_pool_vdo(state_vinit, reg, reg->p, md, NULL);
+    return md_util_pool_vdo(state_vinit, reg, p, md, NULL);
 }
 
 typedef struct {
@@ -243,14 +241,14 @@ static apr_status_t states_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
     ctx.fail_early = va_arg(ap, int);
     ctx.rv = APR_SUCCESS;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, "initializing all md states");
-    md_reg_do(state_ctx_init, &ctx, reg);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "initializing all md states");
+    md_reg_do(state_ctx_init, &ctx, reg, p);
     return ctx.rv;
 }
 
-apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early)
+apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early, apr_pool_t *p)
 {
-    return md_util_pool_vdo(states_vinit, reg, reg->p, fail_early, NULL);
+    return md_util_pool_vdo(states_vinit, reg, p, fail_early, NULL);
 }
 
 static const md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p) 
@@ -258,7 +256,7 @@ static const md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p)
     if (md) {
         int ostate = md->state;
         if (APR_SUCCESS == state_init(reg, p, md) && md->state != ostate) {
-            md_save(reg->store, MD_SG_DOMAINS, md, 0);
+            md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
         }
     }
     return md;
@@ -286,7 +284,7 @@ static int reg_md_iter(void *baton, md_store_t *store, const md_t *md, apr_pool_
     return 1;
 }
 
-static int reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, const char *exclude)
+static int reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p, const char *exclude)
 {
     reg_do_ctx ctx;
     
@@ -294,13 +292,13 @@ static int reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, const char *excl
     ctx.cb = cb;
     ctx.baton = baton;
     ctx.exclude = exclude;
-    return md_store_md_iter(reg_md_iter, &ctx, reg->store, MD_SG_DOMAINS, "*");
+    return md_store_md_iter(reg_md_iter, &ctx, reg->store, p, MD_SG_DOMAINS, "*");
 }
 
 
-int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg)
+int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p)
 {
-    return reg_do(cb, baton, reg, NULL);
+    return reg_do(cb, baton, reg, p, NULL);
 }
 
 /**************************************************************************************************/
@@ -339,7 +337,7 @@ const md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p)
     ctx.domain = domain;
     ctx.md = NULL;
     
-    md_reg_do(find_domain, &ctx, reg);
+    md_reg_do(find_domain, &ctx, reg, p);
     return state_check(reg, (md_t*)ctx.md, p);
 }
 
@@ -370,7 +368,7 @@ const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdom
     ctx.md = NULL;
     ctx.s = NULL;
     
-    reg_do(find_overlap, &ctx, reg, md->name);
+    reg_do(find_overlap, &ctx, reg, p, md->name);
     if (pdomain && ctx.s) {
         *pdomain = ctx.s;
     }
@@ -409,15 +407,15 @@ static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md = va_arg(ap, md_t *);
     mine = md_clone(ptemp, md);
     if (APR_SUCCESS == (rv = check_values(reg, ptemp, md, MD_UPD_ALL))
-        && APR_SUCCESS == (rv = md_reg_state_init(reg, mine))
-        && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, mine, 1))) {
+        && APR_SUCCESS == (rv = md_reg_state_init(reg, mine, ptemp))
+        && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, mine, 1))) {
     }
     return rv;
 }
 
-apr_status_t md_reg_add(md_reg_t *reg, md_t *md)
+apr_status_t md_reg_add(md_reg_t *reg, md_t *md, apr_pool_t *p)
 {
-    return md_util_pool_vdo(p_md_add, reg, reg->p, md, NULL);
+    return md_util_pool_vdo(p_md_add, reg, p, md, NULL);
 }
 
 static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -434,11 +432,11 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     fields = va_arg(ap, int);
     
     if (NULL == (md = md_reg_get(reg, name, ptemp))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_ENOENT, reg->p, "md %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_ENOENT, ptemp, "md %s", name);
         return APR_ENOENT;
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, "update md %s", name);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "update md %s", name);
     
     if (APR_SUCCESS != (rv = check_values(reg, ptemp, updates, fields))) {
         return rv;
@@ -447,46 +445,47 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     nmd = md_copy(ptemp, md);
     if (MD_UPD_DOMAINS & fields) {
         nmd->domains = updates->domains;
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update domains: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update domains: %s", name);
     }
     if (MD_UPD_CA_URL & fields) {
         nmd->ca_url = updates->ca_url;
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update ca url: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update ca url: %s", name);
     }
     if (MD_UPD_CA_PROTO & fields) {
         nmd->ca_proto = updates->ca_proto;
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update ca protocol: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update ca protocol: %s", name);
     }
     if (MD_UPD_CA_ACCOUNT & fields) {
         nmd->ca_account = updates->ca_account;
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update account: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update account: %s", name);
     }
     if (MD_UPD_CONTACTS & fields) {
         nmd->contacts = updates->contacts;
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update contacts: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update contacts: %s", name);
     }
     if (MD_UPD_AGREEMENT & fields) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update agreement: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update agreement: %s", name);
         nmd->ca_agreement = updates->ca_agreement;
     }
     if (MD_UPD_CERT_URL & fields) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update cert url: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update cert url: %s", name);
         nmd->cert_url = updates->cert_url;
     }
     if (MD_UPD_DRIVE_MODE & fields) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, reg->p, "update drive-mode: %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update drive-mode: %s", name);
         nmd->drive_mode = updates->drive_mode;
     }
     
-    if (fields && APR_SUCCESS == (rv = md_save(reg->store, MD_SG_DOMAINS, nmd, 0))) {
-        rv = md_reg_state_init(reg, nmd);
+    if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
+        rv = md_reg_state_init(reg, nmd, ptemp);
     }
     return rv;
 }
 
-apr_status_t md_reg_update(md_reg_t *reg, const char *name, const md_t *md, int fields)
+apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p, 
+                           const char *name, const md_t *md, int fields)
 {
-    return md_util_pool_vdo(p_md_update, reg, reg->p, name, md, fields, NULL);
+    return md_util_pool_vdo(p_md_update, reg, p, name, md, fields, NULL);
 }
 
 /**************************************************************************************************/
@@ -530,7 +529,7 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
                     creds->expired = 1;
                     break;
                 default:
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, reg->p, 
+                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, ptemp, 
                                   "md %s has unexpected cert state: %d", md->name, cert_state);
                     rv = APR_ENOTIMPL;
                     break;
@@ -596,7 +595,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     ctx.conf_mds = master_mds;
     ctx.store_mds = apr_array_make(ptemp, 100, sizeof(md_t *));
     
-    rv = md_store_md_iter(find_changes, &ctx, store, MD_SG_DOMAINS, "*");
+    rv = md_store_md_iter(find_changes, &ctx, store, ptemp, MD_SG_DOMAINS, "*");
     if (APR_STATUS_IS_ENOENT(rv)) {
         rv = APR_SUCCESS;
     }
@@ -642,7 +641,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                         /* domain stored in omd, but no longer has the offending domain,
                            remove it from the store md. */
                         omd->domains = md_array_str_remove(ptemp, omd->domains, common, 0);
-                        rv = md_reg_update(reg, omd->name, omd, MD_UPD_DOMAINS);
+                        rv = md_reg_update(reg, ptemp, omd->name, omd, MD_UPD_DOMAINS);
                     }
                     else {
                         /* domain in a store md that is no longer configured, warn about it.
@@ -679,13 +678,13 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 }
                 
                 if (fields) {
-                    rv = md_reg_update(reg, smd->name, smd, fields);
+                    rv = md_reg_update(reg, ptemp, smd->name, smd, fields);
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md %s updated", smd->name);
                 }
             }
             else {
                 /* new managed domain */
-                rv = md_reg_add(reg, md);
+                rv = md_reg_add(reg, md, ptemp);
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "new md %s added", md->name);
             }
         }
@@ -705,23 +704,65 @@ apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t
 {
     apr_status_t rv;
     md_pkey_t *pkey;
-    
-    /* STAGING private keys are encrypted, store decrypted when placing it under DOMAINS */
+    md_t *md;
+    md_cert_t *cert;
+    apr_array_header_t *chain;
+
+    /* Load all data which will be taken into the DOMAIN storage group.
+     * This serves several purposes:
+     *  1. It's a format check on the input data. 
+     *  2. We write back what we read, creating data with our own access permissions
+     *  3. We ignore any other accumulated data in STAGING
+     *  4. Once TMP is verified, we can swap/archive groups with a rename
+     *  5. Reading/Writing the data will apply/remove any group specific data encryption.
+     *     With the exemption that DOMAINS and TMP must apply the same policy/keys.
+     */
+    if (APR_SUCCESS != (rv = md_load(reg->store, MD_SG_STAGING, name, &md, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading md json", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_cert_load(reg->store, MD_SG_STAGING, name, &cert, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading certificate", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_chain_load(reg->store, MD_SG_STAGING, name, &chain, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading cert chain", name);
+        return rv;
+    }
     if (APR_SUCCESS != (rv = md_pkey_load(reg->store, MD_SG_STAGING, name, &pkey, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: loading staging private key", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading staging private key", name);
         return rv;
     }
     
-    rv = md_store_move(reg->store, MD_SG_STAGING, MD_SG_DOMAINS, name, 1);
+    rv = md_store_purge(reg->store, p, MD_SG_TMP, name);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error puring tmp storage", name);
+        return rv;
+    }
+    
+    if (APR_SUCCESS != (rv = md_save(reg->store, p, MD_SG_TMP, md, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving md json", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_cert_save(reg->store, p, MD_SG_TMP, name, cert, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving certificate", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_chain_save(reg->store, p, MD_SG_TMP, name, chain, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving cert chain", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_pkey_save(reg->store, p, MD_SG_TMP, name, pkey, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving domain private key", name);
+        return rv;
+    }
+    
+    /* swap */
+    rv = md_store_move(reg->store, p, MD_SG_TMP, MD_SG_DOMAINS, name, 1);
     if (APR_SUCCESS == rv) {
         /* archive the old directory and made staging the new one. Access the new
          * status of this md. */
         const md_t *md;
-        
-        if (APR_SUCCESS != (rv = md_pkey_save(reg->store, MD_SG_DOMAINS, name, pkey, 0))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving domain private key", name);
-            return rv;
-        }
         
         md = md_reg_get(reg, name, p);
         if (!md) {
@@ -733,7 +774,11 @@ apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
                           "md has state %d after staging complete", md->state);
         }
+        
+        md_store_purge(reg->store, p, MD_SG_STAGING, name);
+        md_store_purge(reg->store, p, MD_SG_CHALLENGES, name);
     }
+
     return rv;
 }
 
@@ -759,11 +804,11 @@ static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     driver->reset = reset;
     
     if (APR_SUCCESS == (rv = proto->init(driver))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, 
                       "md %s driver run for proto %s", md->name, driver->proto->protocol);
         rv = proto->run(driver);
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, 
                   "md %s driver done for proto %s", md->name, driver->proto->protocol);
     return rv;
 }
@@ -773,14 +818,14 @@ apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *
     const md_proto_t *proto;
     
     if (!md->ca_proto) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, reg->p, "md %s has no CA protocol", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", md->name);
         ((md_t *)md)->state = MD_S_ERROR;
         return APR_SUCCESS;
     }
     
     proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
     if (!proto) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, reg->p, 
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
         ((md_t *)md)->state = MD_S_ERROR;
         return APR_EINVAL;

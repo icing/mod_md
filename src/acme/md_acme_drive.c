@@ -81,7 +81,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
     /* Get an account for the ACME server for this MD */
     if (md->ca_account) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-use account %s", md->ca_account);
-        rv = md_acme_use_acct(ad->acme, md->ca_account);
+        rv = md_acme_use_acct(ad->acme, d->p, md->ca_account);
         if (APR_STATUS_IS_ENOENT(rv) || APR_STATUS_IS_EINVAL(rv)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "rejected %s", md->ca_account);
             md->ca_account = NULL;
@@ -94,8 +94,8 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
         /* Find a local account for server, store at MD */ 
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
                       d->proto->protocol);
-        if (APR_SUCCESS == md_acme_find_acct(ad->acme)) {
-            md->ca_account = md_acme_get_acct(ad->acme);
+        if (APR_SUCCESS == md_acme_find_acct(ad->acme, d->p)) {
+            md->ca_account = md_acme_get_acct(ad->acme, d->p);
             update = 1;
         }
     }
@@ -112,8 +112,9 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
             goto out;
         }
     
-        if (APR_SUCCESS == (rv = md_acme_create_acct(ad->acme, md->contacts, md->ca_agreement))) {
-            md->ca_account = md_acme_get_acct(ad->acme);
+        if (APR_SUCCESS == (rv = md_acme_create_acct(ad->acme, d->p, 
+                                                     md->contacts, md->ca_agreement))) {
+            md->ca_account = md_acme_get_acct(ad->acme, d->p);
             update = 1;
         }
     }
@@ -127,7 +128,7 @@ out:
             update = 1;
         }
         if (update) {
-            rv = md_save(d->store, MD_SG_STAGING, ad->md, 0);
+            rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
         }
     }
     return rv;
@@ -193,7 +194,7 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
             }
         }
         if (APR_SUCCESS == rv && changed) {
-            rv = md_acme_authz_set_save(d->store, md->name, ad->authz_set, 0);
+            rv = md_acme_authz_set_save(d->store, d->p, md->name, ad->authz_set, 0);
         }
     }
     
@@ -331,7 +332,7 @@ static apr_status_t on_got_cert(md_acme_t *acme, const md_http_response_t *res, 
     
     
     if (APR_SUCCESS == (rv = read_http_cert(&ad->cert, d->p, res))) {
-        rv = md_store_save(d->store, MD_SG_STAGING, ad->md->name, MD_FN_CERT, 
+        rv = md_store_save(d->store, d->p, MD_SG_STAGING, ad->md->name, MD_FN_CERT, 
                            MD_SV_CERT, ad->cert, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed and saved");
     }
@@ -395,7 +396,7 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
                       "cert created without giving its location header");
         return APR_EINVAL;
     }
-    if (APR_SUCCESS != (rv = md_save(d->store, MD_SG_STAGING, ad->md, 0))) {
+    if (APR_SUCCESS != (rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
                       "%s: saving cert url %s", ad->md->name, ad->md->cert_url);
         return rv;
@@ -403,7 +404,7 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
     
     /* Check if it already was sent with this response */
     if (APR_SUCCESS == (rv = md_cert_read_http(&ad->cert, d->p, res))) {
-        rv = md_cert_save(d->store, MD_SG_STAGING, ad->md->name, ad->cert, 0);
+        rv = md_cert_save(d->store, d->p, MD_SG_STAGING, ad->md->name, ad->cert, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "cert parsed and saved");
     }
     else if (APR_STATUS_IS_ENOENT(rv)) {
@@ -439,7 +440,7 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
     rv = md_pkey_load(d->store, MD_SG_STAGING, ad->md->name, &pkey, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
         if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, d->p, ad->acme->pkey_bits))) {
-            rv = md_pkey_save(d->store, MD_SG_STAGING, ad->md->name, pkey, 1);
+            rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, ad->md->name, pkey, 1);
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate pkey", ad->md->name);
     }
@@ -526,7 +527,7 @@ static apr_status_t ad_chain_install(md_proto_driver_t *d)
     
     ad->chain = apr_array_make(d->p, 5, sizeof(md_cert_t *));
     if (APR_SUCCESS == (rv = md_util_try(get_chain, d, 0, ad->cert_poll_timeout, 0, 0, 0))) {
-        rv = md_store_save(d->store, MD_SG_STAGING, ad->md->name, MD_FN_CHAIN, 
+        rv = md_store_save(d->store, d->p, MD_SG_STAGING, ad->md->name, MD_FN_CHAIN, 
                            MD_SV_CHAIN, ad->chain, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "chain fetched and saved");
     }
@@ -558,7 +559,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     
     if (d->reset) {
         /* reset the staging area for this domain */
-        rv = md_store_purge(d->store, MD_SG_STAGING, d->md->name);
+        rv = md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
         if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
             return rv;
         }
@@ -621,10 +622,10 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
         }
         else {
             /* re-initialize staging */
-            md_store_purge(d->store, MD_SG_STAGING, d->md->name);
+            md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
             ad->md = md_copy(d->p, d->md);
             ad->md->cert_url = NULL; /* do not retrieve the old cert */
-            rv = md_save(d->store, MD_SG_STAGING, ad->md, 0);
+            rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
         }
 
         if (APR_SUCCESS == rv && !ad->cert) {
@@ -642,7 +643,7 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
              * lifetime of an account */
             if (APR_SUCCESS == rv) {
                 ad->phase = "check agreement";
-                rv = md_acme_check_agreement(ad->acme, ad->md->ca_agreement);
+                rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement);
             }
             
             /* If we know a cert's location, try to get it. Previous download might
@@ -652,7 +653,7 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
                 if (APR_STATUS_IS_ENOENT(rv)) {
                     /* Server reports to know nothing about it. */
                     ad->md->cert_url = NULL;
-                    rv = md_reg_update(d->reg, ad->md->name, ad->md, MD_UPD_CERT_URL);
+                    rv = md_reg_update(d->reg, d->p, ad->md->name, ad->md, MD_UPD_CERT_URL);
                 }
             }
             
@@ -674,7 +675,7 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
 
         if (APR_SUCCESS == rv) {
             ad->phase = "move live from staging";
-            md_acme_authz_set_purge(d->store, ad->md->name);
+            md_acme_authz_set_purge(d->store, d->p, ad->md->name);
             md_reg_staging_complete(d->reg, ad->md->name, d->p);
         }
     }

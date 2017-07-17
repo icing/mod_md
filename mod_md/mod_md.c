@@ -424,15 +424,12 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
                          "md watchdog start, auto drive %d mds", wd->drive_names->nelts);
-            /* Check if all Managed Domains are ok or if we have to do something */
-            if (APR_SUCCESS != (rv = setup_reg(&wd->reg, wd->p, wd->s, 0))) {
-                ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() "setup md registry");
-            }
             break;
         case AP_WATCHDOG_STATE_RUNNING:
             assert(wd->reg);
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
                          "md watchdog run, auto drive %d mds", wd->drive_names->nelts);
+            /* Check if all Managed Domains are ok or if we have to do something */
             for (i = 0; i < wd->drive_names->nelts; ++i) {
                 name = APR_ARRAY_IDX(wd->drive_names, i, const char*);
                 if (APR_SUCCESS != (rv = process_md(wd, name, ptemp))) {
@@ -450,7 +447,8 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
     return rv;
 }
 
-static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p, server_rec *s)
+static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p, 
+                                   md_reg_t *reg, server_rec *s)
 {
     apr_allocator_t *allocator;
     md_watchdog *wd;
@@ -480,6 +478,7 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p, ser
     apr_allocator_owner_set(allocator, wd->p);
     apr_pool_tag(wd->p, "md_watchdog");
 
+    wd->reg = reg;
     wd->s = s;
     wd->interval = apr_time_from_sec(5);
     wd->drive_names = apr_array_make(wd->p, 10, sizeof(const char *));
@@ -556,7 +555,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      drive_names->nelts, mds->nelts);
     
         md_http_use_implementation(md_curl_get_impl(p));
-        rv = start_watchdog(drive_names, p, s);
+        rv = start_watchdog(drive_names, p, reg, s);
     }
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()

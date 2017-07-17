@@ -96,18 +96,18 @@ apr_status_t md_acme_setup(md_acme_t *acme);
  * Specify the account to use by name in local store. On success, the account
  * the "current" one used by the acme instance.
  */
-apr_status_t md_acme_use_acct(md_acme_t *acme, const char *acct_id);
+apr_status_t md_acme_use_acct(md_acme_t *acme, apr_pool_t *p, const char *acct_id);
 
 /**
  * Get the local name of the account currently used by the acme instance.
  * Will be NULL if no account has been setup successfully.
  */
-const char *md_acme_get_acct(md_acme_t *acme);
+const char *md_acme_get_acct(md_acme_t *acme, apr_pool_t *p);
 
 /**
  * Agree to the given Terms-of-Service url for the current account.
  */
-apr_status_t md_acme_agree(md_acme_t *acme, const char *tos);
+apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *tos);
 
 /**
  * Confirm with the server that the current account agrees to the Terms-of-Service
@@ -118,7 +118,7 @@ apr_status_t md_acme_agree(md_acme_t *acme, const char *tos);
  * the server is notified of this. If the server requires a ToS that the account
  * thinks it has already given, it is resend.
  */
-apr_status_t md_acme_check_agreement(md_acme_t *acme, const char *agreement);
+apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, const char *agreement);
 
 /**
  * Get the ToS agreement for current account.
@@ -130,24 +130,24 @@ const char *md_acme_get_agreement(md_acme_t *acme);
  * Find an existing account in the local store. On APR_SUCCESS, the acme
  * instance will have a current, validated account to use.
  */ 
-apr_status_t md_acme_find_acct(md_acme_t *acme);
+apr_status_t md_acme_find_acct(md_acme_t *acme, apr_pool_t *p);
 
 /**
  * Create a new account at the ACME server and save in local store. The
  * new account is the one used by the acme instance afterwards.
  */
-apr_status_t md_acme_create_acct(md_acme_t *acme, apr_array_header_t *contacts, 
+apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
                                  const char *agreement);
 
 /**
  * Delete the current account at the ACME server and remove it from store. 
  */
-apr_status_t md_acme_delete_acct(md_acme_t *acme);
+apr_status_t md_acme_delete_acct(md_acme_t *acme, apr_pool_t *p);
 
 /**
  * Delete the account from the local store without contacting the ACME server.
  */
-apr_status_t md_acme_unstore_acct(struct md_store_t *store, const char *acct_id);
+apr_status_t md_acme_unstore_acct(struct md_store_t *store, apr_pool_t *p, const char *acct_id);
 
 /**************************************************************************************************/
 /* request handling */
@@ -173,7 +173,8 @@ typedef apr_status_t md_acme_req_init_cb(md_acme_req_t *req, void *baton);
  * Request callback on a successfull response (HTTP response code 2xx) and content
  * type matching application/.*json.
  */
-typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, const apr_table_t *headers, 
+typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, apr_pool_t *p, 
+                                         const apr_table_t *headers, 
                                          struct md_json_t *jbody, void *baton);
 
 struct md_acme_req_t {

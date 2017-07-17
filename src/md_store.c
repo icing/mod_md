@@ -40,24 +40,26 @@
 #define ASPECT_PKEY         "key.pem"
 #define ASPECT_CHAIN        "chain.pem"
 
-#define GNAME_ACCOUNTS     "accounts"
-#define GNAME_CHALLENGES   "challenges"
-#define GNAME_DOMAINS      "domains"
-#define GNAME_STAGING      "staging"
-#define GNAME_ARCHIVE      "archive"
+#define GNAME_ACCOUNTS     
+#define GNAME_CHALLENGES   
+#define GNAME_DOMAINS      
+#define GNAME_STAGING      
+#define GNAME_ARCHIVE      
 
-static const char *GROUP_FNAME[] = {
-    GNAME_ACCOUNTS,
-    GNAME_CHALLENGES,
-    GNAME_DOMAINS,
-    GNAME_STAGING,
-    GNAME_ARCHIVE,
+static const char *GROUP_NAME[] = {
+    "accounts",
+    "challenges",
+    "domains",
+    "staging",
+    "archive",
+    "tmp",
+    NULL
 };
 
 const char *md_store_group_name(int group)
 {
-    if (group < sizeof(GROUP_FNAME)/sizeof(GROUP_FNAME[0])) {
-        return GROUP_FNAME[group];
+    if (group < sizeof(GROUP_NAME)/sizeof(GROUP_NAME[0])) {
+        return GROUP_NAME[group];
     }
     return "UNKNOWN";
 }
@@ -75,12 +77,12 @@ apr_status_t md_store_load(md_store_t *store, md_store_group_t group,
     return store->load(store, group, name, aspect, vtype, pdata, p);
 }
 
-apr_status_t md_store_save(md_store_t *store, md_store_group_t group, 
+apr_status_t md_store_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
                            const char *name, const char *aspect, 
                            md_store_vtype_t vtype, void *data, 
                            int create)
 {
-    return store->save(store, group, name, aspect, vtype, data, create);
+    return store->save(store, p, group, name, aspect, vtype, data, create);
 }
 
 apr_status_t md_store_remove(md_store_t *store, md_store_group_t group, 
@@ -90,17 +92,17 @@ apr_status_t md_store_remove(md_store_t *store, md_store_group_t group,
     return store->remove(store, group, name, aspect, p, force);
 }
 
-apr_status_t md_store_purge(md_store_t *store, md_store_group_t group, 
+apr_status_t md_store_purge(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
                              const char *name)
 {
-    return store->purge(store, group, name);
+    return store->purge(store, p, group, name);
 }
 
 apr_status_t md_store_iter(md_store_inspect *inspect, void *baton, md_store_t *store, 
-                           md_store_group_t group, const char *pattern, const char *aspect,
-                           md_store_vtype_t vtype)
+                           apr_pool_t *p, md_store_group_t group, const char *pattern, 
+                           const char *aspect, md_store_vtype_t vtype)
 {
-    return store->iterate(inspect, baton, store, group, pattern, aspect, vtype);
+    return store->iterate(inspect, baton, store, p, group, pattern, aspect, vtype);
 }
 
 apr_status_t md_store_load_json(md_store_t *store, md_store_group_t group, 
@@ -110,17 +112,18 @@ apr_status_t md_store_load_json(md_store_t *store, md_store_group_t group,
     return md_store_load(store, group, name, aspect, MD_SV_JSON, (void**)pdata, p);
 }
 
-apr_status_t md_store_save_json(md_store_t *store, md_store_group_t group, 
+apr_status_t md_store_save_json(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
                                 const char *name, const char *aspect, 
                                 struct md_json_t *data, int create)
 {
-    return md_store_save(store, group, name, aspect, MD_SV_JSON, (void*)data, create);
+    return md_store_save(store, p, group, name, aspect, MD_SV_JSON, (void*)data, create);
 }
 
-apr_status_t md_store_move(md_store_t *store, md_store_group_t from, md_store_group_t to,
+apr_status_t md_store_move(md_store_t *store, apr_pool_t *p, 
+                           md_store_group_t from, md_store_group_t to,
                            const char *name, int archive)
 {
-    return store->move(store, from, to, name, archive);
+    return store->move(store, p, from, to, name, archive);
 }
 
 apr_status_t md_store_get_fname(const char **pfname, 
@@ -169,16 +172,17 @@ static apr_status_t p_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_lis
     json = md_to_json(md, ptemp);
     assert(json);
     assert(md->name);
-    return md_store_save_json(ctx->store, ctx->group, md->name, MD_FN_MD, json, create);
+    return md_store_save_json(ctx->store, p, ctx->group, md->name, MD_FN_MD, json, create);
 }
 
-apr_status_t md_save(md_store_t *store, md_store_group_t group, md_t *md, int create)
+apr_status_t md_save(md_store_t *store, apr_pool_t *p, 
+                     md_store_group_t group, md_t *md, int create)
 {
     md_group_ctx ctx;
     
     ctx.store = store;
     ctx.group = group;
-    return md_util_pool_vdo(p_save, &ctx, store->p, md, create, NULL);
+    return md_util_pool_vdo(p_save, &ctx, p, md, create, NULL);
 }
 
 static apr_status_t p_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -194,13 +198,14 @@ static apr_status_t p_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     return md_store_remove(ctx->store, ctx->group, name, MD_FN_MD, ptemp, force);
 }
 
-apr_status_t md_remove(md_store_t *store, md_store_group_t group, const char *name, int force)
+apr_status_t md_remove(md_store_t *store, apr_pool_t *p, 
+                       md_store_group_t group, const char *name, int force)
 {
     md_group_ctx ctx;
     
     ctx.store = store;
     ctx.group = group;
-    return md_util_pool_vdo(p_remove, &ctx, store->p, name, force, NULL);
+    return md_util_pool_vdo(p_remove, &ctx, p, name, force, NULL);
 }
 
 typedef struct {
@@ -214,10 +219,10 @@ apr_status_t md_pkey_load(md_store_t *store, md_store_group_t group, const char 
     return md_store_load(store, group, name, MD_FN_PKEY, MD_SV_PKEY, (void**)ppkey, p);
 }
 
-apr_status_t md_pkey_save(md_store_t *store, md_store_group_t group, const char *name, 
+apr_status_t md_pkey_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, const char *name, 
                           struct md_pkey_t *pkey, int create)
 {
-    return md_store_save(store, group, name, MD_FN_PKEY, MD_SV_PKEY, pkey, create);
+    return md_store_save(store, p, group, name, MD_FN_PKEY, MD_SV_PKEY, pkey, create);
 }
 
 apr_status_t md_cert_load(md_store_t *store, md_store_group_t group, const char *name, 
@@ -226,10 +231,11 @@ apr_status_t md_cert_load(md_store_t *store, md_store_group_t group, const char 
     return md_store_load(store, group, name, MD_FN_CERT, MD_SV_CERT, (void**)pcert, p);
 }
 
-apr_status_t md_cert_save(md_store_t *store, md_store_group_t group, const char *name, 
+apr_status_t md_cert_save(md_store_t *store, apr_pool_t *p, 
+                          md_store_group_t group, const char *name, 
                           struct md_cert_t *cert, int create)
 {
-    return md_store_save(store, group, name, MD_FN_CERT, MD_SV_CERT, cert, create);
+    return md_store_save(store, p, group, name, MD_FN_CERT, MD_SV_CERT, cert, create);
 }
 
 apr_status_t md_chain_load(md_store_t *store, md_store_group_t group, const char *name, 
@@ -238,10 +244,11 @@ apr_status_t md_chain_load(md_store_t *store, md_store_group_t group, const char
     return md_store_load(store, group, name, MD_FN_CHAIN, MD_SV_CHAIN, (void**)pchain, p);
 }
 
-apr_status_t md_chain_save(md_store_t *store, md_store_group_t group, const char *name, 
+apr_status_t md_chain_save(md_store_t *store, apr_pool_t *p, 
+                           md_store_group_t group, const char *name, 
                            struct apr_array_header_t *chain, int create)
 {
-    return md_store_save(store, group, name, MD_FN_CHAIN, MD_SV_CHAIN, chain, create);
+    return md_store_save(store, p, group, name, MD_FN_CHAIN, MD_SV_CHAIN, chain, create);
 }
 
 typedef struct {
@@ -267,7 +274,7 @@ static int insp_md(void *baton, const char *name, const char *aspect,
 }
 
 apr_status_t md_store_md_iter(md_store_md_inspect *inspect, void *baton, md_store_t *store, 
-                              md_store_group_t group, const char *pattern)
+                              apr_pool_t *p, md_store_group_t group, const char *pattern)
 {
     inspect_md_ctx ctx;
     
@@ -276,6 +283,6 @@ apr_status_t md_store_md_iter(md_store_md_inspect *inspect, void *baton, md_stor
     ctx.inspect = inspect;
     ctx.baton = baton;
     
-    return md_store_iter(insp_md, &ctx, store, group, pattern, MD_FN_MD, MD_SV_JSON);
+    return md_store_iter(insp_md, &ctx, store, p, group, pattern, MD_FN_MD, MD_SV_JSON);
 }
 

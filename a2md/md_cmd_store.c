@@ -50,7 +50,7 @@ static apr_status_t cmd_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     md->ca_url = ctx->ca_url;
     md->ca_proto = "ACME";
     
-    rv = md_save(ctx->store, MD_SG_DOMAINS, md, 1);
+    rv = md_save(ctx->store, ctx->p, MD_SG_DOMAINS, md, 1);
     if (APR_SUCCESS == rv) {
         md_load(ctx->store, MD_SG_DOMAINS, md->name, &nmd, ctx->p);
         md_cmd_print_md(ctx, nmd);
@@ -80,7 +80,8 @@ static apr_status_t cmd_remove(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     for (i = 0; i < ctx->argc; ++i) {
         name = ctx->argv[i];
-        rv = md_remove(ctx->store, MD_SG_DOMAINS, name, md_cmd_ctx_has_option(ctx, "force"));
+        rv = md_remove(ctx->store, ctx->p, 
+                       MD_SG_DOMAINS, name, md_cmd_ctx_has_option(ctx, "force"));
         if (APR_SUCCESS != rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "removing md %s", name);
             break;
@@ -126,7 +127,7 @@ static int list_md(void *baton, md_store_t *store, const md_t *md, apr_pool_t *p
 
 static apr_status_t cmd_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
-    return md_store_md_iter(list_md, ctx, ctx->store, MD_SG_DOMAINS, "*");
+    return md_store_md_iter(list_md, ctx, ctx->store, ctx->p, MD_SG_DOMAINS, "*");
 }
 
 static md_cmd_t ListCmd = {
@@ -188,7 +189,7 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     
     if (changed) {
-        rv = md_save(ctx->store, MD_SG_DOMAINS, md, 0);
+        rv = md_save(ctx->store, ctx->p, MD_SG_DOMAINS, md, 0);
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "no changes necessary");

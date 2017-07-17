@@ -129,7 +129,7 @@ out:
     return rv;
 }
 
-static apr_status_t acct_save(md_acme_t *acme)
+static apr_status_t acct_save(md_acme_t *acme, apr_pool_t *p)
 {
     apr_pool_t *ptemp;
     md_json_t *jacct;
@@ -138,7 +138,7 @@ static apr_status_t acct_save(md_acme_t *acme)
     assert(acme->acct->id);
     if (APR_SUCCESS == (rv = apr_pool_create(&ptemp, acme->p))) {
         jacct = acct_to_json(acme->acct, ptemp);
-        rv = md_store_save(acme->store, MD_SG_ACCOUNTS, 
+        rv = md_store_save(acme->store, p, MD_SG_ACCOUNTS, 
                            acme->acct->id, MD_FN_ACCOUNT, MD_SV_JSON, jacct, 0);
         apr_pool_destroy(ptemp);
     }
@@ -146,7 +146,7 @@ static apr_status_t acct_save(md_acme_t *acme)
     return rv;
 }
 
-static apr_status_t acct_create(md_acme_acct_t *acct, md_acme_t *acme)
+static apr_status_t acct_create(md_acme_acct_t *acct, md_acme_t *acme, apr_pool_t *p)
 {
     apr_pool_t *ptemp;
     const char *id;
@@ -165,7 +165,7 @@ static apr_status_t acct_create(md_acme_acct_t *acct, md_acme_t *acme)
     for (i = 0; i < 1000 && APR_SUCCESS != rv; ++i) {
         id = mk_acct_id(acme->p, acme, i);
         md_json_sets(id, jacct, MD_KEY_ID, NULL);
-        rv = md_store_save(acme->store, MD_SG_ACCOUNTS, id, MD_FN_ACCOUNT, MD_SV_JSON, jacct, 1);
+        rv = md_store_save(acme->store, p, MD_SG_ACCOUNTS, id, MD_FN_ACCOUNT, MD_SV_JSON, jacct, 1);
     }
     
     if (APR_SUCCESS == rv) {
@@ -246,7 +246,7 @@ static apr_status_t acct_find(md_acme_acct_t **pacct, md_pkey_t **ppkey,
     ctx.acme = acme;
     ctx.id = NULL;
     
-    rv = md_store_iter(find_acct, &ctx, store, MD_SG_ACCOUNTS, mk_acct_pattern(p, acme),
+    rv = md_store_iter(find_acct, &ctx, store, p, MD_SG_ACCOUNTS, mk_acct_pattern(p, acme),
                        MD_FN_ACCOUNT, MD_SV_JSON);
     if (ctx.id) {
         rv = acct_load(pacct, ppkey, store, ctx.id, p);
@@ -278,11 +278,10 @@ static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-static apr_status_t acct_upd(md_acme_t *acme, const apr_table_t *hdrs,
+static apr_status_t acct_upd(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs,
                              md_json_t *body, void *baton)
 {
     apr_status_t rv = APR_SUCCESS;
-    apr_pool_t *p = acme->p;
     md_acme_acct_t *acct = acme->acct;
     
     if (!acct->url) {
@@ -307,12 +306,12 @@ static apr_status_t acct_upd(md_acme_t *acme, const apr_table_t *hdrs,
     
     if (acme->store) {
         if (acct->id) {
-            rv = acct_save(acme);
+            rv = acct_save(acme, p);
         }
         else {
-           rv = acct_create(acct, acme);
+           rv = acct_create(acct, acme, p);
             if (APR_SUCCESS == rv) {
-                rv = md_store_save(acme->store, MD_SG_ACCOUNTS, acct->id, 
+                rv = md_store_save(acme->store, p, MD_SG_ACCOUNTS, acct->id, 
                                    MD_FN_ACCT_KEY, MD_SV_PKEY, acme->acct_key, 0);
             }
         }
@@ -322,7 +321,7 @@ static apr_status_t acct_upd(md_acme_t *acme, const apr_table_t *hdrs,
     return rv;
 }
 
-static apr_status_t acct_register(md_acme_t *acme, 
+static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,  
                                   apr_array_header_t *contacts, const char *agreement)
 {
     apr_status_t rv;
@@ -330,11 +329,11 @@ static apr_status_t acct_register(md_acme_t *acme,
     const char *err = NULL, *uri;
     int i;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "create new account");
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "create new account");
     
     if (agreement) {
         if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, agreement, &err))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
                           "invalid agreement uri (%s): %s", err, agreement);
             goto out;
         }
@@ -342,14 +341,14 @@ static apr_status_t acct_register(md_acme_t *acme,
     for (i = 0; i < contacts->nelts; ++i) {
         uri = APR_ARRAY_IDX(contacts, i, const char *);
         if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, uri, &err))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, acme->p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
                           "invalid contact uri (%s): %s", err, uri);
             goto out;
         }
     }
     
     if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, acme->p, acme->pkey_bits))
-        && APR_SUCCESS == (rv = acct_make(&acme->acct,  acme->p, acme->url, NULL, contacts))) {
+        && APR_SUCCESS == (rv = acct_make(&acme->acct,  p, acme->url, NULL, contacts))) {
 
         acme->acct_key = pkey;
         if (agreement) {
@@ -358,7 +357,7 @@ static apr_status_t acct_register(md_acme_t *acme,
 
         rv = md_acme_POST(acme, acme->new_reg, on_init_acct_new, acct_upd, NULL, acme);
         if (APR_SUCCESS == rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, acme->p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, 
                           "registered new account %s", acme->acct->url);
         }
     }
@@ -384,7 +383,7 @@ static apr_status_t on_init_acct_valid(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-static apr_status_t acct_valid(md_acme_t *acme, const apr_table_t *hdrs, 
+static apr_status_t acct_valid(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs, 
                                md_json_t *body, void *baton)
 {
     md_acme_acct_t *acct = acme->acct;
@@ -426,7 +425,7 @@ static apr_status_t md_acme_validate_acct(md_acme_t *acme)
 /**************************************************************************************************/
 /* account setup */
 
-static apr_status_t acct_validate(md_acme_t *acme)
+static apr_status_t acct_validate(md_acme_t *acme, apr_pool_t *p)
 {
     apr_status_t rv;
     
@@ -435,7 +434,7 @@ static apr_status_t acct_validate(md_acme_t *acme)
             if (!acme->acct->disabled) {
                 acme->acct->disabled = 1;
                 if (acme->store) {
-                    acct_save(acme);
+                    acct_save(acme, p);
                 }
             }
             acme->acct = NULL;
@@ -446,7 +445,7 @@ static apr_status_t acct_validate(md_acme_t *acme)
     return rv;
 }
 
-apr_status_t md_acme_use_acct(md_acme_t *acme, const char *acct_id)
+apr_status_t md_acme_use_acct(md_acme_t *acme, apr_pool_t *p, const char *acct_id)
 {
     md_acme_acct_t *acct;
     md_pkey_t *pkey;
@@ -455,12 +454,12 @@ apr_status_t md_acme_use_acct(md_acme_t *acme, const char *acct_id)
     if (APR_SUCCESS == (rv = acct_load(&acct, &pkey, acme->store, acct_id, acme->p))) {
         acme->acct = acct;
         acme->acct_key = pkey;
-        rv = acct_validate(acme);
+        rv = acct_validate(acme, p);
     }
     return rv;
 }
 
-const char *md_acme_get_acct(md_acme_t *acme)
+const char *md_acme_get_acct(md_acme_t *acme, apr_pool_t *p)
 {
     return acme->acct? acme->acct->id : NULL;
 }
@@ -470,7 +469,7 @@ const char *md_acme_get_agreement(md_acme_t *acme)
     return acme->acct? acme->acct->agreement : NULL;
 }
 
-apr_status_t md_acme_find_acct(md_acme_t *acme)
+apr_status_t md_acme_find_acct(md_acme_t *acme, apr_pool_t *p)
 {
     md_acme_acct_t *acct;
     md_pkey_t *pkey;
@@ -479,7 +478,7 @@ apr_status_t md_acme_find_acct(md_acme_t *acme)
     while (APR_SUCCESS == acct_find(&acct, &pkey, acme->store, acme, acme->p)) {
         acme->acct = acct;
         acme->acct_key = pkey;
-        rv = acct_validate(acme);
+        rv = acct_validate(acme, p);
         
         if (APR_SUCCESS == rv) {
             return rv;
@@ -496,19 +495,18 @@ apr_status_t md_acme_find_acct(md_acme_t *acme)
     return APR_ENOENT;
 }
 
-apr_status_t md_acme_create_acct(md_acme_t *acme, apr_array_header_t *contacts, 
+apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
                                  const char *agreement)
 {
-    return acct_register(acme, contacts, agreement);
+    return acct_register(acme, p, contacts, agreement);
 }
 
 /**************************************************************************************************/
 /* Delete the account */
 
-apr_status_t md_acme_unstore_acct(md_store_t *store, const char *acct_id) 
+apr_status_t md_acme_unstore_acct(md_store_t *store, apr_pool_t *p, const char *acct_id) 
 {
     apr_status_t rv = APR_SUCCESS;
-    apr_pool_t *p = store->p;
     
     rv = md_store_remove(store, MD_SG_ACCOUNTS, acct_id, MD_FN_ACCOUNT, p, 1);
     if (APR_SUCCESS == rv) {
@@ -528,21 +526,21 @@ static apr_status_t on_init_acct_del(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-static apr_status_t acct_del(md_acme_t *acme, const apr_table_t *hdrs, md_json_t *body, void *baton)
+static apr_status_t acct_del(md_acme_t *acme, apr_pool_t *p,
+                             const apr_table_t *hdrs, md_json_t *body, void *baton)
 {
     apr_status_t rv = APR_SUCCESS;
-    apr_pool_t *p = acme->p;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, "deleted account %s", acme->acct->url);
     if (acme->store) {
-        rv = md_acme_unstore_acct(acme->store, acme->acct->id);
+        rv = md_acme_unstore_acct(acme->store, p, acme->acct->id);
         acme->acct = NULL;
         acme->acct_key = NULL;
     }
     return rv;
 }
 
-apr_status_t md_acme_delete_acct(md_acme_t *acme)
+apr_status_t md_acme_delete_acct(md_acme_t *acme, apr_pool_t *p)
 {
     md_acme_acct_t *acct = acme->acct;
     
@@ -569,7 +567,7 @@ static apr_status_t on_init_agree_tos(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-apr_status_t md_acme_agree(md_acme_t *acme, const char *agreement)
+apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *agreement)
 {
     acme->acct->agreement = agreement;
     return md_acme_POST(acme, acme->acct->url, on_init_agree_tos, acct_upd, NULL, acme);
@@ -581,7 +579,7 @@ static int agreement_required(md_acme_acct_t *acct)
             || (acct->tos_required && strcmp(acct->tos_required, acct->agreement)));
 }
 
-apr_status_t md_acme_check_agreement(md_acme_t *acme, const char *agreement)
+apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, const char *agreement)
 {
     apr_status_t rv = APR_SUCCESS;
     
@@ -603,10 +601,10 @@ apr_status_t md_acme_check_agreement(md_acme_t *acme, const char *agreement)
         }
         
         if (acme->acct->agreement && !strcmp(tos, acme->acct->agreement)) {
-            rv = md_acme_agree(acme, tos);
+            rv = md_acme_agree(acme, p, tos);
         }
         else if (agreement && !strcmp(tos, agreement)) {
-            rv = md_acme_agree(acme, tos);
+            rv = md_acme_agree(acme, p, tos);
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->p, 

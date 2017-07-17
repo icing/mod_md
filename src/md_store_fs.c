@@ -46,7 +46,6 @@ typedef struct md_store_fs_t md_store_fs_t;
 struct md_store_fs_t {
     md_store_t s;
     
-    apr_pool_t *p;          /* duplicate for convenience */
     const char *base;       /* base directory of store */
     perms_t def_perms;
     perms_t group_perms[MD_SG_COUNT];
@@ -62,22 +61,22 @@ struct md_store_fs_t {
 #define FS_STORE_JSON       "md_store.json"
 #define FS_STORE_KLEN       48
 
-static void fs_destroy(md_store_t *store);
-
 static apr_status_t fs_load(md_store_t *store, md_store_group_t group, 
                             const char *name, const char *aspect,  
                             md_store_vtype_t vtype, void **pvalue, apr_pool_t *p);
-static apr_status_t fs_save(md_store_t *store, md_store_group_t group, 
+static apr_status_t fs_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
                             const char *name, const char *aspect,  
                             md_store_vtype_t vtype, void *value, int create);
 static apr_status_t fs_remove(md_store_t *store, md_store_group_t group, 
                               const char *name, const char *aspect, 
                               apr_pool_t *p, int force);
-static apr_status_t fs_purge(md_store_t *store, md_store_group_t group, const char *name);
-static apr_status_t fs_move(md_store_t *store, md_store_group_t from, md_store_group_t to, 
+static apr_status_t fs_purge(md_store_t *store, apr_pool_t *p, 
+                             md_store_group_t group, const char *name);
+static apr_status_t fs_move(md_store_t *store, apr_pool_t *p, 
+                            md_store_group_t from, md_store_group_t to, 
                             const char *name, int archive);
 static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_t *store, 
-                               md_store_group_t group,  const char *pattern,
+                               apr_pool_t *p, md_store_group_t group,  const char *pattern,
                                const char *aspect, md_store_vtype_t vtype);
 
 static apr_status_t fs_get_fname(const char **pfname, 
@@ -151,6 +150,7 @@ static apr_status_t setup_store_file(void *baton, apr_pool_t *p, apr_pool_t *pte
     apr_status_t rv;
 
     s_fs->plain_pkey[MD_SG_DOMAINS] = 1;
+    s_fs->plain_pkey[MD_SG_TMP] = 1;
     
     rv = md_util_path_merge(&fname, ptemp, s_fs->base, FS_STORE_JSON, NULL);
     if (APR_SUCCESS != rv) {
@@ -173,8 +173,6 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     apr_status_t rv = APR_SUCCESS;
     
     s_fs = apr_pcalloc(p, sizeof(*s_fs));
-    s_fs->p = s_fs->s.p = p;
-    s_fs->s.destroy = fs_destroy;
 
     s_fs->s.load = fs_load;
     s_fs->s.save = fs_save;
@@ -205,16 +203,10 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     rv = md_util_pool_vdo(setup_store_file, s_fs, p, store_file, NULL);
     
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, s_fs->p, "init fs store at %s", path);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "init fs store at %s", path);
     }
     *pstore = (rv == APR_SUCCESS)? &(s_fs->s) : NULL;
     return rv;
-}
-
-static void fs_destroy(md_store_t *store)
-{
-    md_store_fs_t *s_fs = FS_STORE(store);
-    s_fs->s.p = NULL;
 }
 
 apr_status_t md_store_fs_default_perms_set(md_store_t *store, 
@@ -453,7 +445,8 @@ static apr_status_t pfs_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     
     if (APR_SUCCESS == (rv = md_util_path_merge(&dir, ptemp, s_fs->base, groupname, name, NULL))
         && APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, aspect, NULL))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "start remove of md %s", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "start remove of md %s/%s", 
+                      groupname, name);
 
         if (APR_SUCCESS != (rv = apr_stat(&info, dir, APR_FINFO_TYPE, ptemp))) {
             if (APR_ENOENT == rv && force) {
@@ -478,12 +471,12 @@ static apr_status_t fs_load(md_store_t *store, md_store_group_t group,
     return md_util_pool_vdo(pfs_load, s_fs, p, group, name, aspect, vtype, pvalue, NULL);
 }
 
-static apr_status_t fs_save(md_store_t *store, md_store_group_t group, 
+static apr_status_t fs_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
                             const char *name, const char *aspect,  
                             md_store_vtype_t vtype, void *value, int create)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_save, s_fs, s_fs->p, group, name, aspect, 
+    return md_util_pool_vdo(pfs_save, s_fs, p, group, name, aspect, 
                             vtype, value, create, NULL);
 }
 
@@ -514,10 +507,11 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     return APR_SUCCESS;
 }
 
-static apr_status_t fs_purge(md_store_t *store, md_store_group_t group, const char *name)
+static apr_status_t fs_purge(md_store_t *store, apr_pool_t *p, 
+                             md_store_group_t group, const char *name)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_purge, s_fs, store->p, group, name, NULL);
+    return md_util_pool_vdo(pfs_purge, s_fs, p, group, name, NULL);
 }
 
 /**************************************************************************************************/
@@ -553,7 +547,7 @@ static apr_status_t insp(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
 }
 
 static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_t *store, 
-                               md_store_group_t group, const char *pattern, 
+                               apr_pool_t *p, md_store_group_t group, const char *pattern, 
                                const char *aspect, md_store_vtype_t vtype)
 {
     const char *groupname;
@@ -569,8 +563,7 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
     ctx.baton = baton;
     groupname = md_store_group_name(group);
 
-    rv = md_util_files_do(insp, &ctx, ctx.s_fs->p, ctx.s_fs->base, 
-                          groupname, ctx.pattern, aspect, NULL);
+    rv = md_util_files_do(insp, &ctx, p, ctx.s_fs->base, groupname, ctx.pattern, aspect, NULL);
     
     return rv;
 }
@@ -669,9 +662,10 @@ out:
     return rv;
 }
 
-static apr_status_t fs_move(md_store_t *store, md_store_group_t from, md_store_group_t to, 
+static apr_status_t fs_move(md_store_t *store, apr_pool_t *p, 
+                            md_store_group_t from, md_store_group_t to, 
                             const char *name, int archive)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
-    return md_util_pool_vdo(pfs_move, s_fs, store->p, from, to, name, archive, NULL);
+    return md_util_pool_vdo(pfs_move, s_fs, p, from, to, name, archive, NULL);
 }

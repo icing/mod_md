@@ -319,8 +319,8 @@ class TestConf:
         # setup: drive it
         assert TestEnv.a2md( [ "-vvv", "drive", name ] )['rv'] == 0
         # setup: change CA URL
-        assert TestEnv.a2md([ "update", name, "ca", TestEnv.ACME_URL_DEFAULT ])['rv'] == 0
-        # check: state reset to INCOMPLETE
+        assert TestEnv.a2md([ "-vvv", "update", name, "ca", TestEnv.ACME_URL_DEFAULT ])['rv'] == 0
+        # check: state reset to COMPLETE
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_COMPLETE
 
