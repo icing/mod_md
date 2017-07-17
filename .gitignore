@@ -5,7 +5,6 @@ mod_md.xcodeproj/xcuserdata/*.xcuserdatad
 *.lo
 *.la
 *.pcap
-*.diff
 .libs
 .configured
 .deps
