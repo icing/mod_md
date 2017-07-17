@@ -57,13 +57,12 @@ class TestAuto:
         conf.add_drive_mode("auto")
         conf.add_md(dnsList)
         conf.install()
+
         # - restart, check that md is in store
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dnsList)
-        
-        # TODO: better check when it is ready
-        time.sleep(5)
-        
+        # - drive
+        self._wait_for_state_change([ domain ], 30)
         self._check_md_cert(dnsList)
         
         # - add vhost for the md, restart and check access
@@ -96,10 +95,8 @@ class TestAuto:
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domainA, dnsListA)
         self._check_md_names(domainB, dnsListB)
-
         # - drive
-        # TODO: better check when it is ready
-        time.sleep(5)
+        self._wait_for_state_change([ domainA, domainB ], 30)
         self._check_md_cert(dnsListA)
         self._check_md_cert(dnsListB)
 
@@ -140,10 +137,8 @@ class TestAuto:
         # - restart, check that md is in store
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dnsList)
-
         # - drive
-        # TODO: better check when it is ready
-        time.sleep(5)
+        self._wait_for_state_change([ domain ], 30)
         self._check_md_cert(dnsList)
 
         # check: SSL is running OK
@@ -182,7 +177,18 @@ class TestAuto:
         assert os.path.isfile( TestEnv.path_domain_pkey(name) )
         assert os.path.isfile( TestEnv.path_domain_cert(name) )
 
-    def _check_md_incomplete(self, dnsList):
-        name = dnsList[0]
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        assert md['state'] == TestEnv.MD_S_INCOMPLETE
+    def _wait_for_state_change(self, nameList, timeout):
+        prevState = []
+        for name in nameList:
+            prevState.append( TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] )
+        try_until = time.time() + timeout
+
+        while time.time() < try_until:
+            time.sleep(1)
+            allChanged = True
+            for i in range(0, len(nameList)):
+                state = TestEnv.a2md([ "list", name ])['jout']['output'][0]['state']
+                allChanged = allChanged and state != prevState[i]
+            if allChanged:
+                return
+        pytest.fail('timeout exceeded')
