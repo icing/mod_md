@@ -10,7 +10,6 @@
 		75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0600_roundtrip.py; sourceTree = "<group>"; };
 		75EDD0821F14E75A003CBD39 /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		75EDD0831F14E75A003CBD39 /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
-		75EDD0851F14E85E003CBD39 /* empty.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = empty.conf; sourceTree = "<group>"; };
 		75EDD0861F15063B003CBD39 /* one_md_caps.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_caps.conf; sourceTree = "<group>"; };
 		75EDD0871F15064A003CBD39 /* test_013.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_013.conf; sourceTree = "<group>"; };
 		B20333361EDDA82300E5BE7E /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
@@ -124,7 +123,6 @@
 		75EDD0841F14E76E003CBD39 /* test_roundtrip */ = {
 			isa = PBXGroup;
 			children = (
-				75EDD0851F14E85E003CBD39 /* empty.conf */,
 			);
 			path = test_roundtrip;
 			sourceTree = "<group>";

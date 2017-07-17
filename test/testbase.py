@@ -28,7 +28,7 @@ class TestEnv:
         cls.PREFIX = cls.config.get('global', 'prefix')
 
         cls.GEN_DIR   = cls.config.get('global', 'gen_dir')
-        
+
         cls.ACME_URL_DEFAULT  = cls.config.get('acme', 'url_default')
         cls.ACME_URL  = cls.config.get('acme', 'url')
         cls.ACME_TOS  = cls.config.get('acme', 'tos')
@@ -69,8 +69,7 @@ class TestEnv:
         cls.STORE_DIR = os.path.join(cls.WEBROOT, dir)
         cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
         cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
-        
-        
+
     # --------- cmd execution ---------
 
     _a2md_args = []
@@ -309,8 +308,9 @@ class TestEnv:
                     wcount = 0
             return (ecount, wcount)
 
-
-# --------- certificate handling ---------
+# --
+# --------- dynamic httpd configuration ---------
+# --
 
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
@@ -326,7 +326,7 @@ class HttpdConf(object):
 
     def add_drive_mode(self, mode):
         open(self.path, "a").write("  MDDriveMode %s\n" % mode)
-        
+
     def add_admin(self, email):
         open(self.path, "a").write("  ServerAdmin mailto:%s\n\n" % email)
 
@@ -345,15 +345,16 @@ class HttpdConf(object):
             certPath = certPath if certPath else TestEnv.path_domain_cert(name)
             keyPath = keyPath if keyPath else TestEnv.path_domain_pkey(name)
             f.write(("    SSLEngine on\n"
-                     "    #SSLCertificateFile %s\n"
-                     "    #SSLCertificateKeyFile %s\n") % (certPath, keyPath))
+                     "    SSLCertificateFile %s\n"
+                     "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
         f.write("</VirtualHost>\n\n")
-        
+
     def install(self):
         TestEnv.install_test_conf(self.path)
 
+# --
 # --------- certificate handling ---------
-
+# --
 
 class CertUtil(object):
     # Utility class for inspecting certificates in test cases

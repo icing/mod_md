@@ -115,7 +115,7 @@ class TestAuto:
                             "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
 
     def test_703(self):
-        # test case: one md, that covers several vhosts
+        # test case: one md, that covers two vhosts
         domain = "test703-" + TestAuto.dns_uniq
         nameA = "test-a." + domain
         nameB = "test-b." + domain
