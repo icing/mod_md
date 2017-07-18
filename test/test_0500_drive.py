@@ -336,6 +336,8 @@ class TestDrive :
         server_cert = CertUtil( md['cert']['url'] )
         assert cert.get_serial() == server_cert.get_serial()
 
+    RE_MSG_OPENSSL_BAD_DECRYPT = re.compile('.*\'bad decrypt\'.*')
+
     def _check_account_key(self, name):
         # read encryption key
         md_store = json.loads( open( TestEnv.path_store_json(), 'r' ).read() )
@@ -344,3 +346,8 @@ class TestDrive :
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         acc = md['ca']['account']
         CertUtil.validate_privkey(TestEnv.path_account_key( acc ), encryptKey)
+        # check: negative test with wrong key
+        encryptKey = base64.urlsafe_b64decode( str("dJRvw9dkigC1dmVekPaN08DWaXfQ24IL17wUSWq2C_U5FBzSGOb6oQO-_yTGzPC4") )
+        with pytest.raises(Exception) as ex:
+            CertUtil.validate_privkey(TestEnv.path_account_key( acc ), encryptKey)
+        assert TestDrive.RE_MSG_OPENSSL_BAD_DECRYPT.match( str(ex.value) )
