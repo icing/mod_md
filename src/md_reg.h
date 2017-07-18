@@ -122,13 +122,6 @@ apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
 apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
                          apr_array_header_t *master_mds);
 
-/** 
- * When a complete new set of files for the managed domain has been prepared in
- * MD_SG_STAGING, archive the previous ones and activate the new. MD_SG_STATING/name
- * is removed on success and the state of the md is updated.
- */
-apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t *p);
-
 /**************************************************************************************************/
 /* protocol drivers */
 
@@ -146,18 +139,36 @@ struct md_proto_driver_t {
     int reset;
 };
 
-typedef apr_status_t md_proto_driver_init_cb(md_proto_driver_t *driver);
-typedef apr_status_t md_proto_driver_run_cb(md_proto_driver_t *driver);
+typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver);
+typedef apr_status_t md_proto_stage_cb(md_proto_driver_t *driver);
+typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, md_store_group_t group);
 
 struct md_proto_t {
     const char *protocol;
-    md_proto_driver_init_cb *init;
-    md_proto_driver_run_cb *run;
+    md_proto_init_cb *init;
+    md_proto_stage_cb *stage;
+    md_proto_preload_cb *preload;
 };
 
 
 /**
- * Drive the given managed domain toward completeness, if possible.
+ * Stage a new credentials set for the given managed domain in a separate location
+ * without interfering with any existing credentials.
+ */
+apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p);
+
+/**
+ * Load a staged set of new credentials for the managed domain. This will archive
+ * any existing credential data and make the staged set the new live one.
+ * If staging is incomplete or missing, the load will fail and all credentials remain
+ * as they are.
+ */
+apr_status_t md_reg_load(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+
+/**
+ * Drive the given managed domain toward completeness.
+ * This is a convenience method that combines staging and, on success, loading
+ * of a new managed domain credentials set.
  */
 apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p);
 

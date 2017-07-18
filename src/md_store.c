@@ -153,7 +153,9 @@ apr_status_t md_load(md_store_t *store, md_store_group_t group,
     
     rv = md_store_load_json(store, group, name, MD_FN_MD, &json, p);
     if (APR_SUCCESS == rv) {
-        *pmd = md_from_json(json, p);
+        if (pmd) {
+            *pmd = md_from_json(json, p);
+        }
         return APR_SUCCESS;
     }
     return rv;

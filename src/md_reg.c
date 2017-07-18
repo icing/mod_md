@@ -701,112 +701,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 /**************************************************************************************************/
 /* driving */
 
-apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t *p) 
-{
-    apr_status_t rv;
-    md_pkey_t *pkey, *acct_key;
-    md_t *md;
-    md_cert_t *cert;
-    apr_array_header_t *chain;
-    struct md_acme_acct_t *acct;
-
-    /* Load all data which will be taken into the DOMAIN storage group.
-     * This serves several purposes:
-     *  1. It's a format check on the input data. 
-     *  2. We write back what we read, creating data with our own access permissions
-     *  3. We ignore any other accumulated data in STAGING
-     *  4. Once TMP is verified, we can swap/archive groups with a rename
-     *  5. Reading/Writing the data will apply/remove any group specific data encryption.
-     *     With the exemption that DOMAINS and TMP must apply the same policy/keys.
-     */
-    if (APR_SUCCESS != (rv = md_load(reg->store, MD_SG_STAGING, name, &md, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading md json", name);
-        return rv;
-    }
-    if (APR_SUCCESS != (rv = md_cert_load(reg->store, MD_SG_STAGING, name, &cert, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading certificate", name);
-        return rv;
-    }
-    if (APR_SUCCESS != (rv = md_chain_load(reg->store, MD_SG_STAGING, name, &chain, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading cert chain", name);
-        return rv;
-    }
-    if (APR_SUCCESS != (rv = md_pkey_load(reg->store, MD_SG_STAGING, name, &pkey, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading staging private key", name);
-        return rv;
-    }
-
-    /* See if staging holds a new or modified account */
-    rv = md_acme_acct_load(&acct, &acct_key, reg->store, MD_SG_STAGING, name, p);
-    if (APR_STATUS_IS_ENOENT(rv)) {
-        acct = NULL;
-        acct_key = NULL;
-        rv = APR_SUCCESS;
-    }
-    else if (APR_SUCCESS != rv) {
-        return rv; 
-    }
-
-    rv = md_store_purge(reg->store, p, MD_SG_TMP, name);
-    if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error puring tmp storage", name);
-        return rv;
-    }
-    
-    if (acct) {
-        md_acme_t *acme;
-        
-        if (APR_SUCCESS != (rv = md_acme_create(&acme, p, md->ca_url))
-            || APR_SUCCESS != (rv = md_acme_acct_save(reg->store, p, acme, acct, acct_key))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error saving acct", name);
-            return rv;
-        }
-        md->ca_account = acct->id;
-    }
-    
-    if (APR_SUCCESS != (rv = md_save(reg->store, p, MD_SG_TMP, md, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving md json", name);
-        return rv;
-    }
-    if (APR_SUCCESS != (rv = md_cert_save(reg->store, p, MD_SG_TMP, name, cert, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving certificate", name);
-        return rv;
-    }
-    if (APR_SUCCESS != (rv = md_chain_save(reg->store, p, MD_SG_TMP, name, chain, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving cert chain", name);
-        return rv;
-    }
-    if (APR_SUCCESS != (rv = md_pkey_save(reg->store, p, MD_SG_TMP, name, pkey, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving domain private key", name);
-        return rv;
-    }
-    
-    /* swap */
-    rv = md_store_move(reg->store, p, MD_SG_TMP, MD_SG_DOMAINS, name, 1);
-    if (APR_SUCCESS == rv) {
-        /* archive the old directory and made staging the new one. Access the new
-         * status of this md. */
-        const md_t *md;
-        
-        md = md_reg_get(reg, name, p);
-        if (!md) {
-            rv = APR_ENOENT;
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                          "loading md after staging complete");
-        }
-        else if (md->state != MD_S_COMPLETE) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                          "md has state %d after staging complete", md->state);
-        }
-        
-        md_store_purge(reg->store, p, MD_SG_STAGING, name);
-        md_store_purge(reg->store, p, MD_SG_CHALLENGES, name);
-    }
-
-    return rv;
-}
-
-static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
     const md_proto_t *proto;
@@ -828,16 +723,14 @@ static apr_status_t run_driver(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     driver->reset = reset;
     
     if (APR_SUCCESS == (rv = proto->init(driver))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, 
-                      "md %s driver run for proto %s", md->name, driver->proto->protocol);
-        rv = proto->run(driver);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
+        rv = proto->stage(driver);
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, 
-                  "md %s driver done for proto %s", md->name, driver->proto->protocol);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: staging done", md->name);
     return rv;
 }
 
-apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p)
+apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p)
 {
     const md_proto_t *proto;
     
@@ -855,5 +748,87 @@ apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *
         return APR_EINVAL;
     }
     
-    return md_util_pool_vdo(run_driver, reg, p, proto, md, reset, NULL);
+    return md_util_pool_vdo(run_stage, reg, p, proto, md, reset, NULL);
+}
+
+static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_reg_t *reg = baton;
+    const md_proto_t *proto;
+    const md_t *md, *nmd;
+    md_proto_driver_t *driver;
+    apr_status_t rv;
+    
+    proto = va_arg(ap, const md_proto_t *);
+    md = va_arg(ap, const md_t *);
+    
+    driver = apr_pcalloc(ptemp, sizeof(*driver));
+    driver->proto = proto;
+    driver->p = ptemp;
+    driver->reg = reg;
+    driver->store = md_reg_store_get(reg);
+    driver->md = md;
+    driver->reset = 0;
+
+    if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, md->name, NULL, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: nothing staged", md->name);
+        return APR_SUCCESS;
+    }
+    
+    if (APR_SUCCESS == (rv = proto->init(driver))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);
+        
+        if (APR_SUCCESS == (rv = proto->preload(driver, MD_SG_TMP))) {
+            /* swap */
+            rv = md_store_move(reg->store, p, MD_SG_TMP, MD_SG_DOMAINS, md->name, 1);
+            if (APR_SUCCESS == rv) {
+                /* load again */
+                nmd = md_reg_get(reg, md->name, p);
+                if (!nmd) {
+                    rv = APR_ENOENT;
+                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "loading md after staging");
+                }
+                else if (nmd->state != MD_S_COMPLETE) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                                  "md has state %d after load", nmd->state);
+                }
+                
+                md_store_purge(reg->store, p, MD_SG_STAGING, md->name);
+                md_store_purge(reg->store, p, MD_SG_CHALLENGES, md->name);
+            }
+        }
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: load done", md->name);
+    return rv;
+}
+
+apr_status_t md_reg_load(md_reg_t *reg, const md_t *md, apr_pool_t *p)
+{
+    const md_proto_t *proto;
+    
+    if (!md->ca_proto) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", md->name);
+        ((md_t *)md)->state = MD_S_ERROR;
+        return APR_SUCCESS;
+    }
+    
+    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
+    if (!proto) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
+                      "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
+        ((md_t *)md)->state = MD_S_ERROR;
+        return APR_EINVAL;
+    }
+    
+    return md_util_pool_vdo(run_load, reg, p, proto, md, NULL);
+}
+
+apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p)
+{
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = md_reg_stage(reg, md, reset, p))) {
+        rv = md_reg_load(reg, md, p);
+    }
+    return rv;
 }

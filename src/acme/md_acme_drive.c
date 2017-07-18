@@ -33,6 +33,7 @@
 #include "../md_util.h"
 
 #include "md_acme.h"
+#include "md_acme_acct.h"
 #include "md_acme_authz.h"
 
 typedef struct {
@@ -545,7 +546,7 @@ static apr_status_t ad_chain_install(md_proto_driver_t *d)
 }
 
 /**************************************************************************************************/
-/* ACME driving */
+/* ACME driver init */
 
 static apr_status_t acme_driver_init(md_proto_driver_t *d)
 {
@@ -584,12 +585,15 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     return md_acme_create(&ad->acme, d->p, d->md->ca_url);
 }
 
+/**************************************************************************************************/
+/* ACME staging */
+
 static int its_time_to_renew(md_cert_t *cert)
 {
     return 0; /* TODO: implement me */
 }
 
-static apr_status_t acme_drive_cert(md_proto_driver_t *d)
+static apr_status_t acme_stage(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv = APR_SUCCESS;
@@ -686,38 +690,145 @@ static apr_status_t acme_drive_cert(md_proto_driver_t *d)
         if (APR_SUCCESS == rv) {
             ad->phase = "move live from staging";
             md_acme_authz_set_purge(d->store, d->p, ad->md->name);
-            md_reg_staging_complete(d->reg, ad->md->name, d->p);
         }
     }
     
     return rv;
 }
 
-static apr_status_t acme_driver_run(md_proto_driver_t *d)
+static apr_status_t acme_driver_stage(md_proto_driver_t *d)
 {
     apr_status_t rv = APR_ENOTIMPL;
     md_acme_driver_t *ad = d->baton;
 
     assert(ad->acme);
 
-    ad->phase = "ACME setup";
+    ad->phase = "ACME staging";
     rv = md_acme_setup(ad->acme);
     
     if (APR_SUCCESS == rv) {
-        rv = acme_drive_cert(d);
+        rv = acme_stage(d);
     }
-    /* Update MD expiration date */
     if (APR_SUCCESS == rv) {
-        ad->phase = "completed";
+        ad->phase = "staging done";
     }
         
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: drive %s, %s", 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: %s, %s", 
+                  d->md->name, d->proto->protocol, ad->phase);
+    return rv;
+}
+
+/**************************************************************************************************/
+/* ACME preload */
+
+static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group, 
+                                 const char *name, apr_pool_t *p) 
+{
+    apr_status_t rv;
+    md_pkey_t *pkey, *acct_key;
+    md_t *md;
+    md_cert_t *cert;
+    apr_array_header_t *chain;
+    struct md_acme_acct_t *acct;
+
+    /* Load all data which will be taken into the DOMAIN storage group.
+     * This serves several purposes:
+     *  1. It's a format check on the input data. 
+     *  2. We write back what we read, creating data with our own access permissions
+     *  3. We ignore any other accumulated data in STAGING
+     *  4. Once TMP is verified, we can swap/archive groups with a rename
+     *  5. Reading/Writing the data will apply/remove any group specific data encryption.
+     *     With the exemption that DOMAINS and TMP must apply the same policy/keys.
+     */
+    if (APR_SUCCESS != (rv = md_load(store, MD_SG_STAGING, name, &md, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading md json", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_cert_load(store, MD_SG_STAGING, name, &cert, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading certificate", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_chain_load(store, MD_SG_STAGING, name, &chain, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading cert chain", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_pkey_load(store, MD_SG_STAGING, name, &pkey, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading staging private key", name);
+        return rv;
+    }
+
+    /* See if staging holds a new or modified account */
+    rv = md_acme_acct_load(&acct, &acct_key, store, MD_SG_STAGING, name, p);
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        acct = NULL;
+        acct_key = NULL;
+        rv = APR_SUCCESS;
+    }
+    else if (APR_SUCCESS != rv) {
+        return rv; 
+    }
+
+    rv = md_store_purge(store, p, load_group, name);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error purging preload storage", name);
+        return rv;
+    }
+    
+    if (acct) {
+        md_acme_t *acme;
+        
+        if (APR_SUCCESS != (rv = md_acme_create(&acme, p, md->ca_url))
+            || APR_SUCCESS != (rv = md_acme_acct_save(store, p, acme, acct, acct_key))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error saving acct", name);
+            return rv;
+        }
+        md->ca_account = acct->id;
+    }
+    
+    if (APR_SUCCESS != (rv = md_save(store, p, load_group, md, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving md json", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_cert_save(store, p, load_group, name, cert, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving certificate", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_chain_save(store, p, load_group, name, chain, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving cert chain", name);
+        return rv;
+    }
+    if (APR_SUCCESS != (rv = md_pkey_save(store, p, load_group, name, pkey, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving domain private key", name);
+        return rv;
+    }
+    
+    return rv;
+}
+
+static apr_status_t acme_driver_preload(md_proto_driver_t *d, md_store_group_t group)
+{
+    apr_status_t rv = APR_ENOTIMPL;
+    md_acme_driver_t *ad = d->baton;
+
+    assert(ad->acme);
+
+    ad->phase = "ACME preload";
+    rv = md_acme_setup(ad->acme);
+    
+    if (APR_SUCCESS == rv) {
+        rv = acme_preload(d->store, group, d->md->name, d->p);
+    }
+    if (APR_SUCCESS == rv) {
+        ad->phase = "preload done";
+    }
+        
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: %s, %s", 
                   d->md->name, d->proto->protocol, ad->phase);
     return rv;
 }
 
 static md_proto_t ACME_PROTO = {
-    MD_PROTO_ACME, acme_driver_init, acme_driver_run
+    MD_PROTO_ACME, acme_driver_init, acme_driver_stage, acme_driver_preload
 };
  
 apr_status_t md_acme_protos_add(apr_hash_t *protos, apr_pool_t *p)
