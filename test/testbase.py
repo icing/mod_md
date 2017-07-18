@@ -246,32 +246,42 @@ class TestEnv:
     @classmethod
     def apachectl( cls, conf, cmd ) :
         cls.install_test_conf(conf)
-        return subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd])
+        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd]
+        print "execute: ", " ".join(args)
+        return subprocess.call(args)
 
     @classmethod
     def apache_restart( cls ) :
-        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"])
+        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]
+        print "execute: ", " ".join(args)
+        rv = subprocess.call(args)
         if rv == 0:
             rv = 0 if cls.is_live(cls.HTTPD_URL, 5) else -1
         return rv
         
     @classmethod
     def apache_start( cls ) :
-        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "start"])
+        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "start"]
+        print "execute: ", " ".join(args)
+        rv = subprocess.call(args)
         if rv == 0:
             rv = 0 if cls.is_live(cls.HTTPD_URL, 5) else -1
         return rv
 
     @classmethod
     def apache_stop( cls ) :
-        rv = subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "stop"])
+        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "stop"]
+        print "execute: ", " ".join(args)
+        rv = subprocess.call(args)
         if rv == 0:
             rv = 0 if cls.is_dead(cls.HTTPD_URL, 5) else -1
         return rv
 
     @classmethod
     def apache_fail( cls ) :
-        rv = 0 if subprocess.call([cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]) != 0 else -1
+        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]
+        print "execute: ", " ".join(args)
+        rv = 0 if subprocess.call(args) != 0 else -1
         if rv == 0:
             print "check, if dead: " + cls.HTTPD_URL
             rv = 0 if cls.is_dead(cls.HTTPD_URL, 5) else -1
