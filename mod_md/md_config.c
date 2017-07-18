@@ -91,34 +91,138 @@ void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv)
     return md_config_merge(pool, basev, addv);
 }
 
-static const char *md_config_set_names(cmd_parms *parms, void *arg, 
+void *md_config_create_dir(apr_pool_t *pool, char *dummy)
+{
+    md_config_dir_t *conf = apr_pcalloc(pool, sizeof(*conf));
+    return conf;
+}
+
+void *md_config_merge_dir(apr_pool_t *pool, void *basev, void *addv)
+{
+    md_config_dir_t *base = basev;
+    md_config_dir_t *add = addv;
+    md_config_dir_t *n = apr_pcalloc(pool, sizeof(*n));
+    n->md = add->md? add->md : base->md;
+    return n;
+}
+
+static int inside_section(cmd_parms *cmd) {
+    return (cmd->directive->parent 
+            && !ap_cstr_casecmp(cmd->directive->parent->directive, "<ManagedDomain"));
+}
+
+static const char *md_section_check(cmd_parms *cmd) {
+    if (!inside_section(cmd)) {
+        return apr_pstrcat(cmd->pool, cmd->cmd->name, 
+                           " is only valid inside a <ManagedDomain context, not ", 
+                           cmd->directive->parent? cmd->directive->parent->directive : "root", 
+                           NULL);
+    }
+    return NULL;
+}
+
+static void add_domain_name(apr_array_header_t *domains, const char *name, apr_pool_t *p)
+{
+    if (md_array_str_index(domains, name, 0, 0) < 0) {
+        APR_ARRAY_PUSH(domains, char *) = md_util_str_tolower(apr_pstrdup(p, name));
+    }
+}
+
+static const char *md_config_sec_start(cmd_parms *cmd, void *mconfig, const char *arg)
+{
+    md_config_t *sconf = ap_get_module_config(cmd->server->module_config, &md_module);
+    const char *endp = ap_strrchr_c(arg, '>');
+    ap_conf_vector_t *new_dir_conf = ap_create_per_dir_config(cmd->pool);
+    int old_overrides = cmd->override;
+    char *old_path = cmd->path;
+    const char *err, *name;
+    md_config_dir_t *dconf;
+    md_t *md;
+
+    if (NULL != (err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE))) {
+        return err;
+    }
+        
+    if (endp == NULL) {
+        return apr_pstrcat(cmd->pool, cmd->cmd->name, "> directive missing closing '>'", NULL);
+    }
+
+    arg = apr_pstrndup(cmd->pool, arg, endp-arg);
+    if (!arg || !*arg) {
+        return "<ManagedDomain > block must specify a unique domain name";
+    }
+
+    cmd->path = ap_getword_white(cmd->pool, &arg);
+    name = cmd->path;
+    
+    md = md_create_empty(cmd->pool);
+    md->name = name;
+    APR_ARRAY_PUSH(md->domains, const char*) = name;
+    md->drive_mode = DEF_VAL;
+    
+    while (*arg != '\0') {
+        name = ap_getword_white(cmd->pool, &arg);
+        APR_ARRAY_PUSH(md->domains, const char*) = name;
+    }
+
+    dconf = ap_set_config_vectors(cmd->server, new_dir_conf, cmd->path, &md_module, cmd->pool);
+    dconf->md = md;
+    
+    if (NULL == (err = ap_walk_config(cmd->directive->first_child, cmd, new_dir_conf))) {
+        APR_ARRAY_PUSH(sconf->mds, const md_t *) = md;
+    }
+    
+    cmd->path = old_path;
+    cmd->override = old_overrides;
+
+    return err;
+}
+
+static const char *md_config_sec_add_members(cmd_parms *cmd, void *dc, 
+                                             int argc, char *const argv[])
+{
+    md_config_dir_t *dconfig = dc;
+    apr_array_header_t *domains;
+    const char *err;
+    int i;
+    
+    if (NULL != (err = md_section_check(cmd))) {
+        return err;
+    }
+    
+    domains = dconfig->md->domains;
+    for (i = 0; i < argc; ++i) {
+        add_domain_name(domains, argv[i], cmd->pool);
+    }
+    return NULL;
+}
+
+static const char *md_config_set_names(cmd_parms *cmd, void *arg, 
                                        int argc, char *const argv[])
 {
-    md_config_t *config = (md_config_t *)md_config_get(parms->server);
-    apr_array_header_t *domains = apr_array_make(parms->pool, 5, sizeof(const char *));
-    const char *err, *name;
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    apr_array_header_t *domains = apr_array_make(cmd->pool, 5, sizeof(const char *));
+    const char *err;
     md_t *md;
     int i;
 
-    err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
+    err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE);
     if (err) {
         return err;
     }
     
+
     for (i = 0; i < argc; ++i) {
-        name = argv[i];
-        if (md_array_str_index(domains, name, 0, 0) < 0) {
-            APR_ARRAY_PUSH(domains, char *) = md_util_str_tolower(apr_pstrdup(parms->pool, name));
-        }
+        add_domain_name(domains, argv[i], cmd->pool);
     }
-    err = md_create(&md, parms->pool, domains);
+    err = md_create(&md, cmd->pool, domains);
     if (err) {
         return err;
     }
     
-    if (parms->config_file) {
-        md->defn_name = parms->config_file->name;
-        md->defn_line_number = parms->config_file->line_number;
+    if (cmd->config_file) {
+        md->defn_name = cmd->config_file->name;
+        md->defn_line_number = cmd->config_file->line_number;
     }
 
     APR_ARRAY_PUSH(config->mds, md_t *) = md;
@@ -126,49 +230,93 @@ static const char *md_config_set_names(cmd_parms *parms, void *arg,
     return NULL;
 }
 
-static const char *md_config_set_ca(cmd_parms *parms, void *arg, const char *value)
+static const char *md_config_set_ca(cmd_parms *cmd, void *dc, const char *value)
 {
-    md_config_t *config = (md_config_t *)md_config_get(parms->server);
-    const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    const char *err;
 
-    if (err) {
-        return err;
+    if (inside_section(cmd)) {
+        md_config_dir_t *dconf = dc;
+        dconf->md->ca_url = value;
     }
-    config->ca_url = value;
-    (void)arg;
+    else {
+        if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+            return err;
+        }
+        config->ca_url = value;
+    }
     return NULL;
 }
 
-static const char *md_config_set_ca_proto(cmd_parms *parms, void *arg, const char *value)
+static const char *md_config_set_ca_proto(cmd_parms *cmd, void *dc, const char *value)
 {
-    md_config_t *config = (md_config_t *)md_config_get(parms->server);
-    const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    const char *err;
 
-    if (err) {
-        return err;
+    if (inside_section(cmd)) {
+        md_config_dir_t *dconf = dc;
+        dconf->md->ca_proto = value;
     }
-    config->ca_proto = value;
-    (void)arg;
+    else {
+        if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+            return err;
+        }
+        config->ca_proto = value;
+    }
     return NULL;
 }
 
-static const char *md_config_set_agreement(cmd_parms *parms, void *arg, const char *value)
+static const char *md_config_set_agreement(cmd_parms *cmd, void *dc, const char *value)
 {
-    md_config_t *config = (md_config_t *)md_config_get(parms->server);
-    const char *err = ap_check_cmd_context(parms, NOT_IN_DIR_LOC_FILE);
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    const char *err;
 
-    if (err) {
-        return err;
+    if (inside_section(cmd)) {
+        md_config_dir_t *dconf = dc;
+        dconf->md->ca_agreement = value;
     }
-    config->ca_agreement = value;
-    (void)arg;
+    else {
+        if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+            return err;
+        }
+        config->ca_agreement = value;
+    }
     return NULL;
 }
 
-static const char *md_config_set_store_dir(cmd_parms *parms, void *arg, const char *value)
+static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char *value)
 {
-    md_config_t *config = (md_config_t *)md_config_get(parms->server);
-    const char *err = ap_check_cmd_context(parms, GLOBAL_ONLY);
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    const char *err;
+    md_drive_mode_t drive_mode;
+
+    if (!apr_strnatcasecmp("auto", value) || !apr_strnatcasecmp("automatic", value)) {
+        drive_mode = MD_DRIVE_AUTO;
+    }
+    else if (!apr_strnatcasecmp("manual", value) || !apr_strnatcasecmp("stick", value)) {
+        drive_mode = MD_DRIVE_MANUAL;
+    }
+    else {
+        return apr_pstrcat(cmd->pool, "unknown MDDriveMode ", value, NULL);
+    }
+    
+    if (inside_section(cmd)) {
+        md_config_dir_t *dconf = dc;
+        dconf->md->drive_mode = drive_mode;
+    }
+    else {
+        if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+            return err;
+        }
+        config->drive_mode = drive_mode;
+    }
+    return NULL;
+}
+
+static const char *md_config_set_store_dir(cmd_parms *cmd, void *arg, const char *value)
+{
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
 
     if (err) {
         return err;
@@ -178,28 +326,14 @@ static const char *md_config_set_store_dir(cmd_parms *parms, void *arg, const ch
     return NULL;
 }
 
-static const char *md_config_set_drive_mode(cmd_parms *parms, void *arg, const char *value)
-{
-    md_config_t *config = (md_config_t *)md_config_get(parms->server);
-    const char *err = ap_check_cmd_context(parms, GLOBAL_ONLY);
-
-    if (err) {
-        return err;
-    }
-    if (!apr_strnatcasecmp("auto", value) || !apr_strnatcasecmp("automatic", value)) {
-        config->drive_mode = MD_DRIVE_AUTO;
-    }
-    else if (!apr_strnatcasecmp("manual", value) || !apr_strnatcasecmp("stick", value)) {
-        config->drive_mode = MD_DRIVE_MANUAL;
-    }
-    (void)arg;
-    return NULL;
-}
-
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
-    AP_INIT_TAKE_ARGV("ManagedDomain", md_config_set_names, NULL, RSRC_CONF | EXEC_ON_READ, 
+    AP_INIT_RAW_ARGS("<ManagedDomain", md_config_sec_start, NULL, RSRC_CONF, 
+                      "Container for a manged domain with common settings and certificate."),
+    AP_INIT_TAKE_ARGV("MDMember", md_config_sec_add_members, NULL, OR_ALL, 
+                      "Define domain name(s) part of the Managed Domain"),
+    AP_INIT_TAKE_ARGV("ManagedDomain", md_config_set_names, NULL, RSRC_CONF, 
                       "A group of server names with one certificate"),
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issueing the certificates"),

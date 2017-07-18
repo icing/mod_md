@@ -26,7 +26,7 @@ typedef enum {
     MD_CONFIG_DRIVE_MODE,
 } md_config_var_t;
 
-typedef struct md_config {
+typedef struct {
     const char *name;
     const server_rec *s;
     
@@ -42,8 +42,14 @@ typedef struct md_config {
     struct md_store_t *store;
 } md_config_t;
 
+typedef struct {
+    md_t *md;
+} md_config_dir_t;
+
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s);
 void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv);
+void *md_config_create_dir(apr_pool_t *pool, char *dummy);
+void *md_config_merge_dir(apr_pool_t *pool, void *basev, void *addv);
 
 extern const command_rec md_cmds[];
 

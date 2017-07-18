@@ -50,6 +50,7 @@ typedef enum {
 } md_store_group_t;
 
 typedef enum {
+    MD_DRIVE_DEFAULT = -1,          /* default value */
     MD_DRIVE_MANUAL,                /* manually triggered transmission of credentials */
     MD_DRIVE_AUTO,                  /* automatic process performed by httpd */
 } md_drive_mode_t;

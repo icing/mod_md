@@ -43,8 +43,8 @@ static void md_hooks(apr_pool_t *pool);
 
 AP_DECLARE_MODULE(md) = {
     STANDARD20_MODULE_STUFF,
-    NULL, /* func to create per dir config */
-    NULL, /* func to merge per dir config */
+    md_config_create_dir, /* func to create per dir config */
+    md_config_merge_dir,  /* func to merge per dir config */
     md_config_create_svr, /* func to create per server config */
     md_config_merge_svr,  /* func to merge per server config */
     md_cmds,              /* command handlers */
@@ -91,15 +91,23 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
             
             if (nmd) {
                 /* new managed domain not seen before */
-                nmd->ca_url = md_config_gets(config, MD_CONFIG_CA_URL);
-                nmd->ca_proto = md_config_gets(config, MD_CONFIG_CA_PROTO);
-                nmd->ca_agreement = md_config_gets(config, MD_CONFIG_CA_AGREEMENT);
+                if (!nmd->ca_url) {
+                    nmd->ca_url = md_config_gets(config, MD_CONFIG_CA_URL);
+                }
+                if (!nmd->ca_proto) {
+                    nmd->ca_proto = md_config_gets(config, MD_CONFIG_CA_PROTO);
+                }
+                if (!nmd->ca_agreement) {
+                    nmd->ca_agreement = md_config_gets(config, MD_CONFIG_CA_AGREEMENT);
+                }
                 if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
                     apr_array_clear(nmd->contacts);
                     APR_ARRAY_PUSH(nmd->contacts, const char *) = 
                         md_util_schemify(p, s->server_admin, "mailto");
                 }
-                nmd->drive_mode = md_config_geti(config, MD_CONFIG_DRIVE_MODE);
+                if (nmd->drive_mode == MD_DRIVE_DEFAULT) {
+                    nmd->drive_mode = md_config_geti(config, MD_CONFIG_DRIVE_MODE);
+                }
                 
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
                 
@@ -179,7 +187,7 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                      * alias that are not in this md, a generated certificate will not match. */
                     if (!md_contains(md, s->server_hostname)) {
                         ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
-                                     "Virtual Host %s:%d matches Managed Domain %s, but the name"
+                                     "Virtual Host %s:%d matches Managed Domain '%s', but the name"
                                      " itself is not managed. A requested MD certificate will "
                                      "not match ServerName.",
                                      s->server_hostname, s->port, md->name);
@@ -191,7 +199,7 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
                             name = APR_ARRAY_IDX(s->names, k, const char*);
                             if (!md_contains(md, name)) {
                                 ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
-                                             "Virtual Host %s:%d matches Managed Domain %s, but "
+                                             "Virtual Host %s:%d matches Managed Domain '%s', but "
                                              "the ServerAlias %s is not covered by the MD. "
                                              "A requested MD certificate will not match this " 
                                              "alias.", s->server_hostname, s->port, md->name,

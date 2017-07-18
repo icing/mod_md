@@ -82,6 +82,7 @@ md_t *md_create_empty(apr_pool_t *p)
     if (md) {
         md->domains = apr_array_make(p, 5, sizeof(const char *));
         md->contacts = apr_array_make(p, 5, sizeof(const char *));
+        md->drive_mode = MD_DRIVE_DEFAULT;
         md->defn_name = "unknown";
         md->defn_line_number = 0;
     }
