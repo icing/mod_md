@@ -153,7 +153,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
     apr_status_t rv;
     int i;
 
-    if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, md, p))) {
+    if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
         state = MD_S_INCOMPLETE;
         if (creds->cert && creds->pkey && creds->chain) {
             if (md_cert_has_expired(creds->cert)) {
@@ -507,13 +507,15 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     md_creds_t *creds, **pcreds;
     const md_t *md;
     md_cert_state_t cert_state;
+    md_store_group_t group;
     
     pcreds = va_arg(ap, md_creds_t **);
+    group = va_arg(ap, int);
     md = va_arg(ap, const md_t *);
     
-    if (ok_or_noent(rv = md_cert_load(reg->store, MD_SG_DOMAINS, md->name, &cert, p))
-        && ok_or_noent(rv = md_pkey_load(reg->store, MD_SG_DOMAINS, md->name, &pkey, p))
-        && ok_or_noent(rv = md_chain_load(reg->store, MD_SG_DOMAINS, md->name, &chain, p))) {
+    if (ok_or_noent(rv = md_cert_load(reg->store, group, md->name, &cert, p))
+        && ok_or_noent(rv = md_pkey_load(reg->store, group, md->name, &pkey, p))
+        && ok_or_noent(rv = md_chain_load(reg->store, group, md->name, &chain, p))) {
         rv = APR_SUCCESS;
             
         creds = apr_pcalloc(p, sizeof(*creds));
@@ -542,12 +544,12 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
 }
 
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
-                              const md_t *md, apr_pool_t *p)
+                              md_store_group_t group, const md_t *md, apr_pool_t *p)
 {
     apr_status_t rv = APR_SUCCESS;
     md_creds_t *creds;
     
-    rv = md_util_pool_vdo(creds_load, reg, p, &creds, md, NULL);
+    rv = md_util_pool_vdo(creds_load, reg, p, &creds, group, md, NULL);
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;
     return rv;
 }
@@ -754,13 +756,37 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *
 static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
+    const char *name;
     const md_proto_t *proto;
     const md_t *md, *nmd;
     md_proto_driver_t *driver;
     apr_status_t rv;
     
-    proto = va_arg(ap, const md_proto_t *);
-    md = va_arg(ap, const md_t *);
+    name = va_arg(ap, const char *);
+    
+    if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, name, NULL, ptemp))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ptemp, "%s: nothing staged", name);
+        return APR_SUCCESS;
+    }
+    
+    md = md_reg_get(reg, name, p);
+    if (!md) {
+        return APR_ENOENT;
+    }
+    
+    if (!md->ca_proto) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", name);
+        ((md_t *)md)->state = MD_S_ERROR;
+        return APR_EINVAL;
+    }
+    
+    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
+    if (!proto) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
+                      "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
+        ((md_t *)md)->state = MD_S_ERROR;
+        return APR_EINVAL;
+    }
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
     driver->proto = proto;
@@ -770,11 +796,6 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     driver->md = md;
     driver->reset = 0;
 
-    if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, md->name, NULL, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: nothing staged", md->name);
-        return APR_SUCCESS;
-    }
-    
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);
         
@@ -802,25 +823,9 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     return rv;
 }
 
-apr_status_t md_reg_load(md_reg_t *reg, const md_t *md, apr_pool_t *p)
+apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p)
 {
-    const md_proto_t *proto;
-    
-    if (!md->ca_proto) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", md->name);
-        ((md_t *)md)->state = MD_S_ERROR;
-        return APR_SUCCESS;
-    }
-    
-    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
-    if (!proto) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
-                      "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
-        ((md_t *)md)->state = MD_S_ERROR;
-        return APR_EINVAL;
-    }
-    
-    return md_util_pool_vdo(run_load, reg, p, proto, md, NULL);
+    return md_util_pool_vdo(run_load, reg, p, name, NULL);
 }
 
 apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p)
@@ -828,7 +833,7 @@ apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = md_reg_stage(reg, md, reset, p))) {
-        rv = md_reg_load(reg, md, p);
+        rv = md_reg_load(reg, md->name, p);
     }
     return rv;
 }

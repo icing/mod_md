@@ -121,7 +121,6 @@ class TestAuto:
         self._check_md_cert(dnsListB)
 
         # check: SSL is running OK
-        assert TestEnv.apache_restart() == 0
         test_url_a = "https://%s:%s/" % (domainA, TestEnv.HTTPS_PORT)
         test_url_b = "https://%s:%s/" % (domainB, TestEnv.HTTPS_PORT)
         dnsResolveA = "%s:%s:127.0.0.1" % (domainA, TestEnv.HTTPS_PORT)
@@ -162,7 +161,6 @@ class TestAuto:
         self._check_md_cert(dnsList)
 
         # check: SSL is running OK
-        assert TestEnv.apache_restart() == 0
         test_url_a = "https://%s:%s/name.txt" % (nameA, TestEnv.HTTPS_PORT)
         test_url_b = "https://%s:%s/name.txt" % (nameB, TestEnv.HTTPS_PORT)
         dnsResolveA = "%s:%s:127.0.0.1" % (nameA, TestEnv.HTTPS_PORT)

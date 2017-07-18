@@ -392,6 +392,7 @@ typedef struct {
     apr_pool_t *p;
     server_rec *s;
     ap_watchdog_t *watchdog;
+    int may_restart;
     apr_interval_time_t interval;
     
     apr_array_header_t *drive_names;
@@ -410,24 +411,22 @@ static apr_status_t process_md(md_watchdog *wd, const char *name, apr_pool_t *pt
                 ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                              "md(%s): in unkown state", name);
                 break;
-            case MD_S_INCOMPLETE:
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                             "md(%s): is incomplete, driving", name);
-                rv = md_reg_drive(wd->reg, md, 0, ptemp);
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, wd->s, APLOGNO() 
-                             "md(%s): driven", name);
-                break;
             case MD_S_COMPLETE:
                 ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                              "md(%s): is complete", name);
                 break;
-            case MD_S_EXPIRED:
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                             "md(%s): is expired", name);
-                break;
             case MD_S_ERROR:
                 ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                              "md(%s): in error state", name);
+                break;
+            case MD_S_INCOMPLETE:
+            case MD_S_EXPIRED:
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                             "md(%s): state=%d, driving", name, md->state);
+                rv = md_reg_stage(wd->reg, md, 0, ptemp);
+                if (APR_SUCCESS == rv) {
+                    wd->may_restart = 1;
+                }
                 break;
         }
     }
@@ -441,6 +440,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
     int i;
     const char *name;
     
+    wd->may_restart = 0;
     switch (state) {
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
@@ -450,6 +450,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             assert(wd->reg);
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
                          "md watchdog run, auto drive %d mds", wd->drive_names->nelts);
+                         
             /* Check if all Managed Domains are ok or if we have to do something */
             for (i = 0; i < wd->drive_names->nelts; ++i) {
                 name = APR_ARRAY_IDX(wd->drive_names, i, const char*);
@@ -458,6 +459,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                                  "processing %s", name);
                 }
             }
+            
             wd_set_interval(wd->watchdog, wd->interval, wd, run_watchdog);
             break;
         case AP_WATCHDOG_STATE_STOPPING:
@@ -465,6 +467,15 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                          "md watchdog stopping");
             break;
     }
+
+    if (wd->may_restart) {
+        rv = md_server_graceful(ptemp, wd->s);
+        if (APR_STATUS_IS_EACCES(rv)) {
+            /* TODO: running under-privileged most likely... */
+        }
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, wd->s, APLOGNO() "signaled restart");
+    }
+    
     return rv;
 }
 
@@ -519,6 +530,27 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
     return rv;
 }
  
+static void load_stage_sets(apr_array_header_t *names, apr_pool_t *p, 
+                            md_reg_t *reg, server_rec *s)
+{
+    const char *name; 
+    apr_status_t rv;
+    int i;
+    
+    for (i = 0; i < names->nelts; ++i) {
+        name = APR_ARRAY_IDX(names, i, const char*);
+        if (APR_SUCCESS == (rv = md_reg_load(reg, name, p))) {
+            ap_log_error( APLOG_MARK, APLOG_INFO, rv, s, APLOGNO() 
+                         "%s: staged set activated", name);
+        }
+        else if (!APR_STATUS_IS_ENOENT(rv)) {
+            ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
+                         "%s: error loading staged set", name);
+        }
+    }
+    return;
+}
+
 static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                                    apr_pool_t *ptemp, server_rec *s)
 {
@@ -575,6 +607,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "%d out of %d mds are configured for auto-drive", 
                      drive_names->nelts, mds->nelts);
     
+        load_stage_sets(drive_names, p, reg, s);
         md_http_use_implementation(md_curl_get_impl(p));
         rv = start_watchdog(drive_names, p, reg, s);
     }

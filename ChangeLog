@@ -1,3 +1,6 @@
+ * when run as normal user, mod_md can restart httpd after successful staging of new credentials
+ * protocol driving split into staging and loading phase. a2md does both, httpd watchdog runs
+   staging and on restart the staged changes are loaded.
  * security: store generates on init a master pass phrase. All private keys outside of the "domains"
    storage group are only stored encrypted.
  * filesystem store now with relaxed permissions on challenges

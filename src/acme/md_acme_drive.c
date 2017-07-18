@@ -49,6 +49,7 @@ typedef struct {
     md_acme_t *acme;
     md_t *md;
     const md_creds_t *creds;
+    const md_creds_t *staged_creds;
     
     int can_http_01;
     int can_tls_sni_01;
@@ -576,13 +577,19 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         }
     }
     
-    /* Load any credentials we currently have stored */
-    rv = md_reg_creds_get(&ad->creds, d->reg, d->md, d->p);
-    if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
-        return rv;
+    rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked stage md", d->md->name);
+    if (APR_SUCCESS == rv) {
+        /* staging in progress, look at creds collected there */
+        rv = md_reg_creds_get(&ad->staged_creds, d->reg, MD_SG_STAGING, d->md, d->p);
+    }
+    else {
+        /* Load any credentials we currently have stored */
+        rv = md_reg_creds_get(&ad->creds, d->reg, MD_SG_DOMAINS, d->md, d->p);
     }
     
-    return md_acme_create(&ad->acme, d->p, d->md->ca_url);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked creds", d->md->name);
+    return rv;
 }
 
 /**************************************************************************************************/
@@ -600,7 +607,12 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
     int renew = 1;
 
     /* Find out where we're at with this managed domain */
-    if (ad->creds && ad->creds->pkey && ad->creds->cert && ad->creds->chain) {
+    if (ad->staged_creds && ad->staged_creds->pkey 
+        && ad->staged_creds->cert && ad->staged_creds->chain) {
+        /* There is a full set staged, to be loaded */
+        renew = 0;
+    }
+    else if (ad->creds && ad->creds->pkey && ad->creds->cert && ad->creds->chain) {
         /* We have a full set, Good. */
 
         if (ad->creds->expired) {
@@ -630,11 +642,14 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
     }
     
     if (renew) {
-        rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
-        if (APR_SUCCESS == rv) {
-            /* Continue with the one already in staging */
+        if (APR_SUCCESS != (rv = md_acme_create(&ad->acme, d->p, d->md->ca_url)) 
+            || APR_SUCCESS != (rv = md_acme_setup(ad->acme))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: setup ACME(%s)", 
+                          d->md->name, d->md->ca_url);
+            return rv;
         }
-        else {
+
+        if (!ad->md) {
             /* re-initialize staging */
             md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
             ad->md = md_copy(d->p, d->md);
@@ -686,11 +701,6 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             ad->phase = "install chain";
             rv = ad_chain_install(d);
         }
-
-        if (APR_SUCCESS == rv) {
-            ad->phase = "move live from staging";
-            md_acme_authz_set_purge(d->store, d->p, ad->md->name);
-        }
     }
     
     return rv;
@@ -698,18 +708,11 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
 
 static apr_status_t acme_driver_stage(md_proto_driver_t *d)
 {
-    apr_status_t rv = APR_ENOTIMPL;
     md_acme_driver_t *ad = d->baton;
-
-    assert(ad->acme);
+    apr_status_t rv;
 
     ad->phase = "ACME staging";
-    rv = md_acme_setup(ad->acme);
-    
-    if (APR_SUCCESS == rv) {
-        rv = acme_stage(d);
-    }
-    if (APR_SUCCESS == rv) {
+    if (APR_SUCCESS == (rv = acme_stage(d))) {
         ad->phase = "staging done";
     }
         
@@ -731,6 +734,7 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     apr_array_header_t *chain;
     struct md_acme_acct_t *acct;
 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: preload start", name);
     /* Load all data which will be taken into the DOMAIN storage group.
      * This serves several purposes:
      *  1. It's a format check on the input data. 
@@ -757,7 +761,7 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
         return rv;
     }
 
-    /* See if staging holds a new or modified account */
+    /* See if staging holds a new or modified account data */
     rv = md_acme_acct_load(&acct, &acct_key, store, MD_SG_STAGING, name, p);
     if (APR_STATUS_IS_ENOENT(rv)) {
         acct = NULL;
@@ -768,6 +772,8 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
         return rv; 
     }
 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                  "%s: staged data load, purging tmp space", name);
     rv = md_store_purge(store, p, load_group, name);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error purging preload storage", name);
@@ -807,18 +813,11 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
 
 static apr_status_t acme_driver_preload(md_proto_driver_t *d, md_store_group_t group)
 {
-    apr_status_t rv = APR_ENOTIMPL;
     md_acme_driver_t *ad = d->baton;
-
-    assert(ad->acme);
+    apr_status_t rv;
 
     ad->phase = "ACME preload";
-    rv = md_acme_setup(ad->acme);
-    
-    if (APR_SUCCESS == rv) {
-        rv = acme_preload(d->store, group, d->md->name, d->p);
-    }
-    if (APR_SUCCESS == rv) {
+    if (APR_SUCCESS == (rv = acme_preload(d->store, group, d->md->name, d->p))) {
         ad->phase = "preload done";
     }
         

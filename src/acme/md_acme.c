@@ -118,9 +118,6 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url)
     len = strlen(uri_parsed.hostname);
     acme->sname = (len <= 16)? uri_parsed.hostname : apr_pstrdup(p, uri_parsed.hostname + len - 16);
     
-    if (APR_SUCCESS == (rv = md_http_create(&acme->http, acme->p))) {
-        md_http_set_response_limit(acme->http, 1024*1024);
-    }
     *pacme = (APR_SUCCESS == rv)? acme : NULL;
     return rv;
 }
@@ -131,7 +128,10 @@ apr_status_t md_acme_setup(md_acme_t *acme)
     md_json_t *json;
     
     assert(acme->url);
-    assert(acme->http);
+    if (!acme->http && APR_SUCCESS != (rv = md_http_create(&acme->http, acme->p))) {
+        return rv;
+    }
+    md_http_set_response_limit(acme->http, 1024*1024);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "get directory from %s", acme->url);
     

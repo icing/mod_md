@@ -110,7 +110,7 @@ apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early, apr_pool_t *p);
  * when none is available. The returned values are immutable. 
  */
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
-                              const md_t *md, apr_pool_t *p);
+                              md_store_group_t group, const md_t *md, apr_pool_t *p);
 
 apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
                                    const char **pkeyfile, const char **pcertfile,
@@ -163,7 +163,7 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *
  * If staging is incomplete or missing, the load will fail and all credentials remain
  * as they are.
  */
-apr_status_t md_reg_load(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p);
 
 /**
  * Drive the given managed domain toward completeness.
