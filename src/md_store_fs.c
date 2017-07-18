@@ -190,7 +190,8 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
      * private keys are, similar to staging, encrypted. */
     s_fs->group_perms[MD_SG_ACCOUNTS].dir = MD_FPROT_D_UALL_WREAD;
     s_fs->group_perms[MD_SG_ACCOUNTS].file = MD_FPROT_F_UALL_WREAD;
-    
+    s_fs->group_perms[MD_SG_STAGING].dir = MD_FPROT_D_UALL_WREAD;
+    s_fs->group_perms[MD_SG_STAGING].file = MD_FPROT_F_UALL_WREAD;
     /* challenges dir and files are readable by all, no secrets involved */ 
     s_fs->group_perms[MD_SG_CHALLENGES].dir = MD_FPROT_D_UALL_WREAD;
     s_fs->group_perms[MD_SG_CHALLENGES].file = MD_FPROT_F_UALL_WREAD;
@@ -363,10 +364,19 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
     groupname = md_store_group_name(group);
     perms = gperms(s_fs, group);
 
-    if (APR_SUCCESS == (rv = md_util_path_merge(pdir, p, s_fs->base, groupname, name, NULL))
-        && APR_SUCCESS != md_util_is_dir(*pdir, p) 
-        && APR_SUCCESS == (rv = apr_dir_make_recursive(*pdir, perms->dir, p))) {
-        rv = dispatch(s_fs, MD_S_FS_EV_CREATED, group, *pdir, APR_DIR, p);
+    if (APR_SUCCESS == (rv = md_util_path_merge(pdir, p, s_fs->base, groupname, name, NULL))) {
+        if (APR_SUCCESS != md_util_is_dir(*pdir, p)) {
+            if (APR_SUCCESS == (rv = apr_dir_make_recursive(*pdir, perms->dir, p))) {
+                rv = dispatch(s_fs, MD_S_FS_EV_CREATED, group, *pdir, APR_DIR, p);
+            }
+        }
+        else {
+            /* already exists */
+        }
+        
+        if (APR_SUCCESS == rv) {
+            rv = apr_file_perms_set(*pdir, perms->dir);
+        }
     }
     return rv;
 }
