@@ -392,6 +392,8 @@ typedef struct {
     apr_pool_t *p;
     server_rec *s;
     ap_watchdog_t *watchdog;
+    int error_runs;
+    int all_valid;
     int may_restart;
     apr_interval_time_t interval;
     
@@ -421,6 +423,7 @@ static apr_status_t process_md(md_watchdog *wd, const char *name, apr_pool_t *pt
                 break;
             case MD_S_INCOMPLETE:
             case MD_S_EXPIRED:
+                wd->all_valid = 0;
                 ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                              "md(%s): state=%d, driving", name, md->state);
                 rv = md_reg_stage(wd->reg, md, 0, ptemp);
@@ -437,10 +440,9 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
     md_watchdog *wd = baton;
     apr_status_t rv = APR_SUCCESS;
-    int i;
+    int i, errors;
     const char *name;
     
-    wd->may_restart = 0;
     switch (state) {
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
@@ -448,6 +450,11 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             break;
         case AP_WATCHDOG_STATE_RUNNING:
             assert(wd->reg);
+            
+            wd->all_valid = 1;
+            wd->may_restart = 0;
+            errors = 0;
+            
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
                          "md watchdog run, auto drive %d mds", wd->drive_names->nelts);
                          
@@ -457,9 +464,30 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                 if (APR_SUCCESS != (rv = process_md(wd, name, ptemp))) {
                     ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() 
                                  "processing %s", name);
+                    errors = 1;
                 }
             }
-            
+
+            wd->error_runs = errors? (wd->error_runs + 1) : 0;
+            if (wd->all_valid) {
+                wd->interval = apr_time_from_sec(12*60*60);
+                ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
+                             "all managed domains are valid, next run in 12 hours");
+            }
+            else if (wd->may_restart) {
+                wd->interval = apr_time_from_sec(5*60);
+                ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
+                             "awaiting restart, next run in 5 minutes");
+            }
+            else {
+                wd->interval = wd->error_runs * apr_time_from_sec(10);
+                if (wd->interval > apr_time_from_sec(60*60)) {
+                    wd->interval = apr_time_from_sec(60*60);
+                }
+                ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
+                             "encountered errors for the %d. time, next run in %d seconds",
+                             wd->error_runs, (int)apr_time_sec(wd->interval));
+            }
             wd_set_interval(wd->watchdog, wd->interval, wd, run_watchdog);
             break;
         case AP_WATCHDOG_STATE_STOPPING:
