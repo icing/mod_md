@@ -1,11 +1,13 @@
 # test driving the ACME protocol
 
+import base64
+import json
 import os.path
+import pytest
 import re
 import sys
 import time
-import json
-import pytest
+import urllib
 
 from datetime import datetime
 from test_base import TestEnv
@@ -83,8 +85,13 @@ class TestDrive :
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
         # drive
+        prevMd = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
+        self._check_account_key( name )
+
+        # check archive content
+        assert json.loads( open( TestEnv.path_domain(name, archiveVersion=1 )).read() ) == prevMd
 
         # check file system permissions:
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
@@ -328,3 +335,12 @@ class TestDrive :
         # compare cert with resource on server
         server_cert = CertUtil( md['cert']['url'] )
         assert cert.get_serial() == server_cert.get_serial()
+
+    def _check_account_key(self, name):
+        # read encryption key
+        md_store = json.loads( open( TestEnv.path_store_json(), 'r' ).read() )
+        encryptKey = base64.urlsafe_b64decode( str(md_store['key']) )
+        # check: key file is encrypted PEM
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        acc = md['ca']['account']
+        CertUtil.validate_privkey(TestEnv.path_account_key( acc ), encryptKey)
