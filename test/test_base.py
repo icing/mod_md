@@ -351,12 +351,8 @@ class TestEnv:
 
     @classmethod
     def check_file_access(cls, path, expMask):
-         access = os.lstat(path).st_mode & 0777
-         # check: no unexpected bit flags set
-         maskComplement = ~expMask & 0777
-         assert oct(access & maskComplement) == "0"
-         # check: all expected bit flags set
-         assert oct(access & expMask) == oct(expMask)
+         actualMask = os.lstat(path).st_mode & 0777
+         assert oct(actualMask) == oct(expMask)
 
 # -----------------------------------------------
 # --
@@ -458,10 +454,14 @@ class CertUtil(object):
     @classmethod
     def validate_privkey(cls, privkey_path, passphrase=None):
         privkey_data = cls._load_binary_file(privkey_path)
-        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
+        privkey = None
+        if passphrase:
+            privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data, passphrase)
+        else:
+            privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
         return privkey.check()
 
-    def validate_cert_matches_priv_key(self, privkey_path, passphrase=None):
+    def validate_cert_matches_priv_key(self, privkey_path):
         # Verifies that the private key and cert match.
         privkey_data = CertUtil._load_binary_file(privkey_path)
         privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)

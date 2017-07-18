@@ -48,7 +48,7 @@ class TestRoundtrip:
     def test_600_000(self):
         # test case: generate config with md -> restart -> drive -> generate config
         # with vhost and ssl -> restart -> check HTTPS access
-        domain = "r000" + TestRoundtrip.dns_uniq
+        domain = "r000-" + TestRoundtrip.dns_uniq
         dnsList = [ domain, "www." + domain ]
 
         # - generate config with one md
@@ -194,7 +194,7 @@ class TestRoundtrip:
         open(os.path.join(docRoot, name), "w").write(content)
 
     def _check_md_names(self, name, dnsList):
-        md = TestEnv.a2md([ "-j", "list", name ])['jout']['output'][0]
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert md['name'] == name
         assert md['domains'] == dnsList
 
