@@ -88,7 +88,7 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         name = "example.org"
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", TestEnv.ACME_TOS)
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", "http://acme.test.org:4000/terms/v1")
 
     def test_310_104(self):
         # test case: add to existing md: acme url, acme protocol
@@ -100,7 +100,7 @@ class TestConf:
         TestEnv.install_test_conf("one_md_ca");
         assert TestEnv.apache_restart() == 0
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", TestEnv.ACME_TOS)
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", "http://acme.test.org:4000/terms/v1")
 
     def test_310_105(self):
         # test case: add new md definition with server admin
@@ -210,9 +210,9 @@ class TestConf:
         # setup: sync with ca info removed
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
-        # check: md stays the same with previous ca info
+        # check: md stays the same with previous ca info. TOS url stays as before.
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME", TestEnv.ACME_TOS)
+        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME", "http://acme.test.org:4000/terms/v1")
 
     def test_310_205(self):
         # test case: remove server admin from md
@@ -287,6 +287,26 @@ class TestConf:
         TestEnv.install_test_conf("drive_auto");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+
+    @pytest.mark.skip(reason="ACME URL not updated into store form vhost context")
+    def test_310_305(self):
+        # test case: change acme url on only one mds
+        # setup: prepare two mds in store with default ACME url
+        name = "example.org"
+        TestEnv.install_test_conf("two_mds_vhosts");
+        assert TestEnv.apache_restart() == 0
+        name1 = "example.org"
+        name2 = "example2.org"
+        self._check_md_names(name1, [name1, "www." + name1, "mail." + name1], 1, 2)
+        self._check_md_names(name2, [name2, "www." + name2, "mail." + name2], 1, 2)
+        self._check_md_ca(name1, TestEnv.ACME_URL_DEFAULT, "ACME", None)
+        self._check_md_ca(name2, TestEnv.ACME_URL_DEFAULT, "ACME", None)
+        # setup: change ACME url on only one md
+        TestEnv.install_test_conf("two_mds_vhosts_ca");
+        assert TestEnv.apache_restart() == 0
+        # check: two 
+        self._check_md_ca(name1, TestEnv.ACME_URL_DEFAULT, "ACME", None)
+        self._check_md_ca(name2, "http://somewhere.com:6666/directory", "ACME", None)
 
     # --------- status reset on critical store changes ---------
 

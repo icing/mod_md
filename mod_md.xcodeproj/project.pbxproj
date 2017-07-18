@@ -14,6 +14,7 @@
 		75EDD0871F15064A003CBD39 /* test_013.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_013.conf; sourceTree = "<group>"; };
 		75EDD0881F1CA2D4003CBD39 /* drive_auto.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = drive_auto.conf; sourceTree = "<group>"; };
 		75EDD0891F1CA2D4003CBD39 /* drive_manual.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = drive_manual.conf; sourceTree = "<group>"; };
+		75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = two_mds_vhosts_ca.conf; sourceTree = "<group>"; };
 		B20333361EDDA82300E5BE7E /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
 		B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_acme_regs.py; sourceTree = "<group>"; };
 		B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0210_acme_tos.py; sourceTree = "<group>"; };
@@ -168,6 +169,7 @@
 				75EDD0861F15063B003CBD39 /* one_md_caps.conf */,
 				B262F6D11EFCFE1100D396A1 /* two_mds.conf */,
 				B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */,
+				75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */,
 				B2B81EC11F0FAC2000E35CA3 /* other_base.conf */,
 			);
 			path = test_conf_store;
