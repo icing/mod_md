@@ -49,7 +49,6 @@ md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p, md_acme_t *acme)
     md_acme_authz_set_t *authz_set;
     
     authz_set = apr_pcalloc(p, sizeof(*authz_set));
-    authz_set->acct_id = acme? md_acme_get_acct(acme, p) : NULL;
     authz_set->authzs = apr_array_make(p, 5, sizeof(md_acme_authz_t *));
     
     return authz_set;
@@ -167,7 +166,7 @@ static apr_status_t authz_created(md_acme_t *acme, apr_pool_t *p, const apr_tabl
 }
 
 apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *acme, 
-                                    const char *domain, apr_pool_t *p)
+                                    md_store_t *store, const char *domain, apr_pool_t *p)
 {
     apr_status_t rv;
     authz_req_ctx ctx;
@@ -184,7 +183,8 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
 /**************************************************************************************************/
 /* Update an exiosting authorization */
 
-apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_pool_t *p)
+apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, 
+                                  md_store_t *store, apr_pool_t *p)
 {
     md_json_t *json;
     const char *s;
@@ -265,7 +265,7 @@ static apr_status_t authz_http_set(md_acme_t *acme, apr_pool_t *p, const apr_tab
 }
 
 static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                      md_acme_t *acme, apr_pool_t *p)
+                                      md_acme_t *acme, md_store_t *store, apr_pool_t *p)
 {
     const char *thumb64, *key_authz, *data;
     apr_status_t rv;
@@ -288,11 +288,11 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
         }
     }
     
-    rv = md_store_load(acme->store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
+    rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                        MD_SV_TEXT, (void**)&data, p);
     if ((APR_SUCCESS == rv && strcmp(key_authz, data)) 
         || APR_STATUS_IS_ENOENT(rv)) {
-        rv = md_store_save(acme->store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
+        rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                            MD_SV_TEXT, (void*)key_authz, 0);
         notify_server = 1;
     }
@@ -341,7 +341,7 @@ static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
     return 1;
 }
 
-apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, 
+apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
                                    int http_01, int tls_sni_01, apr_pool_t *p)
 {
     apr_status_t rv;
@@ -359,7 +359,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme,
     md_json_itera(add_candidates, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
     
     if (fctx.http_01) {
-        rv = cha_http_01_setup(fctx.http_01, authz, acme, p);
+        rv = cha_http_01_setup(fctx.http_01, authz, acme, store, p);
     }
     else if (fctx.tls_sni_01) {
         rv = cha_tls_sni_01_setup(fctx.tls_sni_01, authz, acme, p);
@@ -400,7 +400,8 @@ static apr_status_t authz_del(md_acme_t *acme, apr_pool_t *p, const apr_table_t 
     return APR_SUCCESS;
 }
 
-apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme, apr_pool_t *p)
+apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme, 
+                               md_store_t *store, apr_pool_t *p)
 {
     authz_req_ctx ctx;
     
@@ -464,7 +465,6 @@ md_json_t *md_acme_authz_set_to_json(md_acme_authz_set_t *set, apr_pool_t *p)
 {
     md_json_t *json = md_json_create(p);
     if (json) {
-        md_json_sets(set->acct_id, json, MD_KEY_ACCOUNT, NULL);
         md_json_seta(set->authzs, authz_to_json, NULL, json, MD_KEY_AUTHZS, NULL);
         return json;
     }
@@ -475,7 +475,6 @@ md_acme_authz_set_t *md_acme_authz_set_from_json(md_json_t *json, apr_pool_t *p)
 {
     md_acme_authz_set_t *set = md_acme_authz_set_create(p, NULL);
     if (set) {
-        set->acct_id = md_json_dups(p, json, MD_KEY_ACCOUNT, NULL);            
         md_json_geta(set->authzs, authz_from_json, NULL, json, MD_KEY_AUTHZS, NULL);
         return set;
     }
@@ -514,7 +513,6 @@ static apr_status_t p_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_lis
 
     json = md_acme_authz_set_to_json(set, ptemp);
     assert(json);
-    assert(set->acct_id);
     return md_store_save_json(store, ptemp, MD_SG_STAGING, md_name, MD_FN_AUTHZ, json, create);
 }
 

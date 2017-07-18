@@ -86,8 +86,7 @@ apr_status_t md_acme_init(apr_pool_t *p)
     return md_crypt_init(p);
 }
 
-apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
-                            struct md_store_t *store)
+apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url)
 {
     md_acme_t *acme;
     const char *err = NULL;
@@ -108,7 +107,6 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     acme = apr_pcalloc(p, sizeof(*acme));
     acme->url = url;
     acme->p = p;
-    acme->store = store;
     acme->pkey_bits = 4096;
     acme->max_retries = 3;
     

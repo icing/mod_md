@@ -32,6 +32,7 @@
 #include "md_util.h"
 
 #include "acme/md_acme.h"
+#include "acme/md_acme_acct.h"
 
 struct md_reg_t {
     struct md_store_t *store;
@@ -703,10 +704,11 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t *p) 
 {
     apr_status_t rv;
-    md_pkey_t *pkey;
+    md_pkey_t *pkey, *acct_key;
     md_t *md;
     md_cert_t *cert;
     apr_array_header_t *chain;
+    struct md_acme_acct_t *acct;
 
     /* Load all data which will be taken into the DOMAIN storage group.
      * This serves several purposes:
@@ -733,11 +735,33 @@ apr_status_t md_reg_staging_complete(md_reg_t *reg, const char *name, apr_pool_t
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading staging private key", name);
         return rv;
     }
-    
+
+    /* See if staging holds a new or modified account */
+    rv = md_acme_acct_load(&acct, &acct_key, reg->store, MD_SG_STAGING, name, p);
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        acct = NULL;
+        acct_key = NULL;
+        rv = APR_SUCCESS;
+    }
+    else if (APR_SUCCESS != rv) {
+        return rv; 
+    }
+
     rv = md_store_purge(reg->store, p, MD_SG_TMP, name);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error puring tmp storage", name);
         return rv;
+    }
+    
+    if (acct) {
+        md_acme_t *acme;
+        
+        if (APR_SUCCESS != (rv = md_acme_create(&acme, p, md->ca_url))
+            || APR_SUCCESS != (rv = md_acme_acct_save(reg->store, p, acme, acct, acct_key))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error saving acct", name);
+            return rv;
+        }
+        md->ca_account = acct->id;
     }
     
     if (APR_SUCCESS != (rv = md_save(reg->store, p, MD_SG_TMP, md, 1))) {

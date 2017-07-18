@@ -24,24 +24,6 @@ typedef struct md_store_t md_store_t;
 
 typedef void md_store_destroy_cb(md_store_t *store);
 
-typedef enum {
-    MD_SV_TEXT,
-    MD_SV_JSON,
-    MD_SV_CERT,
-    MD_SV_PKEY,
-    MD_SV_CHAIN,
-} md_store_vtype_t;
-
-typedef enum {
-    MD_SG_ACCOUNTS,
-    MD_SG_CHALLENGES,
-    MD_SG_DOMAINS,
-    MD_SG_STAGING,
-    MD_SG_ARCHIVE,
-    MD_SG_TMP,
-    MD_SG_COUNT,
-} md_store_group_t;
-
 const char *md_store_group_name(int group);
 
 

@@ -235,10 +235,18 @@ static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
      * running on certain mpms in a child process under a different user. Give them
      * ownership. 
      */
-    if (ftype == APR_DIR && (group == MD_SG_CHALLENGES || group == MD_SG_STAGING)) {
-        rv = md_make_worker_accessible(fname, p);
-        if (APR_ENOTIMPL != rv) {
-            return rv;
+    if (ftype == APR_DIR) {
+        switch (group) {
+            case MD_SG_ACCOUNTS:
+            case MD_SG_CHALLENGES:
+            case MD_SG_STAGING:
+                rv = md_make_worker_accessible(fname, p);
+                if (APR_ENOTIMPL != rv) {
+                    return rv;
+                }
+                break;
+            default: 
+                break;
         }
     }
     return APR_SUCCESS;
@@ -284,6 +292,11 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
         if (APR_SUCCESS != (rv = check_group_dir(store, MD_SG_STAGING, p, s))) {
             ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() 
                          "setup staging directory");
+            goto out;
+        }
+        if (APR_SUCCESS != (rv = check_group_dir(store, MD_SG_ACCOUNTS, p, s))) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() 
+                         "setup accounts directory");
             goto out;
         }
     }

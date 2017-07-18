@@ -39,6 +39,6 @@ struct md_acme_acct_t {
 };
 
 #define MD_FN_ACCOUNT           "account.json"
-#define MD_FN_ACCT_KEY          "account.key"
+#define MD_FN_ACCT_KEY          "account.pem"
 
 #endif /* md_acme_acct_h */

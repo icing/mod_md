@@ -32,6 +32,24 @@ typedef enum {
 } md_state_t;
 
 typedef enum {
+    MD_SV_TEXT,
+    MD_SV_JSON,
+    MD_SV_CERT,
+    MD_SV_PKEY,
+    MD_SV_CHAIN,
+} md_store_vtype_t;
+
+typedef enum {
+    MD_SG_ACCOUNTS,
+    MD_SG_CHALLENGES,
+    MD_SG_DOMAINS,
+    MD_SG_STAGING,
+    MD_SG_ARCHIVE,
+    MD_SG_TMP,
+    MD_SG_COUNT,
+} md_store_group_t;
+
+typedef enum {
     MD_DRIVE_MANUAL,                /* manually triggered transmission of credentials */
     MD_DRIVE_AUTO,                  /* automatic process performed by httpd */
 } md_drive_mode_t;

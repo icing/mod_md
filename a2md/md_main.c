@@ -179,7 +179,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             fprintf(stderr, "need store for ACME: %s\n", cmd->name);
             return APR_EINVAL;
         }
-        rv = md_acme_create(&ctx->acme, ctx->p, ctx->ca_url, ctx->store);
+        rv = md_acme_create(&ctx->acme, ctx->p, ctx->ca_url);
         if (APR_SUCCESS != rv) {
             fprintf(stderr, "error creating acme instance %s (%s)\n", 
                     ctx->ca_url, ctx->base_dir);

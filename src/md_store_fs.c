@@ -185,11 +185,16 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     /* by default, everything is only readable by the current user */ 
     s_fs->def_perms.dir = MD_FPROT_D_UONLY;
     s_fs->def_perms.file = MD_FPROT_F_UONLY;
+
+    /* Account information needs to be accessible to httpd child processes.
+     * private keys are, similar to staging, encrypted. */
+    s_fs->group_perms[MD_SG_ACCOUNTS].dir = MD_FPROT_D_UALL_WREAD;
+    s_fs->group_perms[MD_SG_ACCOUNTS].file = MD_FPROT_F_UALL_WREAD;
     
     /* challenges dir and files are readable by all, no secrets involved */ 
     s_fs->group_perms[MD_SG_CHALLENGES].dir = MD_FPROT_D_UALL_WREAD;
     s_fs->group_perms[MD_SG_CHALLENGES].file = MD_FPROT_F_UALL_WREAD;
-    
+
     s_fs->base = apr_pstrdup(p, path);
     
     if (APR_SUCCESS != (rv = md_util_is_dir(s_fs->base, p))) {
@@ -409,10 +414,11 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
                 rv = md_cert_fsave((md_cert_t *)value, ptemp, fpath, perms->file);
                 break;
             case MD_SV_PKEY:
-                /* private keys are only ever saved with access to the user alone */
+                /* Take care that we write private key with access only to the user,
+                 * unless we write the key encrypted */
                 get_pass(&pass, &pass_len, s_fs, group);
                 rv = md_pkey_fsave((md_pkey_t *)value, ptemp, pass, pass_len, 
-                                   fpath, MD_FPROT_F_UONLY);
+                                   fpath, (pass && pass_len)? perms->file : MD_FPROT_F_UONLY);
                 break;
             case MD_SV_CHAIN:
                 rv = md_chain_fsave((apr_array_header_t*)value, ptemp, fpath, perms->file);
