@@ -206,6 +206,10 @@ class TestEnv:
         os.makedirs(TestEnv.STORE_DIR)
 
     @classmethod
+    def path_store_json( cls ) : 
+        return os.path.join(TestEnv.STORE_DIR, 'md_store.json')
+
+    @classmethod
     def path_account( cls, acct ) : 
         return os.path.join(TestEnv.STORE_DIR, 'accounts', acct, 'account.json')
 
@@ -220,16 +224,32 @@ class TestEnv:
         open( os.path.join( dir, 'authz.json'), "w" ).write(content)
 
     @classmethod
-    def path_domain_cert( cls, domain ) : 
-        return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'cert.pem')
+    def path_domain( cls, domain, archiveVersion=0 ) :
+        if archiveVersion == 0:
+            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'md.json' )
+        else:
+            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'md.json' )
 
     @classmethod
-    def path_domain_pkey( cls, domain ) : 
-        return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'pkey.pem')
+    def path_domain_cert( cls, domain, archiveVersion=0 ) :
+        if archiveVersion == 0:
+            return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'cert.pem')
+        else:
+            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'cert.pem')
 
     @classmethod
-    def path_domain_ca_chain( cls, domain ) : 
-        return TestEnv.STORE_DIR + "/domains/" + domain + "/chain.pem"
+    def path_domain_pkey( cls, domain, archiveVersion=0 ) :
+        if archiveVersion == 0:
+            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'pkey.pem')
+        else:
+            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'pkey.pem')
+
+    @classmethod
+    def path_domain_ca_chain( cls, domain, archiveVersion=0 ) :
+        if archiveVersion == 0:
+            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'chain.pem' )
+        else:
+            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'chain.pem' )
 
     # --------- control apache ---------
 
@@ -319,8 +339,28 @@ class TestEnv:
                     wcount = 0
             return (ecount, wcount)
 
+    # --------- check utilities ---------
+
+    @classmethod
+    def check_json_contains(cls, actual, expected):
+        # write all expected key:value bindings to a copy of the actual data ... 
+        # ... assert it stays unchanged 
+        testJson = copy.deepcopy(actual)
+        testJson.update(expected)
+        assert actual == testJson
+
+    @classmethod
+    def check_file_access(cls, path, expMask):
+         access = os.lstat(path).st_mode & 0777
+         # check: no unexpected bit flags set
+         maskComplement = ~expMask & 0777
+         assert oct(access & maskComplement) == "0"
+         # check: all expected bit flags set
+         assert oct(access & expMask) == oct(expMask)
+
+# -----------------------------------------------
 # --
-# --------- dynamic httpd configuration ---------
+# --     dynamic httpd configuration
 # --
 
 class HttpdConf(object):
@@ -365,8 +405,9 @@ class HttpdConf(object):
     def install(self):
         TestEnv.install_test_conf(self.path)
 
+# -----------------------------------------------
 # --
-# --------- certificate handling ---------
+# --     certificate handling
 # --
 
 class CertUtil(object):
@@ -415,15 +456,15 @@ class CertUtil(object):
         return map(_strip_prefix, sans_list)
 
     @classmethod
-    def validate_privkey(cls, privkey_path):
+    def validate_privkey(cls, privkey_path, passphrase=None):
         privkey_data = cls._load_binary_file(privkey_path)
-        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
+        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data, passphrase=passphrase)
         return privkey.check()
 
-    def validate_cert_matches_priv_key(self, privkey_path):
+    def validate_cert_matches_priv_key(self, privkey_path, passphrase=None):
         # Verifies that the private key and cert match.
         privkey_data = CertUtil._load_binary_file(privkey_path)
-        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
+        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data, passphrase=passphrase)
         context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
         context.use_privatekey(privkey)
         context.use_certificate(self.cert)

@@ -10,7 +10,7 @@ import pytest
 
 from datetime import datetime
 from urlparse import urlparse
-from testbase import TestEnv
+from test_base import TestEnv
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -48,7 +48,7 @@ class TestRegUpdate :
         dns = [ "foo.de", "bar.de" ]
         output1 = TestEnv.a2md([ "update", self.NAME1, "domains" ] + dns)['jout']['output']
         assert len(output1) == 1
-        self._check_json_contains( output1[0],
+        TestEnv.check_json_contains( output1[0],
             {
                 "name": self.NAME1,
                 "domains": dns,
@@ -111,7 +111,7 @@ class TestRegUpdate :
         url = "http://localhost.com:9999"
         output = TestEnv.a2md([ "update", self.NAME1, "ca", url ])['jout']['output']
         assert len(output) == 1
-        self._check_json_contains( output[0],
+        TestEnv.check_json_contains( output[0],
             {
                 "name": self.NAME1,
                 "domains": [ self.NAME1, "www.greenbytes2.de", "mail.greenbytes2.de"],
@@ -134,7 +134,7 @@ class TestRegUpdate :
     def test_110_102(self):
         # test case: update ca protocol
         md = TestEnv.a2md([ "update", self.NAME1, "ca", TestEnv.ACME_URL, "FOO"])['jout']['output'][0]
-        self._check_json_contains( md['ca'], {
+        TestEnv.check_json_contains( md['ca'], {
             "url": TestEnv.ACME_URL,
             "proto": "FOO"
         })
@@ -147,7 +147,7 @@ class TestRegUpdate :
         accID = "test.account.id"
         output = TestEnv.a2md([ "update", self.NAME1, "account", accID])['jout']['output']
         assert len(output) == 1
-        self._check_json_contains( output[0],
+        TestEnv.check_json_contains( output[0],
             {
                 "name": self.NAME1,
                 "domains": [ self.NAME1, "www.greenbytes2.de", "mail.greenbytes2.de"],
@@ -165,7 +165,7 @@ class TestRegUpdate :
         # test case: remove account ID
         assert TestEnv.a2md([ "update", self.NAME1, "account", "test.account.id"])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "account"])['jout']['output'][0]
-        self._check_json_contains( md['ca'], {
+        TestEnv.check_json_contains( md['ca'], {
             "url": TestEnv.ACME_URL,
             "proto": "ACME"
         })
@@ -175,7 +175,7 @@ class TestRegUpdate :
         # test case: change existing account ID
         assert TestEnv.a2md([ "update", self.NAME1, "account", "test.account.id"])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "account", "foo.test.com"])['jout']['output'][0]
-        self._check_json_contains( md['ca'], {
+        TestEnv.check_json_contains( md['ca'], {
             "account": "foo.test.com",
             "url": TestEnv.ACME_URL,
             "proto": "ACME"
@@ -185,7 +185,7 @@ class TestRegUpdate :
     def test_110_203(self):
         # test case: ignore additional argument
         md = TestEnv.a2md([ "update", self.NAME1, "account", "test.account.id", "test2.account.id"])['jout']['output'][0]
-        self._check_json_contains( md['ca'], {
+        TestEnv.check_json_contains( md['ca'], {
             "account": "test.account.id",
             "url": TestEnv.ACME_URL,
             "proto": "ACME"
@@ -200,7 +200,7 @@ class TestRegUpdate :
         mail = "test@greenbytes.de"
         output = TestEnv.a2md([ "update", self.NAME1, "contacts", mail])['jout']['output']
         assert len(output) == 1
-        self._check_json_contains( output[0], {
+        TestEnv.check_json_contains( output[0], {
             "name": self.NAME1,
             "domains": [ self.NAME1, "www.greenbytes2.de", "mail.greenbytes2.de"],
             "contacts": [ "mailto:" + mail ],
@@ -255,7 +255,7 @@ class TestRegUpdate :
         # test case: add tos agreement
         output = TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS])['jout']['output']
         assert len(output) == 1
-        self._check_json_contains( output[0], {
+        TestEnv.check_json_contains( output[0], {
             "name": self.NAME1,
             "domains": [ self.NAME1, "www.greenbytes2.de", "mail.greenbytes2.de"],
             "contacts": [],
@@ -272,7 +272,7 @@ class TestRegUpdate :
         # test case: update tos agreement
         assert TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS2])['jout']['output'][0]
-        self._check_json_contains( md['ca'], {
+        TestEnv.check_json_contains( md['ca'], {
             "url": TestEnv.ACME_URL,
             "proto": "ACME",
             "agreement": TestEnv.ACME_TOS2
@@ -283,7 +283,7 @@ class TestRegUpdate :
         # test case: remove tos agreement
         assert TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "agreement"])['jout']['output'][0]
-        self._check_json_contains( md['ca'], {
+        TestEnv.check_json_contains( md['ca'], {
             "url": TestEnv.ACME_URL,
             "proto": "ACME"
         })
@@ -292,7 +292,7 @@ class TestRegUpdate :
     def test_110_403(self):
         # test case: ignore additional arguments
         md = TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS, TestEnv.ACME_TOS2])['jout']['output'][0]
-        self._check_json_contains( md['ca'], {
+        TestEnv.check_json_contains( md['ca'], {
             "url": TestEnv.ACME_URL,
             "proto": "ACME",
             "agreement": TestEnv.ACME_TOS
@@ -305,12 +305,3 @@ class TestRegUpdate :
     def test_110_404(self, invalidURL):
         # test case: update agreement with invalid URL
         assert TestEnv.a2md([ "update", self.NAME1, "agreement", invalidURL])['rv'] == 1
-
-    # --------- _utils_ ---------
-
-    def _check_json_contains(self, actual, expected):
-        # write all expected key:value bindings to a copy of the actual data ... 
-        # ... assert it stays unchanged 
-        testJson = copy.deepcopy(actual)
-        testJson.update(expected)
-        assert actual == testJson

@@ -10,7 +10,7 @@ import pytest
 
 from datetime import datetime
 from shutil import copyfile
-from testbase import TestEnv
+from test_base import TestEnv
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -49,7 +49,7 @@ class TestRegAdd :
         assert len(jout['output']) == len(dnslist)
         dnslist.reverse()
         for i in range (0, len(jout['output'])):
-            assert jout['output'][i] == {
+            TestEnv.check_json_contains( jout['output'][i], {
                 "name": dnslist[i][0],
                 "domains": dnslist[i],
                 "contacts": [],
@@ -59,7 +59,7 @@ class TestRegAdd :
                 },
                 "state": TestEnv.MD_S_INCOMPLETE,
                 "drive-mode": 0
-            }
+            })
         # list md by name
         for dns in [ "test120-001.com", "greenbytes2.de"]:
             md = TestEnv.a2md( [ "list", dns ] )['jout']['output'][0]

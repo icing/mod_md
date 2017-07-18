@@ -10,9 +10,9 @@ import time
 
 from datetime import datetime
 from httplib import HTTPSConnection
-from testbase import TestEnv
-from testbase import HttpdConf
-from testbase import CertUtil
+from test_base import TestEnv
+from test_base import HttpdConf
+from test_base import CertUtil
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
@@ -72,6 +72,27 @@ class TestRoundtrip:
         dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
         assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
                             "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
+
+        # check file system permissions:
+        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
+        TestEnv.check_file_access( TestEnv.path_store_json(), 0600 )
+        # domains
+        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'domains' ), 0700 )
+        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'domains', domain ), 0700 )
+        TestEnv.check_file_access( TestEnv.path_domain_pkey( domain ), 0600 )
+        TestEnv.check_file_access( TestEnv.path_domain_cert( domain ), 0600 )
+        TestEnv.check_file_access( TestEnv.path_domain_ca_chain( domain ), 0600 )
+        TestEnv.check_file_access( TestEnv.path_domain( domain ), 0600 )
+        # archive
+        TestEnv.check_file_access( TestEnv.path_domain( domain, archiveVersion=1 ), 0600 )
+        # accounts
+        acc = md['ca']['account']
+        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'accounts' ), 0700 )
+        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'accounts', acc ), 0700 )
+        TestEnv.check_file_access( TestEnv.path_account( acc ), 0600 )
+        TestEnv.check_file_access( TestEnv.path_account_key( acc ), 0600 )
+        # staging
+        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'staging' ), 0750 )
 
     def test_600_001(self):
         # test case: same as test_100, but with two parallel managed domains

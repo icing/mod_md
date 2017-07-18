@@ -10,7 +10,7 @@ import pytest
 
 from datetime import datetime
 from shutil import copyfile
-from testbase import TestEnv
+from test_base import TestEnv
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -35,7 +35,7 @@ class TestRegAdd :
         # test case: add a single dns managed domain
         dns = "greenbytes.de"
         jout1 = TestEnv.a2md( [ "add", dns ] )['jout']
-        self._check_json_contains( jout1['output'][0],
+        TestEnv.check_json_contains( jout1['output'][0],
             {
                 "name": dns,
                 "domains": [ dns ],
@@ -54,7 +54,7 @@ class TestRegAdd :
         # test case: add > 1 dns managed domain
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         jout1 = TestEnv.a2md( [ "add" ] + dns )['jout']
-        self._check_json_contains( jout1['output'][0],
+        TestEnv.check_json_contains( jout1['output'][0],
             {
                 "name": dns[0],
                 "domains": dns,
@@ -79,7 +79,7 @@ class TestRegAdd :
         jout = TestEnv.a2md( [ "add" ] + dns2 )['jout']
         # assert: output covers only changed md
         assert len(jout['output']) == 1
-        self._check_json_contains( jout['output'][0],
+        TestEnv.check_json_contains( jout['output'][0],
             {
                 "name": dns2[0],
                 "domains": dns2,
@@ -106,7 +106,7 @@ class TestRegAdd :
         dns = "greenbytes.de"
         jout1 = TestEnv.run( [ TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", dns ] )['jout']
         assert len(jout1['output']) == 1
-        self._check_json_contains( jout1['output'][0],
+        TestEnv.check_json_contains( jout1['output'][0],
             {
                 "name": dns,
                 "domains": [ dns ],
@@ -182,12 +182,3 @@ class TestRegAdd :
         assert len(jout['output']) == 1
         md = jout['output'][0]
         assert md['domains'] == dns
-
-    # --------- _utils_ ---------
-
-    def _check_json_contains(self, actual, expected):
-        # write all expected key:value bindings to a copy of the actual data ... 
-        # ... assert it stays unchanged 
-        testJson = copy.deepcopy(actual)
-        testJson.update(expected)
-        assert actual == testJson

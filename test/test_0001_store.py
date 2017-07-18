@@ -10,7 +10,7 @@ import pytest
 
 from datetime import datetime
 from shutil import copyfile
-from testbase import TestEnv
+from test_base import TestEnv
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -46,7 +46,7 @@ class TestStore:
     def test_000_100(self):
         # test case: add a single dns managed domain
         dns = "greenbytes.de"
-        self._check_json_contains(
+        TestEnv.check_json_contains(
             TestEnv.a2md( [ "store", "add", dns ] )['jout']['output'][0], 
             {
                 "name": dns,
@@ -63,7 +63,7 @@ class TestStore:
     def test_000_101(self):
         # test case: add > 1 dns managed domain
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
-        self._check_json_contains(
+        TestEnv.check_json_contains(
             TestEnv.a2md( [ "store", "add" ] + dns )['jout']['output'][0],
             {
                 "name": dns[0],
@@ -88,7 +88,7 @@ class TestStore:
         jout = TestEnv.a2md( [ "store", "add" ] + dns2 )['jout']
         # assert: output covers only changed md
         assert len(jout['output']) == 1
-        self._check_json_contains( jout['output'][0],
+        TestEnv.check_json_contains( jout['output'][0],
             {
                 "name": dns2[0],
                 "domains": dns2,
@@ -115,7 +115,7 @@ class TestStore:
         args = [ TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "store", "add", dns ]
         jout = TestEnv.run(args)['jout']
         assert len(jout['output']) == 1
-        self._check_json_contains( jout['output'][0],
+        TestEnv.check_json_contains( jout['output'][0],
             {
                 "name": dns,
                 "domains": [ dns ],
@@ -148,7 +148,7 @@ class TestStore:
         assert len(jout['output']) == len(dnslist)
         dnslist.reverse()
         for i in range (0, len(jout['output'])):
-            self._check_json_contains( jout['output'][i],
+            TestEnv.check_json_contains( jout['output'][i],
                 {
                     "name": dnslist[i][0],
                     "domains": dnslist[i],
@@ -256,11 +256,3 @@ class TestStore:
         # override domains list
         assert TestEnv.a2md( [ "store", "update", dns1, "domains" ] )['rv'] == 1
 
-    # --------- _utils_ ---------
-
-    def _check_json_contains(self, actual, expected):
-        # write all expected key:value bindings to a copy of the actual data ... 
-        # ... assert it stays unchanged 
-        testJson = copy.deepcopy(actual)
-        testJson.update(expected)
-        assert actual == testJson

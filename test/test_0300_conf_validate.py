@@ -9,7 +9,7 @@ import time
 from ConfigParser import SafeConfigParser
 from datetime import datetime
 from httplib import HTTPConnection
-from testbase import TestEnv
+from test_base import TestEnv
 
 config = SafeConfigParser()
 config.read('test.ini')
