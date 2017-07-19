@@ -58,20 +58,21 @@ typedef enum {
 typedef struct md_t md_t;
 struct md_t {
     const char *name;               /* unique name of this MD */
-    struct apr_array_header_t *domains; /* all DNS names this MD includes */
-    unsigned must_staple : 1;
-    
     md_state_t state;               /* state of this MD */
+    apr_time_t expires;             /* When the credentials for this domain expire. 0 if unknown */
+    apr_interval_time_t renew_window;/* time before expiration that starts renewal */
     
+    struct apr_array_header_t *domains; /* all DNS names this MD includes */
     md_drive_mode_t drive_mode;     /* mode of obtaining credentials */
-
+    int must_staple;                /* certificates should set the OCSP Must Staple extension */
+    
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     const char *ca_account;         /* account used at CA */
     const char *ca_agreement;       /* accepted agreement uri between CA and user */ 
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
-    const char *cert_url;           /* url where cert has been created */ 
+    const char *cert_url;           /* url where cert has been created, remember during drive */ 
 
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
@@ -89,6 +90,7 @@ struct md_t {
 #define MD_KEY_DISABLED         "disabled"
 #define MD_KEY_DOMAINS          "domains"
 #define MD_KEY_DRIVE_MODE       "drive-mode"
+#define MD_KEY_EXPIRES          "expires"
 #define MD_KEY_ID               "id"
 #define MD_KEY_IDENTIFIER       "identifier"
 #define MD_KEY_KEY              "key"
@@ -116,6 +118,9 @@ struct md_t {
  */
 #define MD_VAL_UPDATE(n,o,s)    ((n)->s != (o)->s)
 #define MD_SVAL_UPDATE(n,o,s)   ((n)->s && (!(o)->s || strcmp((n)->s, (o)->s)))
+
+#define MD_SECS_PER_HOUR      (60*60)
+#define MD_SECS_PER_DAY       (24*MD_SECS_PER_HOUR)
 
 /**
  * Determine if the Managed Domain contains a specific domain name.

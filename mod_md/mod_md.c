@@ -108,6 +108,9 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
                 if (nmd->drive_mode == MD_DRIVE_DEFAULT) {
                     nmd->drive_mode = md_config_geti(config, MD_CONFIG_DRIVE_MODE);
                 }
+                if (nmd->renew_window == 0) {
+                    nmd->renew_window = md_config_get_interval(config, MD_CONFIG_RENEW_WINDOW);
+                }
                 
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
                 
@@ -392,46 +395,86 @@ typedef struct {
     apr_pool_t *p;
     server_rec *s;
     ap_watchdog_t *watchdog;
-    int error_runs;
     int all_valid;
+    int had_error;
     int may_restart;
-    apr_interval_time_t interval;
+
+    int error_runs;
+    apr_time_t next_change;
     
-    apr_array_header_t *drive_names;
+    apr_array_header_t *mds;
     md_reg_t *reg;
 } md_watchdog;
 
-static apr_status_t process_md(md_watchdog *wd, const char *name, apr_pool_t *ptemp)
+static apr_status_t process_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
 {
-    const md_t *md;
     apr_status_t rv = APR_SUCCESS;
+    apr_time_t now, to_expiry;
+    int days;
     
-    md = md_reg_get(wd->reg, name, ptemp);
-    if (md) {
-        switch (md->state) {
-            case MD_S_UNKNOWN:
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                             "md(%s): in unkown state", name);
-                break;
-            case MD_S_COMPLETE:
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                             "md(%s): is complete", name);
-                break;
-            case MD_S_ERROR:
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                             "md(%s): in error state", name);
-                break;
-            case MD_S_INCOMPLETE:
-            case MD_S_EXPIRED:
-                wd->all_valid = 0;
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                             "md(%s): state=%d, driving", name, md->state);
-                rv = md_reg_stage(wd->reg, md, 0, ptemp);
-                if (APR_SUCCESS == rv) {
-                    wd->may_restart = 1;
+    switch (md->state) {
+        case MD_S_UNKNOWN:
+            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                         "md(%s): in unkown state", md->name);
+            break;
+        case MD_S_ERROR:
+            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                         "md(%s): in error state", md->name);
+            break;
+        case MD_S_COMPLETE:
+            if (!md->expires) {
+                /* This is our indicator that we did already renew this managed domain
+                 * successfully and only wait on the next restart for it to activate */
+                ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
+                             "md(%s): has been renewed, will activate on next restart", md->name);
+                break; 
+            }
+            else {
+                to_expiry = (md->expires > (now = apr_time_now()))? (md->expires - now) : 0;
+                if (to_expiry > 0) {
+                    days = (int)(apr_time_sec(to_expiry) / MD_SECS_PER_DAY);
+                    
+                    if (to_expiry <= md->renew_window) {
+                        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                                     "md(%s): %d days to expiry, attempt renewal", md->name, days);
+                        rv = md_reg_stage(wd->reg, md, 0, ptemp);
+                        if (APR_SUCCESS == rv) {
+                            md->expires = 0;
+                            wd->may_restart = 1;
+                        }
+                    }
+                    else {
+                        char ts[APR_RFC822_DATE_LEN];
+                        apr_time_t renewal;
+                        
+                        apr_rfc822_date(ts, md->expires);
+                        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                                     "md(%s): is complete, cert expires %s (in ~%d days)", 
+                                     md->name, ts, days);
+                        renewal = md->expires - md->renew_window;
+                        if (renewal < wd->next_change) {
+                            wd->next_change = renewal;
+                        }
+                    }
+                    break;
                 }
-                break;
-        }
+                else {
+                    md->state = MD_S_EXPIRED;
+                }
+            }
+            /* fall through */
+        case MD_S_INCOMPLETE:
+        case MD_S_EXPIRED:
+            wd->all_valid = 0;
+            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                         "md(%s): state=%d, driving", md->name, md->state);
+            rv = md_reg_stage(wd->reg, md, 0, ptemp);
+            if (APR_SUCCESS == rv) {
+                md->state = MD_S_COMPLETE;
+                md->expires = 0;
+                wd->may_restart = 1;
+            }
+            break;
     }
     return rv;
 }
@@ -440,55 +483,78 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
     md_watchdog *wd = baton;
     apr_status_t rv = APR_SUCCESS;
-    int i, errors;
-    const char *name;
+    md_t *md;
+    apr_interval_time_t interval;
+    int i;
     
     switch (state) {
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
-                         "md watchdog start, auto drive %d mds", wd->drive_names->nelts);
+                         "md watchdog start, auto drive %d mds", wd->mds->nelts);
             break;
         case AP_WATCHDOG_STATE_RUNNING:
             assert(wd->reg);
             
+            /* normally, we'd like to run at least twice a day */
+            interval = apr_time_from_sec(MD_SECS_PER_DAY / 2);
+
             wd->all_valid = 1;
             wd->may_restart = 0;
-            errors = 0;
+            wd->had_error = 0;
+            wd->next_change = 0;
             
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
-                         "md watchdog run, auto drive %d mds", wd->drive_names->nelts);
+                         "md watchdog run, auto drive %d mds", wd->mds->nelts);
                          
             /* Check if all Managed Domains are ok or if we have to do something */
-            for (i = 0; i < wd->drive_names->nelts; ++i) {
-                name = APR_ARRAY_IDX(wd->drive_names, i, const char*);
-                if (APR_SUCCESS != (rv = process_md(wd, name, ptemp))) {
+            for (i = 0; i < wd->mds->nelts; ++i) {
+                md = APR_ARRAY_IDX(wd->mds, i, md_t *);
+                if (APR_SUCCESS != (rv = process_md(wd, md, ptemp))) {
+                    wd->had_error = 1;
                     ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() 
-                                 "processing %s", name);
-                    errors = 1;
+                                 "processing %s", md->name);
                 }
             }
 
-            wd->error_runs = errors? (wd->error_runs + 1) : 0;
+            /* Determine when we want to run next */
+            wd->error_runs = wd->had_error? (wd->error_runs + 1) : 0;
             if (wd->all_valid) {
-                wd->interval = apr_time_from_sec(12*60*60);
-                ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
-                             "all managed domains are valid, next run in 12 hours");
+                ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, wd->s, "all managed domains are valid");
             }
             else if (wd->may_restart) {
-                wd->interval = apr_time_from_sec(5*60);
                 ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
-                             "awaiting restart, next run in 5 minutes");
+                             "awaiting restart");
             }
             else {
-                wd->interval = wd->error_runs * apr_time_from_sec(10);
-                if (wd->interval > apr_time_from_sec(60*60)) {
-                    wd->interval = apr_time_from_sec(60*60);
+                /* back off duration, depending on the errors we encounter in a row */
+                interval = wd->error_runs * apr_time_from_sec(10);
+                if (interval > apr_time_from_sec(60*60)) {
+                    interval = apr_time_from_sec(60*60);
                 }
                 ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
                              "encountered errors for the %d. time, next run in %d seconds",
-                             wd->error_runs, (int)apr_time_sec(wd->interval));
+                             wd->error_runs, (int)apr_time_sec(interval));
             }
-            wd_set_interval(wd->watchdog, wd->interval, wd, run_watchdog);
+            
+            /* We follow the chosen min_interval for re-evaluation, unless we
+             * know of a change (renewal) that happens before that. */
+            if (wd->next_change) {
+                apr_interval_time_t until_next = wd->next_change - apr_time_now();
+                if (until_next < interval) {
+                    interval = until_next;
+                }
+            }
+            
+            /* Set when we'd like to be run next time. 
+             * TODO: it seems that this is really only ticking down when the server
+             * runs. When you wake up a hibernated machine, the watchdog will not run right away 
+             */
+            wd_set_interval(wd->watchdog, interval, wd, run_watchdog);
+            if (APLOGdebug(wd->s)) {
+                int secs = (int)(apr_time_sec(interval) % MD_SECS_PER_DAY);
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, "next run in %2d:%02d hours", 
+                             (int)secs/MD_SECS_PER_HOUR, (int)(secs%(MD_SECS_PER_HOUR))/60);
+            }
             break;
         case AP_WATCHDOG_STATE_STOPPING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
@@ -512,8 +578,10 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
 {
     apr_allocator_t *allocator;
     md_watchdog *wd;
+    apr_pool_t *wdp;
     apr_status_t rv;
     const char *name;
+    md_t *md;
     int i;
     
     wd_get_instance = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_get_instance);
@@ -525,28 +593,76 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
         return !OK;
     }
     
-    wd = apr_pcalloc(p, sizeof(*wd));
-
     /* We want our own pool with own allocator to keep data across watchdog invocations */
     apr_allocator_create(&allocator);
     apr_allocator_max_free_set(allocator, ap_max_mem_free);
-    rv = apr_pool_create_ex(&wd->p, p, NULL, allocator);
+    rv = apr_pool_create_ex(&wdp, p, NULL, allocator);
     if (rv != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "md_watchdog: create pool");
         return rv;
     }
-    apr_allocator_owner_set(allocator, wd->p);
-    apr_pool_tag(wd->p, "md_watchdog");
+    apr_allocator_owner_set(allocator, wdp);
+    apr_pool_tag(wdp, "md_watchdog");
 
+    wd = apr_pcalloc(wdp, sizeof(*wd));
+    wd->p = wdp;
     wd->reg = reg;
     wd->s = s;
-    wd->interval = apr_time_from_sec(5);
-    wd->drive_names = apr_array_make(wd->p, 10, sizeof(const char *));
+    
+    wd->mds = apr_array_make(wd->p, 10, sizeof(md_t *));
     for (i = 0; i < names->nelts; ++i) {
         name = APR_ARRAY_IDX(names, i, const char *);
-        APR_ARRAY_PUSH(wd->drive_names, const char*) = apr_pstrdup(wd->p, name);
+        md = md_reg_get(wd->reg, name, wd->p);
+        if (md) {
+            switch (md->state) {
+                case MD_S_UNKNOWN:
+                    ap_log_error( APLOG_MARK, APLOG_ERR, 0, wd->s, APLOGNO() 
+                                 "md(%s): in unkown state, do not know what to do.", name);
+                    break;
+                case MD_S_COMPLETE:
+                    if (!md->expires) {
+                        ap_log_error( APLOG_MARK, APLOG_WARNING, 0, wd->s, APLOGNO() 
+                                     "md(%s): looks complete, but has unknown expiration date. "
+                                     "This is weird. Will not process this any further.", name);
+                    }
+                    else if (md->expires > apr_time_now()) {
+                        APR_ARRAY_PUSH(wd->mds, md_t*) = md;
+                        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                                     "md(%s): is complete and has not expired", name);
+                        break;
+                    }
+                    else {
+                        /* Maybe we hibernated in the meantime? */
+                        md->state = MD_S_EXPIRED;
+                    }
+                    /* fall through */
+                case MD_S_ERROR:
+                    ap_log_error( APLOG_MARK, APLOG_ERR, 0, wd->s, APLOGNO() 
+                                 "md(%s): in error state, unable to drive forward. It could "
+                                 "be that files have gotten corrupted. You may check with "
+                                 "a2md the status of this managed domain to diagnose the "
+                                 " problem. As a last resort, you may delete the files for "
+                                 " this md and start all over.", name);
+                    break;
+                case MD_S_INCOMPLETE:
+                case MD_S_EXPIRED:
+                    wd->all_valid = 0;
+                    ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                                 "md(%s): state=%d, driving", name, md->state);
+                    APR_ARRAY_PUSH(wd->mds, md_t*) = md;
+                    break;
+            }
+        }
     }
 
+    if (!wd->mds->nelts) {
+        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()
+                     "no managed domain in state to drive, no watchdog needed, "
+                     "will check again on next server restart");
+        apr_pool_destroy(wd->p);
+        return APR_SUCCESS;
+    }
+    
     if (APR_SUCCESS != (rv = wd_get_instance(&wd->watchdog, MD_WATCHDOG_NAME, 0, 1, wd->p))) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO() 
                      "create md watchdog(%s)", MD_WATCHDOG_NAME);
@@ -621,6 +737,15 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         goto out;
     }
     
+    /* Determine the managed domains that are in auto drive_mode. For those,
+     * determine in which state they are:
+     *  - UNKNOWN:            should not happen, report, dont drive
+     *  - ERROR:              something we do not know how to fix, report, dont drive
+     *  - INCOMPLETE/EXPIRED: need to drive them right away
+     *  - COMPLETE:           determine when cert expires, drive when the time comes
+     *
+     * Start the watchdog if we have anything, now or in the future.
+     */
     drive_names = apr_array_make(ptemp, mds->nelts+1, sizeof(const char *));
     for (i = 0; i < mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mds, i, const md_t *);
@@ -629,7 +754,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         }
     }
     
-    /* Now, do we need to do anything? */
     if (drive_names->nelts > 0) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
                      "%d out of %d mds are configured for auto-drive", 

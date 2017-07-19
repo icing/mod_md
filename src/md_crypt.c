@@ -442,6 +442,18 @@ int md_cert_has_expired(const md_cert_t *cert)
     return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) <= 0);
 }
 
+apr_time_t md_cert_get_not_after(md_cert_t *cert)
+{
+    int secs, days;
+    apr_time_t time = apr_time_now();
+    ASN1_TIME *not_after = X509_get_notAfter(cert->x509);
+    
+    if (ASN1_TIME_diff(&days, &secs, NULL, not_after)) {
+        time += apr_time_from_sec((days * MD_SECS_PER_DAY) + secs); 
+    }
+    return time;
+}
+
 int md_cert_covers_md(md_cert_t *cert, const md_t *md)
 {
     const char *name;

@@ -1,3 +1,6 @@
+ * renew window taken into account when scheduling md watchdog
+ * new directive MDRenewWindow which specifies the number of days (per default) that certificates
+   should be renewed before they expire. Can be set globally or directly on a MD.
  * when run as normal user, mod_md can restart httpd after successful staging of new credentials
  * protocol driving split into staging and loading phase. a2md does both, httpd watchdog runs
    staging and on restart the staged changes are loaded.

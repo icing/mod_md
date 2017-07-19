@@ -119,7 +119,7 @@ static md_cmd_t RemoveCmd = {
 /**************************************************************************************************/
 /* command: store list */
 
-static int list_md(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp)
+static int list_md(void *baton, md_store_t *store, md_t *md, apr_pool_t *ptemp)
 {
     md_cmd_print_md(baton, md);
     return 1;

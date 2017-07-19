@@ -67,7 +67,7 @@ md_cmd_t MD_RegAddCmd = {
 /**************************************************************************************************/
 /* command: list */
 
-static int list_add_md(void *baton, md_reg_t *reg, const md_t *md)
+static int list_add_md(void *baton, md_reg_t *reg, md_t *md)
 {
     apr_array_header_t *mdlist = baton;
     

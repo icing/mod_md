@@ -116,7 +116,7 @@ apr_status_t md_save(struct md_store_t *store, apr_pool_t *p, md_store_group_t g
 apr_status_t md_remove(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
                      const char *name, int force);
 
-typedef int md_store_md_inspect(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp);
+typedef int md_store_md_inspect(void *baton, md_store_t *store, md_t *md, apr_pool_t *ptemp);
 
 apr_status_t md_store_md_iter(md_store_md_inspect *inspect, void *baton, md_store_t *store, 
                               apr_pool_t *p, md_store_group_t group, const char *pattern);

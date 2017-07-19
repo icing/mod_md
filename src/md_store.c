@@ -268,7 +268,7 @@ static int insp_md(void *baton, const char *name, const char *aspect,
     inspect_md_ctx *ctx = baton;
     
     if (!strcmp(MD_FN_MD, aspect) && vtype == MD_SV_JSON) {
-        const md_t *md = md_from_json(value, ptemp);
+        md_t *md = md_from_json(value, ptemp);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting md at: %s", name);
         return ctx->inspect(ctx->baton, ctx->store, md, ptemp);
     }

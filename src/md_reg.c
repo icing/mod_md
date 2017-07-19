@@ -145,62 +145,77 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
 /**************************************************************************************************/
 /* state assessment */
 
-static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, const md_t *md)
+static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
 {
     md_state_t state = MD_S_UNKNOWN;
     const md_creds_t *creds;
     const md_cert_t *cert;
+    apr_time_t expires = 0;
     apr_status_t rv;
     int i;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
         state = MD_S_INCOMPLETE;
-        if (creds->cert && creds->pkey && creds->chain) {
+        if (!creds->pkey) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                          "md{%s}: incomplete, without private key", md->name);
+        }
+        else if (!creds->cert) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                          "md{%s}: incomplete, has key but no certificate", md->name);
+        }
+        else if (!creds->chain) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                          "md{%s}: incomplete, has key and certificate, but no chain file.", 
+                          md->name);
+        }
+        else {
+            expires = md_cert_get_not_after(creds->cert);
             if (md_cert_has_expired(creds->cert)) {
                 state = MD_S_EXPIRED;
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert expired", md->name);
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                              "md{%s}: expired, certificate has expired", md->name);
                 goto out;
             }
             if (!md_cert_is_valid_now(creds->cert)) {
                 state = MD_S_ERROR;
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                              "md{%s}: cert not valid yet", md->name);
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                              "md{%s}: error, certificate valid in future (clock wrong?)", 
+                              md->name);
                 goto out;
             }
             if (!md_cert_covers_md(creds->cert, md)) {
                 state = MD_S_INCOMPLETE;
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                              "md{%s}: pending, cert does not cover all domains", md->name);
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+                              "md{%s}: incomplete, cert no longer covers all domains, "
+                              "needs sign up for a new certificate", md->name);
                 goto out;
             }
 
-            /* TODO: Do we consider an empty chain complete? */
             for (i = 0; i < creds->chain->nelts; ++i) {
                 cert = APR_ARRAY_IDX(creds->chain, i, const md_cert_t *);
                 if (!md_cert_is_valid_now(cert)) {
-                    state = MD_S_EXPIRED;
+                    state = MD_S_ERROR;
                     md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                                  "md{%s}: chain cert #%d not valid", md->name, i);
+                                  "md{%s}: error, the certificate itself is valid, however the %d. "
+                                  "certificate in the chain is not valid now (clock wrong?).", 
+                                  md->name, i);
                     goto out;
                 }
             } 
 
             state = MD_S_COMPLETE;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: cert valid", md->name);
-        }
-        else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: has cert=%d/pkey=%d/chain=%d", 
-                          md->name, !!creds->cert, !!creds->pkey, !!creds->chain);
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: complete", md->name);
         }
     }
 
 out:    
     if (APR_SUCCESS != rv) {
         state = MD_S_ERROR;
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}{state}: %d", md->name, state);
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}: error", md->name);
     }
-    /* break the constness, ugly but effective */
-    ((md_t *)md)->state = state;
+    md->state = state;
+    md->expires = expires;
     return rv;
 }
 
@@ -212,7 +227,7 @@ static apr_status_t state_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     return state_init(reg, p, md);
 }
 
-apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md, apr_pool_t *p)
+apr_status_t md_reg_state_init(md_reg_t *reg, md_t *md, apr_pool_t *p)
 {
     return md_util_pool_vdo(state_vinit, reg, p, md, NULL);
 }
@@ -224,7 +239,7 @@ typedef struct {
     apr_status_t rv;
 } init_ctx;
 
-static int state_ctx_init(void *baton, md_reg_t *reg, const md_t *md)
+static int state_ctx_init(void *baton, md_reg_t *reg, md_t *md)
 {
     init_ctx *ctx = baton;
     
@@ -252,7 +267,7 @@ apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early, apr_pool_t *p)
     return md_util_pool_vdo(states_vinit, reg, p, fail_early, NULL);
 }
 
-static const md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p) 
+static md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p) 
 {
     if (md) {
         int ostate = md->state;
@@ -274,7 +289,7 @@ typedef struct {
     const void *result;
 } reg_do_ctx;
 
-static int reg_md_iter(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp)
+static int reg_md_iter(void *baton, md_store_t *store, md_t *md, apr_pool_t *ptemp)
 {
     reg_do_ctx *ctx = baton;
     
@@ -305,22 +320,22 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p)
 /**************************************************************************************************/
 /* lookup */
 
-const md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p)
+md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p)
 {
     md_t *md;
     
     if (APR_SUCCESS == md_load(reg->store, MD_SG_DOMAINS, name, &md, p)) {
-        return state_check(reg, (md_t*)md, p);
+        return state_check(reg, md, p);
     }
     return NULL;
 }
 
 typedef struct {
     const char *domain;
-    const md_t *md;
+    md_t *md;
 } find_domain_ctx;
 
-static int find_domain(void *baton, md_reg_t *reg, const md_t *md)
+static int find_domain(void *baton, md_reg_t *reg, md_t *md)
 {
     find_domain_ctx *ctx = baton;
     
@@ -331,7 +346,7 @@ static int find_domain(void *baton, md_reg_t *reg, const md_t *md)
     return 1;
 }
 
-const md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p)
+md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p)
 {
     find_domain_ctx ctx;
 
@@ -348,7 +363,7 @@ typedef struct {
     const char *s;
 } find_overlap_ctx;
 
-static int find_overlap(void *baton, md_reg_t *reg, const md_t *md)
+static int find_overlap(void *baton, md_reg_t *reg, md_t *md)
 {
     find_overlap_ctx *ctx = baton;
     const char *overlap;
@@ -361,7 +376,7 @@ static int find_overlap(void *baton, md_reg_t *reg, const md_t *md)
     return 1;
 }
 
-const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, apr_pool_t *p)
+md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, apr_pool_t *p)
 {
     find_overlap_ctx ctx;
     
@@ -563,7 +578,7 @@ typedef struct {
     apr_array_header_t *store_mds;
 } sync_ctx;
 
-static int find_changes(void *baton, md_store_t *store, const md_t *md, apr_pool_t *ptemp)
+static int find_changes(void *baton, md_store_t *store, md_t *md, apr_pool_t *ptemp)
 {
     sync_ctx *ctx = baton;
 

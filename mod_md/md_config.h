@@ -24,18 +24,20 @@ typedef enum {
     MD_CONFIG_BASE_DIR,
     MD_CONFIG_CA_AGREEMENT,
     MD_CONFIG_DRIVE_MODE,
+    MD_CONFIG_RENEW_WINDOW,
 } md_config_var_t;
 
 typedef struct {
     const char *name;
     const server_rec *s;
     
-    apr_array_header_t *mds; /* array of md_t pointers */
+    apr_array_header_t *mds;           /* array of md_t pointers */
     const char *ca_url;
     const char *ca_proto;
     const char *ca_agreement;
     
     int drive_mode;
+    apr_interval_time_t renew_window;  /* time before expiration that starts renewal */
     
     const md_t *md;
     const char *base_dir;
@@ -63,5 +65,6 @@ const md_config_t *md_config_get_unique(server_rec *s, apr_pool_t *p);
 
 const char *md_config_gets(const md_config_t *config, md_config_var_t var);
 int md_config_geti(const md_config_t *config, md_config_var_t var);
+apr_interval_time_t md_config_get_interval(const md_config_t *config, md_config_var_t var);
 
 #endif /* md_config_h */

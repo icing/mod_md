@@ -39,7 +39,8 @@ static md_config_t defconf = {
     "https://acme-v01.api.letsencrypt.org/directory",
     "ACME",
     NULL, 
-    MD_DRIVE_AUTO, 
+    MD_DRIVE_AUTO,
+    apr_time_from_sec(14 * MD_SECS_PER_DAY), 
     NULL, 
     "md",
     NULL
@@ -83,6 +84,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     n->drive_mode = (add->drive_mode == DEF_VAL)? add->drive_mode : base->drive_mode;
     n->md = NULL;
     n->base_dir = add->base_dir? add->base_dir : base->base_dir;
+    n->renew_window = add->renew_window? add->renew_window : base->renew_window;
     return n;
 }
 
@@ -313,6 +315,60 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
     return NULL;
 }
 
+static apr_status_t duration_parse(const char *value, apr_interval_time_t *ptimeout, 
+                                   const char *def_unit)
+{
+    apr_int64_t tout;
+    const char *time_str;
+    char *endp;
+    long funits = 1;
+    apr_status_t rv;
+    
+    tout = apr_strtoi64(value, &endp, 10);
+    if (errno) {
+        return errno;
+    }
+    if (!endp || !*endp) {
+        time_str = def_unit;
+    }
+    else if (*endp == 'd') {
+        time_str = "s";
+        funits = MD_SECS_PER_DAY;
+    }
+    else {
+        time_str = endp;
+    }
+    rv = ap_timeout_parameter_parse(value, ptimeout, time_str);
+    if (APR_SUCCESS == rv && funits > 1) {
+        *ptimeout *= funits;
+    }
+    return rv;
+}
+
+static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    const char *err;
+    apr_interval_time_t timeout;
+
+    /* Inspired by http_core.c */
+    if (duration_parse(value, &timeout, "d") != APR_SUCCESS) {
+        return "MDRenewWindow has wrong format";
+    }
+        
+    if (inside_section(cmd)) {
+        md_config_dir_t *dconf = dc;
+        dconf->md->renew_window = timeout;
+    }
+    else {
+        if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+            return err;
+        }
+        config->renew_window = timeout;
+    }
+    return NULL;
+}
+
 static const char *md_config_set_store_dir(cmd_parms *cmd, void *arg, const char *value)
 {
     md_config_t *config = (md_config_t *)md_config_get(cmd->server);
@@ -345,6 +401,8 @@ const command_rec md_cmds[] = {
                   "URL of CA Terms-of-Service agreement you accept"),
     AP_INIT_TAKE1("MDDriveMode", md_config_set_drive_mode, NULL, RSRC_CONF, 
                   "method of obtaining certificates for the managed domain"),
+    AP_INIT_TAKE1("MDRenewWindow", md_config_set_renew_window, NULL, RSRC_CONF, 
+                  "Time length for renewal before certificate expires (defaults to days)"),
     AP_END_CMD
 };
 
@@ -398,6 +456,16 @@ int md_config_geti(const md_config_t *config, md_config_var_t var)
     switch (var) {
         case MD_CONFIG_DRIVE_MODE:
             return (config->drive_mode != DEF_VAL)? config->drive_mode : defconf.drive_mode;
+        default:
+            return 0;
+    }
+}
+
+apr_interval_time_t md_config_get_interval(const md_config_t *config, md_config_var_t var)
+{
+    switch (var) {
+        case MD_CONFIG_RENEW_WINDOW:
+            return config->renew_window? config->renew_window : defconf.renew_window;
         default:
             return 0;
     }

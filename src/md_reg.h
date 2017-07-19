@@ -47,24 +47,24 @@ apr_status_t md_reg_add(md_reg_t *reg, md_t *md, apr_pool_t *p);
  * Find the md, if any, that contains the given domain name. 
  * NULL if none found.
  */
-const md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p);
+md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p);
 
 /**
  * Find one md, which domain names overlap with the given md and that has a different
  * name. There may be more than one existing md that overlaps. It is not defined
  * which one will be returned. 
  */
-const md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, apr_pool_t *p);
+md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, apr_pool_t *p);
 
 /**
  * Get the md with the given unique name. NULL if it does not exist.
  */
-const md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p);
+md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p);
 
 /**
  * Callback invoked for every md in the registry. If 0 is returned, iteration stops.
  */
-typedef int md_reg_do_cb(void *baton, md_reg_t *reg, const md_t *md);
+typedef int md_reg_do_cb(void *baton, md_reg_t *reg, md_t *md);
 
 /**
  * Invoke callback for all mds in this registry. Order is not guarantueed.
@@ -97,7 +97,7 @@ apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p,
  * Initialize the state of the md (again), based on current properties and current
  * state of the store.
  */
-apr_status_t md_reg_state_init(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+apr_status_t md_reg_state_init(md_reg_t *reg, md_t *md, apr_pool_t *p);
 
 /**
  * Initialize all mds (again), based on current properties and current
