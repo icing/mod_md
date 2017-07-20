@@ -155,15 +155,18 @@ AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found"
 #
 AC_CHECK_LIB([jansson], [json_loads], , [AC_MSG_ERROR("library jansson not found")])
 
-AC_CHECK_HEADERS([jansson.h], [],  [AC_MSG_ERROR("header jansson.h not found")], [
+AC_CHECK_HEADER([jansson.h], [],  [AC_MSG_WARN("header jansson.h not found")], [
 #include <jansson_config.h>
 #undef   JSON_INLINE
 #define JSON_INLINE 
 #include <jansson.h>
 ])
 
+
+AC_CHECK_LIB([apr-1], [apr_pool_create_ex], [LIB_APR=apr-1], [AC_MSG_ERROR("library apr-1 not found")])
+AC_SUBST(LIB_APR)
+
 # We need a HTTP client which can talk https: and, optionally even HTTP/2
-# just like curl can.
 #
 
 if test x"$request_curl" = "xcheck"; then
