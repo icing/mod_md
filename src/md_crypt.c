@@ -70,6 +70,7 @@ static void seed_RAND(int pid)
 {   
     unsigned char stackdata[256];
     /* stolen from mod_ssl/ssl_engine_rand.c */
+    apr_size_t l;
     struct {
         time_t t;
         pid_t pid;
