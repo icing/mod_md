@@ -616,7 +616,7 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         goto out;
     }
     
-    rv = md_util_is_dir(to_dir, ptemp);
+    rv = archive? md_util_is_dir(to_dir, ptemp) : APR_ENOENT;
     if (APR_SUCCESS == rv) {
         int n = 1;
         const char *narch_dir;
