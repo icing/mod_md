@@ -1,4 +1,5 @@
 
+User @HTTPD_USER@
 
 ServerName @SERVER_NAME@
 ServerRoot "@SERVER_DIR@"

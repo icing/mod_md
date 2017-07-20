@@ -248,7 +248,6 @@ static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
      */
     if (ftype == APR_DIR) {
         switch (group) {
-            case MD_SG_ACCOUNTS:
             case MD_SG_CHALLENGES:
             case MD_SG_STAGING:
                 rv = md_make_worker_accessible(fname, p);
