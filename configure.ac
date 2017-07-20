@@ -139,6 +139,7 @@ fi
 export BUILD_SUBDIRS="src mod_md a2md test"
 
 prefix="$($APXS -q prefix)"
+prefix="${prefix:-/usr}"
 export PREFIX="${prefix}"
 LDFLAGS="$LDFLAGS -L$($APXS -q libdir)"
 CPPFLAGS="$CPPFLAGS -I$($APXS -q includedir) -I$($APXS -q APR_INCLUDEDIR)"
