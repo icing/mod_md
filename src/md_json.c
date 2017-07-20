@@ -744,19 +744,31 @@ apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, apr_bucket_briga
     return rv? APR_EGENERAL : APR_SUCCESS;
 }
 
-const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *pool)
+static int chunk_cb(const char *buffer, size_t len, void *baton)
+{
+    apr_array_header_t *chunks = baton;
+    char *chunk = apr_pcalloc(chunks->pool, len+1);
+    
+    memcpy(chunk, buffer, len);
+    APR_ARRAY_PUSH(chunks, const char *) = chunk;
+    return 0;
+}
+
+const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *p)
 {
     size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
-    size_t jlen = json_dumpb(json->j, NULL, 0, flags);
-    char *s;
-    
-    if (jlen == 0) {
-        return NULL;
+    apr_array_header_t *chunks;
+
+    chunks = apr_array_make(p, 10, sizeof(char *));
+    json_dump_callback(json->j, chunk_cb, chunks, flags);
+    switch (chunks->nelts) {
+        case 0:
+            return "";
+        case 1:
+            return APR_ARRAY_IDX(chunks, 0, const char *);
+        default:
+            return apr_array_pstrcat(p, chunks, 0);
     }
-    s = apr_palloc(pool, jlen+1);
-    jlen = json_dumpb(json->j, s, jlen, flags);
-    s[jlen] = '\0';
-    return s;
 }
 
 static int fdump_cb(const char *buffer, size_t blen, void *baton)
