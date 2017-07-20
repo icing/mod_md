@@ -166,6 +166,8 @@ AC_CHECK_HEADER([jansson.h], [],  [AC_MSG_WARN("header jansson.h not found")], [
 
 AC_CHECK_LIB([apr-1], [apr_pool_create_ex], [LIB_APR=apr-1], [AC_MSG_ERROR("library apr-1 not found")])
 AC_SUBST(LIB_APR)
+AC_CHECK_LIB([aprutil-1], [apr_brigade_create], [LIB_APRUTIL=aprutil-1], [AC_MSG_ERROR("library aprutil-1 not found")])
+AC_SUBST(LIB_APRUTIL)
 
 # We need a HTTP client which can talk https: and, optionally even HTTP/2
 #

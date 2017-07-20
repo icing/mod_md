@@ -21,7 +21,7 @@ AUTOMAKE_OPTIONS = foreign
 lib_LTLIBRARIES    = libapachemd.la
 
 libapachemd_la_CPPFLAGS = -g -std=c99 -D_GNU_SOURCE -Werror
-libapachemd_la_LDFLAGS  = @LDFLAGS@ -lapr-1 -laprutil-1
+libapachemd_la_LDFLAGS  = @LDFLAGS@ -ljansson -lcurl -lssl -lcrypto
 
 A2LIB_OBJECTS = \
     acme/md_acme.c \
