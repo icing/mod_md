@@ -82,10 +82,7 @@ static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name,
         if (!tos) {
             tos = ctx->acme->acct->agreement;
             if (!tos) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                              "terms-of-service not specified (--terms), using default %s", 
-                              TOS_DEFAULT);
-                tos = TOS_DEFAULT;
+                return APR_BADARG;
             }
         }
         rv = md_acme_agree(ctx->acme, ctx->p, tos);

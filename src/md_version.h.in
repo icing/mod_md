@@ -36,5 +36,6 @@
  */
 #define MOD_MD_VERSION_NUM @PACKAGE_VERSION_NUM@
 
+#define MD_TEST_PHASE   @MD_TEST_PHASE@
 
 #endif /* mod_h2_h2_version_h */

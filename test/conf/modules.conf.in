@@ -34,5 +34,5 @@ LoadModule watchdog_module      "@PREFIX@/modules/mod_watchdog.so"
 
 LoadModule mpm_event_module     "@PREFIX@/modules/mod_mpm_event.so"
 
-LoadModule md_module            "@SRC_DIR@/.libs/mod_md.so"
+LoadModule md_module            "@MODULE_SRC@/.libs/mod_md.so"
 

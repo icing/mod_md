@@ -36,7 +36,7 @@ static md_config_t defconf = {
     "default",
     NULL,
     NULL,
-    "https://acme-v01.api.letsencrypt.org/directory",
+    MD_ACME_DEF_URL,
     "ACME",
     NULL, 
     MD_DRIVE_AUTO,

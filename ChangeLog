@@ -1,3 +1,4 @@
+ * Changed default ACME CA url to letsencrypt.org staging environment
  * a2md drive command now with same checks on renewal as mod_md. New option --force to
    force a renewal that look unnecessary.
  * renew window taken into account when scheduling md watchdog

@@ -77,9 +77,6 @@ struct md_cmd_t {
 
 extern apr_getopt_option_t MD_NoOptions[];
 
-
-#define TOS_DEFAULT     "https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf"
-
 apr_status_t usage(const md_cmd_t *cmd, const char *msg);
 
 apr_array_header_t *md_cmd_gather_args(md_cmd_ctx *ctx, int index);

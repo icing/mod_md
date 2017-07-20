@@ -36,5 +36,6 @@
  */
 #define MOD_MD_VERSION_NUM 0x000100
 
+#define MD_TEST_PHASE   1
 
 #endif /* mod_h2_h2_version_h */

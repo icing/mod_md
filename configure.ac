@@ -61,8 +61,8 @@ AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
     [Use serverdir directory for setup [default=gen/apache]])],
     [request_serverdir=$withval], [request_serverdir=$PWD/test/gen/apache])
 
-SRC_DIR="$PWD/mod_md"
-AC_SUBST(SRC_DIR)
+MD_TEST_PHASE=1
+AC_SUBST(MD_TEST_PHASE)
 
 SERVER_NAME=$(hostname -f)
 AC_SUBST(SERVER_NAME)
@@ -77,6 +77,10 @@ AC_SUBST(HTTPS_PORT)
 
 HTTPD_USER="$USER"
 AC_SUBST(HTTPD_USER)
+
+MODULE_SRC="$PWD/mod_md"
+AC_SUBST(MODULE_SRC)
+
 
 # Checks for programs.
 AC_PROG_CC
