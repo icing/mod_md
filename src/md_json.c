@@ -26,6 +26,7 @@
  * when undefining their INLINEs, we get static, unused functions, arg 
  */
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wunreachable-code"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-function"

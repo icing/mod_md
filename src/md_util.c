@@ -238,7 +238,7 @@ apr_status_t md_util_path_merge(const char **ppath, apr_pool_t *p, ...)
 apr_status_t md_util_freplace(const char *fpath, apr_fileperms_t perms, apr_pool_t *p, 
                               md_util_file_cb *write_cb, void *baton)
 {
-    apr_status_t rv;
+    apr_status_t rv = APR_EEXIST;
     apr_file_t *f;
     const char *tmp;
     int i, max;

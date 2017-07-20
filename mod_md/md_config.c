@@ -318,13 +318,12 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
 static apr_status_t duration_parse(const char *value, apr_interval_time_t *ptimeout, 
                                    const char *def_unit)
 {
-    apr_int64_t tout;
     const char *time_str;
     char *endp;
     long funits = 1;
     apr_status_t rv;
     
-    tout = apr_strtoi64(value, &endp, 10);
+    apr_strtoi64(value, &endp, 10);
     if (errno) {
         return errno;
     }

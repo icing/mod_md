@@ -108,7 +108,6 @@ if test "x$werror" != "xno"; then
 # does not make sense with APR as it prefers char* to void*
 #    AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"])
     AX_CHECK_COMPILE_FLAG([-Wvla], [CFLAGS="$CFLAGS -Wvla"])
-    AX_CHECK_COMPILE_FLAG([-Wpragmas], [CFLAGS="$CFLAGS -Wpragmas"])
     AX_CHECK_COMPILE_FLAG([-Wunreachable-code], [CFLAGS="$CFLAGS -Wunreachable-code"])
     AX_CHECK_COMPILE_FLAG([-Waddress], [CFLAGS="$CFLAGS -Waddress"])
     AX_CHECK_COMPILE_FLAG([-Wattributes], [CFLAGS="$CFLAGS -Wattributes"])
@@ -156,7 +155,12 @@ AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found"
 #
 AC_CHECK_LIB([jansson], [json_loads], , [AC_MSG_ERROR("library jansson not found")])
 
-AC_CHECK_HEADERS([jansson.h])
+AC_CHECK_HEADERS([jansson.h], [],  [AC_MSG_ERROR("header jansson.h not found")], [
+#include <jansson_config.h>
+#undef   JSON_INLINE
+#define JSON_INLINE 
+#include <jansson.h>
+])
 
 # We need a HTTP client which can talk https: and, optionally even HTTP/2
 # just like curl can.

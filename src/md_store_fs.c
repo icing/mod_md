@@ -321,7 +321,7 @@ static apr_status_t fs_fload(void **pvalue, md_store_fs_t *s_fs, const char *fpa
 static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
-    const char *fpath, *name, *aspect, *groupname;
+    const char *fpath, *name, *aspect;
     md_store_vtype_t vtype;
     md_store_group_t group;
     void **pvalue;
@@ -333,8 +333,6 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     vtype = va_arg(ap, int);
     pvalue= va_arg(ap, void **);
         
-    groupname = md_store_group_name(group);
-    
     rv = fs_get_fname(&fpath, &s_fs->s, group, name, aspect, ptemp);
     if (APR_SUCCESS == rv) {
         rv = fs_fload(pvalue, s_fs, fpath, group, vtype, p, ptemp);
