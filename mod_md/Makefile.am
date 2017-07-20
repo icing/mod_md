@@ -19,7 +19,7 @@ ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES    = mod_md.la
 
 mod_md_la_CPPFLAGS = -g -I../src -std=c99 -D_GNU_SOURCE -Werror
-mod_md_la_LDFLAGS  = -module -L../src/ -lapachemd
+mod_md_la_LDFLAGS  = -module -export-symbols-regex md_module -L../src/ -lapachemd
 
 OBJECTS = \
     md_config.c \
@@ -40,6 +40,4 @@ install-libLTLIBRARIES:
 
 install-exec-local: mod_md.la
 	$(MKDIR_P) $(DESTDIR)/@LIBEXEC_DIR@
-	$(APXS) -i -S LIBEXECDIR=$(DESTDIR)/@LIBEXEC_DIR@ -n h2 mod_md.la
-
-
+	$(APXS) -i -S LIBEXECDIR=$(DESTDIR)/@LIBEXEC_DIR@ -n md mod_md.la
