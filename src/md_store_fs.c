@@ -169,7 +169,6 @@ static apr_status_t setup_store_file(void *baton, apr_pool_t *p, apr_pool_t *pte
 apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
 {
     md_store_fs_t *s_fs;
-    const char *store_file;
     apr_status_t rv = APR_SUCCESS;
     
     s_fs = apr_pcalloc(p, sizeof(*s_fs));
@@ -206,7 +205,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
             }
         }
     }
-    rv = md_util_pool_vdo(setup_store_file, s_fs, p, store_file, NULL);
+    rv = md_util_pool_vdo(setup_store_file, s_fs, p, NULL);
     
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "init fs store at %s", path);
