@@ -227,44 +227,9 @@ static apr_status_t state_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     return state_init(reg, p, md);
 }
 
-apr_status_t md_reg_state_init(md_reg_t *reg, md_t *md, apr_pool_t *p)
+static apr_status_t md_state_init(md_reg_t *reg, md_t *md, apr_pool_t *p)
 {
     return md_util_pool_vdo(state_vinit, reg, p, md, NULL);
-}
-
-typedef struct {
-    apr_pool_t *p;
-    apr_pool_t *ptemp;
-    int fail_early;
-    apr_status_t rv;
-} init_ctx;
-
-static int state_ctx_init(void *baton, md_reg_t *reg, md_t *md)
-{
-    init_ctx *ctx = baton;
-    
-    ctx->rv = state_init(reg, ctx->p, (md_t*)md);
-    return (!ctx->fail_early || (APR_SUCCESS == ctx->rv))? 1 : 0;
-}
-
-static apr_status_t states_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_reg_t *reg = baton;
-    init_ctx ctx;
-    
-    ctx.p = p;
-    ctx.ptemp = ptemp;
-    ctx.fail_early = va_arg(ap, int);
-    ctx.rv = APR_SUCCESS;
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "initializing all md states");
-    md_reg_do(state_ctx_init, &ctx, reg, p);
-    return ctx.rv;
-}
-
-apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early, apr_pool_t *p)
-{
-    return md_util_pool_vdo(states_vinit, reg, p, fail_early, NULL);
 }
 
 static md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p) 
@@ -276,6 +241,53 @@ static md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p)
         }
     }
     return md;
+}
+
+apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, apr_pool_t *p)
+{
+    int renew = 0;
+    int errored = 0;
+    apr_time_t now = apr_time_now();
+    
+    switch (md->state) {
+        case MD_S_UNKNOWN:
+            md_log_perror( MD_LOG_MARK, MD_LOG_ERR, 0, p, "md(%s): in unkown state.", md->name);
+            break;
+        case MD_S_ERROR:
+            md_log_perror( MD_LOG_MARK, MD_LOG_ERR, 0, p,  
+                         "md(%s): in error state, unable to drive forward. It could "
+                         "be that files have gotten corrupted. You may check with "
+                         "a2md the status of this managed domain to diagnose the "
+                         " problem. As a last resort, you may delete the files for "
+                         " this md and start all over.", md->name);
+            errored = 1;
+            break;
+        case MD_S_COMPLETE:
+            if (!md->expires) {
+                md_log_perror( MD_LOG_MARK, MD_LOG_WARNING, 0, p,  
+                             "md(%s): looks complete, but has unknown expiration date.", md->name);
+                errored = 1;
+            }
+            else if (md->expires <= now) {
+                /* Maybe we hibernated in the meantime? */
+                md->state = MD_S_EXPIRED;
+                renew = 1;
+            }
+            else if ((md->expires - now) <= md->renew_window) {
+                int days = (int)(apr_time_sec(md->expires - now) / MD_SECS_PER_DAY);
+                md_log_perror( MD_LOG_MARK, MD_LOG_DEBUG, 0, p,  
+                              "md(%s): %d days to expiry, attempt renewal", md->name, days);
+                renew = 1;
+            }
+            break;
+        case MD_S_INCOMPLETE:
+        case MD_S_EXPIRED:
+            renew = 1;
+            break;
+    }
+    *prenew = renew;
+    *perrored = errored;
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/
@@ -423,7 +435,7 @@ static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md = va_arg(ap, md_t *);
     mine = md_clone(ptemp, md);
     if (APR_SUCCESS == (rv = check_values(reg, ptemp, md, MD_UPD_ALL))
-        && APR_SUCCESS == (rv = md_reg_state_init(reg, mine, ptemp))
+        && APR_SUCCESS == (rv = md_state_init(reg, mine, ptemp))
         && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, mine, 1))) {
     }
     return rv;
@@ -493,7 +505,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
-        rv = md_reg_state_init(reg, nmd, ptemp);
+        rv = md_state_init(reg, nmd, ptemp);
     }
     return rv;
 }
@@ -843,12 +855,20 @@ apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p)
     return md_util_pool_vdo(run_load, reg, p, name, NULL);
 }
 
-apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p)
+apr_status_t md_reg_drive(md_reg_t *reg, md_t *md, int reset, int force, apr_pool_t *p)
 {
     apr_status_t rv;
+    int errored, renew;
     
-    if (APR_SUCCESS == (rv = md_reg_stage(reg, md, reset, p))) {
-        rv = md_reg_load(reg, md->name, p);
+    if (APR_SUCCESS == (rv = md_reg_assess(reg, md, &errored, &renew, p))) {
+        if (errored) {
+            return APR_EGENERAL;
+        }
+        else if (renew || force) {
+            if (APR_SUCCESS == (rv = md_reg_stage(reg, md, reset, p))) {
+                rv = md_reg_load(reg, md->name, p);
+            }
+        }
     }
     return rv;
 }

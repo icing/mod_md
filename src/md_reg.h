@@ -58,8 +58,14 @@ md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, a
 
 /**
  * Get the md with the given unique name. NULL if it does not exist.
+ * Will update the md->state.
  */
 md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p);
+
+/**
+ * Assess the capability and need to driving this managed domain.
+ */
+apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, apr_pool_t *p);
 
 /**
  * Callback invoked for every md in the registry. If 0 is returned, iteration stops.
@@ -92,18 +98,6 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
  */
 apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p, 
                            const char *name, const md_t *md, int fields);
-
-/**
- * Initialize the state of the md (again), based on current properties and current
- * state of the store.
- */
-apr_status_t md_reg_state_init(md_reg_t *reg, md_t *md, apr_pool_t *p);
-
-/**
- * Initialize all mds (again), based on current properties and current
- * state of the store.
- */
-apr_status_t md_reg_states_init(md_reg_t *reg, int fail_early, apr_pool_t *p);
 
 /**
  * Get the credentials available for the managed domain md. Returns APR_ENOENT
@@ -169,7 +163,13 @@ apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p);
  * Drive the given managed domain toward completeness.
  * This is a convenience method that combines staging and, on success, loading
  * of a new managed domain credentials set.
+ *
+ * @param reg   the md registry
+ * @param md    the managed domain to drive
+ * @param reset remove any staging information that has been collected
+ * @param force force driving even though it looks unnecessary (e.g. not epxired)
+ * @param p     pool to use
  */
-apr_status_t md_reg_drive(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p);
+apr_status_t md_reg_drive(md_reg_t *reg, md_t *md, int reset, int force, apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */

@@ -409,63 +409,22 @@ typedef struct {
 static apr_status_t process_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
 {
     apr_status_t rv = APR_SUCCESS;
-    apr_time_t now, to_expiry;
-    int days;
+    apr_time_t renew_time;
+    int errored, renew;
+    char ts[APR_RFC822_DATE_LEN];
     
-    switch (md->state) {
-        case MD_S_UNKNOWN:
-            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                         "md(%s): in unkown state", md->name);
-            break;
-        case MD_S_ERROR:
+    if (APR_SUCCESS == (rv = md_reg_assess(wd->reg, md, &errored, &renew, wd->p))) {
+        if (errored) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                          "md(%s): in error state", md->name);
-            break;
-        case MD_S_COMPLETE:
-            if (!md->expires) {
-                /* This is our indicator that we did already renew this managed domain
-                 * successfully and only wait on the next restart for it to activate */
-                ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
-                             "md(%s): has been renewed, will activate on next restart", md->name);
-                break; 
-            }
-            else {
-                to_expiry = (md->expires > (now = apr_time_now()))? (md->expires - now) : 0;
-                if (to_expiry > 0) {
-                    days = (int)(apr_time_sec(to_expiry) / MD_SECS_PER_DAY);
-                    
-                    if (to_expiry <= md->renew_window) {
-                        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                                     "md(%s): %d days to expiry, attempt renewal", md->name, days);
-                        rv = md_reg_stage(wd->reg, md, 0, ptemp);
-                        if (APR_SUCCESS == rv) {
-                            md->expires = 0;
-                            wd->may_restart = 1;
-                        }
-                    }
-                    else {
-                        char ts[APR_RFC822_DATE_LEN];
-                        apr_time_t renewal;
-                        
-                        apr_rfc822_date(ts, md->expires);
-                        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                                     "md(%s): is complete, cert expires %s (in ~%d days)", 
-                                     md->name, ts, days);
-                        renewal = md->expires - md->renew_window;
-                        if (renewal < wd->next_change) {
-                            wd->next_change = renewal;
-                        }
-                    }
-                    break;
-                }
-                else {
-                    md->state = MD_S_EXPIRED;
-                }
-            }
-            /* fall through */
-        case MD_S_INCOMPLETE:
-        case MD_S_EXPIRED:
-            wd->all_valid = 0;
+        }
+        else if (md->state == MD_S_COMPLETE && !md->expires) {
+            /* This is our indicator that we did already renew this managed domain
+             * successfully and only wait on the next restart for it to activate */
+            ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
+                         "md(%s): has been renewed, will activate on next restart", md->name);
+        }
+        else if (renew) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                          "md(%s): state=%d, driving", md->name, md->state);
             rv = md_reg_stage(wd->reg, md, 0, ptemp);
@@ -474,7 +433,16 @@ static apr_status_t process_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
                 md->expires = 0;
                 wd->may_restart = 1;
             }
-            break;
+        }
+        else {
+            apr_rfc822_date(ts, md->expires);
+            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                         "md(%s): is complete, cert expires %s", md->name, ts);
+            renew_time = md->expires - md->renew_window;
+            if (renew_time < wd->next_change) {
+                wd->next_change = renew_time;
+            }
+        }
     }
     return rv;
 }
@@ -527,7 +495,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             }
             else {
                 /* back off duration, depending on the errors we encounter in a row */
-                interval = wd->error_runs * apr_time_from_sec(10);
+                interval = apr_time_from_sec(5 << (wd->error_runs - 1));
                 if (interval > apr_time_from_sec(60*60)) {
                     interval = apr_time_from_sec(60*60);
                 }
@@ -549,12 +517,13 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
              * TODO: it seems that this is really only ticking down when the server
              * runs. When you wake up a hibernated machine, the watchdog will not run right away 
              */
-            wd_set_interval(wd->watchdog, interval, wd, run_watchdog);
             if (APLOGdebug(wd->s)) {
                 int secs = (int)(apr_time_sec(interval) % MD_SECS_PER_DAY);
-                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, "next run in %2d:%02d hours", 
-                             (int)secs/MD_SECS_PER_HOUR, (int)(secs%(MD_SECS_PER_HOUR))/60);
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, "next run in %2d:%02d:%02d hours", 
+                             (int)secs/MD_SECS_PER_HOUR, (int)(secs%(MD_SECS_PER_HOUR))/60,
+                             (int)(secs%60));
             }
+            wd_set_interval(wd->watchdog, interval, wd, run_watchdog);
             break;
         case AP_WATCHDOG_STATE_STOPPING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
@@ -570,7 +539,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, wd->s, APLOGNO() "signaled restart");
     }
     
-    return rv;
+    return APR_SUCCESS;
 }
 
 static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p, 
@@ -582,7 +551,7 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
     apr_status_t rv;
     const char *name;
     md_t *md;
-    int i;
+    int i, errored, renew;
     
     wd_get_instance = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_get_instance);
     wd_register_callback = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_register_callback);
@@ -614,43 +583,15 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
         name = APR_ARRAY_IDX(names, i, const char *);
         md = md_reg_get(wd->reg, name, wd->p);
         if (md) {
-            switch (md->state) {
-                case MD_S_UNKNOWN:
-                    ap_log_error( APLOG_MARK, APLOG_ERR, 0, wd->s, APLOGNO() 
-                                 "md(%s): in unkown state, do not know what to do.", name);
-                    break;
-                case MD_S_COMPLETE:
-                    if (!md->expires) {
-                        ap_log_error( APLOG_MARK, APLOG_WARNING, 0, wd->s, APLOGNO() 
-                                     "md(%s): looks complete, but has unknown expiration date. "
-                                     "This is weird. Will not process this any further.", name);
-                    }
-                    else if (md->expires > apr_time_now()) {
-                        APR_ARRAY_PUSH(wd->mds, md_t*) = md;
-                        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                                     "md(%s): is complete and has not expired", name);
-                        break;
-                    }
-                    else {
-                        /* Maybe we hibernated in the meantime? */
-                        md->state = MD_S_EXPIRED;
-                    }
-                    /* fall through */
-                case MD_S_ERROR:
-                    ap_log_error( APLOG_MARK, APLOG_ERR, 0, wd->s, APLOGNO() 
-                                 "md(%s): in error state, unable to drive forward. It could "
-                                 "be that files have gotten corrupted. You may check with "
-                                 "a2md the status of this managed domain to diagnose the "
-                                 " problem. As a last resort, you may delete the files for "
-                                 " this md and start all over.", name);
-                    break;
-                case MD_S_INCOMPLETE:
-                case MD_S_EXPIRED:
-                    wd->all_valid = 0;
-                    ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
-                                 "md(%s): state=%d, driving", name, md->state);
-                    APR_ARRAY_PUSH(wd->mds, md_t*) = md;
-                    break;
+            md_reg_assess(wd->reg, md, &errored, &renew, wd->p);
+            if (errored) {
+                ap_log_error( APLOG_MARK, APLOG_WARNING, 0, wd->s, APLOGNO() 
+                             "md(%s): seems errored. Will not process this any further.", name);
+            }
+            else {
+                ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
+                             "md(%s): state=%d, driving", name, md->state);
+                APR_ARRAY_PUSH(wd->mds, md_t*) = md;
             }
         }
     }
@@ -823,8 +764,8 @@ static int md_http_challenge_pr(request_rec *r)
     const char *base_dir, *name, *data;
     apr_status_t rv;
             
-    if (r->method_number == M_GET) {
-        if (!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
+    if (!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
+        if (r->method_number == M_GET) {
             conf = ap_get_module_config(r->server->module_config, &md_module);
             base_dir = md_config_gets(conf, MD_CONFIG_BASE_DIR);
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
@@ -832,9 +773,8 @@ static int md_http_challenge_pr(request_rec *r)
             r->status = HTTP_NOT_FOUND;
             if (!strchr(name, '/') && conf->store) {
                 base_dir = ap_server_root_relative(r->pool, base_dir);
-                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, 
-                              "Challenge for %s (%s) -> %s (%s)", 
-                              r->hostname, r->uri, base_dir, name);
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, 
+                              "Challenge for %s (%s)", r->hostname, r->uri);
 
                 rv = md_store_load(conf->store, MD_SG_CHALLENGES, r->hostname, 
                                    MD_FN_HTTP01, MD_SV_TEXT, (void**)&data, r->pool);
@@ -849,6 +789,9 @@ static int md_http_challenge_pr(request_rec *r)
                     ap_pass_brigade(r->output_filters, bb);
                     apr_brigade_cleanup(bb);
                 }
+                else if (APR_STATUS_IS_ENOENT(rv)) {
+                    return HTTP_NOT_FOUND;
+                }
                 else if (APR_ENOENT != rv) {
                     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
                                   "loading challenge %s from store %s", name, base_dir);
@@ -856,6 +799,9 @@ static int md_http_challenge_pr(request_rec *r)
                 }
             }
             return r->status;
+        }
+        else {
+            return HTTP_NOT_IMPLEMENTED;
         }
     }
     return DECLINED;

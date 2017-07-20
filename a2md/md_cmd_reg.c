@@ -245,7 +245,7 @@ md_cmd_t MD_RegUpdateCmd = {
 static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
-    const md_t *md;
+    md_t *md;
     apr_status_t rv;
     int i;
  
@@ -267,8 +267,9 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     rv = APR_SUCCESS;
     for (i = 0; i < mdlist->nelts; ++i) {
-        const md_t *md = APR_ARRAY_IDX(mdlist, i, const md_t*);
-        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, 0, ctx->p))) {
+        md_t *md = APR_ARRAY_IDX(mdlist, i, md_t*);
+        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, md_cmd_ctx_has_option(ctx, "reset"),  
+                                              md_cmd_ctx_has_option(ctx, "force"), ctx->p))) {
             break;
         }
     }
@@ -276,9 +277,30 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     return rv;
 }
 
+static apr_status_t cmd_reg_drive_opts(md_cmd_ctx *ctx, int option, const char *optarg)
+{
+    switch (option) {
+        case 'f':
+            md_cmd_ctx_set_option(ctx, "force", "1");
+            break;
+        case 'r':
+            md_cmd_ctx_set_option(ctx, "reset", "1");
+            break;
+        default:
+            return APR_EINVAL;
+    }
+    return APR_SUCCESS;
+}
+
+static apr_getopt_option_t DriveOptions [] = {
+    { "force",    'f', 0, "force driving the managed domain, even when it seems valid"},
+    { "reset",    'r', 0, "reset any staging data for the managed domain"},
+    { NULL , 0, 0, NULL }
+};
+
 md_cmd_t MD_RegDriveCmd = {
     "drive", MD_CTX_REG, 
-    NULL, cmd_reg_drive, MD_NoOptions, NULL,
+    cmd_reg_drive_opts, cmd_reg_drive, DriveOptions, NULL,
     "drive [md...]",
     "drive all or the mentioned managed domains toward completeness"
 };

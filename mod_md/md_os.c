@@ -130,11 +130,9 @@ apr_status_t md_server_graceful(apr_pool_t *p, server_rec *s)
 
 apr_status_t md_server_graceful(apr_pool_t *p, server_rec *s)
 { 
-    /* TODO: check that we are really in a child */
     if (kill(getppid(), AP_SIG_GRACEFUL) < 0) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, errno, NULL, APLOGNO()
-                     "sending signal to server");
-        return APR_EGENERAL;
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, errno, NULL, "sending signal to parent");
+        return APR_EACCES;
     }
     return APR_SUCCESS;
 }

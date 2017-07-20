@@ -1,3 +1,5 @@
+ * a2md drive command now with same checks on renewal as mod_md. New option --force to
+   force a renewal that look unnecessary.
  * renew window taken into account when scheduling md watchdog
  * new directive MDRenewWindow which specifies the number of days (per default) that certificates
    should be renewed before they expire. Can be set globally or directly on a MD.

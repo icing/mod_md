@@ -48,8 +48,7 @@ typedef struct {
 
     md_acme_t *acme;
     md_t *md;
-    const md_creds_t *creds;
-    const md_creds_t *staged_creds;
+    const md_creds_t *ncreds;
     
     int can_http_01;
     int can_tls_sni_01;
@@ -174,12 +173,26 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
      * if no AUTHZ available, create a new one for the domain, store it
      */
     rv = md_acme_authz_set_load(d->store, md->name, &ad->authz_set, d->p);
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading authz data", md->name);
-    if (APR_ENOENT == rv) {
+    if (APR_STATUS_IS_ENOENT(rv)) {
         ad->authz_set = md_acme_authz_set_create(d->p, ad->acme);
         rv = APR_SUCCESS;
     }
+    else if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading authz data", md->name);
+        md_acme_authz_set_purge(d->store, d->p, md->name);
+        return APR_EAGAIN;
+    }
     
+    /* Remove anything we no longer need */
+    for (i = 0; i < ad->authz_set->authzs->nelts; ++i) {
+        authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
+        if (!md_contains(md, authz->domain)) {
+            md_acme_authz_set_remove(ad->authz_set, authz->domain);
+            changed = 1;
+        }
+    }
+    
+    /* Add anything we do not already have */
     for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
         const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
         changed = 0;
@@ -205,9 +218,12 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
                 changed = 1;
             }
         }
-        if (APR_SUCCESS == rv && changed) {
-            rv = md_acme_authz_set_save(d->store, d->p, md->name, ad->authz_set, 0);
-        }
+    }
+    
+    /* Save any changes */
+    if (APR_SUCCESS == rv && changed) {
+        rv = md_acme_authz_set_save(d->store, d->p, md->name, ad->authz_set, 0);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: saved", md->name);
     }
     
     return rv;
@@ -235,10 +251,6 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
     assert(ad->md);
     assert(ad->acme);
     assert(ad->authz_set);
-    if (ad->authz_set->authzs->nelts != ad->md->domains->nelts) {
-        /* has the MD changed in the meantime? */
-        return APR_EAGAIN;
-    }
 
     ad->phase = "start challenges";
 
@@ -246,21 +258,25 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
         authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
                       ad->md->name, authz->domain);
-        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, d->store, d->p))) {
-            switch (authz->state) {
-                case MD_ACME_AUTHZ_S_VALID:
-                    break;
-                case MD_ACME_AUTHZ_S_PENDING:
-                    rv = md_acme_authz_respond(authz, ad->acme, d->store, 
-                                               ad->can_http_01, ad->can_tls_sni_01, d->p);
-                    break;
-                default:
-                    rv = APR_EINVAL;
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                                  "%s: unexpected AUTHZ state %d at %s", 
-                                  authz->domain, authz->state, authz->location);
-                    break;
-            }
+        if (APR_SUCCESS != (rv = md_acme_authz_update(authz, ad->acme, d->store, d->p))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: check authz for %s",
+                          ad->md->name, authz->domain);
+            break;
+        }
+
+        switch (authz->state) {
+            case MD_ACME_AUTHZ_S_VALID:
+                break;
+            case MD_ACME_AUTHZ_S_PENDING:
+                rv = md_acme_authz_respond(authz, ad->acme, d->store, 
+                                           ad->can_http_01, ad->can_tls_sni_01, d->p);
+                break;
+            default:
+                rv = APR_EINVAL;
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
+                              "%s: unexpected AUTHZ state %d at %s", 
+                              authz->domain, authz->state, authz->location);
+                break;
         }
     }
     
@@ -308,7 +324,6 @@ static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
     assert(ad->md);
     assert(ad->acme);
     assert(ad->authz_set);
-    assert(ad->authz_set->authzs->nelts == ad->md->domains->nelts);
 
     ad->phase = "monitor challenges";
     rv = md_util_try(check_challenges, d, 0, ad->authz_monitor_timeout, 0, 0, 1);
@@ -566,39 +581,33 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
      * Need to know if the server listens to the right ports */
     ad->can_http_01 = 1;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: driving %s", 
-                  d->md->name, d->proto->protocol);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: init driver", d->md->name);
     
-    if (d->reset) {
+    rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: checked stage md", d->md->name);
+    if (d->reset || APR_STATUS_IS_ENOENT(rv)) {
         /* reset the staging area for this domain */
         rv = md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
         if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
             return rv;
         }
+        rv = APR_SUCCESS;
     }
     
-    rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked stage md", d->md->name);
-    if (APR_SUCCESS == rv) {
-        /* staging in progress, look at creds collected there */
-        rv = md_reg_creds_get(&ad->staged_creds, d->reg, MD_SG_STAGING, d->md, d->p);
-    }
-    else {
-        /* Load any credentials we currently have stored */
-        rv = md_reg_creds_get(&ad->creds, d->reg, MD_SG_DOMAINS, d->md, d->p);
+    if (ad->md) {
+        /* staging in progress, look at any new creds collected there */
+        rv = md_reg_creds_get(&ad->ncreds, d->reg, MD_SG_STAGING, d->md, d->p);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked creds", d->md->name);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            rv = APR_SUCCESS;
+        }
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked creds", d->md->name);
     return rv;
 }
 
 /**************************************************************************************************/
 /* ACME staging */
-
-static int its_time_to_renew(md_cert_t *cert)
-{
-    return 0; /* TODO: implement me */
-}
 
 static apr_status_t acme_stage(md_proto_driver_t *d)
 {
@@ -607,38 +616,9 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
     int renew = 1;
 
     /* Find out where we're at with this managed domain */
-    if (ad->staged_creds && ad->staged_creds->pkey 
-        && ad->staged_creds->cert && ad->staged_creds->chain) {
+    if (ad->ncreds && ad->ncreds->pkey && ad->ncreds->cert && ad->ncreds->chain) {
         /* There is a full set staged, to be loaded */
         renew = 0;
-    }
-    else if (ad->creds && ad->creds->pkey && ad->creds->cert && ad->creds->chain) {
-        /* We have a full set, Good. */
-
-        if (ad->creds->expired) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: renew as cert has expired", 
-                          d->md->name);
-        }
-        else if (its_time_to_renew(ad->creds->cert)) {
-            /* start driving for a new set of credentials */
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: time for renewal", 
-                          d->md->name);
-        }
-        else if (!md_cert_covers_md(ad->creds->cert, d->md)) {
-            /* renew because we need more domain names in the cert */
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: renew as not all domains are "
-                          "covered by the existing cert", d->md->name);
-        }
-        else {
-            /* seems to work */
-            ad->cert = ad->creds->cert;
-            ad->chain = ad->creds->chain;
-            renew = 0;
-        }
-    }
-    else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: renew as credentials are incomplete", 
-                      d->md->name);
     }
     
     if (renew) {
@@ -686,11 +666,27 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
                 }
             }
             
-            if (APR_SUCCESS == rv && !ad->cert
-                && APR_SUCCESS == (rv = ad_setup_authz(d))
-                && APR_SUCCESS == (rv = ad_start_challenges(d))
-                && APR_SUCCESS == (rv = ad_monitor_challenges(d))
-                && APR_SUCCESS == (rv = ad_setup_certificate(d))) {
+            if (APR_SUCCESS == rv && !ad->cert) {
+                if (APR_SUCCESS != (rv = ad_setup_authz(d))) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: setup authz resource", 
+                                  ad->md->name);
+                    goto out;
+                }
+                if (APR_SUCCESS != (rv = ad_start_challenges(d))) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: start challenges", 
+                                  ad->md->name);
+                    goto out;
+                }
+                if (APR_SUCCESS != (rv = ad_monitor_challenges(d))) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: monitor challenges", 
+                                  ad->md->name);
+                    goto out;
+                }
+                if (APR_SUCCESS != (rv = ad_setup_certificate(d))) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: setup certificate", 
+                                  ad->md->name);
+                    goto out;
+                }
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: certificate obtained", 
                               ad->md->name);
             }
@@ -702,7 +698,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             rv = ad_chain_install(d);
         }
     }
-    
+out:    
     return rv;
 }
 

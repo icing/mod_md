@@ -296,6 +296,7 @@ static apr_status_t on_response(const md_http_response_t *res)
     req->resp_hdrs = apr_table_clone(req->p, res->headers);
     req_update_nonce(req->acme, res->headers);
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, req->p, "response: %d", res->status);
     if (res->status >= 200 && res->status < 300) {
         int processed = 0;
         

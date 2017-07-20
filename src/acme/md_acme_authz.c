@@ -195,32 +195,33 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
     assert(authz);
     assert(authz->location);
 
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "update authz for %s at %s",
-        authz->domain, authz->location);
-        
-    if (APR_SUCCESS == (rv = md_acme_get_json(&json, acme, authz->location, p))) {
-        authz->resource = json;
-        s = md_json_gets(json, "identifier", "type", NULL);
-        if (!s || strcmp(s, "dns")) return APR_EINVAL;
-        s = md_json_gets(json, "identifier", "value", NULL);
-        if (!s || strcmp(s, authz->domain)) return APR_EINVAL;
-        
-        authz->state = MD_ACME_AUTHZ_S_UNKNOWN;
-        s = md_json_gets(json, "status", NULL);
-        if (s && !strcmp(s, "pending")) {
-            authz->state = MD_ACME_AUTHZ_S_PENDING;
-        }
-        else if (s && !strcmp(s, "valid")) {
-            authz->state = MD_ACME_AUTHZ_S_VALID;
-        }
-        else if (s && !strcmp(s, "invalid")) {
-            authz->state = MD_ACME_AUTHZ_S_INVALID;
-        }
-        else if (s) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "unknown authz state '%s' "
-                          "for %s in %s", s, authz->domain, authz->location);
-            return APR_EINVAL;
-        }
+    if (APR_SUCCESS != (rv = md_acme_get_json(&json, acme, authz->location, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "update authz for %s at %s",
+                      authz->domain, authz->location);
+        return rv;
+    }
+    
+    authz->resource = json;
+    s = md_json_gets(json, "identifier", "type", NULL);
+    if (!s || strcmp(s, "dns")) return APR_EINVAL;
+    s = md_json_gets(json, "identifier", "value", NULL);
+    if (!s || strcmp(s, authz->domain)) return APR_EINVAL;
+    
+    authz->state = MD_ACME_AUTHZ_S_UNKNOWN;
+    s = md_json_gets(json, "status", NULL);
+    if (s && !strcmp(s, "pending")) {
+        authz->state = MD_ACME_AUTHZ_S_PENDING;
+    }
+    else if (s && !strcmp(s, "valid")) {
+        authz->state = MD_ACME_AUTHZ_S_VALID;
+    }
+    else if (s && !strcmp(s, "invalid")) {
+        authz->state = MD_ACME_AUTHZ_S_INVALID;
+    }
+    else if (s) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "unknown authz state '%s' "
+                      "for %s in %s", s, authz->domain, authz->location);
+        return APR_EINVAL;
     }
     return rv;
 }
