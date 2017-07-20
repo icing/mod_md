@@ -17,33 +17,31 @@
 #include <apr_strings.h>
 #include <apr_buckets.h>
 
-#include <jansson_config.h>
-/* jansson thinks everyone compiles with the platform's cc in its fullest capabilities */
-#undef   JSON_INLINE
-#define JSON_INLINE 
-#include <jansson.h>
-
 #include "md_json.h"
 #include "md_log.h"
 #include "md_http.h"
 #include "md_util.h"
 
+/* jansson thinks everyone compiles with the platform's cc in its fullest capabilities
+ * when undefining their INLINEs, we get static, unused functions, arg 
+ */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunreachable-code"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+
+#include <jansson_config.h>
+#undef   JSON_INLINE
+#define JSON_INLINE 
+#include <jansson.h>
+
+#pragma clang diagnostic pop
+#pragma GCC diagnostic pop
+
 struct md_json_t {
     apr_pool_t *p;
     json_t *j;
 };
-
-static void init_dummy()
-{
-    /* jansson wants to inline static function that we never call and this,
-     * -Wunused-function triggers and generated unnecessary warnings. */
-    (void)json_decrefp;
-    (void)json_object_set_nocheck;
-    (void)json_object_iter_set;
-    (void)json_array_set;
-    (void)json_array_append;
-    (void)json_array_insert;
-}
 
 /**************************************************************************************************/
 /* lifecylce */
@@ -60,8 +58,6 @@ static apr_status_t json_pool_cleanup(void *data)
 static md_json_t *json_create(apr_pool_t *pool, json_t *j)
 {
     md_json_t *json;
-    
-    (void)init_dummy;
     
     if (!j) {
         apr_abortfunc_t abfn = apr_pool_abort_get(pool);
