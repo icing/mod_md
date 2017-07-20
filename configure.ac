@@ -191,6 +191,9 @@ AC_CHECK_HEADERS([ \
     stddef.h \
 ])
 
+# we'd like to use this, if it exists
+AC_CHECK_FUNC(arc4random, [CFLAGS="$CFLAGS -DMD_HAVE_ARC4RANDOM"], [])
+
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_INT32_T

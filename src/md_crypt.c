@@ -35,6 +35,19 @@
 #include "md_http.h"
 #include "md_util.h"
 
+/* getpid for *NIX */
+#if APR_HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#if APR_HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+/* getpid for Windows */
+#if APR_HAVE_PROCESS_H
+#include <process.h>
+#endif
+
 static int initialized;
 
 struct md_pkey_t {
@@ -42,19 +55,67 @@ struct md_pkey_t {
     EVP_PKEY   *pkey;
 };
 
+#ifdef MD_HAVE_ARC4RANDOM
+
+static void seed_RAND(int pid)
+{
+    char seed[128];
+    arc4random_buf(seed, sizeof(seed));
+    RAND_seed(seed, sizeof(seed));
+}
+
+#else /* ifdef MD_HAVE_ARC4RANDOM */
+
+static void seed_RAND(int pid)
+{   
+    unsigned char stackdata[256];
+    /* stolen from mod_ssl/ssl_engine_rand.c */
+    struct {
+        time_t t;
+        pid_t pid;
+    } my_seed;
+    
+    /*
+     * seed in the current time (usually just 4 bytes)
+     */
+    my_seed.t = time(NULL);
+    
+    /*
+     * seed in the current process id (usually just 4 bytes)
+     */
+    my_seed.pid = pid;
+    
+    l = sizeof(my_seed);
+    RAND_seed((unsigned char *)&my_seed, l);
+    
+    /*
+     * seed in some current state of the run-time stack (128 bytes)
+     */
+#if HAVE_VALGRIND && 0
+    if (ssl_running_on_valgrind) {
+        VALGRIND_MAKE_MEM_DEFINED(stackdata, sizeof(stackdata));
+    }
+#endif
+    n = ssl_rand_choosenum(0, sizeof(stackdata)-128-1);
+    RAND_seed(stackdata+n, 128);
+}
+
+#endif /*ifdef MD_HAVE_ARC4RANDOM (else part) */
+
+
 apr_status_t md_crypt_init(apr_pool_t *pool)
 {
-    char seed[64];
     (void)pool;
-
+    
     if (!initialized) {
+        int pid = getpid();
+        
         ERR_load_crypto_strings();
         OpenSSL_add_all_algorithms();
         
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, pool, "initializing RAND"); 
         while (!RAND_status()) {
-            arc4random_buf(seed, sizeof(seed));
-            RAND_seed(seed, sizeof(seed));
+            seed_RAND(pid);
 	}
 
         initialized = 1;
