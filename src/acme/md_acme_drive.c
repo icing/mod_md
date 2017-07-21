@@ -521,7 +521,7 @@ static apr_status_t get_chain(void *baton, int attempt)
     md_proto_driver_t *d = baton;
     md_acme_driver_t *ad = d->baton;
     md_cert_t *cert;
-    const char *url;
+    const char *url, *last_url = NULL;
     apr_status_t rv = APR_SUCCESS;
     
     while (APR_SUCCESS == rv && ad->chain->nelts < 10) {
@@ -533,7 +533,8 @@ static apr_status_t get_chain(void *baton, int attempt)
             cert = ad->cert;
         }
         
-        if (APR_SUCCESS == (rv = md_cert_get_issuers_uri(&url, cert, d->p))) {
+        if (APR_SUCCESS == (rv = md_cert_get_issuers_uri(&url, cert, d->p))
+            && (!last_url || strcmp(last_url, url))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "next issuer is  %s", url);
 #if MD_EXPERIMENTAL
             if (!strncmp("http://127.0.0.1:", url, sizeof("http://127.0.0.1:")-1)) {
@@ -555,9 +556,12 @@ static apr_status_t get_chain(void *baton, int attempt)
             }
         }
         else if (APR_STATUS_IS_ENOENT(rv) || !url || !strlen(url)) {
+            rv = APR_SUCCESS;
             break;
         }
     }
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, 
+                  "got chain with %d certs", ad->chain->nelts);
     return rv;
 }
 
