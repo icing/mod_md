@@ -556,7 +556,7 @@ apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb, void *bato
     json_array_foreach(j, index, val) {
         wrap.j = val;
         if (APR_SUCCESS == (rv = cb(&element, &wrap, wrap.p, baton))) {
-            if (a) {
+            if (element) {
                 APR_ARRAY_PUSH(a, void*) = element;
             }
         }

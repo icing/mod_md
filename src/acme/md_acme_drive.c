@@ -174,7 +174,7 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
      * if no AUTHZ available, create a new one for the domain, store it
      */
     rv = md_acme_authz_set_load(d->store, md->name, &ad->authz_set, d->p);
-    if (APR_STATUS_IS_ENOENT(rv)) {
+    if (!ad->authz_set || APR_STATUS_IS_ENOENT(rv)) {
         ad->authz_set = md_acme_authz_set_create(d->p, ad->acme);
         rv = APR_SUCCESS;
     }

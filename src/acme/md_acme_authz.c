@@ -459,7 +459,7 @@ static apr_status_t authz_to_json(void *value, md_json_t *json, apr_pool_t *p, v
 static apr_status_t authz_from_json(void **pvalue, md_json_t *json, apr_pool_t *p, void *baton)
 {
     *pvalue = md_acme_authz_from_json(json, p);
-    return APR_SUCCESS;
+    return (*pvalue)? APR_SUCCESS : APR_EINVAL;
 }
 
 md_json_t *md_acme_authz_set_to_json(md_acme_authz_set_t *set, apr_pool_t *p)
