@@ -785,7 +785,8 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
             return rv;
         }
         md->ca_account = acct->id;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: saved ACME account %s", acct->id);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: saved ACME account %s", 
+                      name, acct->id);
     }
     
     if (APR_SUCCESS != (rv = md_save(store, p, load_group, md, 1))) {

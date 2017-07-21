@@ -61,6 +61,9 @@ AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
     [Use serverdir directory for setup [default=gen/apache]])],
     [request_serverdir=$withval], [request_serverdir=$PWD/test/gen/apache])
 
+AC_ARG_WITH([boulder], [AS_HELP_STRING([--with-boulder], [Use given url for boulder])],
+    [request_boulder=$withval], [request_boulder=def])
+
 MD_TEST_PHASE=1
 AC_SUBST(MD_TEST_PHASE)
 
@@ -133,6 +136,19 @@ else
     ACME_DEF_URL=https://acme-v01.api.letsencrypt.org/directory
 fi
 AC_SUBST(ACME_DEF_URL)
+
+if test "x$request_boulder" = "xdef"; then
+    BOULDER_URL=http://localhost:4000/directory
+elif test "x${request_boulder##http}" = "x${request_boulder}"; then
+    BOULDER_URL="http://${request_boulder}/directory"
+else
+    BOULDER_URL="$request_boulder"
+fi
+AC_SUBST(BOULDER_URL)
+# this is always the same, so far
+BOULDER_TOS=http://boulder:4000/terms/v1
+AC_SUBST(BOULDER_TOS)
+
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.
