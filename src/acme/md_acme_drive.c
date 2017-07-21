@@ -70,7 +70,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
     md_acme_driver_t *ad = d->baton;
     md_t *md = ad->md;
     apr_status_t rv = APR_SUCCESS;
-    int update = 0;
+    int update = 0, acct_installed = 0;
     
     ad->phase = "setup acme";
     if (!ad->acme 
@@ -83,14 +83,15 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
     if (APR_SUCCESS == (rv = md_acme_use_acct_staged(ad->acme, d->store, md, d->p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-using staged account");
         md->ca_account = MD_ACME_ACCT_STAGED;
+        acct_installed = 1;
     }
     else if (APR_STATUS_IS_ENOENT(rv)) {
         rv = APR_SUCCESS;
     }
     
     /* Get an account for the ACME server for this MD */
-    if (md->ca_account) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-use account %s", md->ca_account);
+    if (md->ca_account && !acct_installed) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-use account '%s'", md->ca_account);
         rv = md_acme_use_acct(ad->acme, d->store, d->p, md->ca_account);
         if (APR_STATUS_IS_ENOENT(rv) || APR_STATUS_IS_EINVAL(rv)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "rejected %s", md->ca_account);
