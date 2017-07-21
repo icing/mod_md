@@ -608,7 +608,24 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     }
     
     if (ad->md) {
-        /* staging in progress, look at any new creds collected there */
+        /* staging in progress.
+         * There are certain md properties that are updated in staging, others are only
+         * updated in the domains store. Are these still the same? If not, we better
+         * start anew.
+         */
+        if (strcmp(d->md->ca_url, ad->md->ca_url)
+            || strcmp(d->md->ca_proto, ad->md->ca_proto)) {
+            /* reject staging info in this case */
+            ad->md = NULL;
+            return APR_SUCCESS;
+        }
+        
+        if (d->md->ca_agreement 
+            && (!ad->md->ca_agreement || strcmp(d->md->ca_agreement, ad->md->ca_agreement))) {
+            ad->md->ca_agreement = d->md->ca_agreement;
+        }
+        
+        /* look for new ACME account information collected there */
         rv = md_reg_creds_get(&ad->ncreds, d->reg, MD_SG_STAGING, d->md, d->p);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked creds", d->md->name);
         if (APR_STATUS_IS_ENOENT(rv)) {
