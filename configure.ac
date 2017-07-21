@@ -122,6 +122,17 @@ if test "x$werror" != "xno"; then
     AX_CHECK_COMPILE_FLAG([-Wdeclaration-after-statement], [CFLAGS="$CFLAGS -Wdeclaration-after-statement"])
 fi
 
+# This is all experimental by default for now
+MD_EXPERIMENTAL=1
+AC_SUBST(MD_EXPERIMENTAL)
+
+# When experimental, default to the LetsEncrypt ACME staging endpoint
+if test "x$MD_EXPERIMENTAL" = "x1"; then
+    ACME_DEF_URL=https://acme-staging.api.letsencrypt.org/directory
+else
+    ACME_DEF_URL=https://acme-v01.api.letsencrypt.org/directory
+fi
+AC_SUBST(ACME_DEF_URL)
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.
@@ -176,6 +187,10 @@ if test x"$request_curl" = "xcheck"; then
     AC_CHECK_LIB([curl], [curl_global_init], , [AC_MSG_ERROR("libcurl not found")])
     curl_config="curl-config"
     AC_CHECK_PROG([CURL_CONFIG],[$curl_config],[yes],[no])
+    if  test "x$CURL_CONFIG" = xno; then
+        curl_config="${prefix}/bin/curl-config"
+        AC_CHECK_PROG([CURL_CONFIG],[$curl_config],[yes],[no])
+    fi
 else
     curl_config="$request_curl/bin/curl-config"
     AC_PATH_PROG([CURL_CONFIG],[$curl_config],[yes],[no])

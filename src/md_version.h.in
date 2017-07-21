@@ -36,6 +36,7 @@
  */
 #define MOD_MD_VERSION_NUM @PACKAGE_VERSION_NUM@
 
-#define MD_TEST_PHASE   @MD_TEST_PHASE@
+#define MD_EXPERIMENTAL @MD_EXPERIMENTAL@
+#define MD_ACME_DEF_URL    "@ACME_DEF_URL@"
 
 #endif /* mod_h2_h2_version_h */

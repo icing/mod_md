@@ -28,17 +28,20 @@ libmd:
 a2md/a2md: libmd
 	$(MAKE) -C a2md
 
+mod_md/mod_md.la: libmd
+	$(MAKE) -C mod_md
+
 mod_md: libmd
 
-test: a2md/a2md
+test: a2md/a2md mod_md/mod_md.la
 	$(MAKE) -C test/ test
 
-test-auto: a2md/a2md
+test-auto: a2md/a2md mod_md/mod_md.la
 	$(MAKE) -C test/ test-auto
 
-test-drive: a2md/a2md
+test-drive: a2md/a2md mod_md/mod_md.la
 	$(MAKE) -C test/ test-drive
 
-test-configs: a2md/a2md
+test-configs: a2md/a2md mod_md/mod_md.la
 	$(MAKE) -C test/ test-configs
 

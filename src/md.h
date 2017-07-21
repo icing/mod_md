@@ -18,12 +18,6 @@
 
 #include "md_version.h"
 
-#if MD_TEST_PHASE
-#define MD_ACME_DEF_URL    "https://acme-staging.api.letsencrypt.org/directory"
-#else
-#define MD_ACME_DEF_URL    "https://acme-v01.api.letsencrypt.org/directory"
-#endif
-
 struct apr_array_header_t;
 struct apr_hash_t;
 struct md_json_t;

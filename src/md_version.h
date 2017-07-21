@@ -36,6 +36,7 @@
  */
 #define MOD_MD_VERSION_NUM 0x000100
 
-#define MD_TEST_PHASE   1
+#define MD_EXPERIMENTAL 1
+#define MD_ACME_DEF_URL    "https://acme-staging.api.letsencrypt.org/directory"
 
 #endif /* mod_h2_h2_version_h */
