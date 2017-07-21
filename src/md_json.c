@@ -806,12 +806,17 @@ apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt,
 typedef struct {
     md_json_t *json;
     md_json_fmt_t fmt;
+    const char *fname;
 } j_write_ctx;
 
 static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
 {
     j_write_ctx *ctx = baton;
-    return md_json_writef(ctx->json, ctx->fmt, f);
+    apr_status_t rv = md_json_writef(ctx->json, ctx->fmt, f);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "freplace json in %s", ctx->fname);
+    }
+    return rv;
 }
 
 apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
@@ -820,6 +825,7 @@ apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt,
     j_write_ctx ctx;
     ctx.json = json;
     ctx.fmt = fmt;
+    ctx.fname = fpath;
     return md_util_freplace(fpath, perms, p, write_json, &ctx);
 }
 
