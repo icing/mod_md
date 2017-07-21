@@ -20,8 +20,8 @@ AUTOMAKE_OPTIONS = foreign
 
 lib_LTLIBRARIES    = libapachemd.la
 
-libapachemd_la_CPPFLAGS = -g -std=c99 -D_GNU_SOURCE -Werror
-libapachemd_la_LDFLAGS  = @LDFLAGS@ -ljansson -lcurl -lssl -lcrypto
+libapachemd_la_CPPFLAGS = -fPIC -g -std=c99 -D_GNU_SOURCE -Werror
+libapachemd_la_LDFLAGS  = @LDFLAGS@ -static -ljansson -lcurl -lssl -lcrypto
 
 A2LIB_OBJECTS = \
     acme/md_acme.c \
@@ -59,3 +59,5 @@ A2LIB_HFILES = \
     
 libapachemd_la_SOURCES = $(A2LIB_HFILES) $(A2LIB_OBJECTS)
 
+install-libLTLIBRARIES: libapachemd.la
+	@echo "not installing libapachemd.a"

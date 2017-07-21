@@ -21,7 +21,7 @@ AUTOMAKE_OPTIONS = foreign
 bin_PROGRAMS       = a2md
 
 a2md_CFLAGS  = -g -I../src -std=c99 -D_GNU_SOURCE -Werror
-a2md_LDFLAGS = @LDFLAGS@ -l@LIB_APR@ -l@LIB_APRUTIL@ -ljansson -lcurl -lssl -lcrypto -static -L../src -lapachemd 
+a2md_LDFLAGS = @LDFLAGS@ -static -L../src -lapachemd -shared -l@LIB_APR@ -l@LIB_APRUTIL@ -ljansson -lcurl -lssl -lcrypto
 
 A2MD_OBJECTS = \
     md_main.c \
