@@ -33,6 +33,8 @@ HFILES = \
 
 mod_md_la_SOURCES = $(HFILES) $(OBJECTS) ../src/libapachemd.la
 
+EXTRA_mod_md_la_DEPENDENCIES = ../src/libapachemd.la
+
 all: mod_md.la 
 
 install-libLTLIBRARIES:

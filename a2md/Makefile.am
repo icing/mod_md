@@ -36,3 +36,5 @@ A2MD_HFILES = \
     md_cmd_store.h
 
 a2md_SOURCES = $(A2MD_HFILES) $(A2MD_OBJECTS)
+
+EXTRA_a2md_DEPENDENCIES = ../src/libapachemd.la

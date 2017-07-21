@@ -24,13 +24,13 @@ dist_doc_DATA   = README README.md LICENSE
 
 all: a2md mod_md
 
-libmd:
+src/libapachemd.la: src/*.*
 	$(MAKE) -C src
 
-a2md: libmd
+a2md: src/libapachemd.la
 	$(MAKE) -C a2md
 
-mod_md: libmd
+mod_md: src/libapachemd.la
 	$(MAKE) -C mod_md
 
 test: a2md/a2md mod_md/mod_md.la

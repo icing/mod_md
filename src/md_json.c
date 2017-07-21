@@ -782,13 +782,31 @@ const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
 apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, apr_file_t *f)
 {
     apr_status_t rv;
-    const char *s;
+    apr_bucket_alloc_t *blist;
+    apr_bucket_brigade *bb;
+    apr_bucket *b;
+    const char *data;
+    apr_size_t dlen;
     
-    s = md_json_writep(json, p, fmt);
-    rv = apr_file_write_full(f, s, strlen(s), NULL);
-    if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_writef");
+    blist = apr_bucket_alloc_create(p);
+    bb = apr_brigade_create(p, blist);
+    rv = md_json_writeb(json, fmt, bb);
+    if (APR_SUCCESS == rv) {
+        b = APR_BRIGADE_FIRST(bb);
+        while (b != APR_BRIGADE_SENTINEL(bb)) {
+            rv = apr_bucket_read(b, &data, &dlen, 1);
+            if (APR_SUCCESS != rv) {
+                break;
+            }
+            if (dlen > 0) {
+                apr_file_write_full(f, data, dlen, NULL);
+            }
+            b = APR_BUCKET_NEXT(b);
+        }
     }
+    apr_brigade_destroy(bb);
+    apr_bucket_alloc_destroy(blist);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "md_json_writef");
     return rv;
 }
 
