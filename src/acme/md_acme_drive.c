@@ -534,6 +534,19 @@ static apr_status_t get_chain(void *baton, int attempt)
         
         if (APR_SUCCESS == (rv = md_cert_get_issuers_uri(&url, cert, d->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "next issuer is  %s", url);
+#if MD_EXPERIMENTAL
+            if (!strncmp("http://127.0.0.1:", url, sizeof("http://127.0.0.1:")-1)) {
+                /* test boulder instance always reports issuer cert on localhost, but we
+                 * may use a different address to reach the boulder server */
+                apr_uri_t curi, ca;
+                
+                if (APR_SUCCESS == apr_uri_parse(d->p, url, &curi)
+                    && APR_SUCCESS == apr_uri_parse(d->p, ad->acme->url, &ca)) {
+                    url = apr_psprintf(d->p, "%s://%s:%s%s", 
+                                       ca.scheme, ca.hostname, ca.port_str, curi.path);
+                }
+            }
+#endif
             rv = md_acme_GET(ad->acme, url, NULL, NULL, on_add_chain, d);
             
             if (APR_SUCCESS == rv && nelts == ad->chain->nelts) {
