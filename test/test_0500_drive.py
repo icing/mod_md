@@ -291,7 +291,7 @@ class TestDrive :
         # drive
         run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
-        assert run['jout']['status'] == 61
+        assert run['jout']['status'] != 0
         assert run['jout']['description'] == 'Connection refused'
 
     # --------- _utils_ ---------
