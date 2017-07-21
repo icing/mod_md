@@ -19,6 +19,8 @@ def setup_module(module):
 def teardown_module(module):
     print("teardown_module: %s" % module.__name__)
 
+def md_name(md):
+    return md['name']
 
 class TestStore:
 
@@ -133,7 +135,7 @@ class TestStore:
         # test case: list two managed domains
         # setup: add managed domains
         dnslist = [ 
-            [ "test000-201.com", "test000-201a.com", "test000-201b.com" ], 
+            [ "test000-201.com", "test000-201a.com", "test000-201b.com" ],
             [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"] 
         ]
         for dns in dnslist:
@@ -143,6 +145,7 @@ class TestStore:
         jout = TestEnv.a2md( [ "store", "list" ] )['jout']
         assert len(jout['output']) == len(dnslist)
         dnslist.reverse()
+        sorted(jout['output'], key=md_name)
         for i in range (0, len(jout['output'])):
             TestEnv.check_json_contains( jout['output'][i],
                 {
