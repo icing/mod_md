@@ -729,6 +729,13 @@ apr_status_t md_json_setsa(apr_array_header_t *a, md_json_t *json, ...)
 /**************************************************************************************************/
 /* formatting, parsing */
 
+typedef struct {
+    md_json_t *json;
+    md_json_fmt_t fmt;
+    const char *fname;
+    apr_file_t *f;
+} j_write_ctx;
+
 static int dump_cb(const char *buffer, size_t len, void *baton)
 {
     apr_bucket_brigade *bb = baton;
@@ -774,18 +781,31 @@ const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *p)
 
 static int fdump_cb(const char *buffer, size_t blen, void *baton)
 {
-    apr_file_t *f = baton;
+    j_write_ctx *ctx = baton;
     apr_size_t len = blen;
     apr_status_t rv;
     
-    rv = apr_file_write(f, buffer, &len);
+    rv = apr_file_write_full(ctx->f, buffer, len, NULL);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->json->p, "fdump_cb");
+    }
     return (APR_SUCCESS == rv)? 0 : -1;
 }
 
 apr_status_t md_json_writef(md_json_t *json, md_json_fmt_t fmt, apr_file_t *f)
 {
-    size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
-    int rv = json_dump_callback(json->j, fdump_cb, f, flags);
+    size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2);
+    j_write_ctx ctx;
+    apr_status_t rv;
+    
+    ctx.json = json;
+    ctx.fmt = fmt;
+    ctx.fname = NULL;
+    ctx.f = f; 
+    rv = json_dump_callback(json->j, fdump_cb, &ctx, flags);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_write");
+    }
     return rv? APR_EGENERAL : APR_SUCCESS;
 }
 
@@ -802,12 +822,6 @@ apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt,
     }
     return rv;
 }
-
-typedef struct {
-    md_json_t *json;
-    md_json_fmt_t fmt;
-    const char *fname;
-} j_write_ctx;
 
 static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
 {

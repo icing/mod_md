@@ -31,7 +31,7 @@ HFILES = \
     md_os.h \
     mod_md.h
 
-mod_md_la_SOURCES = $(HFILES) $(OBJECTS)
+mod_md_la_SOURCES = $(HFILES) $(OBJECTS) ../src/libapachemd.la
 
 all: mod_md.la 
 
