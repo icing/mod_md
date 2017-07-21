@@ -223,7 +223,7 @@ apr_status_t md_acme_req_body_init(md_acme_req_t *req, md_json_t *jpayload)
     if (!req->acme->acct) {
         return APR_EINVAL;
     }
-    payload = md_json_writep(jpayload, MD_JSON_FMT_COMPACT, req->p);
+    payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
     payload_len = strlen(payload);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
                   "acct payload(len=%d): %s", payload_len, payload);
@@ -306,7 +306,7 @@ static apr_status_t on_response(const md_http_response_t *res)
             if (APR_SUCCESS == rv) {
                 if (md_log_is_level(req->p, MD_LOG_TRACE2)) {
                     const char *s;
-                    s = md_json_writep(req->resp_json, MD_JSON_FMT_INDENT, req->p);
+                    s = md_json_writep(req->resp_json, req->p, MD_JSON_FMT_INDENT);
                     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->p, "response: %s", s);
                 }
                 rv = req->on_json(req->acme, req->p, req->resp_hdrs, req->resp_json, req->baton);
@@ -372,7 +372,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
         const char *body = NULL;
     
         if (req->req_json) {
-            body = md_json_writep(req->req_json, MD_JSON_FMT_INDENT, req->p);
+            body = md_json_writep(req->req_json, req->p, MD_JSON_FMT_INDENT);
         }
         
         if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {

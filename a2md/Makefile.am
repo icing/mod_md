@@ -35,4 +35,4 @@ A2MD_HFILES = \
     md_cmd_reg.h \
     md_cmd_store.h
 
-a2md_SOURCES = $(A2MD_HFILES) $(A2MD_OBJECTS) ../src/libapachemd.la
+a2md_SOURCES = $(A2MD_HFILES) $(A2MD_OBJECTS)

@@ -54,7 +54,7 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
         md_json_sets(md_pkey_get_rsa_n64(pkey, p), jprotected, "jwk", "n", NULL);
     }
     apr_table_do(header_set, jprotected, protected, NULL);
-    prot = md_json_writep(jprotected, MD_JSON_FMT_COMPACT, p);
+    prot = md_json_writep(jprotected, p, MD_JSON_FMT_COMPACT);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "protected: %s", prot); 
     
     prot64 = md_util_base64url_encode(prot, strlen(prot), p);

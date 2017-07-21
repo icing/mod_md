@@ -402,7 +402,7 @@ int main(int argc, const char *const *argv)
             apr_strerror(rv, errbuff, sizeof(errbuff)/sizeof(errbuff[0]));
             md_json_sets(apr_pstrdup(p, errbuff), ctx.json_out, "description", NULL);
         }
-        fprintf(stdout, "%s\n", md_json_writep(ctx.json_out, MD_JSON_FMT_INDENT, p));
+        fprintf(stdout, "%s\n", md_json_writep(ctx.json_out, p, MD_JSON_FMT_INDENT));
     }
     
     return (rv == APR_SUCCESS)? 0 : 1;

@@ -762,7 +762,7 @@ static int chunk_cb(const char *buffer, size_t len, void *baton)
     return 0;
 }
 
-const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *p)
+const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
 {
     size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
     apr_array_header_t *chunks;
@@ -779,34 +779,17 @@ const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *p)
     }
 }
 
-static int fdump_cb(const char *buffer, size_t blen, void *baton)
+apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, apr_file_t *f)
 {
-    j_write_ctx *ctx = baton;
-    apr_size_t len = blen;
     apr_status_t rv;
+    const char *s;
     
-    rv = apr_file_write_full(ctx->f, buffer, len, NULL);
+    s = md_json_writep(json, p, fmt);
+    rv = apr_file_write_full(f, s, strlen(s), NULL);
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->json->p, "fdump_cb");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_writef");
     }
-    return (APR_SUCCESS == rv)? 0 : -1;
-}
-
-apr_status_t md_json_writef(md_json_t *json, md_json_fmt_t fmt, apr_file_t *f)
-{
-    size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2);
-    j_write_ctx ctx;
-    apr_status_t rv;
-    
-    ctx.json = json;
-    ctx.fmt = fmt;
-    ctx.fname = NULL;
-    ctx.f = f; 
-    rv = json_dump_callback(json->j, fdump_cb, &ctx, flags);
-    if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_write");
-    }
-    return rv? APR_EGENERAL : APR_SUCCESS;
+    return rv;
 }
 
 apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
@@ -817,7 +800,7 @@ apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt,
     
     rv = md_util_fcreatex(&f, fpath, perms, p);
     if (APR_SUCCESS == rv) {
-        rv = md_json_writef(json, fmt, f);
+        rv = md_json_writef(json, p, fmt, f);
         apr_file_close(f);
     }
     return rv;
@@ -826,7 +809,7 @@ apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt,
 static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
 {
     j_write_ctx *ctx = baton;
-    apr_status_t rv = md_json_writef(ctx->json, ctx->fmt, f);
+    apr_status_t rv = md_json_writef(ctx->json, p, ctx->fmt, f);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "freplace json in %s", ctx->fname);
     }

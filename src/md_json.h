@@ -97,8 +97,9 @@ apr_status_t md_json_setsa(apr_array_header_t *a, md_json_t *json, ...);
 
 /* serialization & parsing */
 apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, struct apr_bucket_brigade *bb);
-const char *md_json_writep(md_json_t *json, md_json_fmt_t fmt, apr_pool_t *pool);
-apr_status_t md_json_writef(md_json_t *json, md_json_fmt_t fmt, struct apr_file_t *f);
+const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt);
+apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, 
+                            md_json_fmt_t fmt, struct apr_file_t *f);
 apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
                               const char *fpath, apr_fileperms_t perms);
 apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
