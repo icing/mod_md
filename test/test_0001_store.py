@@ -145,7 +145,7 @@ class TestStore:
         jout = TestEnv.a2md( [ "store", "list" ] )['jout']
         assert len(jout['output']) == len(dnslist)
         dnslist.reverse()
-        sorted(jout['output'], key=md_name)
+        jout['output'] = sorted(jout['output'], key=md_name)
         for i in range (0, len(jout['output'])):
             TestEnv.check_json_contains( jout['output'][i],
                 {
