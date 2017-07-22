@@ -288,6 +288,7 @@ Please see the file called LICENSE.
 
 This work is supported by an Award from MOSS, the Mozillla Open Source Support project. Many thanks to these excellent people! You are awesome!
 
+Test cases mostly written by my colleague @michael-koeller who made this to a good part really a test driven development. Thanks!
 
 Münster, 22.07.2017
 
