@@ -64,7 +64,7 @@ check if all is fine and, 14 days before the certificate expires, get you a new 
 
 (***Attention:*** before you head off and add this to your server, see the list of current [limitations](#limitations)! Also, by ***default right now*** certificates are retrieved from the Let's Encrypt _staging_ environment. Which is a playground. When this thing really gets production ready, I will change  this default. Now you need to do that explicitly, if you feel so brave. See under ***Advanced Usage***)
 
-(***More Attention:*** if you want to play around with this now, nothing will work until you agree to Let's Encrypt's [Terms of Service](#terms-of-service) and give a [Contact Email Address](#contact).
+(***More Attention:*** if you want to play around with this now, nothing will work until you agree to Let's Encrypt's [Terms of Service](#terms-of-service) and give a [Contact Email Address](#contact-information).
 
 Of course, you still need to configure a ```VirtualHost``` (or several) for it that defines which resources/applications are served and what security restrictions you have etc. So, a more complete config example would look like this:
 
@@ -199,7 +199,22 @@ All the configuration settings discussed so far should be done in the global ser
     MDCertificateAuthority   https://someotherca.com/ACME
 </ManagedDomain>
 ```
-This allows you to have one domain from Let's Encrypt and a second from some other provider. Of also Let's Encrypt, but using another protocol (version).
+This allows you to have one domain from Let's Encrypt and a second from some other provider. Or also Let's Encrypt, but using another protocol (version).
+
+## Storage
+
+By default, ```mod_md``` stores its data in ```<ServerRoot>/md```. Sensitive data has its access permissions either restricted (if the platform supports it), or if read access by httpd child processes is nevessary, private keys are encrypted using a shared secret.
+
+(More to be written about how this works).
+
+Underneath ```<ServerRoot>/md```, you will find:
+
+ * ```domains/<name>```: which contains all files for the Managed Domain 'name' (the name of a managed domain is always the first domain you specified the first time).
+ * ```accounts/<servername-nnn>```: data from your account at a CA
+ * ```archive/<name.nnn>```: previous versions of domain data
+ * ```challenges/<name>```: information to answer challenges from the CA
+ * ```staging/<name>```: information collected during protocol driving
+ * ```md_store.json```: store meta data and shared secret between httpd and its child processes
 
 ## Limitations
 
