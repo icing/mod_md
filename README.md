@@ -11,7 +11,7 @@ This code here is in an incubation stage, to help people review and comment on t
 
 What you find here are **early experience versions** for people who like living on the edge and want to help me test not yet released changes.
 
-This is not _checkout, configture and shoot_. For it to work, you need a patched mod_ssl (patch is provided in directory ```patches```), but that is about the only complication.
+This is not _checkout, configure and shoot_. For it to work, you need a patched mod_ssl (patch is provided in directory ```patches```), but that is about the only complication.
 
 Also: this is not in *any* way production ready. However there is a good test suite included against a local [boulder](https://github.com/letsencrypt/boulder) server, using the excellent [pytest](https://docs.pytest.org/en/latest/).
 
@@ -164,7 +164,7 @@ where, unsurprisingly, ```mod_md``` will do its best to automate everything. The
 
 ### When to Renew
 
-Normally, certifcates are valid for around 90 days and ```mod_md``` will renew them the earliest 14 days before they expire. If you think this is too close, you can specify the number of days, as in:
+Normally, certificates are valid for around 90 days and ```mod_md``` will renew them the earliest 14 days before they expire. If you think this is too close, you can specify the number of days, as in:
 
 ```
 MDRenewWindow   21d
@@ -201,7 +201,7 @@ This allows you to have one domain from Let's Encrypt and a second from some oth
 
 ## Storage
 
-By default, ```mod_md``` stores its data in ```<ServerRoot>/md```. Sensitive data has its access permissions either restricted (if the platform supports it), or if read access by httpd child processes is nevessary, private keys are encrypted using a shared secret.
+By default, ```mod_md``` stores its data in ```<ServerRoot>/md```. Sensitive data has its access permissions either restricted (if the platform supports it), or if read access by httpd child processes is necessary, private keys are encrypted using a shared secret.
 
 (More to be written about how this works).
 
