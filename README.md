@@ -7,7 +7,7 @@ Your server should offer HTTPS!
 
 This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). The name is derived from the ACME protocol that is at the heart of mod_md. ACME stands for Automated Certificate Management Environment, and mod_md Manages Domains using this protocol.
 
-This repository here is an incubation area to help people review and comment on this before I bring it into the main Apache httpd repository. Issues you can raise here, general discussion is probably best at the httpd dev mailing list.
+This code here is in an incubation stage, to help people review and comment on this before I bring it into the main Apache httpd repository. Issues you can raise here, general discussion is probably best at the httpd dev mailing list.
 
 ## Status
 
@@ -17,7 +17,7 @@ This is not _checkout, configture and shoot_. For it to work, you need a patched
 
 Also: this is not in *any* way production ready. However there is a good test suite included against a local [boulder](https://github.com/letsencrypt/boulder) server, using the excellent [pytest](https://docs.pytest.org/en/latest/).
 
-For more about about use and limitations, see [Usage](#Usage) below.
+For more about about use and limitations, see [Usage](#usage) below.
 
 ## Install
 
@@ -37,8 +37,6 @@ where ```192.168.1.65``` is the address my Apache httpd is listening on.
 ## Changes
 
 See ```ChangeLog``` for details.
-
-## Documenation
 
 ## Build from git
 
@@ -64,9 +62,9 @@ When all is done as I would like it to be, you just add a single line to your Ap
 to you Apache configuration and ```mod_md``` will get you a certificate from Let's Encrypt, install it in your file system and restart the server to activate it. It will the peridically 
 check if all is fine and, 14 days before the certificate expires, get you a new one.
 
-(***Attention:*** before you head off and add this to your server, see the list of current [limitations](#Limitations)! Also, by ***default right now*** certificates are retrieved from the Let's Encrypt _staging_ environment. Which is a playground. When this thing really gets production ready, I will change  this default. Now you need to do that explicitly, if you feel so brave. See under ***Advanced Usage***)
+(***Attention:*** before you head off and add this to your server, see the list of current [limitations](#limitations)! Also, by ***default right now*** certificates are retrieved from the Let's Encrypt _staging_ environment. Which is a playground. When this thing really gets production ready, I will change  this default. Now you need to do that explicitly, if you feel so brave. See under ***Advanced Usage***)
 
-(***More Attention:*** if you want to play around with this now, nothing will work until you agree to Let's Encrypt's [Terms of Service](#Terms) and give a [Contact Email Address](#contact).
+(***More Attention:*** if you want to play around with this now, nothing will work until you agree to Let's Encrypt's [Terms of Service](#terms-of-service) and give a [Contact Email Address](#contact).
 
 Of course, you still need to configure a ```VirtualHost``` (or several) for it that defines which resources/applications are served and what security restrictions you have etc. So, a more complete config example would look like this:
 
