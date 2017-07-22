@@ -3,8 +3,6 @@
 
 Copyright 2017 greenbytes GmbH
 
-Your server should offer HTTPS!
-
 This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). The name is derived from the ACME protocol that is at the heart of mod_md. ACME stands for Automated Certificate Management Environment, and mod_md Manages Domains using this protocol.
 
 This code here is in an incubation stage, to help people review and comment on this before I bring it into the main Apache httpd repository. Issues you can raise here, general discussion is probably best at the httpd dev mailing list.
