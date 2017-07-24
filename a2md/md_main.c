@@ -277,7 +277,7 @@ void md_cmd_print_md(md_cmd_ctx *ctx, const md_t *md)
 
 static int pool_abort(int rv)
 {
-    exit(1);
+    abort();
 }
 
 apr_array_header_t *md_cmd_gather_args(md_cmd_ctx *ctx, int index)
