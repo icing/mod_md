@@ -9,6 +9,8 @@
 /* Begin PBXFileReference section */
 		758B85541F261AB10076B27A /* httpd_http.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_http.conf.in; sourceTree = "<group>"; };
 		758B85551F261AB10076B27A /* httpd_https.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_https.conf.in; sourceTree = "<group>"; };
+		758B85561F263F740076B27A /* renew_10.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_10.conf; sourceTree = "<group>"; };
+		758B85571F263F740076B27A /* renew_30.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_30.conf; sourceTree = "<group>"; };
 		75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0600_roundtrip.py; sourceTree = "<group>"; };
 		75EDD0821F14E75A003CBD39 /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		75EDD0831F14E75A003CBD39 /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
@@ -166,6 +168,8 @@
 				B2B81E8E1F0A907900E35CA3 /* one_md_ca.conf */,
 				B2B81E911F0A907900E35CA3 /* one_md_ca_admin.conf */,
 				75EDD0861F15063B003CBD39 /* one_md_caps.conf */,
+				758B85561F263F740076B27A /* renew_10.conf */,
+				758B85571F263F740076B27A /* renew_30.conf */,
 				B262F6D11EFCFE1100D396A1 /* two_mds.conf */,
 				B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */,
 				75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */,

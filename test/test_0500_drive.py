@@ -232,6 +232,36 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
+    def test_500_107(self):
+        # test case: drive again on COMPLETE md, then drive --force
+        # setup: prepare md in store
+        domain = "test500-100-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
+        assert TestEnv.apache_start() == 0
+        # drive
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        self._check_md_cert([ name ])
+        orig_cert = CertUtil(TestEnv.path_domain_cert(name))
+
+        # drive again
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        self._check_md_cert([ name ])
+        cert = CertUtil(TestEnv.path_domain_cert(name))
+        # check: cert not changed
+        assert cert.get_serial() == orig_cert.get_serial()
+
+        # drive --force
+        assert TestEnv.a2md( [ "-vv", "drive", "--force", name ] )['rv'] == 0
+        self._check_md_cert([ name ])
+        cert = CertUtil(TestEnv.path_domain_cert(name))
+        # check: cert not changed
+        assert cert.get_serial() != orig_cert.get_serial()
+        # check: previous cert was archived
+        cert = CertUtil(TestEnv.path_domain_cert( name, archiveVersion=2 ))
+        assert cert.get_serial() == orig_cert.get_serial()
+
+
     # --------- critical state change -> drive again ---------
 
     def test_500_200(self):
