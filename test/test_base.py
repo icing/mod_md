@@ -41,6 +41,7 @@ class TestEnv:
         cls.ERROR_LOG = os.path.join(cls.WEBROOT, "logs", "error_log")
         cls.APACHE_CONF_DIR = os.path.join(cls.WEBROOT, "conf")
         cls.APACHE_SSL_DIR = os.path.join(cls.APACHE_CONF_DIR, "ssl")
+        cls.APACHE_CONF = os.path.join(cls.APACHE_CONF_DIR, "httpd.conf")
         cls.APACHE_TEST_CONF = os.path.join(cls.APACHE_CONF_DIR, "test.conf")
         cls.APACHE_CONF_SRC = "data"
         cls.APACHE_HTDOCS_DIR = os.path.join(cls.WEBROOT, "htdocs")
@@ -49,6 +50,7 @@ class TestEnv:
         cls.HTTPS_PORT = cls.config.get('global', 'https_port')
         cls.HTTPD_HOST = "localhost"
         cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
+        cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
 
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
 
@@ -58,12 +60,13 @@ class TestEnv:
         cls.MD_S_EXPIRED = 3
         cls.MD_S_ERROR = 4
 
-        cls.set_store_dir('md')
         cls.EMPTY_JOUT = { 'status' : 0, 'output' : [] }
 
         cls.ACME_SERVER_DOWN = False
         cls.ACME_SERVER_OK = False
 
+        cls.set_store_dir('md')
+        cls.install_test_conf()
 
     @classmethod
     def set_store_dir( cls, dir ) :
@@ -206,6 +209,12 @@ class TestEnv:
         os.makedirs(TestEnv.STORE_DIR)
 
     @classmethod
+    def authz_save( cls, name, content ) :
+        dir = os.path.join(TestEnv.STORE_DIR, 'staging', name)
+        os.makedirs(dir)
+        open( os.path.join( dir, 'authz.json'), "w" ).write(content)
+
+    @classmethod
     def path_store_json( cls ) : 
         return os.path.join(TestEnv.STORE_DIR, 'md_store.json')
 
@@ -218,10 +227,8 @@ class TestEnv:
         return os.path.join(TestEnv.STORE_DIR, 'accounts', acct, 'account.pem')
 
     @classmethod
-    def authz_save( cls, name, content ) :
-        dir = os.path.join(TestEnv.STORE_DIR, 'staging', name)
-        os.makedirs(dir)
-        open( os.path.join( dir, 'authz.json'), "w" ).write(content)
+    def path_challenges( cls ) : 
+        return os.path.join(TestEnv.STORE_DIR, 'challenges')
 
     @classmethod
     def path_domain( cls, domain, archiveVersion=0 ) :
@@ -254,7 +261,13 @@ class TestEnv:
     # --------- control apache ---------
 
     @classmethod
-    def install_test_conf( cls, conf) :
+    def install_test_conf( cls, conf=None, sslOnly=False) :
+        if sslOnly:
+            root_conf_src = os.path.join("conf", "httpd_https.conf")
+        else:
+            root_conf_src = os.path.join("conf", "httpd_http.conf")
+        copyfile(root_conf_src, cls.APACHE_CONF)
+
         if conf is None:
             conf_src = os.path.join("conf", "test.conf")
         elif os.path.isabs(conf):
@@ -262,7 +275,7 @@ class TestEnv:
         else:
             conf_src = os.path.join(cls.APACHE_CONF_SRC, conf + ".conf")
         copyfile(conf_src, cls.APACHE_TEST_CONF)
-    
+
     @classmethod
     def apachectl( cls, conf, cmd ) :
         cls.install_test_conf(conf)
@@ -271,40 +284,44 @@ class TestEnv:
         return subprocess.call(args)
 
     @classmethod
-    def apache_restart( cls ) :
+    def apache_restart( cls, checkWithSSL=False ) :
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]
         print "execute: ", " ".join(args)
         rv = subprocess.call(args)
         if rv == 0:
-            rv = 0 if cls.is_live(cls.HTTPD_URL, 5) else -1
+            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
+            rv = 0 if cls.is_live(url, 5) else -1
         return rv
         
     @classmethod
-    def apache_start( cls ) :
+    def apache_start( cls, checkWithSSL=False ) :
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "start"]
         print "execute: ", " ".join(args)
         rv = subprocess.call(args)
         if rv == 0:
-            rv = 0 if cls.is_live(cls.HTTPD_URL, 5) else -1
+            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
+            rv = 0 if cls.is_live(url, 5) else -1
         return rv
 
     @classmethod
-    def apache_stop( cls ) :
+    def apache_stop( cls, checkWithSSL=False ) :
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "stop"]
         print "execute: ", " ".join(args)
         rv = subprocess.call(args)
         if rv == 0:
-            rv = 0 if cls.is_dead(cls.HTTPD_URL, 5) else -1
+            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
+            rv = 0 if cls.is_dead(url, 5) else -1
         return rv
 
     @classmethod
-    def apache_fail( cls ) :
+    def apache_fail( cls, checkWithSSL=False ) :
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]
         print "execute: ", " ".join(args)
         rv = 0 if subprocess.call(args) != 0 else -1
         if rv == 0:
-            print "check, if dead: " + cls.HTTPD_URL
-            rv = 0 if cls.is_dead(cls.HTTPD_URL, 5) else -1
+            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
+            print "check, if dead: " + url
+            rv = 0 if cls.is_dead(url, 5) else -1
         return rv
         
     @classmethod
@@ -354,6 +371,10 @@ class TestEnv:
          actualMask = os.lstat(path).st_mode & 0777
          assert oct(actualMask) == oct(expMask)
 
+    @classmethod
+    def check_dir_empty(cls, path):
+         assert os.listdir(path) == []
+
 # -----------------------------------------------
 # --
 # --     dynamic httpd configuration
@@ -362,8 +383,9 @@ class TestEnv:
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, path, writeCertFiles=False):
+    def __init__(self, path, writeCertFiles=False, sslOnly=False):
         self.path = path
+        self.sslOnly = sslOnly
         self.writeCertFiles = writeCertFiles
         if os.path.isfile(self.path):
             os.remove(self.path)
@@ -399,7 +421,7 @@ class HttpdConf(object):
         f.write("</VirtualHost>\n\n")
 
     def install(self):
-        TestEnv.install_test_conf(self.path)
+        TestEnv.install_test_conf(self.path, self.sslOnly)
 
 # -----------------------------------------------
 # --

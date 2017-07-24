@@ -18,7 +18,6 @@ def setup_module(module):
     TestEnv.init()
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
-    TestEnv.install_test_conf("test1.example.org");
     assert TestEnv.apache_restart() == 0
 
 def teardown_module(module):
@@ -34,6 +33,7 @@ class TestDrive :
         print("setup_method: %s" % method.__name__)
         TestEnv.check_acme()
         TestEnv.clear_store()
+        TestEnv.install_test_conf()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -78,7 +78,6 @@ class TestDrive :
 
     # --------- driving OK ---------
 
-    @pytest.mark.skip(reason="Test verification of account key not working reliable")
     def test_500_100(self):
         # test case: md with one domain
         domain = "test500-100-" + TestDrive.dns_uniq
@@ -89,9 +88,10 @@ class TestDrive :
         prevMd = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        # not relable right now. base64url decoding mayhaps?
-        #self._check_account_key( name )
+        self._check_account_key( name )
 
+        # check: challenges removed
+        TestEnv.check_dir_empty( TestEnv.path_challenges() )
         # check archive content
         assert json.loads( open( TestEnv.path_domain(name, archiveVersion=1 )).read() ) == prevMd
 
@@ -218,6 +218,19 @@ class TestDrive :
         print run["stderr"]
         assert run['rv'] == 0
         self._check_md_cert([ name ])
+
+    @pytest.mark.skip(reason="Not implemented: Use TLS-SNI challenge")
+    def test_500_106(self):
+        # test case: httpd only allows HTTPS -> drive uses TLS-SNI challenge
+        assert TestEnv.apache_stop() == 0
+        TestEnv.install_test_conf( conf=None, sslOnly=True )
+        domain = "test500-106-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name, "test." + domain ])
+        assert TestEnv.apache_start( checkWithSSL=True ) == 0
+        # drive
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        self._check_md_cert([ name, "test." + domain ])
 
     # --------- critical state change -> drive again ---------
 
@@ -347,7 +360,7 @@ class TestDrive :
         # check: key file is encrypted PEM
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         acc = md['ca']['account']
-        CertUtil.validate_privkey(TestEnv.path_account_key( acc ), encryptKey)
+        CertUtil.validate_privkey(TestEnv.path_account_key( acc ), lambda *args: encryptKey )
         # check: negative test with wrong key
         encryptKey = base64.urlsafe_b64decode( str("dJRvw9dkigC1dmVekPaN08DWaXfQ24IL17wUSWq2C_U5FBzSGOb6oQO-_yTGzPC4") )
         with pytest.raises(Exception) as ex:
