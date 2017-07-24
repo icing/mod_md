@@ -925,7 +925,7 @@ apr_status_t md_json_readf(md_json_t **pjson, apr_pool_t *p, const char *fpath)
             *pjson = json_create(p, j);
         }
         apr_file_close(f);
-        return *pjson? APR_SUCCESS : APR_EINVAL;
+        return (j && *pjson) ? APR_SUCCESS : APR_EINVAL;
     }
     return rv;
 }
