@@ -18,7 +18,6 @@ def setup_module(module):
     TestEnv.init()
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
-    TestEnv.install_test_conf("test1.example.org");
     assert TestEnv.apache_restart() == 0
 
 def teardown_module(module):
@@ -34,6 +33,7 @@ class TestDrive :
         print("setup_method: %s" % method.__name__)
         TestEnv.check_acme()
         TestEnv.clear_store()
+        TestEnv.install_test_conf()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -218,6 +218,19 @@ class TestDrive :
         print run["stderr"]
         assert run['rv'] == 0
         self._check_md_cert([ name ])
+
+    @pytest.mark.skip(reason="Not implemented: Use TLS-SNI challenge")
+    def test_500_106(self):
+        # test case: httpd only allows HTTPS -> drive uses TLS-SNI challenge
+        assert TestEnv.apache_stop() == 0
+        TestEnv.install_test_conf( conf=None, sslOnly=True )
+        domain = "test500-106-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name, "test." + domain ])
+        assert TestEnv.apache_start( checkWithSSL=True ) == 0
+        # drive
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        self._check_md_cert([ name, "test." + domain ])
 
     # --------- critical state change -> drive again ---------
 

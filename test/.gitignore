@@ -3,7 +3,8 @@ Makefile
 __pycache__
 test.ini
 gen
-conf/httpd.conf
+conf/httpd_http.conf
+conf/httpd_https.conf
 conf/modules.conf
 *.pyc
 data/test_roundtrip/temp.conf

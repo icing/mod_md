@@ -37,7 +37,7 @@ class TestAuto:
         print("setup_method: %s" % method.__name__)
         TestEnv.check_acme()
         TestEnv.clear_store()
-        TestEnv.install_test_conf(None);
+        TestEnv.install_test_conf();
         assert TestEnv.apache_start() == 0
 
 
@@ -179,6 +179,34 @@ class TestAuto:
                               "--cacert", TestEnv.path_domain_cert(domain), test_url_b])
         assert result['rv'] == 0
         assert result['stdout'] == nameB
+
+    @pytest.mark.skip(reason="Not implemented: Use TLS-SNI challenge")
+    def test_700_004(self):
+        # test case: httpd only allows HTTPS -> drive uses TLS-SNI challenge
+        domain = "a004-" + TestAuto.dns_uniq
+        dnsList = [ domain, "www." + domain ]
+
+        # setup: generate config with one md, one vhost
+        assert TestEnv.apache_stop() == 0
+        conf = HttpdConf(TestAuto.TMP_CONF, sslOnly=True)
+        conf.add_admin("admin@" + domain)
+        conf.add_drive_mode("auto")
+        conf.add_md(dnsList)
+        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True)
+        conf.install()
+
+        # - restart (-> drive), check that md is in store
+        assert TestEnv.apache_restart( checkWithSSL=True ) == 0
+        self._check_md_names(domain, dnsList)
+        self._wait_for_state_change([ domain ], 30)
+        self._check_md_cert(dnsList)
+        
+        # - check access
+        test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
+        dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
+        assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
+                            "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
+
 
     # --------- _utils_ ---------
 

@@ -261,7 +261,8 @@ AC_CONFIG_FILES([
     src/md_version.h
     src/Makefile
     test/Makefile
-    test/conf/httpd.conf
+    test/conf/httpd_http.conf
+    test/conf/httpd_https.conf
     test/conf/modules.conf
     test/test.ini
 ])

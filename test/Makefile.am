@@ -60,7 +60,7 @@ $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/conf/ssl/expired_pkey.pem
 	@mkdir -p $(SERVER_DIR)/conf/ssl
 	@mkdir -p $(SERVER_DIR)/logs
-	@cp conf/*.* $(SERVER_DIR)/conf
+	rsync -a --exclude="httpd*" conf/*.* $(SERVER_DIR)/conf
 	@touch $(SERVER_DIR)/.test-setup
 
 $(SERVER_DIR)/conf/ssl/expired_cert.pem: data/ssl/expired_cert.pem

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		758B85541F261AB10076B27A /* httpd_http.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_http.conf.in; sourceTree = "<group>"; };
+		758B85551F261AB10076B27A /* httpd_https.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_https.conf.in; sourceTree = "<group>"; };
 		75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0600_roundtrip.py; sourceTree = "<group>"; };
 		75EDD0821F14E75A003CBD39 /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		75EDD0831F14E75A003CBD39 /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
@@ -116,7 +118,6 @@
 		B2D31AEC1EC1B506007BECC8 /* mime.types */ = {isa = PBXFileReference; lastKnownFileType = text; path = mime.types; sourceTree = "<group>"; };
 		B2D31AED1EC1B506007BECC8 /* test.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.conf; sourceTree = "<group>"; };
 		B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = modules.conf.in; sourceTree = "<group>"; };
-		B2D31AFB1EC1BC83007BECC8 /* httpd.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = httpd.conf.in; sourceTree = "<group>"; };
 		B2D31B071EC33CBE007BECC8 /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -300,7 +301,8 @@
 		B2D31AEA1EC1B506007BECC8 /* conf */ = {
 			isa = PBXGroup;
 			children = (
-				B2D31AFB1EC1BC83007BECC8 /* httpd.conf.in */,
+				758B85541F261AB10076B27A /* httpd_http.conf.in */,
+				758B85551F261AB10076B27A /* httpd_https.conf.in */,
 				B2D31AEC1EC1B506007BECC8 /* mime.types */,
 				B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */,
 				B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */,
