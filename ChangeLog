@@ -1,3 +1,4 @@
+ * Challenge data is being removed from store when staging is done
  * configure option '--with-boulder=<url>' to specify the URL of the boulder test host (defaults
    to localhost:4000)
  * Changed default ACME CA url to letsencrypt.org staging environment when in MD_EXPERIMENTAL

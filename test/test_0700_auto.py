@@ -45,7 +45,7 @@ class TestAuto:
         print("teardown_method: %s" % method.__name__)
 
 
-    @pytest.mark.skip(reason="challenges not removed after successfull auto drive")
+    #@pytest.mark.skip(reason="challenges not removed after successfull auto drive")
     def test_700_001(self):
         # create a MD not used in any virtual host
         # auto drive should NOT pick it up
@@ -76,8 +76,6 @@ class TestAuto:
 
         # check: challenges removed
         TestEnv.check_dir_empty( TestEnv.path_challenges() )
-        # check archive content
-        assert json.loads( open( TestEnv.path_domain(name, archiveVersion=1 )).read() ) == prevMd
 
         # check file system permissions:
         md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]

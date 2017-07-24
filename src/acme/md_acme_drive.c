@@ -173,14 +173,14 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
      * if known AUTHZ resource is not valid, remove, goto 4.1.1
      * if no AUTHZ available, create a new one for the domain, store it
      */
-    rv = md_acme_authz_set_load(d->store, md->name, &ad->authz_set, d->p);
+    rv = md_acme_authz_set_load(d->store, MD_SG_STAGING, md->name, &ad->authz_set, d->p);
     if (!ad->authz_set || APR_STATUS_IS_ENOENT(rv)) {
         ad->authz_set = md_acme_authz_set_create(d->p, ad->acme);
         rv = APR_SUCCESS;
     }
     else if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading authz data", md->name);
-        md_acme_authz_set_purge(d->store, d->p, md->name);
+        md_acme_authz_set_purge(d->store, MD_SG_STAGING, d->p, md->name);
         return APR_EAGAIN;
     }
     
@@ -223,7 +223,7 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     
     /* Save any changes */
     if (APR_SUCCESS == rv && changed) {
-        rv = md_acme_authz_set_save(d->store, d->p, md->name, ad->authz_set, 0);
+        rv = md_acme_authz_set_save(d->store, d->p, MD_SG_STAGING, md->name, ad->authz_set, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: saved", md->name);
     }
     
@@ -247,7 +247,7 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv = APR_SUCCESS;
     md_acme_authz_t *authz;
-    int i;
+    int i, changed = 0;
     
     assert(ad->md);
     assert(ad->acme);
@@ -271,6 +271,7 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
             case MD_ACME_AUTHZ_S_PENDING:
                 rv = md_acme_authz_respond(authz, ad->acme, d->store, 
                                            ad->can_http_01, ad->can_tls_sni_01, d->p);
+                changed = 1;
                 break;
             default:
                 rv = APR_EINVAL;
@@ -281,6 +282,10 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
         }
     }
     
+    if (APR_SUCCESS == rv && changed) {
+        rv = md_acme_authz_set_save(d->store, d->p, MD_SG_STAGING, ad->md->name, ad->authz_set, 0);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: saved", ad->md->name);
+    }
     return rv;
 }
 
@@ -811,6 +816,9 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     else if (APR_SUCCESS != rv) {
         return rv; 
     }
+
+    /* Remove any authz information we have here or in MD_SG_CHALLENGES */
+    md_acme_authz_set_purge(store, MD_SG_STAGING, p, name);
 
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                   "%s: staged data load, purging tmp space", name);

@@ -352,7 +352,7 @@ static apr_status_t rm_recursive(const char *fpath, apr_pool_t *p, int max_level
                     
                     rv = md_util_path_merge(&npath, p, fpath, info.name, NULL);
                     if (APR_SUCCESS == rv) {
-                        rv = md_util_rm_recursive(npath, p, max_level - 1);
+                        rv = rm_recursive(npath, p, max_level - 1);
                     }
                 }
                 apr_dir_close(d);
@@ -361,11 +361,14 @@ static apr_status_t rm_recursive(const char *fpath, apr_pool_t *p, int max_level
                 }
             }
         }
-        return apr_dir_remove(fpath, p);
+        if (APR_SUCCESS == rv) {
+            rv = apr_dir_remove(fpath, p);
+        }
     }
     else {
-        return apr_file_remove(fpath, p);
+        rv = apr_file_remove(fpath, p);
     }
+    return rv;
 }
 
 static apr_status_t prm_recursive(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)

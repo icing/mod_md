@@ -519,6 +519,7 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
         /* Remove all files in dir, there should be no sub-dirs */
         rv = md_util_rm_recursive(dir, ptemp, 1);
     }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "purge %s/%s (%s)", groupname, name, dir);
     return APR_SUCCESS;
 }
 
