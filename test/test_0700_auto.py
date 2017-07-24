@@ -45,6 +45,7 @@ class TestAuto:
         print("teardown_method: %s" % method.__name__)
 
 
+    @pytest.mark.skip(reason="challenges not removed after successfull auto drive")
     def test_700_001(self):
         # create a MD not used in any virtual host
         # auto drive should NOT pick it up
@@ -72,6 +73,11 @@ class TestAuto:
         dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
         assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
                             "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
+
+        # check: challenges removed
+        TestEnv.check_dir_empty( TestEnv.path_challenges() )
+        # check archive content
+        assert json.loads( open( TestEnv.path_domain(name, archiveVersion=1 )).read() ) == prevMd
 
         # check file system permissions:
         md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]

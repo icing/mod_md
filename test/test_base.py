@@ -206,6 +206,12 @@ class TestEnv:
         os.makedirs(TestEnv.STORE_DIR)
 
     @classmethod
+    def authz_save( cls, name, content ) :
+        dir = os.path.join(TestEnv.STORE_DIR, 'staging', name)
+        os.makedirs(dir)
+        open( os.path.join( dir, 'authz.json'), "w" ).write(content)
+
+    @classmethod
     def path_store_json( cls ) : 
         return os.path.join(TestEnv.STORE_DIR, 'md_store.json')
 
@@ -218,10 +224,8 @@ class TestEnv:
         return os.path.join(TestEnv.STORE_DIR, 'accounts', acct, 'account.pem')
 
     @classmethod
-    def authz_save( cls, name, content ) :
-        dir = os.path.join(TestEnv.STORE_DIR, 'staging', name)
-        os.makedirs(dir)
-        open( os.path.join( dir, 'authz.json'), "w" ).write(content)
+    def path_challenges( cls ) : 
+        return os.path.join(TestEnv.STORE_DIR, 'challenges')
 
     @classmethod
     def path_domain( cls, domain, archiveVersion=0 ) :
@@ -353,6 +357,10 @@ class TestEnv:
     def check_file_access(cls, path, expMask):
          actualMask = os.lstat(path).st_mode & 0777
          assert oct(actualMask) == oct(expMask)
+
+    @classmethod
+    def check_dir_empty(cls, path):
+         assert os.listdir(path) == []
 
 # -----------------------------------------------
 # --
