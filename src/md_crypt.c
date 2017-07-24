@@ -148,7 +148,7 @@ static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p)
     return apr_file_write_full(f, buf->data, buf->len, &buf->len);
 }
 
-apr_status_t md_rand_bytes(const char *buf, apr_size_t len, apr_pool_t *p)
+apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p)
 {
     apr_status_t rv;
     
@@ -529,6 +529,17 @@ apr_time_t md_cert_get_not_after(md_cert_t *cert)
     return time;
 }
 
+int md_cert_covers_domain(md_cert_t *cert, const char *domain_name)
+{
+    if (!cert->alt_names) {
+        md_cert_get_alt_names(&cert->alt_names, cert, cert->pool);
+    }
+    if (cert->alt_names) {
+        return md_array_str_index(cert->alt_names, domain_name, 0, 0) >= 0;
+    }
+    return 0;
+}
+
 int md_cert_covers_md(md_cert_t *cert, const md_t *md)
 {
     const char *name;
@@ -821,22 +832,50 @@ apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p,
 /**************************************************************************************************/
 /* certificate signing requests */
 
-static apr_status_t add_alt_names(STACK_OF(X509_EXTENSION) *exts, const md_t *md, apr_pool_t *p)
+static const char *alt_name(const char *domain, apr_pool_t *p)
 {
+    return apr_psprintf(p, "DNS:%s", domain);
+}
+
+static const char *alt_names(apr_array_header_t *domains, apr_pool_t *p)
+{
+    const char *alts = "", *sep = "", *domain;
+    int i;
     
-    if (md->domains->nelts > 0) {
-        const char *alt_names = "", *sep = "", *domain;
+    for (i = 0; i < domains->nelts; ++i) {
+        domain = APR_ARRAY_IDX(domains, i, const char *);
+        alts = apr_psprintf(p, "%s%sDNS:%s", alts, sep, domain);
+        sep = ",";
+    }
+    return alts;
+}
+
+static apr_status_t add_ext(X509 *x, int nid, const char *value)
+{
+    X509_EXTENSION *ext = NULL;
+    X509V3_CTX ctx;
+    apr_status_t rv = APR_EGENERAL;
+
+    X509V3_set_ctx_nodb(&ctx);
+    X509V3_set_ctx(&ctx, x, x, NULL, NULL, 0);
+    if ((ext = X509V3_EXT_conf_nid(NULL, &ctx, nid, (char*)value))
+        && !X509_add_ext(x, ext, -1)) {
+        rv = APR_SUCCESS;
+    }
+    if (ext) {
+        X509_EXTENSION_free(ext);
+    }
+    return rv;
+}
+
+static apr_status_t sk_add_alt_names(STACK_OF(X509_EXTENSION) *exts,
+                                     apr_array_header_t *domains, apr_pool_t *p)
+{
+    if (domains->nelts > 0) {
         X509_EXTENSION *x;
-        int i;
         
-        for (i = 0; i < md->domains->nelts; ++i) {
-            domain = APR_ARRAY_IDX(md->domains, i, const char *);
-            alt_names = apr_psprintf(p, "%s%sDNS:%s", alt_names, sep, domain);
-            sep = ",";
-        }
-        
-        if (NULL == (x = X509V3_EXT_conf_nid(NULL, NULL, 
-                                             NID_subject_alt_name, (char*)alt_names))) {
+        x = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, (char*)alt_names(domains, p));
+        if (NULL == x) {
             return APR_EGENERAL;
         }
         sk_X509_EXTENSION_push(exts, x);
@@ -866,7 +905,7 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const md_t *md,
     X509_REQ *csr;
     X509_NAME *n = NULL;
     STACK_OF(X509_EXTENSION) *exts = NULL;
-    apr_status_t rv = APR_EGENERAL;
+    apr_status_t rv;
     int csr_der_len;
     
     assert(md->domains->nelts > 0);
@@ -883,41 +922,41 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const md_t *md,
     domain = APR_ARRAY_IDX(md->domains, 0, const unsigned char *);
     if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, domain, -1, -1, 0)
         || !X509_REQ_set_subject_name(csr, n)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: REQ name add entry", md->name);
-        goto out;
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: REQ name add entry", md->name);
+        rv = APR_EGENERAL; goto out;
     }
     /* collect extensions, such as alt names and must staple */
-    if (APR_SUCCESS != (rv = add_alt_names(exts, md, p))) {
+    if (APR_SUCCESS != (rv = sk_add_alt_names(exts, md->domains, p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: collecting alt names", md->name);
-        goto out;
+        rv = APR_EGENERAL; goto out;
     }
     if (APR_SUCCESS != (rv = add_must_staple(exts, md, p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: must staple", md->name);
-        goto out;
+        rv = APR_EGENERAL; goto out;
     }
     /* add extensions to csr */
     if (sk_X509_EXTENSION_num(exts) > 0 && !X509_REQ_add_extensions(csr, exts)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: adding exts", md->name);
-        goto out;
+        rv = APR_EGENERAL; goto out;
     }
     /* add our key */
     if (!X509_REQ_set_pubkey(csr, pkey->pkey)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in csr", md->name);
-        goto out;
+        rv = APR_EGENERAL; goto out;
     }
     /* sign, der encode and base64url encode */
     if (!X509_REQ_sign(csr, pkey->pkey, EVP_sha256())) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign csr", md->name);
-        goto out;
+        rv = APR_EGENERAL; goto out;
     }
     if ((csr_der_len = i2d_X509_REQ(csr, NULL)) < 0) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", md->name);
-        goto out;
+        rv = APR_EGENERAL; goto out;
     }
     s = csr_der = apr_pcalloc(p, csr_der_len + 1);
     if (i2d_X509_REQ(csr, (unsigned char**)&s) != csr_der_len) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", md->name);
-        goto out;
+        rv = APR_EGENERAL; goto out;
     }
     csr_der_64 = md_util_base64url_encode(csr_der, csr_der_len, p);
     rv = APR_SUCCESS;
@@ -929,7 +968,98 @@ out:
     if (csr) {
         X509_REQ_free(csr);
     }
+    if (n) {
+        X509_NAME_free(n);
+    }
     *pcsr_der_64 = (APR_SUCCESS == rv)? csr_der_64 : NULL;
+    return rv;
+}
+
+apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *domain, md_pkey_t *pkey,
+                               apr_interval_time_t valid_for, apr_pool_t *p)
+{
+    X509 *x;
+    X509_NAME *n = NULL;
+    md_cert_t *cert = NULL;
+    apr_status_t rv;
+    int days;
+    BIGNUM *big_rnd = NULL;
+    ASN1_INTEGER *asn1_rnd = NULL;
+    unsigned char rnd[20];
+    
+    assert(domain);
+    
+    if (NULL == (x = X509_new()) 
+        || NULL == (n = X509_NAME_new())) {
+        rv = APR_ENOMEM;
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: openssl alloc X509 things", domain);
+        goto out; 
+    }
+    
+    if (APR_SUCCESS != (rv = md_rand_bytes(rnd, sizeof(rnd), p))
+        || !(big_rnd = BN_bin2bn(rnd, sizeof(rnd), NULL))
+        || !(asn1_rnd = BN_to_ASN1_INTEGER(big_rnd, NULL))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: setup random serial", domain);
+        rv = APR_EGENERAL; goto out;
+    } 
+    if (!X509_set_serialNumber(x, asn1_rnd)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: set serial number", domain);
+        rv = APR_EGENERAL; goto out;
+    }
+    /* set common name and issue */
+    if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, (const unsigned char*)domain, -1, -1, 0)
+        || !X509_set_subject_name(x, n)
+        || !X509_set_issuer_name(x, n)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: name add entry", domain);
+        rv = APR_EGENERAL; goto out;
+    }
+    /* cert are uncontrained (but not very trustworthy) */
+    if (APR_SUCCESS != (rv = add_ext(x, NID_basic_constraints, "CA:TRUE, pathlen:0"))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set basic constraints ext", domain);
+        goto out;
+    }
+    /* add the domain as alt name */
+    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_name(domain, p)))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", domain);
+        goto out;
+    }
+    /* add our key */
+    if (!X509_set_pubkey(x, pkey->pkey)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in x509", domain);
+        rv = APR_EGENERAL; goto out;
+    }
+    
+    days = ((apr_time_sec(valid_for) + MD_SECS_PER_DAY - 1)/ MD_SECS_PER_DAY);
+    if (!X509_set_notBefore(x, ASN1_TIME_set(NULL, time(NULL)))) {
+        rv = APR_EGENERAL; goto out;
+    }
+    if (!X509_set_notAfter(x, ASN1_TIME_adj(NULL, time(NULL), days, 0))) {
+        rv = APR_EGENERAL; goto out;
+    }
+
+    /* sign with same key */
+    if (!X509_sign(x, pkey->pkey, EVP_sha256())) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign x509", domain);
+        rv = APR_EGENERAL; goto out;
+    }
+
+    cert = make_cert(p, x);
+    rv = APR_SUCCESS;
+    
+out:
+    if (!cert && x) {
+        X509_free(x);
+    }
+    if (n) {
+        X509_NAME_free(n);
+    }
+    if (big_rnd) {
+        BN_free(big_rnd);
+    }
+    if (asn1_rnd) {
+        ASN1_INTEGER_free(asn1_rnd);
+    }
+    *pcert = (APR_SUCCESS == rv)? cert : NULL;
     return rv;
 }
 

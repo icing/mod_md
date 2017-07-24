@@ -595,9 +595,18 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     ad->authz_monitor_timeout = apr_time_from_sec(30);
     ad->cert_poll_timeout = apr_time_from_sec(30);
 
-    /* TODO: which challenge types do we support? 
-     * Need to know if the server listens to the right ports */
-    ad->can_http_01 = 1;
+    /* We can only support challenges if the server is reachable from the outside
+     * via port 80 and/or 443. These ports might be mapped for httpd to something
+     * else, but a mapping needs to exist. */
+    ad->can_http_01 = (d->http_port > 0);
+    ad->can_tls_sni_01 = (d->https_port > 0);
+    
+    if (!ad->can_http_01 && !ad->can_tls_sni_01) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: unable to detect the port number "
+        "for either http (80) or https (443). Need at least one of those so the CA can "
+        "talk to us and verify our request for a certificate.", d->md->name);
+        return APR_EGENERAL;
+    }
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: init driver", d->md->name);
     

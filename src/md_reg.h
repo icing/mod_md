@@ -126,6 +126,8 @@ typedef struct md_proto_driver_t md_proto_driver_t;
 struct md_proto_driver_t {
     const md_proto_t *proto;
     apr_pool_t *p;
+    int http_port;
+    int https_port;
     struct md_store_t *store;
     md_reg_t *reg;
     const md_t *md;

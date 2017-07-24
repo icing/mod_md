@@ -26,6 +26,7 @@
 #include <apr_tables.h>
 
 #include "../md.h"
+#include "../md_crypt.h"
 #include "../md_json.h"
 #include "../md_http.h"
 #include "../md_log.h"
@@ -249,7 +250,6 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->p);
-    /*md_json_sets(ctx->challenge->type, jpayload, MD_KEY_TYPE, NULL);*/
     md_json_sets("challenge", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);
     
@@ -265,16 +265,16 @@ static apr_status_t authz_http_set(md_acme_t *acme, apr_pool_t *p, const apr_tab
     return APR_SUCCESS;
 }
 
-static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                      md_acme_t *acme, md_store_t *store, apr_pool_t *p)
+static apr_status_t setup_key_authz(md_acme_authz_cha_t *cha, md_acme_authz_t *authz,
+                                    md_acme_t *acme, apr_pool_t *p, int *pchanged)
 {
-    const char *thumb64, *key_authz, *data;
+    const char *thumb64, *key_authz;
     apr_status_t rv;
-    int notify_server = 0;
     
     assert(cha);
     assert(cha->token);
     
+    *pchanged = 0;
     if (APR_SUCCESS == (rv = md_jws_pkey_thumb(&thumb64, p, acme->acct_key))) {
         key_authz = apr_psprintf(p, "%s.%s", cha->token, thumb64);
         if (cha->key_authz) {
@@ -285,16 +285,28 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
         }
         if (!cha->key_authz) {
             cha->key_authz = key_authz;
-            notify_server = 1;
+            *pchanged = 1;
         }
+    }
+    return rv;
+}
+
+static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
+                                      md_acme_t *acme, md_store_t *store, apr_pool_t *p)
+{
+    const char *data;
+    apr_status_t rv;
+    int notify_server;
+    
+    if (APR_SUCCESS != (rv = setup_key_authz(cha, authz, acme, p, &notify_server))) {
+        goto out;
     }
     
     rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                        MD_SV_TEXT, (void**)&data, p);
-    if ((APR_SUCCESS == rv && strcmp(key_authz, data)) 
-        || APR_STATUS_IS_ENOENT(rv)) {
+    if ((APR_SUCCESS == rv && strcmp(cha->key_authz, data)) || APR_STATUS_IS_ENOENT(rv)) {
         rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
-                           MD_SV_TEXT, (void*)key_authz, 0);
+                           MD_SV_TEXT, (void*)cha->key_authz, 0);
         notify_server = 1;
     }
     
@@ -307,12 +319,76 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
         ctx.challenge = cha;
         rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
     }
+out:
+    return rv;
+}
+
+#define TLSSNI01_DNS_SUFFIX     ".acme.invalid"
+
+static apr_status_t setup_cha_dns(const char **pdns, md_acme_authz_cha_t *cha, apr_pool_t *p)
+{
+    const char *d64;
+    char *dns;
+    apr_size_t d64_len;
+    apr_status_t rv;
+    
+    rv = md_crypt_sha256_digest64(&d64, p, cha->key_authz, strlen(cha->key_authz));
+    if (APR_SUCCESS == rv) {
+        d64 = md_util_str_tolower((char*)d64);
+        d64_len = strlen(d64); 
+        assert(d64_len > 32);
+        dns = apr_pcalloc(p, d64_len + 1 + sizeof(TLSSNI01_DNS_SUFFIX));
+        strncpy(dns, d64, 32);
+        dns[32] = '.';
+        strncpy(dns+33, d64+32, d64_len-32);
+        memcpy(dns+(d64_len+1), TLSSNI01_DNS_SUFFIX, sizeof(TLSSNI01_DNS_SUFFIX));
+    }
+    *pdns = (APR_SUCCESS == rv)? dns : NULL;
     return rv;
 }
 
 static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                         md_acme_t *acme, apr_pool_t *p)
+                                         md_acme_t *acme, md_store_t *store, apr_pool_t *p)
 {
+    md_cert_t *cha_cert;
+    const char *cha_dns;
+    apr_status_t rv;
+    int notify_server;
+    
+    if (   APR_SUCCESS != (rv = setup_key_authz(cha, authz, acme, p, &notify_server))
+        || APR_SUCCESS != (rv = setup_cha_dns(&cha_dns, cha, p))) {
+        goto out;
+    }
+
+    rv = md_store_load(store, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01,
+                       MD_SV_CERT, (void**)&cha_cert, p);
+    if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, cha_dns)) 
+        || APR_STATUS_IS_ENOENT(rv)) {
+        /* setup a certificate containing the challenge dns */
+        rv = md_cert_self_sign(&cha_cert, cha_dns, acme->acct_key, 
+                               apr_time_from_sec(7 * MD_SECS_PER_DAY), p);
+        
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: setup self signed cert for %s",
+                          authz->domain, cha_dns);
+            goto out;
+        }
+        
+        rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01,
+                           MD_SV_CERT, (void*)cha_cert, 0);
+        notify_server = 1;
+    }
+    
+    if (APR_SUCCESS == rv && notify_server) {
+        authz_req_ctx ctx;
+
+        /* challenge is setup or was changed from previous data, tell ACME server
+         * so it may (re)try verification */        
+        authz_req_ctx_init(&ctx, acme, NULL, authz, p);
+        ctx.challenge = cha;
+        rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
+    }
+out:    
     return APR_ENOTIMPL;
 }
 
@@ -363,7 +439,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
         rv = cha_http_01_setup(fctx.http_01, authz, acme, store, p);
     }
     else if (fctx.tls_sni_01) {
-        rv = cha_tls_sni_01_setup(fctx.tls_sni_01, authz, acme, p);
+        rv = cha_tls_sni_01_setup(fctx.tls_sni_01, authz, acme, store, p);
     }
     else {
         rv = APR_ENOTIMPL;

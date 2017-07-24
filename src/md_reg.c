@@ -730,6 +730,19 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 /**************************************************************************************************/
 /* driving */
 
+static void init_proto_driver(md_proto_driver_t *driver, const md_proto_t *proto, 
+                              md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p) 
+{
+    driver->proto = proto;
+    driver->p = p;
+    driver->http_port = 80;
+    driver->https_port = 443;
+    driver->reg = reg;
+    driver->store = md_reg_store_get(reg);
+    driver->md = md;
+    driver->reset = reset;
+}
+
 static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
@@ -744,12 +757,7 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     reset = va_arg(ap, int); 
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
-    driver->proto = proto;
-    driver->p = ptemp;
-    driver->reg = reg;
-    driver->store = md_reg_store_get(reg);
-    driver->md = md;
-    driver->reset = reset;
+    init_proto_driver(driver, proto, reg, md, reset, ptemp);
     
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
@@ -816,12 +824,7 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     }
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
-    driver->proto = proto;
-    driver->p = ptemp;
-    driver->reg = reg;
-    driver->store = md_reg_store_get(reg);
-    driver->md = md;
-    driver->reset = 0;
+    init_proto_driver(driver, proto, reg, md, 0, ptemp);
 
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);

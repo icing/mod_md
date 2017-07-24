@@ -25,7 +25,7 @@ struct md_http_response_t;
 /**************************************************************************************************/
 /* random */
 
-apr_status_t md_rand_bytes(const char *buf, apr_size_t len, apr_pool_t *p);
+apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* digests */
@@ -81,6 +81,7 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *pool,
 md_cert_state_t md_cert_state_get(md_cert_t *cert);
 int md_cert_is_valid_now(const md_cert_t *cert);
 int md_cert_has_expired(const md_cert_t *cert);
+int md_cert_covers_domain(md_cert_t *cert, const char *domain_name);
 int md_cert_covers_md(md_cert_t *cert, const struct md_t *md);
 apr_time_t md_cert_get_not_after(md_cert_t *cert);
 
@@ -97,5 +98,8 @@ apr_status_t md_chain_fsave(struct apr_array_header_t *certs,
 
 apr_status_t md_cert_req_create(const char **pcsr_der_64, const struct md_t *md, 
                                 md_pkey_t *pkey, apr_pool_t *p);
+
+apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *domain, md_pkey_t *pkey,
+                               apr_interval_time_t valid_for, apr_pool_t *p);
 
 #endif /* md_crypt_h */

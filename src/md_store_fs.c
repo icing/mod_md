@@ -52,7 +52,7 @@ struct md_store_fs_t {
     md_store_fs_cb *event_cb;
     void *event_baton;
     
-    const char *key;
+    const unsigned char *key;
     apr_size_t key_len;
     int plain_pkey[MD_SG_COUNT];
 };
@@ -90,17 +90,19 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
     md_json_t *json = md_json_create(p);
     const char *key64;
     apr_status_t rv;
+    unsigned char key[FS_STORE_KLEN];
     
     md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
 
-    s_fs->key_len = FS_STORE_KLEN;
-    s_fs->key = apr_pcalloc(p, s_fs->key_len + 1);
-
-    if (APR_SUCCESS != (rv = md_rand_bytes(s_fs->key, s_fs->key_len, p))) {
+    if (APR_SUCCESS != (rv = md_rand_bytes(key, sizeof(key), p))) {
         return rv;
     }
+
+    s_fs->key_len = sizeof(key);
+    s_fs->key = apr_pcalloc(p, sizeof(key) + 1);
+    memcpy((void*)s_fs->key, key, sizeof(key));
         
-    key64 = md_util_base64url_encode(s_fs->key, s_fs->key_len, ptemp);
+    key64 = md_util_base64url_encode((char *)key, sizeof(key), ptemp);
     md_json_sets(key64, json, MD_KEY_KEY, NULL);
     
     rv = md_json_fcreatex(json, ptemp, MD_JSON_FMT_INDENT, fname, MD_FPROT_F_UONLY);
@@ -134,7 +136,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
             return APR_EINVAL;
         }
         
-        s_fs->key_len = md_util_base64url_decode(&s_fs->key, key64, p);
+        s_fs->key_len = md_util_base64url_decode((const char **)&s_fs->key, key64, p);
         if (s_fs->key_len < FS_STORE_KLEN) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "key too short: %d", s_fs->key_len);
             return APR_EINVAL;
@@ -275,7 +277,7 @@ static void get_pass(const char **ppass, apr_size_t *plen,
         *plen = 0;
     }
     else {
-        *ppass = s_fs->key;
+        *ppass = (const char *)s_fs->key;
         *plen = s_fs->key_len;
     }
 }
