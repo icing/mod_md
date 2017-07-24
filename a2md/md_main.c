@@ -377,6 +377,17 @@ int main(int argc, const char *const *argv)
     apr_status_t rv;
     apr_pool_t *p;
     md_cmd_ctx ctx;
+
+    rv = apr_app_initialize(&argc, &argv, NULL);
+    if (rv != APR_SUCCESS) {
+        fprintf(stderr, "error initializing APR (error code %d)\n", (int) rv);
+        return 1;
+    }
+
+    if (atexit(apr_terminate)) {
+        perror("error registering atexit");
+        return 1;
+    }
     
     memset(&ctx, 0, sizeof(ctx));
     md_log_set(log_is_level, log_print, NULL);
