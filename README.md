@@ -57,7 +57,7 @@ When all is done as I would like it to be, you just add a single line to your Ap
 ```
   ManagedDomain example.org www.example.org
 ```
-to you Apache configuration and ```mod_md``` will get you a certificate from Let's Encrypt, install it in your file system and restart the server to activate it. It will the peridically 
+to your Apache configuration and ```mod_md``` will get you a certificate from Let's Encrypt, install it in your file system and restart the server to activate it. It will the peridically 
 check if all is fine and, 14 days before the certificate expires, get you a new one.
 
 (***Attention:*** before you head off and add this to your server, see the list of current [limitations](#limitations)! Also, by ***default right now*** certificates are retrieved from the Let's Encrypt _staging_ environment. Which is a playground. When this thing really gets production ready, I will change  this default. Now you need to do that explicitly, if you feel so brave. See under ***Advanced Usage***)

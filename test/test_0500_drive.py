@@ -37,6 +37,7 @@ class TestDrive :
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
+        assert TestEnv.apache_stop() == 0
 
     # --------- invalid precondition ---------
 
