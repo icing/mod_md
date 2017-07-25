@@ -203,7 +203,10 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
         if (APR_STATUS_IS_ENOENT(rv)) {
             rv = apr_dir_make_recursive(s_fs->base, s_fs->def_perms.dir, p);
             if (APR_SUCCESS == rv) {
-                apr_file_perms_set(s_fs->base, MD_FPROT_D_UALL_WREAD);
+                rv = apr_file_perms_set(s_fs->base, MD_FPROT_D_UALL_WREAD);
+                if (APR_STATUS_IS_ENOTIMPL(rv)) {
+                    rv = APR_SUCCESS;
+                }
             }
         }
     }
@@ -375,6 +378,9 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
         
         if (APR_SUCCESS == rv) {
             rv = apr_file_perms_set(*pdir, perms->dir);
+            if (APR_STATUS_IS_ENOTIMPL(rv)) {
+                rv = APR_SUCCESS;
+            }
         }
     }
     return rv;
