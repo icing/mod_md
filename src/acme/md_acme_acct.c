@@ -391,14 +391,16 @@ static apr_status_t acct_valid(md_acme_t *acme, apr_pool_t *p, const apr_table_t
 {
     md_acme_acct_t *acct = acme->acct;
     apr_status_t rv = APR_SUCCESS;
+    const char *body_str;
     const char *tos_required;
     
     apr_array_clear(acct->contacts);
     md_json_getsa(acct->contacts, body, MD_KEY_CONTACT, NULL);
     acct->registration = md_json_clone(acme->p, body);
     
+    body_str = md_json_writep(body, acme->p, MD_JSON_FMT_INDENT);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, "validate acct %s: %s", 
-                  acct->url, md_json_writep(body, acme->p, MD_JSON_FMT_INDENT));
+                  acct->url, body_str ? body_str : "<failed to serialize!>");
     
     acct->agreement = md_json_gets(acct->registration, MD_KEY_AGREEMENT, NULL);
     tos_required = md_link_find_relation(hdrs, acme->p, "terms-of-service");

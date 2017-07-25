@@ -406,6 +406,8 @@ int main(int argc, const char *const *argv)
     rv = cmd_process(&ctx, &MainCmd);
     
     if (ctx.json_out) {
+        const char *out;
+
         md_json_setl(rv, ctx.json_out, "status", NULL);
         if (APR_SUCCESS != rv) {
             char errbuff[32];
@@ -413,7 +415,13 @@ int main(int argc, const char *const *argv)
             apr_strerror(rv, errbuff, sizeof(errbuff)/sizeof(errbuff[0]));
             md_json_sets(apr_pstrdup(p, errbuff), ctx.json_out, "description", NULL);
         }
-        fprintf(stdout, "%s\n", md_json_writep(ctx.json_out, p, MD_JSON_FMT_INDENT));
+
+        out = md_json_writep(ctx.json_out, p, MD_JSON_FMT_INDENT);
+        if (!out) {
+            rv = APR_EINVAL;
+        }
+
+        fprintf(stdout, "%s\n", out ? out : "<failed to serialize!>");
     }
     
     return (rv == APR_SUCCESS)? 0 : 1;
