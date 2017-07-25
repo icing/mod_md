@@ -3,6 +3,7 @@ Makefile
 __pycache__
 test.ini
 gen
+conf/global.conf
 conf/httpd_http.conf
 conf/httpd_https.conf
 conf/modules.conf
