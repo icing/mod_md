@@ -60,7 +60,7 @@ $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/conf/ssl/expired_pkey.pem
 	@mkdir -p $(SERVER_DIR)/conf/ssl
 	@mkdir -p $(SERVER_DIR)/logs
-	rsync -a --exclude="httpd*" conf/*.* $(SERVER_DIR)/conf
+	rsync -a --exclude="httpd*" --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
 	@touch $(SERVER_DIR)/.test-setup
 
 $(SERVER_DIR)/conf/ssl/expired_cert.pem: data/ssl/expired_cert.pem
@@ -77,3 +77,4 @@ clean-local:
 	rm -f $(SERVER_DIR)/conf/ssl/*
 	rm -rf *.pyc __pycache__
 	rm -f data/ssl/valid*
+	rm -rf $(SERVER_DIR)
