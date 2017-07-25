@@ -919,15 +919,22 @@ apr_status_t md_json_readf(md_json_t **pjson, apr_pool_t *p, const char *fpath)
     json_error_t error;
     
     rv = apr_file_open(&f, fpath, APR_FOPEN_READ, 0, p);
-    if (rv == APR_SUCCESS) {
-        j = json_load_callback(load_file_cb, f, 0, &error);
-        if (j) {
-            *pjson = json_create(p, j);
-        }
-        apr_file_close(f);
-        return *pjson? APR_SUCCESS : APR_EINVAL;
+    if (rv != APR_SUCCESS) {
+        return rv;
     }
-    return rv;
+
+    j = json_load_callback(load_file_cb, f, 0, &error);
+    if (j) {
+        *pjson = json_create(p, j);
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p,
+                      "failed to load JSON file %s: %s (line %d:%d)",
+                      fpath, error.text, error.line, error.column);
+    }
+
+    apr_file_close(f);
+    return (j && *pjson) ? APR_SUCCESS : APR_EINVAL;
 }
 
 /**************************************************************************************************/
