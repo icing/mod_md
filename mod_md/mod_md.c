@@ -108,16 +108,16 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
                 if (nmd->drive_mode == MD_DRIVE_DEFAULT) {
                     nmd->drive_mode = md_config_geti(config, MD_CONFIG_DRIVE_MODE);
                 }
-                if (nmd->renew_window == 0) {
+                if (nmd->renew_window <= 0) {
                     nmd->renew_window = md_config_get_interval(config, MD_CONFIG_RENEW_WINDOW);
                 }
                 
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
                 
-                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                             "Added MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d]",
+                ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+                             "Added MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, renew=%ld]",
                              nmd->name, nmd->ca_url, nmd->ca_proto, nmd->ca_agreement,
-                             nmd->drive_mode);
+                             nmd->drive_mode, (long)nmd->renew_window);
             }
         }
     }

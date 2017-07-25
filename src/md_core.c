@@ -203,7 +203,7 @@ const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
 
     md->domains = md_array_str_compact(p, domains, 0);
     md->name = APR_ARRAY_IDX(md->domains, 0, const char *);
- 
+    
     *pmd = md;
     return NULL;   
 }
@@ -234,6 +234,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->name = apr_pstrdup(p, src->name);
         md->drive_mode = src->drive_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
+        md->renew_window = src->renew_window;
         md->contacts = md_array_str_clone(p, src->contacts);
         if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
         if (src->ca_proto) md->ca_proto = apr_pstrdup(p, src->ca_proto);
@@ -271,6 +272,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             apr_rfc822_date(ts, md->expires);
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
         }
+        md_json_setl(md->renew_window, json, MD_KEY_RENEW_WINDOW, NULL);
         return json;
     }
     return NULL;
@@ -296,6 +298,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         if (s && *s) {
             md->expires = apr_date_parse_rfc(s);
         }
+        md->renew_window = md_json_getl(json, MD_KEY_RENEW_WINDOW, NULL);
         return md;
     }
     return NULL;

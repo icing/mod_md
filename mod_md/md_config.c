@@ -56,7 +56,8 @@ void *md_config_create_svr(apr_pool_t *pool, server_rec *s)
     conf->s = s;
     conf->drive_mode = DEF_VAL;
     conf->mds = apr_array_make(pool, 5, sizeof(const md_t *));
-
+    conf->renew_window = DEF_VAL;
+    
     return conf;
 }
 
@@ -81,10 +82,10 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
-    n->drive_mode = (add->drive_mode == DEF_VAL)? add->drive_mode : base->drive_mode;
+    n->drive_mode = (add->drive_mode != DEF_VAL)? add->drive_mode : base->drive_mode;
     n->md = NULL;
     n->base_dir = add->base_dir? add->base_dir : base->base_dir;
-    n->renew_window = add->renew_window? add->renew_window : base->renew_window;
+    n->renew_window = (add->renew_window != DEF_VAL)? add->renew_window : base->renew_window;
     return n;
 }
 
@@ -212,7 +213,6 @@ static const char *md_config_set_names(cmd_parms *cmd, void *arg,
     if (err) {
         return err;
     }
-    
 
     for (i = 0; i < argc; ++i) {
         add_domain_name(domains, argv[i], cmd->pool);
@@ -318,33 +318,29 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
 static apr_status_t duration_parse(const char *value, apr_interval_time_t *ptimeout, 
                                    const char *def_unit)
 {
-    const char *time_str;
     char *endp;
     long funits = 1;
     apr_status_t rv;
+    apr_int64_t n;
     
-    apr_strtoi64(value, &endp, 10);
+    n = apr_strtoi64(value, &endp, 10);
     if (errno) {
         return errno;
     }
     if (!endp || !*endp) {
         if (strcmp(def_unit, "d") == 0) {
-            time_str = "s";
+            def_unit = "s";
             funits = MD_SECS_PER_DAY;
-        }
-        else {
-            time_str = def_unit;
         }
     }
     else if (*endp == 'd') {
-        time_str = "s";
-        *endp = 's';
-        funits = MD_SECS_PER_DAY;
+        *ptimeout = apr_time_from_sec(n * MD_SECS_PER_DAY);
+        return APR_SUCCESS;
     }
     else {
-        time_str = endp;
+        def_unit = endp;
     }
-    rv = ap_timeout_parameter_parse(value, ptimeout, time_str);
+    rv = ap_timeout_parameter_parse(value, ptimeout, def_unit);
     if (APR_SUCCESS == rv && funits > 1) {
         *ptimeout *= funits;
     }
@@ -471,7 +467,7 @@ apr_interval_time_t md_config_get_interval(const md_config_t *config, md_config_
 {
     switch (var) {
         case MD_CONFIG_RENEW_WINDOW:
-            return config->renew_window? config->renew_window : defconf.renew_window;
+            return (config->renew_window != DEF_VAL)? config->renew_window : defconf.renew_window;
         default:
             return 0;
     }

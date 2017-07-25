@@ -103,6 +103,7 @@ struct md_t {
 #define MD_KEY_NAME             "name"
 #define MD_KEY_PROTO            "proto"
 #define MD_KEY_REGISTRATION     "registration"
+#define MD_KEY_RENEW_WINDOW     "renew-window"
 #define MD_KEY_RESOURCE         "resource"
 #define MD_KEY_STATE            "state"
 #define MD_KEY_STATUS           "status"

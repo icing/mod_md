@@ -503,6 +503,10 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update drive-mode: %s", name);
         nmd->drive_mode = updates->drive_mode;
     }
+    if (MD_UPD_RENEW_WINDOW & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update renew-window: %s", name);
+        nmd->renew_window = updates->renew_window;
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
         rv = md_state_init(reg, nmd, ptemp);
@@ -705,6 +709,10 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     && !md_array_str_eq(md->contacts, smd->contacts, 0)) {
                     smd->contacts = md->contacts;
                     fields |= MD_UPD_CONTACTS;
+                }
+                if (MD_VAL_UPDATE(md, smd, renew_window)) {
+                    smd->renew_window = md->renew_window;
+                    fields |= MD_UPD_RENEW_WINDOW;
                 }
                 
                 if (fields) {

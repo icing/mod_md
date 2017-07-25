@@ -37,7 +37,7 @@ typedef struct {
     const char *ca_agreement;
     
     int drive_mode;
-    apr_interval_time_t renew_window;  /* time before expiration that starts renewal */
+    apr_interval_time_t renew_window;  /* time for renewal before expiry */
     
     const md_t *md;
     const char *base_dir;

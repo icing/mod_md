@@ -18,6 +18,8 @@ config.read('test.ini')
 PREFIX = config.get('global', 'prefix')
 
 SECS_PER_DAY = 24 * 60 * 60
+MS_PER_DAY = SECS_PER_DAY * 1000
+NS_PER_DAY = MS_PER_DAY * 1000
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
@@ -157,13 +159,12 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
 
-    @pytest.mark.skip(reason="Config value not copied into store")
     def test_310_112(self):
         # test case: renew window - 30 days
         TestEnv.install_test_conf("renew_30");
         assert TestEnv.apache_restart() == 0
         # todo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SECS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * NS_PER_DAY
 
     # --------- remove from store ---------
 
@@ -237,19 +238,17 @@ class TestConf:
         self._check_md_names(name, [name, "www.example.org", "mail.example.org"], 1, 1)
         self._check_md_contacts(name, ["mailto:admin@example.org"])
 
-    @pytest.mark.skip(reason="Config value not copied into store")
     def test_310_206(self):
         # test case: remove renew window from conf -> fallback to default
         TestEnv.install_test_conf("renew_30");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SECS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * NS_PER_DAY
 
-        TestEnv.install_test_conf("empty");
+        TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         # check: renew window not set
-        # ToDo: how to check fallback to default value in store?
-        assert 'renew-window' not in TestEnv.a2md(["list"])['jout']['output'][0]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * NS_PER_DAY
 
     # --------- change existing config definitions ---------
 
@@ -312,19 +311,18 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
 
-    @pytest.mark.skip(reason="Config value not copied into store")
     def test_310_305(self):
         # test case: change config value for renew window, use various syntax alternatives
         TestEnv.install_test_conf("renew_30");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SECS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * NS_PER_DAY
 
         TestEnv.install_test_conf("renew_10");
         assert TestEnv.apache_restart() == 0
         # check: renew window not set
         # ToDo: how to check fallback to default value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 10 * SECS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 10 * NS_PER_DAY
 
     # --------- status reset on critical store changes ---------
 
