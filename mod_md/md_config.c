@@ -328,10 +328,17 @@ static apr_status_t duration_parse(const char *value, apr_interval_time_t *ptime
         return errno;
     }
     if (!endp || !*endp) {
-        time_str = def_unit;
+        if (strcmp(def_unit, "d") == 0) {
+            time_str = "s";
+            funits = MD_SECS_PER_DAY;
+        }
+        else {
+            time_str = def_unit;
+        }
     }
     else if (*endp == 'd') {
         time_str = "s";
+        *endp = 's';
         funits = MD_SECS_PER_DAY;
     }
     else {
