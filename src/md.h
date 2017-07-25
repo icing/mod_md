@@ -42,6 +42,7 @@ typedef enum {
 } md_store_vtype_t;
 
 typedef enum {
+    MD_SG_NONE,
     MD_SG_ACCOUNTS,
     MD_SG_CHALLENGES,
     MD_SG_DOMAINS,
@@ -95,6 +96,8 @@ struct md_t {
 #define MD_KEY_DOMAINS          "domains"
 #define MD_KEY_DRIVE_MODE       "drive-mode"
 #define MD_KEY_EXPIRES          "expires"
+#define MD_KEY_HTTP             "http"
+#define MD_KEY_HTTPS            "https"
 #define MD_KEY_ID               "id"
 #define MD_KEY_IDENTIFIER       "identifier"
 #define MD_KEY_KEY              "key"
@@ -118,6 +121,7 @@ struct md_t {
 #define MD_FN_PKEY              "pkey.pem"
 #define MD_FN_CERT              "cert.pem"
 #define MD_FN_CHAIN             "chain.pem"
+#define MD_FN_HTTPD_JSON        "httpd.json"
 
 /* Check if a string member of a new MD (n) has 
  * a value and if it differs from the old MD o

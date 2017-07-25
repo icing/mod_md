@@ -603,13 +603,14 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     /* We can only support challenges if the server is reachable from the outside
      * via port 80 and/or 443. These ports might be mapped for httpd to something
      * else, but a mapping needs to exist. */
-    ad->can_http_01 = (d->http_port > 0);
-    ad->can_tls_sni_01 = (d->https_port > 0);
+    ad->can_http_01 = d->can_http;
+    ad->can_tls_sni_01 = d->can_https;
     
     if (!ad->can_http_01 && !ad->can_tls_sni_01) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: unable to detect the port number "
-        "for either http (80) or https (443). Need at least one of those so the CA can "
-        "talk to us and verify our request for a certificate.", d->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: the server reports that is is "
+        "not reachable via http (port 80) or https (port 443). The ACME protocol needs "
+        "at least one of those so the CA can talk to the server and verify a domain "
+        "ownership.", d->md->name);
         return APR_EGENERAL;
     }
     

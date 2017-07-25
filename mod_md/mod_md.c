@@ -51,10 +51,38 @@ AP_DECLARE_MODULE(md) = {
     md_hooks
 };
 
+typedef struct {
+    apr_array_header_t *mds;
+    int can_http;
+    int can_https;
+} md_ctx;
+ 
+static void check_ports(md_config_t *config, server_rec *s, int *pcan_http, int *pcan_https)
+{
+    server_addr_rec *srec;
 
-static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
-                                    apr_pool_t *ptemp, server_rec *base_server,
-                                    apr_array_header_t **pmds)
+    if (s->port) {
+        if (s->port == config->local_80) {
+            *pcan_http = 1;
+        }
+        else if (s->port == config->local_443) {
+            *pcan_https = 1;
+        }
+    }
+    for (srec = s->addrs; srec; srec = srec->next) {
+        if (srec->host_port) {
+            if (srec->host_port == config->local_80) {
+                *pcan_http = 1;
+            }
+            else if (srec->host_port == config->local_443) {
+                *pcan_https = 1;
+            }
+        }
+    }
+}
+
+static apr_status_t md_calc_md_list(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog,
+                                    apr_pool_t *ptemp, server_rec *base_server)
 {
     server_rec *s;
     apr_array_header_t *mds;
@@ -64,10 +92,20 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
     apr_status_t rv = APR_SUCCESS;
     md_config_t *config;
 
+    ctx->can_http = 0;
+    ctx->can_https = 0;
     mds = apr_array_make(p, 5, sizeof(const md_t *));
+    
     for (s = base_server; s; s = s->next) {
         config = (md_config_t *)md_config_get(s);
-        
+
+        config->local_80 = md_config_geti(config, MD_CONFIG_LOCAL_80);
+        config->local_443 = md_config_geti(config, MD_CONFIG_LOCAL_443);
+        check_ports(config, s, &ctx->can_http, &ctx->can_https);
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                     "server with ports 80:%d 443:%d can http=%d https=%d",
+                     config->local_80, config->local_443, ctx->can_http, ctx->can_https);
+    
         for (i = 0; i < config->mds->nelts; ++i) {
             nmd = APR_ARRAY_IDX(config->mds, i, md_t*);
 
@@ -121,13 +159,12 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
             }
         }
     }
-    *pmds = (APR_SUCCESS == rv)? mds : NULL;
+    ctx->mds = (APR_SUCCESS == rv)? mds : NULL;
     return rv;
 }
 
-static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
-                                           apr_pool_t *ptemp, server_rec *base_server,
-                                           apr_array_header_t *mds)
+static apr_status_t md_check_vhost_mapping(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog,
+                                           apr_pool_t *ptemp, server_rec *base_server)
 {
     server_rec *s;
     request_rec r;
@@ -143,8 +180,8 @@ static apr_status_t md_check_vhost_mapping(apr_pool_t *p, apr_pool_t *plog,
      * 
      */
     memset(&r, 0, sizeof(r));
-    for (i = 0; i < mds->nelts; ++i) {
-        md = APR_ARRAY_IDX(mds, i, md_t*);
+    for (i = 0; i < ctx->mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(ctx->mds, i, md_t*);
         config = NULL;
         /* This MD may apply to 0, 1 or more sever_recs */
         for (s = base_server; s; s = s->next) {
@@ -639,30 +676,33 @@ static void load_stage_sets(apr_array_header_t *names, apr_pool_t *p,
 static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                                    apr_pool_t *ptemp, server_rec *s)
 {
-    apr_array_header_t *mds;
+    md_ctx ctx;
     apr_array_header_t *drive_names;
     md_reg_t *reg;
     apr_status_t rv = APR_SUCCESS;
     const md_t *md;
-    int i;
+    int i, can_http, can_https;
     
     ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO()
                  "mod_md (v%s), initializing...", MOD_MD_VERSION);
 
     init_setups(p, s);
-
+    memset(&ctx, 0, sizeof(ctx));
+    
     md_log_set(log_is_level, log_print, NULL);
 
     /* 1. Check uniqueness of MDs, calculate global, configured MD list.
      * If successful, we have a list of MD definitions that do not overlap. */
-    if (APR_SUCCESS != (rv = md_calc_md_list(p, plog, ptemp, s, &mds))) {
+    /* We also need to find out if we can be reached on 80/443 from the outside (e.g. the CA) */
+    can_http = can_https = 0;
+    if (APR_SUCCESS != (rv = md_calc_md_list(&ctx, p, plog, ptemp, s))) {
         goto out;
     }
     
     /* 2. Check mappings of MDs to VirtulHosts defined.
      * If successful, we have asigned MDs to server_recs in a unique way. Each server_rec
      * config will carry 0 or 1 MD record. */
-    if (APR_SUCCESS != (rv = md_check_vhost_mapping(p, plog, ptemp, s, mds))) {
+    if (APR_SUCCESS != (rv = md_check_vhost_mapping(&ctx, p, plog, ptemp, s))) {
         goto out;
     }    
     
@@ -672,9 +712,9 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "setup md registry");
         goto out;
     }
-    if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, mds))) {
+    if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, ctx.mds, ctx.can_http, ctx.can_https))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
-                     "synching %d mds to registry", mds->nelts);
+                     "synching %d mds to registry", ctx.mds->nelts);
         goto out;
     }
     
@@ -687,9 +727,9 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
      *
      * Start the watchdog if we have anything, now or in the future.
      */
-    drive_names = apr_array_make(ptemp, mds->nelts+1, sizeof(const char *));
-    for (i = 0; i < mds->nelts; ++i) {
-        md = APR_ARRAY_IDX(mds, i, const md_t *);
+    drive_names = apr_array_make(ptemp, ctx.mds->nelts+1, sizeof(const char *));
+    for (i = 0; i < ctx.mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(ctx.mds, i, const md_t *);
         if (md->drive_mode == MD_DRIVE_AUTO) {
             APR_ARRAY_PUSH(drive_names, const char *) = md->name; 
         }
@@ -698,7 +738,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     if (drive_names->nelts > 0) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO()
                      "%d out of %d mds are configured for auto-drive", 
-                     drive_names->nelts, mds->nelts);
+                     drive_names->nelts, ctx.mds->nelts);
     
         load_stage_sets(drive_names, p, reg, s);
         md_http_use_implementation(md_curl_get_impl(p));

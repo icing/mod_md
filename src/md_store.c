@@ -47,6 +47,7 @@
 #define GNAME_ARCHIVE      
 
 static const char *GROUP_NAME[] = {
+    "none",
     "accounts",
     "challenges",
     "domains",

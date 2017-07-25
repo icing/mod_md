@@ -35,6 +35,8 @@
 static md_config_t defconf = {
     "default",
     NULL,
+    80,
+    443,
     NULL,
     MD_ACME_DEF_URL,
     "ACME",
@@ -54,6 +56,8 @@ void *md_config_create_svr(apr_pool_t *pool, server_rec *s)
 
     conf->name = apr_pstrcat(pool, "srv[", CONF_S_NAME(s), "]", NULL);
     conf->s = s;
+    conf->local_80 = DEF_VAL;
+    conf->local_443 = DEF_VAL;
     conf->drive_mode = DEF_VAL;
     conf->mds = apr_array_make(pool, 5, sizeof(const md_t *));
     conf->renew_window = DEF_VAL;
@@ -71,6 +75,8 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     int i;
     
     n->name = name;
+    n->local_80 = (add->local_80 != DEF_VAL)? add->local_80 : base->local_80;
+    n->local_443 = (add->local_443 != DEF_VAL)? add->local_443 : base->local_443;
 
     /* I think we should not merge md definitions. They should reside where
      * they were defined */
@@ -384,6 +390,60 @@ static const char *md_config_set_store_dir(cmd_parms *cmd, void *arg, const char
     return NULL;
 }
 
+static const char *set_port_map(md_config_t *config, const char *value)
+{
+    int net_port, local_port;
+    char *endp;
+
+    net_port = (int)apr_strtoi64(value, &endp, 10);
+    if (errno) {
+        return "unable to parse first port number";
+    }
+    if (!endp || *endp != ':') {
+        return "no ':' after first port number";
+    }
+    ++endp;
+    if (*endp == '-') {
+        local_port = 0;
+    }
+    else {
+        local_port = (int)apr_strtoi64(endp, &endp, 10);
+        if (errno) {
+            return "unable to parse second port number";
+        }
+        if (local_port <= 0 || local_port > 65535) {
+            return "invalid number for port map, must be in ]0,65535]";
+        }
+    }
+    switch (net_port) {
+        case 80:
+            config->local_80 = local_port;
+            break;
+        case 443:
+            config->local_443 = local_port;
+            break;
+        default:
+            return "mapped port number must be 80 or 443";
+    }
+    return NULL;
+}
+
+static const char *md_config_set_port_map(cmd_parms *cmd, void *arg, 
+                                          const char *v1, const char *v2)
+{
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+
+    (void)arg;
+    if (!err) {
+        err = set_port_map(config, v1);
+    }
+    if (!err && v2) {
+        err = set_port_map(config, v2);
+    }
+    return err;
+}
+
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
@@ -405,6 +465,11 @@ const command_rec md_cmds[] = {
                   "method of obtaining certificates for the managed domain"),
     AP_INIT_TAKE1("MDRenewWindow", md_config_set_renew_window, NULL, RSRC_CONF, 
                   "Time length for renewal before certificate expires (defaults to days)"),
+    AP_INIT_TAKE12("MDPortMap", md_config_set_port_map, NULL, RSRC_CONF, 
+                  "Declare the mapped ports 80 and 443 on the local server. E.g. 80:8000 "
+                  "to indicate that the server port 8000 is reachable as port 80 from the "
+                  "internet. Use 80:- to indicate that port 80 is not reachable from "
+                  "the outside."),
     AP_END_CMD
 };
 
@@ -458,6 +523,10 @@ int md_config_geti(const md_config_t *config, md_config_var_t var)
     switch (var) {
         case MD_CONFIG_DRIVE_MODE:
             return (config->drive_mode != DEF_VAL)? config->drive_mode : defconf.drive_mode;
+        case MD_CONFIG_LOCAL_80:
+            return config->local_80;
+        case MD_CONFIG_LOCAL_443:
+            return config->local_443;
         default:
             return 0;
     }

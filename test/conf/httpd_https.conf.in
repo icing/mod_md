@@ -3,6 +3,8 @@ Include "conf/global.conf"
 
 Listen @HTTPS_PORT@
 
+MDPortMap 443:@HTTPS_PORT@
+
 <VirtualHost *:@HTTPS_PORT@>
     ServerName example.org
     ServerAlias www.example.org

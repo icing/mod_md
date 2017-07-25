@@ -55,6 +55,9 @@ struct md_store_fs_t {
     const unsigned char *key;
     apr_size_t key_len;
     int plain_pkey[MD_SG_COUNT];
+    
+    int port_80;
+    int port_443;
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
@@ -268,8 +271,23 @@ static apr_status_t fs_get_fname(const char **pfname,
                                  apr_pool_t *p)
 {
     md_store_fs_t *s_fs = FS_STORE(store);
+    if (group == MD_SG_NONE) {
+        return md_util_path_merge(pfname, p, s_fs->base, aspect, NULL);
+    }
     return md_util_path_merge(pfname, p, 
                               s_fs->base, md_store_group_name(group), name, aspect, NULL);
+}
+
+static apr_status_t fs_get_dname(const char **pdname, 
+                                 md_store_t *store, md_store_group_t group, 
+                                 const char *name, apr_pool_t *p)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    if (group == MD_SG_NONE) {
+        *pdname = s_fs->base;
+        return APR_SUCCESS;
+    }
+    return md_util_path_merge(pdname, p, s_fs->base, md_store_group_name(group), name, NULL);
 }
 
 static void get_pass(const char **ppass, apr_size_t *plen, 
@@ -359,14 +377,12 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
                                  md_store_group_t group, const char *name,
                                  apr_pool_t *p)
 {
-    const char *groupname;
     const perms_t *perms;
     apr_status_t rv;
     
-    groupname = md_store_group_name(group);
     perms = gperms(s_fs, group);
 
-    if (APR_SUCCESS == (rv = md_util_path_merge(pdir, p, s_fs->base, groupname, name, NULL))) {
+    if (APR_SUCCESS == (rv = fs_get_dname(pdir, &s_fs->s, group, name, p))) {
         if (APR_SUCCESS != md_util_is_dir(*pdir, p)) {
             if (APR_SUCCESS == (rv = apr_dir_make_recursive(*pdir, perms->dir, p))) {
                 rv = dispatch(s_fs, MD_S_FS_EV_CREATED, group, *pdir, APR_DIR, p);

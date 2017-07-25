@@ -1,3 +1,9 @@
+ * new directive 'MDPortMap nn:mm' to announce on which local port an ACME CA might reach
+   the server. This is necessary if you have redirected port 80 and/or 443 on your firefall
+   to another port on the server that runs mod_md. Example:
+   MDPortMap 80:5002   443:5001
+   is a mapping needed for testing with a local boulder instance. If your server uses 80+443
+   your need not mess with this.
  * Fixed reporting error when os does not support *nix permission bits in file system
  * MDRenewWindow parsing fixed and setting/update in store added, testcases
  * Challenge data is being removed from store when staging is done

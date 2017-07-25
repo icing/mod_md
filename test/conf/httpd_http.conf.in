@@ -4,6 +4,8 @@ Include "conf/global.conf"
 Listen @HTTP_PORT@
 Listen @HTTPS_PORT@
 
+MDPortMap 80:@HTTP_PORT@ 443:@HTTPS_PORT@
+
 <VirtualHost *:@HTTP_PORT@>
     DocumentRoot "@SERVER_DIR@/htdocs"
 </VirtualHost>

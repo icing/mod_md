@@ -38,6 +38,8 @@ void md_json_destroy(md_json_t *json);
 md_json_t *md_json_copy(apr_pool_t *pool, md_json_t *json);
 md_json_t *md_json_clone(apr_pool_t *pool, md_json_t *json);
 
+int md_json_has_key(md_json_t *json, ...);
+
 /* boolean manipulation */
 int md_json_getb(md_json_t *json, ...);
 apr_status_t md_json_setb(int value, md_json_t *json, ...);

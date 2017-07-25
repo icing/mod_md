@@ -24,12 +24,17 @@ typedef enum {
     MD_CONFIG_BASE_DIR,
     MD_CONFIG_CA_AGREEMENT,
     MD_CONFIG_DRIVE_MODE,
+    MD_CONFIG_LOCAL_80,
+    MD_CONFIG_LOCAL_443,
     MD_CONFIG_RENEW_WINDOW,
 } md_config_var_t;
 
 typedef struct {
     const char *name;
     const server_rec *s;
+    
+    int local_80;
+    int local_443;
     
     apr_array_header_t *mds;           /* array of md_t pointers */
     const char *ca_url;

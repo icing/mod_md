@@ -37,6 +37,8 @@
 struct md_reg_t {
     struct md_store_t *store;
     struct apr_hash_t *protos;
+    int can_http;
+    int can_https;
 };
 
 /**************************************************************************************************/
@@ -50,8 +52,11 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg = apr_pcalloc(p, sizeof(*reg));
     reg->store = store;
     reg->protos = apr_hash_make(p);
+    reg->can_http = 1;
+    reg->can_https = 1;
     
     rv = md_acme_protos_add(reg->protos, p);
+    
     *preg = (rv == APR_SUCCESS)? reg : NULL;
     return rv;
 }
@@ -602,6 +607,39 @@ static int find_changes(void *baton, md_store_t *store, md_t *md, apr_pool_t *pt
     return 1;
 }
 
+static apr_status_t load_props(md_reg_t *reg, apr_pool_t *p)
+{
+    md_json_t *json;
+    apr_status_t rv;
+    
+    rv = md_store_load(reg->store, MD_SG_NONE, NULL, MD_FN_HTTPD_JSON, 
+                       MD_SV_JSON, (void**)&json, p);
+    if (APR_SUCCESS == rv) {
+        if (md_json_has_key(json, MD_KEY_PROTO, MD_KEY_HTTP, NULL)) {
+            reg->can_http = md_json_getb(json, MD_KEY_PROTO, MD_KEY_HTTP, NULL);
+        }
+        if (md_json_has_key(json, MD_KEY_PROTO, MD_KEY_HTTPS, NULL)) {
+            reg->can_https = md_json_getb(json, MD_KEY_PROTO, MD_KEY_HTTPS, NULL);
+        }
+    }
+    else if (APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_SUCCESS;
+    }
+    return rv;
+}
+
+static apr_status_t sync_props(md_reg_t *reg, apr_pool_t *p, int can_http, int can_https)
+{
+    if (reg->can_http != can_http || reg->can_https != can_https) {
+        md_json_t *json = md_json_create(p);
+        md_json_setb(can_http, json, MD_KEY_PROTO, MD_KEY_HTTP, NULL);
+        md_json_setb(can_https, json, MD_KEY_PROTO, MD_KEY_HTTPS, NULL);
+        return md_store_save(reg->store, p, MD_SG_NONE, NULL, MD_FN_HTTPD_JSON, 
+                             MD_SV_JSON, json, 0);
+    }
+    return APR_SUCCESS;
+}
+ 
 /**
  * Procedure:
  * 1. Collect all defined "managed domains" (MD). It does not matter where a MD is defined. 
@@ -619,12 +657,16 @@ static int find_changes(void *baton, md_store_t *store, md_t *md, apr_pool_t *pt
  *   c. compare MD acme url/protocol, update if changed
  */
 apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
-                         apr_array_header_t *master_mds) 
+                         apr_array_header_t *master_mds, int can_http, int can_https) 
 {
     sync_ctx ctx;
     md_store_t *store = reg->store;
     apr_status_t rv;
 
+    if (APR_SUCCESS != (rv = sync_props(reg, ptemp, can_http, can_https))) {
+        return rv;
+    }
+    
     ctx.p = ptemp;
     ctx.conf_mds = master_mds;
     ctx.store_mds = apr_array_make(ptemp, 100, sizeof(md_t *));
@@ -738,17 +780,25 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 /**************************************************************************************************/
 /* driving */
 
-static void init_proto_driver(md_proto_driver_t *driver, const md_proto_t *proto, 
-                              md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p) 
+static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_t *proto, 
+                                      md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p) 
 {
+    apr_status_t rv;
+
+    if (APR_SUCCESS != (rv = load_props(reg, p))) {
+        return rv;
+    }
+    
     driver->proto = proto;
     driver->p = p;
-    driver->http_port = 80;
-    driver->https_port = 443;
+    driver->can_http = reg->can_http;
+    driver->can_https = reg->can_https;
     driver->reg = reg;
     driver->store = md_reg_store_get(reg);
     driver->md = md;
     driver->reset = reset;
+
+    return rv;
 }
 
 static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)

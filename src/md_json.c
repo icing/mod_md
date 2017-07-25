@@ -224,6 +224,18 @@ static apr_status_t jselect_set_new(json_t *val, md_json_t *json, va_list ap)
     return APR_SUCCESS;
 }
 
+int md_json_has_key(md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+
+    return j != NULL;
+}
+
 /**************************************************************************************************/
 /* booleans */
 

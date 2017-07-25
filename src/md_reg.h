@@ -115,7 +115,7 @@ apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
  * Synchronise the give master mds with the store.
  */
 apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
-                         apr_array_header_t *master_mds);
+                         apr_array_header_t *master_mds, int can_http, int can_https);
 
 /**************************************************************************************************/
 /* protocol drivers */
@@ -127,8 +127,8 @@ typedef struct md_proto_driver_t md_proto_driver_t;
 struct md_proto_driver_t {
     const md_proto_t *proto;
     apr_pool_t *p;
-    int http_port;
-    int https_port;
+    int can_http;
+    int can_https;
     struct md_store_t *store;
     md_reg_t *reg;
     const md_t *md;
