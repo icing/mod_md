@@ -432,11 +432,10 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
     return rv;
 }
 
-apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
-                                      const char *d, size_t dlen)
+static apr_status_t sha256_digest(unsigned char **pdigest, size_t *pdigest_len,
+                                  apr_pool_t *p, const char *d, size_t dlen)
 {
     EVP_MD_CTX *ctx = NULL;
-    const char *digest64 = NULL;
     unsigned char *buffer;
     apr_status_t rv = APR_ENOMEM;
     unsigned int blen;
@@ -450,10 +449,7 @@ apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p,
                 rv = APR_EGENERAL;
                 if (EVP_DigestUpdate(ctx, d, dlen)) {
                     if (EVP_DigestFinal(ctx, buffer, &blen)) {
-                        digest64 = md_util_base64url_encode((const char*)buffer, blen, p);
-                        if (digest64) {
-                            rv = APR_SUCCESS;
-                        }
+                        rv = APR_SUCCESS;
                     }
                 }
             }
@@ -464,11 +460,76 @@ apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p,
         }
     }
     
-    if (rv != APR_SUCCESS) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "digest"); 
+    if (APR_SUCCESS == rv) {
+        *pdigest = buffer;
+        *pdigest_len = blen;
     }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "digest"); 
+        *pdigest = NULL;
+        *pdigest_len = 0;
+    }
+    return rv;
+}
+
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
+                                      const char *d, size_t dlen)
+{
+    const char *digest64 = NULL;
+    unsigned char *buffer;
+    size_t blen;
+    apr_status_t rv;
     
+    if (APR_SUCCESS == (rv = sha256_digest(&buffer, &blen, p, d, dlen))) {
+        if (NULL == (digest64 = md_util_base64url_encode((const char*)buffer, blen, p))) {
+            rv = APR_EGENERAL;
+        }
+    }
     *pdigest64 = digest64;
+    return rv;
+}
+
+static const char * const hex_const[] = {
+    "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f", 
+    "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f", 
+    "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f", 
+    "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f", 
+    "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "4a", "4b", "4c", "4d", "4e", "4f", 
+    "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "5a", "5b", "5c", "5d", "5e", "5f", 
+    "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f", 
+    "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "7a", "7b", "7c", "7d", "7e", "7f", 
+    "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "8a", "8b", "8c", "8d", "8e", "8f", 
+    "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "9a", "9b", "9c", "9d", "9e", "9f", 
+    "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "aa", "ab", "ac", "ad", "ae", "af", 
+    "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "ba", "bb", "bc", "bd", "be", "bf", 
+    "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "ca", "cb", "cc", "cd", "ce", "cf", 
+    "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "da", "db", "dc", "dd", "de", "df", 
+    "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef", 
+    "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff", 
+};
+
+apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
+                                        const char *d, size_t dlen)
+{
+    char *dhex = NULL, *cp;
+    const char * x;
+    unsigned char *buffer;
+    size_t blen;
+    apr_status_t rv;
+    int i;
+    
+    if (APR_SUCCESS == (rv = sha256_digest(&buffer, &blen, p, d, dlen))) {
+        cp = dhex = apr_pcalloc(p,  2 * blen + 1);
+        if (!dhex) {
+            rv = APR_EGENERAL;
+        }
+        for (i = 0; i < blen; ++i, cp += 2) {
+            x = hex_const[buffer[i]];
+            cp[0] = x[0];
+            cp[1] = x[1];
+        }
+    }
+    *pdigesthex = dhex;
     return rv;
 }
 
@@ -850,21 +911,26 @@ static const char *alt_names(apr_array_header_t *domains, apr_pool_t *p)
     return alts;
 }
 
-static apr_status_t add_ext(X509 *x, int nid, const char *value)
+static apr_status_t add_ext(X509 *x, int nid, const char *value, apr_pool_t *p)
 {
     X509_EXTENSION *ext = NULL;
     X509V3_CTX ctx;
-    apr_status_t rv = APR_EGENERAL;
+    apr_status_t rv;
 
     X509V3_set_ctx_nodb(&ctx);
     X509V3_set_ctx(&ctx, x, x, NULL, NULL, 0);
-    if ((ext = X509V3_EXT_conf_nid(NULL, &ctx, nid, (char*)value))
-        && !X509_add_ext(x, ext, -1)) {
-        rv = APR_SUCCESS;
+    if (NULL == (ext = X509V3_EXT_conf_nid(NULL, &ctx, nid, (char*)value))) {
+        return APR_EGENERAL;
     }
-    if (ext) {
-        X509_EXTENSION_free(ext);
+    
+    ERR_clear_error();
+    rv = X509_add_ext(x, ext, -1)? APR_SUCCESS : APR_EINVAL;
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "add_ext nid=%dd value='%s'", 
+                      nid, value); 
+        
     }
+    X509_EXTENSION_free(ext);
     return rv;
 }
 
@@ -975,7 +1041,8 @@ out:
     return rv;
 }
 
-apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *domain, md_pkey_t *pkey,
+apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn, 
+                               const char *domain, md_pkey_t *pkey,
                                apr_interval_time_t valid_for, apr_pool_t *p)
 {
     X509 *x;
@@ -1007,19 +1074,19 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *domain, md_pkey_t 
         rv = APR_EGENERAL; goto out;
     }
     /* set common name and issue */
-    if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, (const unsigned char*)domain, -1, -1, 0)
+    if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, (const unsigned char*)cn, -1, -1, 0)
         || !X509_set_subject_name(x, n)
         || !X509_set_issuer_name(x, n)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: name add entry", domain);
         rv = APR_EGENERAL; goto out;
     }
     /* cert are uncontrained (but not very trustworthy) */
-    if (APR_SUCCESS != (rv = add_ext(x, NID_basic_constraints, "CA:TRUE, pathlen:0"))) {
+    if (APR_SUCCESS != (rv = add_ext(x, NID_basic_constraints, "CA:TRUE, pathlen:0", p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set basic constraints ext", domain);
         goto out;
     }
     /* add the domain as alt name */
-    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_name(domain, p)))) {
+    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_name(domain, p), p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", domain);
         goto out;
     }

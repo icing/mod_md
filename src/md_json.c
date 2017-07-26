@@ -585,7 +585,7 @@ apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb, void *bato
 apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, void *baton, 
                           md_json_t *json, ...)
 {
-    json_t *nj, *j;
+    json_t *j, *nj;
     md_json_t wrap;
     apr_status_t rv = APR_SUCCESS;
     va_list ap;
@@ -612,21 +612,11 @@ apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, void *baton,
     
     json_array_clear(j);
     wrap.p = json->p;
-    nj = NULL;
     for (i = 0; i < a->nelts; ++i) {
-        if (NULL == nj) {
-            nj = json_string("");
-        }
-        wrap.j = nj;
+        wrap.j = json_string("");
         if (APR_SUCCESS == (rv = cb(APR_ARRAY_IDX(a, i, void*), &wrap, json->p, baton))) {
             json_array_append(j, wrap.j);
-            if (wrap.j == nj) {
-                nj = NULL;
-            };
         }
-    }
-    if (nj) {
-        json_decref(nj);
     }
     return rv;
 }

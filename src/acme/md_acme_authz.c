@@ -328,21 +328,21 @@ out:
 
 static apr_status_t setup_cha_dns(const char **pdns, md_acme_authz_cha_t *cha, apr_pool_t *p)
 {
-    const char *d64;
+    const char *dhex;
     char *dns;
-    apr_size_t d64_len;
+    apr_size_t dhex_len;
     apr_status_t rv;
     
-    rv = md_crypt_sha256_digest64(&d64, p, cha->key_authz, strlen(cha->key_authz));
+    rv = md_crypt_sha256_digest_hex(&dhex, p, cha->key_authz, strlen(cha->key_authz));
     if (APR_SUCCESS == rv) {
-        d64 = md_util_str_tolower((char*)d64);
-        d64_len = strlen(d64); 
-        assert(d64_len > 32);
-        dns = apr_pcalloc(p, d64_len + 1 + sizeof(TLSSNI01_DNS_SUFFIX));
-        strncpy(dns, d64, 32);
+        dhex = md_util_str_tolower((char*)dhex);
+        dhex_len = strlen(dhex); 
+        assert(dhex_len > 32);
+        dns = apr_pcalloc(p, dhex_len + 1 + sizeof(TLSSNI01_DNS_SUFFIX));
+        strncpy(dns, dhex, 32);
         dns[32] = '.';
-        strncpy(dns+33, d64+32, d64_len-32);
-        memcpy(dns+(d64_len+1), TLSSNI01_DNS_SUFFIX, sizeof(TLSSNI01_DNS_SUFFIX));
+        strncpy(dns+33, dhex+32, dhex_len-32);
+        memcpy(dns+(dhex_len+1), TLSSNI01_DNS_SUFFIX, sizeof(TLSSNI01_DNS_SUFFIX));
     }
     *pdns = (APR_SUCCESS == rv)? dns : NULL;
     return rv;
@@ -352,6 +352,7 @@ static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz
                                          md_acme_t *acme, md_store_t *store, apr_pool_t *p)
 {
     md_cert_t *cha_cert;
+    md_pkey_t *cha_key;
     const char *cha_dns;
     apr_status_t rv;
     int notify_server;
@@ -361,12 +362,19 @@ static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz
         goto out;
     }
 
-    rv = md_store_load(store, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01,
+    rv = md_store_load(store, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_CERT,
                        MD_SV_CERT, (void**)&cha_cert, p);
     if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, cha_dns)) 
         || APR_STATUS_IS_ENOENT(rv)) {
+        
+        if (APR_SUCCESS != (rv = md_pkey_gen_rsa(&cha_key, p, acme->pkey_bits))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-sni-01 challgenge key",
+                          authz->domain);
+            goto out;
+        }
+
         /* setup a certificate containing the challenge dns */
-        rv = md_cert_self_sign(&cha_cert, cha_dns, acme->acct_key, 
+        rv = md_cert_self_sign(&cha_cert, authz->domain, cha_dns, cha_key, 
                                apr_time_from_sec(7 * MD_SECS_PER_DAY), p);
         
         if (APR_SUCCESS != rv) {
@@ -375,8 +383,12 @@ static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz
             goto out;
         }
         
-        rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01,
+        rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_CERT,
                            MD_SV_CERT, (void*)cha_cert, 0);
+        if (APR_SUCCESS == rv) {
+            rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_PKEY,
+                               MD_SV_PKEY, (void*)cha_key, 0);
+        }
         authz->dir = cha_dns;
         notify_server = 1;
     }

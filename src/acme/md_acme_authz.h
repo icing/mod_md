@@ -49,7 +49,8 @@ struct md_acme_authz_t {
 };
 
 #define MD_FN_HTTP01            "acme-http-01.txt"
-#define MD_FN_TLSSNI01          "acme-tls-sni-01.cert"
+#define MD_FN_TLSSNI01_CERT     "acme-tls-sni-01.cert.pem"
+#define MD_FN_TLSSNI01_PKEY     "acme-tls-sni-01.key.pem"
 #define MD_FN_AUTHZ             "authz.json"
 
 
