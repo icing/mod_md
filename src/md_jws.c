@@ -37,7 +37,7 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
 {
     md_json_t *msg, *jprotected;
     const char *prot64, *pay64, *sign64, *sign, *prot;
-    apr_status_t rv;
+    apr_status_t rv = APR_SUCCESS;
 
     *pmsg = NULL;
     
