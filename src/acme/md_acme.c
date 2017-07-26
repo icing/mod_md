@@ -157,7 +157,7 @@ static void req_update_nonce(md_acme_t *acme, apr_table_t *hdrs)
     if (hdrs) {
         const char *nonce = apr_table_get(hdrs, "Replay-Nonce");
         if (nonce) {
-            acme->nonce = nonce;
+            acme->nonce = apr_pstrdup(acme->p, nonce);
         }
     }
 }
@@ -168,7 +168,7 @@ static apr_status_t http_update_nonce(const md_http_response_t *res)
         const char *nonce = apr_table_get(res->headers, "Replay-Nonce");
         if (nonce) {
             md_acme_t *acme = res->req->baton;
-            acme->nonce = nonce;
+            acme->nonce = apr_pstrdup(acme->p, nonce);
         }
     }
     return res->rv;
