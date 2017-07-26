@@ -185,7 +185,6 @@ static apr_status_t jselect_set(json_t *val, md_json_t *json, va_list ap)
         if (!j || !json_is_object(j)) {
             return APR_EINVAL;
         }
-        json_incref(val);
         json_object_set(j, key, val);
     }
     else {
@@ -615,7 +614,7 @@ apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, void *baton,
     for (i = 0; i < a->nelts; ++i) {
         wrap.j = json_string("");
         if (APR_SUCCESS == (rv = cb(APR_ARRAY_IDX(a, i, void*), &wrap, json->p, baton))) {
-            json_array_append(j, wrap.j);
+            json_array_append_new(j, wrap.j);
         }
     }
     return rv;

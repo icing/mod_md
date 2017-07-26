@@ -1,3 +1,5 @@
+ * refcount in md_json_seta adjusted, conversion function expected to always auto-give-away
+   their references. 
  * fixed refcount bug in md_json_seta() (supposedly, be optimistic for once!)
  * tls-sni-01 challenge cert and key generated, needs to be activated in mod_ssl
  * new directive 'MDPortMap nn:mm' to announce on which local port an ACME CA might reach
