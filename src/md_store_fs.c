@@ -394,11 +394,13 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
         
         if (APR_SUCCESS == rv) {
             rv = apr_file_perms_set(*pdir, perms->dir);
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "mk_group_dir %s perm set", *pdir);
             if (APR_STATUS_IS_ENOTIMPL(rv)) {
                 rv = APR_SUCCESS;
             }
         }
     }
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "mk_group_dir %d &s", group, name);
     return rv;
 }
  
@@ -429,7 +431,7 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         && APR_SUCCESS == (rv = mk_group_dir(&dir, s_fs, group, name, p))
         && APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, aspect, NULL))) {
         
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "storing in %s", fpath);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, ptemp, "storing in %s", fpath);
         switch (vtype) {
             case MD_SV_TEXT:
                 rv = (create? md_text_fcreatex(fpath, perms->file, p, value)

@@ -685,6 +685,8 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             ad->md = md_copy(d->p, d->md);
             ad->md->cert_url = NULL; /* do not retrieve the old cert */
             rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: save staged md", 
+                          ad->md->name);
         }
 
         if (APR_SUCCESS == rv && !ad->cert) {
