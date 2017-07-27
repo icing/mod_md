@@ -681,7 +681,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     md_reg_t *reg;
     apr_status_t rv = APR_SUCCESS;
     const md_t *md;
-    int i, can_http, can_https;
+    int i;
     
     ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO()
                  "mod_md (v%s), initializing...", MOD_MD_VERSION);
@@ -694,7 +694,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     /* 1. Check uniqueness of MDs, calculate global, configured MD list.
      * If successful, we have a list of MD definitions that do not overlap. */
     /* We also need to find out if we can be reached on 80/443 from the outside (e.g. the CA) */
-    can_http = can_https = 0;
     if (APR_SUCCESS != (rv = md_calc_md_list(&ctx, p, plog, ptemp, s))) {
         goto out;
     }

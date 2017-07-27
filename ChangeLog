@@ -1,3 +1,4 @@
+ * disabled a pkey encryption check since it did not work as is un *NIX, fixed gcc warning
  * refcount in md_json_seta adjusted, conversion function expected to always auto-give-away
    their references. 
  * fixed refcount bug in md_json_seta() (supposedly, be optimistic for once!)

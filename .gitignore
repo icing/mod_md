@@ -23,6 +23,7 @@ config.h.in~
 configure
 configure.scan
 depcomp
+httpd.conf
 install-sh
 libtool
 ltmain.sh
