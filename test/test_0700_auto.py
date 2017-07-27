@@ -205,6 +205,39 @@ class TestAuto:
         assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
                             "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
 
+    def test_700_005(self):
+        # test case: drive_mode manual, check that server starts,
+        # but requests do domain are denied
+        domain = "a005-" + TestAuto.dns_uniq
+        nameA = "test-a." + domain
+        dnsList = [ domain, nameA ]
+
+        # - generate config with one md
+        conf = HttpdConf(TestAuto.TMP_CONF)
+        conf.add_admin("admin@" + domain)
+        conf.add_drive_mode("manual")
+        conf.add_md(dnsList)
+        conf.add_vhost(TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
+                       withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
+                       keyPath=TestEnv.path_domain_pkey(domain))
+        conf.install()
+
+        # - create docRoot folder
+        self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "a"), "name.txt", nameA)
+
+        # - restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names(domain, dnsList)
+        # - drive
+
+        # check: that request to domains give 503 Service Unavailable
+        test_url_a = "https://%s:%s/name.txt" % (nameA, TestEnv.HTTPS_PORT)
+        dnsResolveA = "%s:%s:127.0.0.1" % (nameA, TestEnv.HTTPS_PORT)
+        result = TestEnv.run([ "curl", "--resolve", dnsResolveA, 
+                              "-k", "-D", "-", test_url_a])
+        assert result['rv'] == 0
+        assert re.match("HTTP/\\d(.\\d)? 503 .*", result['stdout'])
+
 
     # --------- _utils_ ---------
 
