@@ -37,7 +37,7 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
 {
     md_json_t *msg, *jprotected;
     const char *prot64, *pay64, *sign64, *sign, *prot;
-    apr_status_t rv;
+    apr_status_t rv = APR_SUCCESS;
 
     *pmsg = NULL;
     
@@ -55,16 +55,24 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
     }
     apr_table_do(header_set, jprotected, protected, NULL);
     prot = md_json_writep(jprotected, p, MD_JSON_FMT_COMPACT);
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "protected: %s", prot); 
-    
-    prot64 = md_util_base64url_encode(prot, strlen(prot), p);
-    md_json_sets(prot64, msg, "protected", NULL);
-    pay64 = md_util_base64url_encode(payload, len, p);
-    
-    md_json_sets(pay64, msg, "payload", NULL);
-    sign = apr_psprintf(p, "%s.%s", prot64, pay64);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, p, "protected: %s",
+                  prot ? prot : "<failed to serialize!>");
 
-    rv = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
+    if (!prot) {
+        rv = APR_EINVAL;
+    }
+    
+    if (rv == APR_SUCCESS) {
+        prot64 = md_util_base64url_encode(prot, strlen(prot), p);
+        md_json_sets(prot64, msg, "protected", NULL);
+        pay64 = md_util_base64url_encode(payload, len, p);
+
+        md_json_sets(pay64, msg, "payload", NULL);
+        sign = apr_psprintf(p, "%s.%s", prot64, pay64);
+
+        rv = md_crypt_sign64(&sign64, pkey, p, sign, strlen(sign));
+    }
+
     if (rv == APR_SUCCESS) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
                       "jws pay64=%s\nprot64=%s\nsign64=%s", pay64, prot64, sign64);

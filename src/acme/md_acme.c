@@ -223,7 +223,12 @@ apr_status_t md_acme_req_body_init(md_acme_req_t *req, md_json_t *jpayload)
     if (!req->acme->acct) {
         return APR_EINVAL;
     }
+
     payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
+    if (!payload) {
+        return APR_EINVAL;
+    }
+
     payload_len = strlen(payload);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
                   "acct payload(len=%d): %s", payload_len, payload);
@@ -307,7 +312,9 @@ static apr_status_t on_response(const md_http_response_t *res)
                 if (md_log_is_level(req->p, MD_LOG_TRACE2)) {
                     const char *s;
                     s = md_json_writep(req->resp_json, req->p, MD_JSON_FMT_INDENT);
-                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->p, "response: %s", s);
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->p,
+                                  "response: %s",
+                                  s ? s : "<failed to serialize!>");
                 }
                 rv = req->on_json(req->acme, req->p, req->resp_hdrs, req->resp_json, req->baton);
             }        
@@ -346,6 +353,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
 {
     apr_status_t rv;
     md_acme_t *acme = req->acme;
+    const char *body = NULL;
 
     assert(acme->url);
     
@@ -367,13 +375,15 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     
     rv = req->on_init? req->on_init(req, req->baton) : APR_SUCCESS;
     
+    if ((rv == APR_SUCCESS) && req->req_json) {
+        body = md_json_writep(req->req_json, req->p, MD_JSON_FMT_INDENT);
+        if (!body) {
+            rv = APR_EINVAL;
+        }
+    }
+
     if (rv == APR_SUCCESS) {
         long id = 0;
-        const char *body = NULL;
-    
-        if (req->req_json) {
-            body = md_json_writep(req->req_json, req->p, MD_JSON_FMT_INDENT);
-        }
         
         if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p, 

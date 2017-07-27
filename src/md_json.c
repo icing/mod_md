@@ -767,9 +767,17 @@ const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
 {
     size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
     apr_array_header_t *chunks;
+    int rv;
 
     chunks = apr_array_make(p, 10, sizeof(char *));
-    json_dump_callback(json->j, chunk_cb, chunks, flags);
+    rv = json_dump_callback(json->j, chunk_cb, chunks, flags);
+
+    if (rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p,
+                      "md_json_writep failed to dump JSON");
+        return NULL;
+    }
+
     switch (chunks->nelts) {
         case 0:
             return "";
@@ -786,7 +794,14 @@ apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, a
     const char *s;
     
     s = md_json_writep(json, p, fmt);
-    rv = apr_file_write_full(f, s, strlen(s), NULL);
+
+    if (s) {
+        rv = apr_file_write_full(f, s, strlen(s), NULL);
+    }
+    else {
+        rv = APR_EINVAL;
+    }
+
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_writef");
     }
