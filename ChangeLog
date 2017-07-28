@@ -7,6 +7,9 @@
    their references. 
  * fixed refcount bug in md_json_seta() (supposedly, be optimistic for once!)
  * tls-sni-01 challenge cert and key generated, needs to be activated in mod_ssl
+
+v0.2.0
+----------------------------------------------------------------------------------------------------
  * new directive 'MDPortMap nn:mm' to announce on which local port an ACME CA might reach
    the server. This is necessary if you have redirected port 80 and/or 443 on your firefall
    to another port on the server that runs mod_md. Example:

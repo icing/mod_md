@@ -17,6 +17,18 @@ Also: this is not in *any* way production ready. However there is a good test su
 
 For more about about use and limitations, see [Usage](#usage) below.
 
+### Test Status
+
+Tests have been verfied to run on MacOS and Ubuntu 16.04 under the following conditions:
+
+ * the *SSL library you compile with supports ```SNI``` 
+ * curl is linked against this recent *SSL lib
+ * your Apache httpd installation has a patched ```mod_ssl```
+ * you have a local boulder server installed and it resolved host names against your httpd (see below)
+
+So, it's a bit tricky when your OS does not support features like ```SNI``` in its standard config.
+
+
 ## Install
 
 You need a built Apache httpd 2.4.x or trunk, including apxs and headers to compile and 
