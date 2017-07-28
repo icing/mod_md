@@ -16,6 +16,15 @@
 SERVER_DIR     = @SERVER_DIR@
 GEN            = gen
 
+if BUILD_UNIT_TESTS
+TESTS = unit/main
+
+check_PROGRAMS = unit/main
+
+unit_main_CFLAGS = $(CHECK_CFLAGS)
+unit_main_LDADD  = $(CHECK_LIBS) -l$(LIB_APR) -l$(LIB_APRUTIL)
+endif
+
 all: $(SERVER_DIR)/.test-setup
 
 $(SERVER_DIR)/conf/ssl/valid_pkey.pem:

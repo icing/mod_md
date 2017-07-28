@@ -50,6 +50,11 @@ AC_ARG_ENABLE([werror],
                     [Turn on compile time warnings])],
     [werror=$enableval], [werror=no])
 
+AC_ARG_ENABLE([unit-tests],
+    [AS_HELP_STRING([--enable-unit-tests],
+                    [Enable C-based unit tests (requires libcheck)])],
+    [enable_unit_tests=$enableval], [enable_unit_tests=yes])
+
 AC_ARG_WITH([apxs], [AS_HELP_STRING([--with-apxs],
     [Use APXS executable [default=check]])],
     [request_apxs=$withval], [request_apxs=check])
@@ -124,6 +129,10 @@ if test "x$werror" != "xno"; then
     AX_CHECK_COMPILE_FLAG(["-std=c89"], [CFLAGS="$CFLAGS -std=c89"])
     AX_CHECK_COMPILE_FLAG([-Wdeclaration-after-statement], [CFLAGS="$CFLAGS -Wdeclaration-after-statement"])
 fi
+
+# Do we have a pkg-config?
+AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
+AC_PATH_PROG([PKGCONFIG], [pkg-config])
 
 # This is all experimental by default for now
 MD_EXPERIMENTAL=1
@@ -241,6 +250,30 @@ fi
 AM_CONDITIONAL([FOUND_OPENSSL_BIN], [test "x$FOUND_OPENSSL_BIN" != xno])
 AM_COND_IF([FOUND_OPENSSL_BIN],,[AC_MSG_ERROR([required program 'openssl' not found.])])
 AC_SUBST(OPENSSL_BIN)
+
+# Should we build unit tests?
+have_check=false
+
+if test "x$enable_unit_tests" != "xno"; then
+    # The Check library is needed for C-based unit tests. Only pkg-config
+    # discovery is supported for it at the moment.
+    AC_MSG_CHECKING([for Check to enable unit tests])
+
+    if test "x$PKGCONFIG" != "x" && $PKGCONFIG --atleast-version='0.9.12' check; then
+        CHECK_CFLAGS=`$PKGCONFIG --cflags check`
+        CHECK_LIBS=`$PKGCONFIG --libs check`
+
+        AC_SUBST(CHECK_CFLAGS)
+        AC_SUBST(CHECK_LIBS)
+
+        have_check=true
+        AC_MSG_RESULT([yes])
+    else
+        AC_MSG_RESULT([no])
+    fi
+fi
+
+AM_CONDITIONAL([BUILD_UNIT_TESTS], [test "x$have_check" = "xtrue"])
 
 # Checks for header files.
 AC_CHECK_HEADERS([ \
