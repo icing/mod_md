@@ -69,10 +69,7 @@ class TestAuto:
         conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
-        dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
-        assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
-                            "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
+        assert TestEnv.checkCertAltName(domain)
 
         # check: challenges removed
         TestEnv.check_dir_empty( TestEnv.path_challenges() )
@@ -125,14 +122,8 @@ class TestAuto:
         self._check_md_cert(dnsListB)
 
         # check: SSL is running OK
-        test_url_a = "https://%s:%s/" % (domainA, TestEnv.HTTPS_PORT)
-        test_url_b = "https://%s:%s/" % (domainB, TestEnv.HTTPS_PORT)
-        dnsResolveA = "%s:%s:127.0.0.1" % (domainA, TestEnv.HTTPS_PORT)
-        dnsResolveB = "%s:%s:127.0.0.1" % (domainB, TestEnv.HTTPS_PORT)
-        assert TestEnv.run([ "curl", "--resolve", dnsResolveA, 
-                            "--cacert", TestEnv.path_domain_cert(domainA), test_url_a])['rv'] == 0
-        assert TestEnv.run([ "curl", "--resolve", dnsResolveB, 
-                            "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
+        assert TestEnv.checkCertAltName(domainA)
+        assert TestEnv.checkCertAltName(domainB)
 
     def test_700_003(self):
         # test case: one md, that covers two vhosts
@@ -165,18 +156,10 @@ class TestAuto:
         self._check_md_cert(dnsList)
 
         # check: SSL is running OK
-        test_url_a = "https://%s:%s/name.txt" % (nameA, TestEnv.HTTPS_PORT)
-        test_url_b = "https://%s:%s/name.txt" % (nameB, TestEnv.HTTPS_PORT)
-        dnsResolveA = "%s:%s:127.0.0.1" % (nameA, TestEnv.HTTPS_PORT)
-        dnsResolveB = "%s:%s:127.0.0.1" % (nameB, TestEnv.HTTPS_PORT)
-        result = TestEnv.run([ "curl", "--resolve", dnsResolveA, 
-                              "--cacert", TestEnv.path_domain_cert(domain), test_url_a])
-        assert result['rv'] == 0
-        assert result['stdout'] == nameA
-        result = TestEnv.run([ "curl", "--resolve", dnsResolveB, 
-                              "--cacert", TestEnv.path_domain_cert(domain), test_url_b])
-        assert result['rv'] == 0
-        assert result['stdout'] == nameB
+        assert TestEnv.checkCertAltName(nameA)
+        assert TestEnv.checkContent(nameA, "/name.txt", nameA)
+        assert TestEnv.checkCertAltName(nameB)
+        assert TestEnv.checkContent(nameB, "/name.txt", nameB)
 
     @pytest.mark.skip(reason="Not implemented: Use TLS-SNI challenge")
     def test_700_004(self):
@@ -200,10 +183,7 @@ class TestAuto:
         self._check_md_cert(dnsList)
         
         # - check access
-        test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
-        dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
-        assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
-                            "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
+        TestEnv.checkCertAltName(domain)
 
     def test_700_005(self):
         # test case: drive_mode manual, check that server starts,
@@ -231,9 +211,10 @@ class TestAuto:
         # - drive
 
         # check: that request to domains give 503 Service Unavailable
+        TestEnv.checkCertAltName(nameA)
         test_url_a = "https://%s:%s/name.txt" % (nameA, TestEnv.HTTPS_PORT)
         dnsResolveA = "%s:%s:127.0.0.1" % (nameA, TestEnv.HTTPS_PORT)
-        result = TestEnv.run([ "curl", "--resolve", dnsResolveA, 
+        result = TestEnv.curl([ "--resolve", dnsResolveA, 
                               "-k", "-D", "-", test_url_a])
         assert result['rv'] == 0
         assert re.match("HTTP/\\d(.\\d)? 503 .*", result['stdout'])

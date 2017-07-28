@@ -53,6 +53,8 @@ class TestEnv:
         cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
 
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
+        cls.CURL      = cls.config.get('global', 'curl_bin')
+        cls.OPENSSL   = cls.config.get('global', 'openssl_bin')
 
         cls.MD_S_UNKNOWN = 0
         cls.MD_S_INCOMPLETE = 1
@@ -112,6 +114,10 @@ class TestEnv:
         if raw :
             preargs = cls._a2md_args_raw
         return cls.run( preargs + args )
+
+    @classmethod
+    def curl( cls, args ) :
+        return cls.run( [ cls.CURL ] + args )
 
     # --------- HTTP ---------
 
@@ -374,6 +380,33 @@ class TestEnv:
     @classmethod
     def check_dir_empty(cls, path):
          assert os.listdir(path) == []
+
+    @classmethod
+    def checkCertAltName(cls, domain):
+        p = subprocess.Popen([ cls.OPENSSL, "s_client", "-servername", domain, 
+                              "-host", cls.HTTPD_HOST, "-port", cls.HTTPS_PORT], 
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (output, errput) = p.communicate()
+        rv = p.wait()
+        if rv != 0:
+            return FALSE
+
+        p = subprocess.Popen([ cls.OPENSSL, "x509", "-text" ],  
+                             stdin=subprocess.PIPE, 
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (output, errput) = p.communicate(output)
+        rv = p.wait()
+        if rv != 0:
+            return FALSE
+        return re.search("DNS:" + domain, output, re.MULTILINE) != None
+
+    @classmethod
+    def checkContent(cls, domain, path, expected):
+        auth = ("%s:%s" % (domain, cls.HTTPS_PORT))
+        result = TestEnv.curl([ "-k", "--resolve", ("%s:127.0.0.1" % (auth)), 
+                               ("https://%s%s" % (auth, path)) ])
+        assert result['rv'] == 0
+        return result['stdout'] == expected
 
 # -----------------------------------------------
 # --

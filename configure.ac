@@ -221,10 +221,26 @@ if test "x$curl_ssl" = "x"; then
     AC_MSG_ERROR([curl from $curl_config does not support SSL.])
 fi
 
+CURL_BIN=$( dirname $curl_config)/curl
+AC_SUBST(CURL_BIN)
+
 AC_CHECK_HEADERS([curl/curl.h])
 
 CFLAGS="$CFLAGS "`$curl_config --cflags`
 LIBS="$LIBS "`$curl_config --libs`
+
+
+OPENSSL_BIN="${prefix}/bin/openssl"
+if test -x "$OPENSSL_BIN"; then
+    : # all fine
+else
+    OPENSSL_BIN=openssl
+    AC_CHECK_PROG([FOUND_OPENSS_BIN],[$OPENSSL_BIN],[yes],[no])
+fi
+
+AM_CONDITIONAL([FOUND_OPENSSL_BIN], [test "x$FOUND_OPENSSL_BIN" != xno])
+AM_COND_IF([FOUND_OPENSSL_BIN],,[AC_MSG_ERROR([required program 'openssl' not found.])])
+AC_SUBST(OPENSSL_BIN)
 
 # Checks for header files.
 AC_CHECK_HEADERS([ \
@@ -283,6 +299,7 @@ AC_MSG_NOTICE([summary of build options:
     LDFLAGS:        ${LDFLAGS}
     LIBS:           ${LIBS}
     CPPFLAGS:       ${CPPFLAGS}
-    a2enmod         ${A2ENMOD:--}
+    curl            ${CURL_BIN:--}
     curl-config     ${curl_config:--}
+    openssl         ${OPENSSL_BIN:--}
 ])

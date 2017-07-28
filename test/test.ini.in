@@ -9,6 +9,8 @@ server_dir = @SERVER_DIR@
 http_port = @HTTP_PORT@
 https_port = @HTTPS_PORT@
 gen_dir = @GEN_DIR@
+curl_bin = @CURL_BIN@
+openssl_bin = @OPENSSL_BIN@
 
 [acme]
 url_default=@ACME_DEF_URL@

@@ -215,7 +215,7 @@ class TestDrive :
         # setup: delete account on server
         assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
         # drive
-        run = TestEnv.a2md( [ "-vvvv", "drive", name ] )
+        run = TestEnv.a2md( [ "drive", name ] )
         print run["stderr"]
         assert run['rv'] == 0
         self._check_md_cert([ name ])
@@ -317,7 +317,7 @@ class TestDrive :
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "contacts", "test@" + domain ])['rv'] == 0
         # drive
-        assert TestEnv.a2md( [ "-vvvvv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # compare cert serial
         new_cert = CertUtil(TestEnv.path_domain_cert(name))
         assert old_cert.get_serial() == new_cert.get_serial()

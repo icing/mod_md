@@ -129,7 +129,7 @@ class TestRegAdd :
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: replace chain by broken file -> ERROR
         copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_ca_chain(name))
-        assert TestEnv.a2md([ "-vvv", "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
     # --------- _utils_ ---------
 

@@ -70,8 +70,7 @@ class TestRoundtrip:
         # check: SSL is running OK
         test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
         dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
-        assert TestEnv.run([ "curl", "--resolve", dnsResolve, 
-                            "--cacert", TestEnv.path_domain_cert(domain), test_url])['rv'] == 0
+        assert TestEnv.checkCertAltName(domain)
 
         # check file system permissions:
         md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
@@ -115,8 +114,8 @@ class TestRoundtrip:
         self._check_md_names(domainB, dnsListB)
 
         # - drive
-        assert TestEnv.a2md( [ "-vvv", "drive", domainA ] )['rv'] == 0
-        assert TestEnv.a2md( [ "-vvv", "drive", domainB ] )['rv'] == 0
+        assert TestEnv.a2md( [ "drive", domainA ] )['rv'] == 0
+        assert TestEnv.a2md( [ "drive", domainB ] )['rv'] == 0
         self._check_md_cert(dnsListA)
         self._check_md_cert(dnsListB)
 
@@ -127,14 +126,8 @@ class TestRoundtrip:
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        test_url_a = "https://%s:%s/" % (domainA, TestEnv.HTTPS_PORT)
-        test_url_b = "https://%s:%s/" % (domainB, TestEnv.HTTPS_PORT)
-        dnsResolveA = "%s:%s:127.0.0.1" % (domainA, TestEnv.HTTPS_PORT)
-        dnsResolveB = "%s:%s:127.0.0.1" % (domainB, TestEnv.HTTPS_PORT)
-        assert TestEnv.run([ "curl", "--resolve", dnsResolveA, 
-                            "--cacert", TestEnv.path_domain_cert(domainA), test_url_a])['rv'] == 0
-        assert TestEnv.run([ "curl", "--resolve", dnsResolveB, 
-                            "--cacert", TestEnv.path_domain_cert(domainB), test_url_b])['rv'] == 0
+        assert TestEnv.checkCertAltName(domainA)
+        assert TestEnv.checkCertAltName(domainB)
 
     def test_600_002(self):
         # test case: one md, that covers two vhosts
@@ -155,7 +148,7 @@ class TestRoundtrip:
         self._check_md_names(domain, dnsList)
 
         # - drive
-        assert TestEnv.a2md( [ "-vvv", "drive", domain ] )['rv'] == 0
+        assert TestEnv.a2md( [ "drive", domain ] )['rv'] == 0
         self._check_md_cert(dnsList)
 
         # - append vhost to config
@@ -173,18 +166,10 @@ class TestRoundtrip:
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        test_url_a = "https://%s:%s/name.txt" % (nameA, TestEnv.HTTPS_PORT)
-        test_url_b = "https://%s:%s/name.txt" % (nameB, TestEnv.HTTPS_PORT)
-        dnsResolveA = "%s:%s:127.0.0.1" % (nameA, TestEnv.HTTPS_PORT)
-        dnsResolveB = "%s:%s:127.0.0.1" % (nameB, TestEnv.HTTPS_PORT)
-        result = TestEnv.run([ "curl", "--resolve", dnsResolveA, 
-                              "--cacert", TestEnv.path_domain_cert(domain), test_url_a])
-        assert result['rv'] == 0
-        assert result['stdout'] == nameA
-        result = TestEnv.run([ "curl", "--resolve", dnsResolveB, 
-                              "--cacert", TestEnv.path_domain_cert(domain), test_url_b])
-        assert result['rv'] == 0
-        assert result['stdout'] == nameB
+        assert TestEnv.checkCertAltName(nameA)
+        assert TestEnv.checkContent(nameA, "/name.txt", nameA)
+        assert TestEnv.checkCertAltName(nameB)
+        assert TestEnv.checkContent(nameB, "/name.txt", nameB)
 
     # --------- _utils_ ---------
 

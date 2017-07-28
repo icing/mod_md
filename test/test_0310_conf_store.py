@@ -353,10 +353,10 @@ class TestConf:
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         assert TestEnv.apache_start() == 0
         # setup: drive it
-        assert TestEnv.a2md( [ "-vvv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # setup: change CA URL
-        assert TestEnv.a2md([ "-vvv", "update", name, "ca", TestEnv.ACME_URL_DEFAULT ])['rv'] == 0
+        assert TestEnv.a2md([ "update", name, "ca", TestEnv.ACME_URL_DEFAULT ])['rv'] == 0
         # check: state stays COMPLETE
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
 
