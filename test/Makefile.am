@@ -21,8 +21,11 @@ TESTS = unit/main
 
 check_PROGRAMS = unit/main
 
-unit_main_CFLAGS = $(CHECK_CFLAGS)
-unit_main_LDADD  = $(CHECK_LIBS) -l$(LIB_APR) -l$(LIB_APRUTIL)
+unit_main_SOURCES = unit/main.c unit/md_json.c
+unit_main_LDADD   = $(top_builddir)/src/libapachemd.la
+
+unit_main_CFLAGS  = $(CHECK_CFLAGS) -I$(top_srcdir)/src
+unit_main_LDADD  += $(CHECK_LIBS) -l$(LIB_APR) -l$(LIB_APRUTIL)
 endif
 
 all: $(SERVER_DIR)/.test-setup

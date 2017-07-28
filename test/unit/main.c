@@ -12,14 +12,15 @@
  * limitations under the License.
  */
 
-#include <apr.h>   /* for pid_t on Windows, needed by Check */
-#include <check.h>
+#include "test_common.h"
 
 #include <apr_general.h>
 
 static Suite *main_test_suite(void)
 {
     Suite *suite = suite_create("main");
+
+    suite_add_tcase(suite, md_json_test_case());
 
     return suite;
 }
