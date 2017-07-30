@@ -35,3 +35,10 @@ mod_cert-*.tar.gz
 m4
 .cache
 a2md/a2md
+
+# Automake test-suite artifacts
+/test-driver
+/test/test-suite.log
+/test/unit/**/*.log
+/test/unit/**/*.trs
+/test/unit/main
