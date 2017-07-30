@@ -1,3 +1,5 @@
+ * Merged check based unit test infrastructure by the awesome 
+   [Jacob Champion](https://github.com/jchampio) and linked them to standard 'make test'
  * Using ${prefix}/bin/curl if available. Fixed test cases that failed when curl has SNI
    support.
  * added test that resources are served with "503 Service Unavailable" while TLS credentials

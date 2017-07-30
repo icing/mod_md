@@ -25,6 +25,13 @@
 		B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_acme_regs.py; sourceTree = "<group>"; };
 		B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0210_acme_tos.py; sourceTree = "<group>"; };
 		B20333391EDDA82300E5BE7E /* test_0220_acme_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0220_acme_authz.py; sourceTree = "<group>"; };
+		B2123B871F2DD7A200267CAF /* .dirstamp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .dirstamp; sourceTree = "<group>"; };
+		B2123B881F2DD7A200267CAF /* unit_main-main.Po */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "unit_main-main.Po"; sourceTree = "<group>"; };
+		B2123B891F2DD7A200267CAF /* unit_main-md_json.Po */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "unit_main-md_json.Po"; sourceTree = "<group>"; };
+		B2123B8A1F2DD7A200267CAF /* unit_main-md_json.Tpo */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "unit_main-md_json.Tpo"; sourceTree = "<group>"; };
+		B2123B8C1F2DD7A200267CAF /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		B2123B8D1F2DD7A200267CAF /* md_json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_json.c; sourceTree = "<group>"; };
+		B2123B8E1F2DD7A200267CAF /* test_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test_common.h; sourceTree = "<group>"; };
 		B24051FF1EF9145000E36701 /* md_acme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme.c; sourceTree = "<group>"; };
 		B24052001EF9145000E36701 /* md_acme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme.h; sourceTree = "<group>"; };
 		B24052021EF9145000E36701 /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
@@ -139,6 +146,28 @@
 			children = (
 			);
 			path = test_roundtrip;
+			sourceTree = "<group>";
+		};
+		B2123B851F2DD7A200267CAF /* unit */ = {
+			isa = PBXGroup;
+			children = (
+				B2123B861F2DD7A200267CAF /* .deps */,
+				B2123B8C1F2DD7A200267CAF /* main.c */,
+				B2123B8D1F2DD7A200267CAF /* md_json.c */,
+				B2123B8E1F2DD7A200267CAF /* test_common.h */,
+			);
+			path = unit;
+			sourceTree = "<group>";
+		};
+		B2123B861F2DD7A200267CAF /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				B2123B871F2DD7A200267CAF /* .dirstamp */,
+				B2123B881F2DD7A200267CAF /* unit_main-main.Po */,
+				B2123B891F2DD7A200267CAF /* unit_main-md_json.Po */,
+				B2123B8A1F2DD7A200267CAF /* unit_main-md_json.Tpo */,
+			);
+			path = .deps;
 			sourceTree = "<group>";
 		};
 		B24051EE1EF9145000E36701 /* acme */ = {
@@ -291,6 +320,7 @@
 		B2D309EF1EC1AD26007BECC8 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				B2123B851F2DD7A200267CAF /* unit */,
 				B2D31AEA1EC1B506007BECC8 /* conf */,
 				B262F6CD1EFCFE1100D396A1 /* data */,
 				B2B81ED31F165F8300E35CA3 /* htdocs */,

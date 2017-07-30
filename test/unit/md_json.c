@@ -22,6 +22,18 @@
  * definition of json_t and duplicate the md_json_t definition.
  */
 
+/* jansson thinks everyone compiles with the platform's cc in its fullest capabilities
+ * when undefining their INLINEs, we get static, unused functions, arg 
+ */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wunreachable-code"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+
+#include <jansson_config.h>
+#undef   JSON_INLINE
+#define JSON_INLINE 
 #include <jansson.h>
 
 /* duplicated from src/md_json.c */
