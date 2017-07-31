@@ -105,6 +105,11 @@ int md_cmd_ctx_has_option(md_cmd_ctx *ctx, const char *option)
     return NULL != apr_table_get(ctx->options, option);
 }
 
+const char *md_cmd_ctx_get_option(md_cmd_ctx *ctx, const char *key)
+{
+    return apr_table_get(ctx->options, key);
+}
+
 static const md_cmd_t *find_cmd(const md_cmd_t **cmds, const char *name) 
 {
     int i;

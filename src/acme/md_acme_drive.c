@@ -269,7 +269,8 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
             case MD_ACME_AUTHZ_S_VALID:
                 break;
             case MD_ACME_AUTHZ_S_PENDING:
-                rv = md_acme_authz_respond(authz, ad->acme, d->store, 
+                
+                rv = md_acme_authz_respond(authz, ad->acme, d->store, ad->md->ca_challenges,  
                                            ad->can_http_01, ad->can_tls_sni_01, d->p);
                 changed = 1;
                 break;

@@ -51,6 +51,7 @@ struct md_cmd_ctx {
 };
 
 int md_cmd_ctx_has_option(md_cmd_ctx *ctx, const char *key);
+const char *md_cmd_ctx_get_option(md_cmd_ctx *ctx, const char *key);
 
 void md_cmd_ctx_set_option(md_cmd_ctx *ctx, const char *key, const char *value);
 

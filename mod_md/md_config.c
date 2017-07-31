@@ -41,6 +41,7 @@ static md_config_t defconf = {
     MD_ACME_DEF_URL,
     "ACME",
     NULL, 
+    NULL,
     MD_DRIVE_AUTO,
     apr_time_from_sec(14 * MD_SECS_PER_DAY), 
     NULL, 
@@ -92,6 +93,8 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     n->md = NULL;
     n->base_dir = add->base_dir? add->base_dir : base->base_dir;
     n->renew_window = (add->renew_window != DEF_VAL)? add->renew_window : base->renew_window;
+    n->ca_challenges = (add->ca_challenges? apr_array_copy(pool, add->ca_challenges) 
+                    : (base->ca_challenges? apr_array_copy(pool, base->ca_challenges) : NULL));
     return n;
 }
 
@@ -444,6 +447,37 @@ static const char *md_config_set_port_map(cmd_parms *cmd, void *arg,
     return err;
 }
 
+static const char *md_config_set_cha_tyes(cmd_parms *cmd, void *dc, 
+                                          int argc, char *const argv[])
+{
+    md_config_t *config = (md_config_t *)md_config_get(cmd->server);
+    apr_array_header_t **pcha, *ca_challenges;
+    const char *err;
+    int i;
+
+    if (inside_section(cmd)) {
+        md_config_dir_t *dconf = dc;
+        pcha = &dconf->md->ca_challenges;
+    }
+    else {
+        if (NULL != (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+            return err;
+        }
+        pcha = &config->ca_challenges; 
+    }
+    
+    ca_challenges = *pcha;
+    if (!ca_challenges) {
+        *pcha = ca_challenges = apr_array_make(cmd->pool, 5, sizeof(const char *));
+    }
+    for (i = 0; i < argc; ++i) {
+        APR_ARRAY_PUSH(ca_challenges, const char *) = argv[i];
+    }
+    
+    return NULL;
+}
+
+
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
 const command_rec md_cmds[] = {
@@ -470,6 +504,8 @@ const command_rec md_cmds[] = {
                   "to indicate that the server port 8000 is reachable as port 80 from the "
                   "internet. Use 80:- to indicate that port 80 is not reachable from "
                   "the outside."),
+    AP_INIT_TAKE_ARGV("MDCAChallenges", md_config_set_cha_tyes, NULL, RSRC_CONF, 
+                      "A list of challenge types to be used."),
     AP_END_CMD
 };
 

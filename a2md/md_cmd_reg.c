@@ -247,6 +247,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
     md_t *md;
     apr_status_t rv;
+    const char *challenge;
     int i;
  
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "drive do");
@@ -265,10 +266,14 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     }   
     
+    challenge = md_cmd_ctx_get_option(ctx, "challenge");
+    
     rv = APR_SUCCESS;
     for (i = 0; i < mdlist->nelts; ++i) {
         md_t *md = APR_ARRAY_IDX(mdlist, i, md_t*);
-        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, md_cmd_ctx_has_option(ctx, "reset"),  
+            
+        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, challenge, 
+                                              md_cmd_ctx_has_option(ctx, "reset"),  
                                               md_cmd_ctx_has_option(ctx, "force"), ctx->p))) {
             break;
         }
@@ -280,6 +285,9 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 static apr_status_t cmd_reg_drive_opts(md_cmd_ctx *ctx, int option, const char *optarg)
 {
     switch (option) {
+        case 'c':
+            md_cmd_ctx_set_option(ctx, "challenge", optarg);
+            break;
         case 'f':
             md_cmd_ctx_set_option(ctx, "force", "1");
             break;
@@ -293,6 +301,7 @@ static apr_status_t cmd_reg_drive_opts(md_cmd_ctx *ctx, int option, const char *
 }
 
 static apr_getopt_option_t DriveOptions [] = {
+    { "challenge",'c', 1, "which challenge type to use"},
     { "force",    'f', 0, "force driving the managed domain, even when it seems valid"},
     { "reset",    'r', 0, "reset any staging data for the managed domain"},
     { NULL , 0, 0, NULL }

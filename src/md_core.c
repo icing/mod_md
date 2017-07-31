@@ -273,6 +273,11 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
         }
         md_json_setl(md->renew_window, json, MD_KEY_RENEW_WINDOW, NULL);
+        if (md->ca_challenges && md->ca_challenges->nelts > 0) {
+            apr_array_header_t *na;
+            na = md_array_str_compact(p, md->ca_challenges, 0);
+            md_json_setsa(na, json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL);
+        }
         return json;
     }
     return NULL;
@@ -299,6 +304,10 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             md->expires = apr_date_parse_rfc(s);
         }
         md->renew_window = md_json_getl(json, MD_KEY_RENEW_WINDOW, NULL);
+        if (md_json_has_key(json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL)) {
+            md->ca_challenges = apr_array_make(p, 5, sizeof(const char*));
+            md_json_dupsa(md->ca_challenges, p, json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL);
+        }
         return md;
     }
     return NULL;

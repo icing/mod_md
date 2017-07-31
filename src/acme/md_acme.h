@@ -28,10 +28,10 @@ struct md_acme_acct_t;
 struct md_proto_t;
 struct md_store_t;
 
-#define MD_PROTO_ACME           "ACME"
+#define MD_PROTO_ACME               "ACME"
 
-#define MD_AUTHZ_CHA_HTTP       "http-01"
-#define MD_AUTHZ_CHA_SNI        "tls-sni-01"
+#define MD_AUTHZ_CHA_HTTP_01        "http-01"
+#define MD_AUTHZ_CHA_SNI_01         "tls-sni-01"
 
 typedef enum {
     MD_ACME_S_UNKNOWN,              /* MD has not been analysed yet */

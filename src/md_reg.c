@@ -512,6 +512,11 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update renew-window: %s", name);
         nmd->renew_window = updates->renew_window;
     }
+    if (MD_UPD_CA_CHALLENGES & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update ca challenges: %s", name);
+        nmd->ca_challenges = (updates->ca_challenges? 
+                              apr_array_copy(p, updates->ca_challenges) : NULL);
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
         rv = md_state_init(reg, nmd, ptemp);
@@ -756,6 +761,13 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->renew_window = md->renew_window;
                     fields |= MD_UPD_RENEW_WINDOW;
                 }
+                if (md->ca_challenges) {
+                    md->ca_challenges = md_array_str_compact(p, md->ca_challenges, 0);
+                }
+                if (!md_array_str_eq(md->ca_challenges, smd->ca_challenges, 0)) {
+                    smd->ca_challenges = (md->ca_challenges?
+                                          apr_array_copy(ptemp, md->ca_challenges) : NULL);
+                }
                 
                 if (fields) {
                     rv = md_reg_update(reg, ptemp, smd->name, smd, fields);
@@ -781,7 +793,8 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 /* driving */
 
 static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_t *proto, 
-                                      md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p) 
+                                      md_reg_t *reg, const md_t *md, 
+                                      const char *challenge, int reset, apr_pool_t *p) 
 {
     apr_status_t rv;
 
@@ -791,6 +804,7 @@ static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_
     
     driver->proto = proto;
     driver->p = p;
+    driver->challenge = challenge;
     driver->can_http = reg->can_http;
     driver->can_https = reg->can_https;
     driver->reg = reg;
@@ -808,14 +822,16 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     const md_t *md;
     int reset;
     md_proto_driver_t *driver;
+    const char *challenge;
     apr_status_t rv;
     
     proto = va_arg(ap, const md_proto_t *);
     md = va_arg(ap, const md_t *);
+    challenge = va_arg(ap, const char *);
     reset = va_arg(ap, int); 
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
-    init_proto_driver(driver, proto, reg, md, reset, ptemp);
+    init_proto_driver(driver, proto, reg, md, challenge, reset, ptemp);
     
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
@@ -825,7 +841,8 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     return rv;
 }
 
-apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *p)
+apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge, 
+                          int reset, apr_pool_t *p)
 {
     const md_proto_t *proto;
     
@@ -843,7 +860,7 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, int reset, apr_pool_t *
         return APR_EINVAL;
     }
     
-    return md_util_pool_vdo(run_stage, reg, p, proto, md, reset, NULL);
+    return md_util_pool_vdo(run_stage, reg, p, proto, md, challenge, reset, NULL);
 }
 
 static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -882,7 +899,7 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     }
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
-    init_proto_driver(driver, proto, reg, md, 0, ptemp);
+    init_proto_driver(driver, proto, reg, md, NULL, 0, ptemp);
 
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);
@@ -916,7 +933,8 @@ apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p)
     return md_util_pool_vdo(run_load, reg, p, name, NULL);
 }
 
-apr_status_t md_reg_drive(md_reg_t *reg, md_t *md, int reset, int force, apr_pool_t *p)
+apr_status_t md_reg_drive(md_reg_t *reg, md_t *md, const char *challenge,
+                          int reset, int force, apr_pool_t *p)
 {
     apr_status_t rv;
     int errored, renew;
@@ -926,7 +944,7 @@ apr_status_t md_reg_drive(md_reg_t *reg, md_t *md, int reset, int force, apr_poo
             return APR_EGENERAL;
         }
         else if (renew || force) {
-            if (APR_SUCCESS == (rv = md_reg_stage(reg, md, reset, p))) {
+            if (APR_SUCCESS == (rv = md_reg_stage(reg, md, challenge, reset, p))) {
                 rv = md_reg_load(reg, md->name, p);
             }
         }

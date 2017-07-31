@@ -25,6 +25,8 @@ struct md_cert_t;
 struct md_pkey_t;
 struct md_store_t;
 
+#define MD_TLSSNI01_DNS_SUFFIX     ".acme.invalid"
+
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
     MD_S_INCOMPLETE,                /* MD is missing necessary information, cannot go live */
@@ -73,7 +75,8 @@ struct md_t {
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     const char *ca_account;         /* account used at CA */
     const char *ca_agreement;       /* accepted agreement uri between CA and user */ 
-    apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
+    struct apr_array_header_t *ca_challenges; /* challenge types configured for this MD */
+    struct apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
     const char *cert_url;           /* url where cert has been created, remember during drive */ 
 

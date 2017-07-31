@@ -203,6 +203,11 @@ void md_pkey_free(md_pkey_t *pkey)
     pkey_cleanup(pkey);
 }
 
+void *md_pkey_get_EVP_PKEY(struct md_pkey_t *pkey)
+{
+    return pkey->pkey;
+}
+
 apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, 
                            const char *key, apr_size_t key_len,
                            const char *fname)
@@ -565,6 +570,11 @@ static md_cert_t *make_cert(apr_pool_t *p, X509 *x509)
 void md_cert_free(md_cert_t *cert)
 {
     cert_cleanup(cert);
+}
+
+void *md_cert_get_X509(struct md_cert_t *cert)
+{
+    return cert->x509;
 }
 
 int md_cert_is_valid_now(const md_cert_t *cert)

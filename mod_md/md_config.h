@@ -40,6 +40,7 @@ typedef struct {
     const char *ca_url;
     const char *ca_proto;
     const char *ca_agreement;
+    apr_array_header_t *ca_challenges; /* challenge types allowed */
     
     int drive_mode;
     apr_interval_time_t renew_window;  /* time for renewal before expiry */
@@ -47,6 +48,7 @@ typedef struct {
     const md_t *md;
     const char *base_dir;
     struct md_store_t *store;
+
 } md_config_t;
 
 typedef struct {

@@ -16,6 +16,9 @@
 #ifndef mod_md_mod_md_h
 #define mod_md_mod_md_h
 
+#include <openssl/evp.h>
+#include <openssl/x509v3.h>
+
 struct server_rec;
 
 APR_DECLARE_OPTIONAL_FN(int, 
@@ -26,6 +29,10 @@ APR_DECLARE_OPTIONAL_FN(apr_status_t,
                                              const char **pkeyfile, 
                                              const char **pcertfile, 
                                              const char **pchainfile));
+
+APR_DECLARE_OPTIONAL_FN(int, 
+                        md_is_challenge, (struct conn_rec *, const char *,
+                                          X509 **pcert, EVP_PKEY **pkey));
 
 
 #endif /* mod_md_mod_md_h */

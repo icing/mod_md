@@ -27,6 +27,7 @@
 #include "mod_md.h"
 #include "md_config.h"
 #include "md_curl.h"
+#include "md_crypt.h"
 #include "md_http.h"
 #include "md_store.h"
 #include "md_store_fs.h"
@@ -149,7 +150,9 @@ static apr_status_t md_calc_md_list(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog
                 if (nmd->renew_window <= 0) {
                     nmd->renew_window = md_config_get_interval(config, MD_CONFIG_RENEW_WINDOW);
                 }
-                
+                if (!nmd->ca_challenges && config->ca_challenges) {
+                    nmd->ca_challenges = apr_array_copy(p, config->ca_challenges);
+                }
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
                 
                 ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
@@ -464,7 +467,7 @@ static apr_status_t process_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
         else if (renew) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                          "md(%s): state=%d, driving", md->name, md->state);
-            rv = md_reg_stage(wd->reg, md, 0, ptemp);
+            rv = md_reg_stage(wd->reg, md, NULL, 0, ptemp);
             if (APR_SUCCESS == rv) {
                 md->state = MD_S_COMPLETE;
                 md->expires = 0;
@@ -791,6 +794,45 @@ static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
     return rv;
 }
 
+
+static int md_is_challenge(conn_rec *c, const char *servername,
+                           X509 **pcert, EVP_PKEY **pkey)
+{
+    md_config_t *conf;
+    apr_size_t slen, sufflen = sizeof(MD_TLSSNI01_DNS_SUFFIX) - 1;
+    apr_status_t rv;
+
+    slen = strlen(servername);
+    if (slen <= sufflen 
+        || apr_strnatcasecmp(MD_TLSSNI01_DNS_SUFFIX, servername + slen - sufflen)) {
+        return 0;
+    }
+    
+    conf = (md_config_t *)md_config_get(c->base_server);
+    
+    if (conf && conf->store) {
+        md_cert_t *mdcert;
+        md_pkey_t *mdpkey;
+        
+        rv = md_store_load(conf->store, MD_SG_CHALLENGES, servername, 
+                           MD_FN_TLSSNI01_CERT, MD_SV_CERT, (void**)&mdcert, c->pool);
+        if (APR_SUCCESS == rv && (*pcert = md_cert_get_X509(mdcert))) {
+            rv = md_store_load(conf->store, MD_SG_CHALLENGES, servername, 
+                               MD_FN_TLSSNI01_PKEY, MD_SV_PKEY, (void**)&mdpkey, c->pool);
+            if (APR_SUCCESS == rv && (*pkey = md_pkey_get_EVP_PKEY(mdpkey))) {
+                ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO()
+                              "%s: is a tls-sni-01 challenge host", servername);
+                return 1;
+            }
+            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO()
+                          "%s: challenge data not complete, key unavailable", servername);
+        }
+    }
+    *pcert = NULL;
+    *pkey = NULL;
+    return 0;
+}
+
 /**************************************************************************************************/
 /* ACME challenge responses */
 
@@ -874,4 +916,5 @@ static void md_hooks(apr_pool_t *pool)
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_credentials);
+    APR_REGISTER_OPTIONAL_FN(md_is_challenge);
 }

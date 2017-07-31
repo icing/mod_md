@@ -436,6 +436,9 @@ class HttpdConf(object):
     def add_md(self, dnsList):
         open(self.path, "a").write("  ManagedDomain %s\n\n" % " ".join(dnsList))
 
+    def add_ca_challenge(self, challenge_type):
+        open(self.path, "a").write("  MDCAChallenge %s\n" % mode)
+
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
         f = open(self.path, "a") 

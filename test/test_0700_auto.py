@@ -43,9 +43,9 @@ class TestAuto:
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
+        assert TestEnv.apache_stop() == 0
 
 
-    #@pytest.mark.skip(reason="challenges not removed after successfull auto drive")
     def test_700_001(self):
         # create a MD not used in any virtual host
         # auto drive should NOT pick it up
@@ -161,7 +161,6 @@ class TestAuto:
         assert TestEnv.checkCertAltName(nameB)
         assert TestEnv.checkContent(nameB, "/name.txt", nameB)
 
-    @pytest.mark.skip(reason="Not implemented: Use TLS-SNI challenge")
     def test_700_004(self):
         # test case: httpd only allows HTTPS -> drive uses TLS-SNI challenge
         domain = "a004-" + TestAuto.dns_uniq

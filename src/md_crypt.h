@@ -21,6 +21,8 @@
 struct apr_array_header_t;
 struct md_t;
 struct md_http_response_t;
+struct md_cert_t;
+struct md_pkey_t;
 
 /**************************************************************************************************/
 /* random */
@@ -59,6 +61,9 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
 
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
+
+void *md_cert_get_X509(struct md_cert_t *cert);
+void *md_pkey_get_EVP_PKEY(struct md_pkey_t *pkey);
 
 /**************************************************************************************************/
 /* X509 certificates */

@@ -220,17 +220,14 @@ class TestDrive :
         assert run['rv'] == 0
         self._check_md_cert([ name ])
 
-    @pytest.mark.skip(reason="Not implemented: Use TLS-SNI challenge")
     def test_500_106(self):
-        # test case: httpd only allows HTTPS -> drive uses TLS-SNI challenge
-        assert TestEnv.apache_stop() == 0
-        TestEnv.install_test_conf( conf=None, sslOnly=True )
+        # test case: drive using HTTPS only challenge
         domain = "test500-106-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name, "test." + domain ])
         assert TestEnv.apache_start( checkWithSSL=True ) == 0
         # drive
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
     def test_500_107(self):

@@ -324,8 +324,6 @@ out:
     return rv;
 }
 
-#define TLSSNI01_DNS_SUFFIX     ".acme.invalid"
-
 static apr_status_t setup_cha_dns(const char **pdns, md_acme_authz_cha_t *cha, apr_pool_t *p)
 {
     const char *dhex;
@@ -338,11 +336,11 @@ static apr_status_t setup_cha_dns(const char **pdns, md_acme_authz_cha_t *cha, a
         dhex = md_util_str_tolower((char*)dhex);
         dhex_len = strlen(dhex); 
         assert(dhex_len > 32);
-        dns = apr_pcalloc(p, dhex_len + 1 + sizeof(TLSSNI01_DNS_SUFFIX));
+        dns = apr_pcalloc(p, dhex_len + 1 + sizeof(MD_TLSSNI01_DNS_SUFFIX));
         strncpy(dns, dhex, 32);
         dns[32] = '.';
         strncpy(dns+33, dhex+32, dhex_len-32);
-        memcpy(dns+(dhex_len+1), TLSSNI01_DNS_SUFFIX, sizeof(TLSSNI01_DNS_SUFFIX));
+        memcpy(dns+(dhex_len+1), MD_TLSSNI01_DNS_SUFFIX, sizeof(MD_TLSSNI01_DNS_SUFFIX));
     }
     *pdns = (APR_SUCCESS == rv)? dns : NULL;
     return rv;
@@ -411,10 +409,19 @@ typedef struct {
     
     int can_cha_http_01;
     int can_cha_tls_sni_01;
+    apr_array_header_t *allowed_types;
     
     md_acme_authz_cha_t *http_01;
     md_acme_authz_cha_t *tls_sni_01;
 } cha_find_ctx;
+
+static int is_allowed(cha_find_ctx *ctx, const char *type)
+{
+    if (ctx->allowed_types && ctx->allowed_types->nelts > 0) {
+        return md_array_str_index(ctx->allowed_types, type, 0, 0) >= 0;
+    }
+    return 1;
+}
 
 static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
 {
@@ -422,10 +429,14 @@ static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
     
     const char *ctype = md_json_gets(json, MD_KEY_TYPE, NULL);
     if (ctype) {
-        if (ctx->can_cha_http_01 && !strcmp(MD_AUTHZ_CHA_HTTP, ctype)) {
+        if (ctx->can_cha_http_01 
+            && !strcmp(MD_AUTHZ_CHA_HTTP_01, ctype)
+            && is_allowed(ctx, MD_AUTHZ_CHA_HTTP_01)) {
             ctx->http_01 = cha_from_json(ctx->p, index, json);
         }
-        else if (ctx->can_cha_tls_sni_01 && !strcmp(MD_AUTHZ_CHA_SNI, ctype)) {
+        else if (ctx->can_cha_tls_sni_01
+                 && !strcmp(MD_AUTHZ_CHA_SNI_01, ctype)
+                 && is_allowed(ctx, MD_AUTHZ_CHA_SNI_01)) {
             ctx->tls_sni_01 = cha_from_json(ctx->p, index, json);
         }
     }
@@ -433,6 +444,7 @@ static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
 }
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
+                                   apr_array_header_t *allowed_types,
                                    int http_01, int tls_sni_01, apr_pool_t *p)
 {
     apr_status_t rv;
@@ -446,6 +458,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
     fctx.p = p;
     fctx.can_cha_http_01 = http_01;
     fctx.can_cha_tls_sni_01 = tls_sni_01;
+    fctx.allowed_types = allowed_types;
     
     md_json_itera(add_candidates, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
     
