@@ -58,6 +58,8 @@ struct md_store_fs_t {
     
     int port_80;
     int port_443;
+
+    const unsigned char *dupkey;
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
@@ -94,16 +96,21 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
     const char *key64;
     apr_status_t rv;
     unsigned char key[FS_STORE_KLEN];
+    int i;
     
     md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
 
-    if (APR_SUCCESS != (rv = md_rand_bytes(key, sizeof(key), p))) {
+    /*if (APR_SUCCESS != (rv = md_rand_bytes(key, sizeof(key), p))) {
         return rv;
-    }
+    }*/
+    for (i = 0; i < FS_STORE_KLEN; ++i) {
+        key[i] = 'a' + (i % 26);
+    } 
 
     s_fs->key_len = sizeof(key);
     s_fs->key = apr_pcalloc(p, sizeof(key) + 1);
     memcpy((void*)s_fs->key, key, sizeof(key));
+    s_fs->dupkey = apr_pmemdup(p, key, sizeof(key));
         
     key64 = md_util_base64url_encode((char *)key, sizeof(key), ptemp);
     md_json_sets(key64, json, MD_KEY_KEY, NULL);
@@ -111,6 +118,7 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
     rv = md_json_fcreatex(json, ptemp, MD_JSON_FMT_INDENT, fname, MD_FPROT_F_UONLY);
     memset((char*)key64, 0, strlen(key64));
 
+    assert(memcmp(s_fs->key, s_fs->dupkey, FS_STORE_KLEN) == 0);
     return rv;
 }
 
@@ -133,7 +141,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
         }
         /* TODO: need to migrate store? */
         
-        key64 = md_json_gets(json, MD_KEY_KEY, NULL);
+        key64 = md_json_dups(p, json, MD_KEY_KEY, NULL);
         if (!key64) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "missing key: %s", MD_KEY_KEY);
             return APR_EINVAL;
@@ -144,6 +152,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "key too short: %d", s_fs->key_len);
             return APR_EINVAL;
         }
+        s_fs->dupkey = apr_pmemdup(p, s_fs->key, FS_STORE_KLEN);
     }
     return rv;
 }
@@ -162,11 +171,15 @@ static apr_status_t setup_store_file(void *baton, apr_pool_t *p, apr_pool_t *pte
         return rv;
     }
     
+read:
     if (APR_SUCCESS == (rv = md_util_is_file(fname, ptemp))) {
         rv = read_store_file(s_fs, fname, p, ptemp);
     }
-    else {
+    else if (APR_STATUS_IS_ENOENT(rv)) {
         rv = init_store_file(s_fs, fname, p, ptemp);
+        if (APR_STATUS_IS_EEXIST(rv)) {
+            goto read;
+        }
     }
     return rv;
 }
@@ -298,6 +311,7 @@ static void get_pass(const char **ppass, apr_size_t *plen,
         *plen = 0;
     }
     else {
+        assert(memcmp(s_fs->key, s_fs->dupkey, FS_STORE_KLEN) == 0);
         *ppass = (const char *)s_fs->key;
         *plen = s_fs->key_len;
     }
@@ -337,7 +351,7 @@ static apr_status_t fs_fload(void **pvalue, md_store_fs_t *s_fs, const char *fpa
     else { /* check for existence only */
         rv = md_util_is_file(fpath, p);
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, ptemp, "loading type %d from %s", vtype, fpath);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, "loading type %d from %s", vtype, fpath);
     return rv;
 }
 

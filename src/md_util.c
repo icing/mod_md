@@ -810,6 +810,7 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
             n = ((BASE64URL_UINT6[ e[mlen+0] ] << 18) +
                  (BASE64URL_UINT6[ e[mlen+1] ] << 12));
             *d++ = n >> 16;
+            remain = 1;
             break;
         case 3:
             n = ((BASE64URL_UINT6[ e[mlen+0] ] << 18) +
@@ -817,6 +818,7 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
                  (BASE64URL_UINT6[ e[mlen+2] ] << 6));
             *d++ = n >> 16;
             *d++ = n >> 8 & 0xffu;
+            remain = 2;
             break;
         default: /* do nothing */
             break;
@@ -825,10 +827,10 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
 }
 
 const char *md_util_base64url_encode(const char *data, 
-                                     apr_size_t len, apr_pool_t *pool)
+                                     apr_size_t dlen, apr_pool_t *pool)
 {
-    apr_size_t slen = ((len+2)/3)*4 + 1; /* 0 terminated */
-    apr_size_t i;
+    long i, len = (int)dlen;
+    apr_size_t slen = ((dlen+2)/3)*4 + 1; /* 0 terminated */
     const unsigned char *udata = (const unsigned char*)data;
     char *enc, *p = apr_pcalloc(pool, slen);
     

@@ -323,7 +323,9 @@ class TestEnv:
     def apache_fail( cls, checkWithSSL=False ) :
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]
         print "execute: ", " ".join(args)
-        rv = 0 if subprocess.call(args) != 0 else -1
+        rv = subprocess.call(args)
+        print "returned: ", rv
+        rv = 0 if rv != 0 else -1
         if rv == 0:
             url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
             print "check, if dead: " + url

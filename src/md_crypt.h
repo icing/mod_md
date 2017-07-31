@@ -52,9 +52,6 @@ const char *md_pkey_get_rsa_n64(md_pkey_t *pkey, apr_pool_t *p);
 apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p, 
                            const char *pass_phrase, apr_size_t pass_len,
                            const char *fname);
-apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, 
-                               const char *pass_phrase, apr_size_t pass_len,
-                               const char *fname);
 apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p, 
                            const char *pass_phrase, apr_size_t pass_len, 
                            const char *fname, apr_fileperms_t perms);

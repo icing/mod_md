@@ -21,6 +21,7 @@ static Suite *main_test_suite(void)
     Suite *suite = suite_create("main");
 
     suite_add_tcase(suite, md_json_test_case());
+    suite_add_tcase(suite, md_util_test_case());
 
     return suite;
 }

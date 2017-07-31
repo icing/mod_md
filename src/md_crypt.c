@@ -212,46 +212,33 @@ apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p,
                            const char *key, apr_size_t key_len,
                            const char *fname)
 {
-    FILE *f;
-    apr_status_t rv;
+    apr_status_t rv = APR_ENOENT;
     md_pkey_t *pkey;
+    BIO *bf;
     passwd_ctx ctx;
     
     pkey =  make_pkey(p);
-    rv = md_util_fopen(&f, fname, "r");
-    if (rv == APR_SUCCESS) {
-        rv = APR_EINVAL;
-        if (key_len > INT_MAX) {
-            goto out;
-        }
+    if (NULL != (bf = BIO_new_file(fname, "r"))) {
         ctx.pass_phrase = key;
         ctx.pass_len = (int)key_len;
-        pkey->pkey = PEM_read_PrivateKey(f, NULL, pem_passwd, &ctx);
+        
+        ERR_clear_error();
+        pkey->pkey = PEM_read_bio_PrivateKey(bf, NULL, pem_passwd, &ctx);
+        BIO_free(bf);
+        
         if (pkey->pkey != NULL) {
             rv = APR_SUCCESS;
             apr_pool_cleanup_register(p, pkey, pkey_cleanup, apr_pool_cleanup_null);
         }
-        fclose(f);
-    }
-out:
-    *ppkey = (APR_SUCCESS == rv)? pkey : NULL;
-    return rv;
-}
-
-apr_status_t md_pkey_fload_rsa(md_pkey_t **ppkey, apr_pool_t *p, 
-                               const char *pass_phrase, apr_size_t pass_len,
-                               const char *fname)
-{
-    apr_status_t rv;
-    
-    if ((rv = md_pkey_fload(ppkey, p, pass_phrase, pass_len, fname)) == APR_SUCCESS) {
-        if (EVP_PKEY_id((*ppkey)->pkey) != EVP_PKEY_RSA) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "key is not RSA: %s", fname); 
-            md_pkey_free(*ppkey);
-            *ppkey = NULL;
+        else {
+            long err = ERR_get_error();
             rv = APR_EINVAL;
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                          "error loading pkey %s: %s (pass phrase was %snull)", fname,
+                          ERR_error_string(err, NULL), key? "not " : ""); 
         }
     }
+    *ppkey = (APR_SUCCESS == rv)? pkey : NULL;
     return rv;
 }
 

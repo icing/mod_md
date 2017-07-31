@@ -26,3 +26,4 @@
  */
 
 TCase *md_json_test_case(void);
+TCase *md_util_test_case(void);

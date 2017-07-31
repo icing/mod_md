@@ -1,5 +1,6 @@
 v0.3.0
 ----------------------------------------------------------------------------------------------------
+ * Adding test case coverage for own base64url coder.
  * ACME challenge type "tls-sni-01" supported. Needs new mod_ssl patch 
    (patches/mod_ssl_md-trunk-v2.diff).
  * Merged check based unit test infrastructure by the awesome 

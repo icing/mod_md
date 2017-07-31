@@ -336,7 +336,7 @@ class TestConf:
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         assert TestEnv.apache_start() == 0
         # setup: drive it
-        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vvv", "drive", name ] )['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "domains", name, "test." + domain ])['rv'] == 0

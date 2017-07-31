@@ -52,6 +52,7 @@ typedef struct {
     
     int can_http_01;
     int can_tls_sni_01;
+    apr_array_header_t *ca_challenges;
     md_acme_authz_set_t *authz_set;
     apr_interval_time_t authz_monitor_timeout;
     
@@ -270,8 +271,7 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
                 break;
             case MD_ACME_AUTHZ_S_PENDING:
                 
-                rv = md_acme_authz_respond(authz, ad->acme, d->store, ad->md->ca_challenges,  
-                                           ad->can_http_01, ad->can_tls_sni_01, d->p);
+                rv = md_acme_authz_respond(authz, ad->acme, d->store, ad->ca_challenges, d->p);
                 changed = 1;
                 break;
             default:
@@ -592,7 +592,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad;
     apr_status_t rv;
-    
+
     ad = apr_pcalloc(d->p, sizeof(*ad));
     
     d->baton = ad;
@@ -604,6 +604,21 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     /* We can only support challenges if the server is reachable from the outside
      * via port 80 and/or 443. These ports might be mapped for httpd to something
      * else, but a mapping needs to exist. */
+    ad->ca_challenges = apr_array_make(d->p, 3, sizeof(const char *)); 
+    if (d->challenge) {
+        /* we have been told to use this type */
+        APR_ARRAY_PUSH(ad->ca_challenges, const char*) = apr_pstrdup(d->p, d->challenge);
+    }
+    else if (d->md->ca_challenges && d->md->ca_challenges->nelts > 0) {
+        /* pre-configured set for this managed domain */
+        apr_array_cat(ad->ca_challenges, d->md->ca_challenges);
+    }
+    else {
+        /* free to chose. Add all we support and see what we get offered */
+        APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_TLSSNI01;
+        APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_HTTP01;
+    }
+    
     ad->can_http_01 = d->can_http;
     ad->can_tls_sni_01 = d->can_https;
     

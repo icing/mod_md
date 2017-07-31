@@ -381,11 +381,11 @@ static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz
             goto out;
         }
         
-        rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_CERT,
-                           MD_SV_CERT, (void*)cha_cert, 0);
+        rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_PKEY,
+                           MD_SV_PKEY, (void*)cha_key, 0);
         if (APR_SUCCESS == rv) {
-            rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_PKEY,
-                               MD_SV_PKEY, (void*)cha_key, 0);
+            rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_CERT,
+                               MD_SV_CERT, (void*)cha_cert, 0);
         }
         authz->dir = cha_dns;
         notify_server = 1;
@@ -404,75 +404,75 @@ out:
     return rv;
 }
 
+typedef apr_status_t cha_starter(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
+                                 md_acme_t *acme, md_store_t *store, apr_pool_t *p);
+                                 
+typedef struct {
+    const char *name;
+    cha_starter *start;
+} cha_type;
+
+static const cha_type CHA_TYPES[] = {
+    { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup },
+    { MD_AUTHZ_TYPE_TLSSNI01,   cha_tls_sni_01_setup },
+};
+static const apr_size_t CHA_TYPES_LEN = (sizeof(CHA_TYPES)/sizeof(CHA_TYPES[0]));
+
 typedef struct {
     apr_pool_t *p;
-    
-    int can_cha_http_01;
-    int can_cha_tls_sni_01;
-    apr_array_header_t *allowed_types;
-    
-    md_acme_authz_cha_t *http_01;
-    md_acme_authz_cha_t *tls_sni_01;
+    const char *type;
+    md_acme_authz_cha_t *accepted;
 } cha_find_ctx;
 
-static int is_allowed(cha_find_ctx *ctx, const char *type)
-{
-    if (ctx->allowed_types && ctx->allowed_types->nelts > 0) {
-        return md_array_str_index(ctx->allowed_types, type, 0, 0) >= 0;
-    }
-    return 1;
-}
-
-static apr_status_t add_candidates(void *baton, size_t index, md_json_t *json)
+static apr_status_t find_type(void *baton, size_t index, md_json_t *json)
 {
     cha_find_ctx *ctx = baton;
     
     const char *ctype = md_json_gets(json, MD_KEY_TYPE, NULL);
-    if (ctype) {
-        if (ctx->can_cha_http_01 
-            && !strcmp(MD_AUTHZ_CHA_HTTP_01, ctype)
-            && is_allowed(ctx, MD_AUTHZ_CHA_HTTP_01)) {
-            ctx->http_01 = cha_from_json(ctx->p, index, json);
-        }
-        else if (ctx->can_cha_tls_sni_01
-                 && !strcmp(MD_AUTHZ_CHA_SNI_01, ctype)
-                 && is_allowed(ctx, MD_AUTHZ_CHA_SNI_01)) {
-            ctx->tls_sni_01 = cha_from_json(ctx->p, index, json);
-        }
+    if (ctype && !apr_strnatcasecmp(ctx->type, ctype)) {
+        ctx->accepted = cha_from_json(ctx->p, index, json);
+        return 0;
     }
     return 1;
 }
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
-                                   apr_array_header_t *allowed_types,
-                                   int http_01, int tls_sni_01, apr_pool_t *p)
+                                   apr_array_header_t *challenges, apr_pool_t *p)
 {
     apr_status_t rv;
+    int i;
     cha_find_ctx fctx;
     
     assert(acme);
     assert(authz);
     assert(authz->resource);
 
-    memset(&fctx, 0, sizeof(fctx));
     fctx.p = p;
-    fctx.can_cha_http_01 = http_01;
-    fctx.can_cha_tls_sni_01 = tls_sni_01;
-    fctx.allowed_types = allowed_types;
+    fctx.accepted = NULL;
     
-    md_json_itera(add_candidates, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
+    /* Look in the order challenge types are defined */
+    for (i = 0; i < challenges->nelts && !fctx.accepted; ++i) {
+        fctx.type = APR_ARRAY_IDX(challenges, i, const char *);
+        md_json_itera(find_type, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
+    }
     
-    if (fctx.http_01) {
-        rv = cha_http_01_setup(fctx.http_01, authz, acme, store, p);
-    }
-    else if (fctx.tls_sni_01) {
-        rv = cha_tls_sni_01_setup(fctx.tls_sni_01, authz, acme, store, p);
-    }
-    else {
+    if (!fctx.accepted) {
         rv = APR_ENOTIMPL;
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: no supported challenge found in %s",
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                      "%s: no suitable/supported challenge found in %s",
                       authz->domain, authz->location);
     }
+    
+    for (i = 0; i < CHA_TYPES_LEN; ++i) {
+        if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
+            return CHA_TYPES[i].start(fctx.accepted, authz, acme, store, p);
+        }
+    }
+    
+    rv = APR_ENOTIMPL;
+    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                  "%s: no implementation found for challenge '%s'",
+                  authz->domain, fctx.accepted->type);
     return rv;
 }
 

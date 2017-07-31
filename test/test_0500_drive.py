@@ -87,7 +87,7 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # drive
         prevMd = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "drive", "-c", "http-01", name ] )['rv'] == 0
         self._check_md_cert([ name ])
         self._check_account_key( name )
 
@@ -124,7 +124,7 @@ class TestDrive :
         self._prepare_md([ name, "test." + domain ])
         assert TestEnv.apache_start() == 0
         # drive
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vv", "drive", "-c", "http-01", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
     def test_500_102(self):
@@ -141,7 +141,7 @@ class TestDrive :
         # setup: link md to account
         assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
     def test_500_103(self):
@@ -388,8 +388,7 @@ class TestDrive :
         # check: key file is encrypted PEM
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         acc = md['ca']['account']
-        # positive check deactivated: fails occasionally, seems to be by random
-        # CertUtil.validate_privkey(TestEnv.path_account_key( acc ), lambda *args: encryptKey )
+        CertUtil.validate_privkey(TestEnv.path_account_key( acc ), lambda *args: encryptKey )
 
 	# sei: also deactivated, does not work under *NIX
         # check: negative test with wrong key - pyOpenSSL loads without error, if the file is unencrypted

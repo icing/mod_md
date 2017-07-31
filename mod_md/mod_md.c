@@ -349,9 +349,10 @@ static apr_status_t setup_store(md_store_t **pstore, apr_pool_t *p, server_rec *
                          "setup accounts directory");
             goto out;
         }
+        
     }
-    config->store = store;
     
+    config->store = store;
     for (s = s->next; s; s = s->next) {
         config = (md_config_t *)md_config_get(s);
         config->store = store;
@@ -363,11 +364,13 @@ out:
 
 static apr_status_t setup_reg(md_reg_t **preg, apr_pool_t *p, server_rec *s, int post_config)
 {
-    md_store_t *store;
+    md_config_t *config;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = setup_store(&store, p, s, post_config))) {
-        return md_reg_init(preg, p, store);
+    config = (md_config_t *)md_config_get(s);
+    if (config->store 
+        || APR_SUCCESS == (rv = setup_store(&config->store, p, s, post_config))) {
+        return md_reg_init(preg, p, config->store);
     }
     return rv;
 }
@@ -679,15 +682,27 @@ static void load_stage_sets(apr_array_header_t *names, apr_pool_t *p,
 static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                                    apr_pool_t *ptemp, server_rec *s)
 {
+    const char *mod_md_init_key = "mod_md_init_counter";
+    void *data = NULL;
     md_ctx ctx;
     apr_array_header_t *drive_names;
     md_reg_t *reg;
     apr_status_t rv = APR_SUCCESS;
     const md_t *md;
-    int i;
+    int i, dry_run = 0;
     
-    ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO()
-                 "mod_md (v%s), initializing...", MOD_MD_VERSION);
+    apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
+    if (data == NULL) {
+        dry_run = 1;
+        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()
+                     "initializing post config dry run");
+        apr_pool_userdata_set((const void *)1, mod_md_init_key,
+                              apr_pool_cleanup_null, s->process->pool);
+    }
+    else {
+        ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO()
+                     "mod_md (v%s), initializing...", MOD_MD_VERSION);
+    }
 
     init_setups(p, s);
     memset(&ctx, 0, sizeof(ctx));
@@ -714,6 +729,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "setup md registry");
         goto out;
     }
+    
     if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, ctx.mds, ctx.can_http, ctx.can_https))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
                      "synching %d mds to registry", ctx.mds->nelts);
@@ -781,8 +797,7 @@ static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
     *pchainfile = NULL;
     conf = (md_config_t *)md_config_get(s);
     
-    if (conf && conf->md) {
-        
+    if (conf && conf->md && conf->store) {
         if (APR_SUCCESS == (rv = md_reg_init(&reg, p, conf->store))) {
             md = md_reg_get(reg, conf->md->name, p);
             if (md->state != MD_S_COMPLETE) {
@@ -809,22 +824,22 @@ static int md_is_challenge(conn_rec *c, const char *servername,
     }
     
     conf = (md_config_t *)md_config_get(c->base_server);
-    
     if (conf && conf->store) {
+        md_store_t *store = conf->store;
         md_cert_t *mdcert;
         md_pkey_t *mdpkey;
         
-        rv = md_store_load(conf->store, MD_SG_CHALLENGES, servername, 
+        rv = md_store_load(store, MD_SG_CHALLENGES, servername, 
                            MD_FN_TLSSNI01_CERT, MD_SV_CERT, (void**)&mdcert, c->pool);
         if (APR_SUCCESS == rv && (*pcert = md_cert_get_X509(mdcert))) {
-            rv = md_store_load(conf->store, MD_SG_CHALLENGES, servername, 
+            rv = md_store_load(store, MD_SG_CHALLENGES, servername, 
                                MD_FN_TLSSNI01_PKEY, MD_SV_PKEY, (void**)&mdpkey, c->pool);
             if (APR_SUCCESS == rv && (*pkey = md_pkey_get_EVP_PKEY(mdpkey))) {
                 ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO()
                               "%s: is a tls-sni-01 challenge host", servername);
                 return 1;
             }
-            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO()
+            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, rv, c, APLOGNO()
                           "%s: challenge data not complete, key unavailable", servername);
         }
     }
@@ -847,17 +862,21 @@ static int md_http_challenge_pr(request_rec *r)
             
     if (!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
         if (r->method_number == M_GET) {
+            md_store_t *store;
+        
             conf = ap_get_module_config(r->server->module_config, &md_module);
+            store = conf->store;
+            
             base_dir = md_config_gets(conf, MD_CONFIG_BASE_DIR);
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
 
             r->status = HTTP_NOT_FOUND;
-            if (!strchr(name, '/') && conf->store) {
+            if (!strchr(name, '/') && store) {
                 base_dir = ap_server_root_relative(r->pool, base_dir);
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, 
                               "Challenge for %s (%s)", r->hostname, r->uri);
 
-                rv = md_store_load(conf->store, MD_SG_CHALLENGES, r->hostname, 
+                rv = md_store_load(store, MD_SG_CHALLENGES, r->hostname, 
                                    MD_FN_HTTP01, MD_SV_TEXT, (void**)&data, r->pool);
                 if (APR_SUCCESS == rv) {
                     apr_size_t len = strlen(data);

@@ -15,5 +15,5 @@ DocumentRoot "@SERVER_DIR@/htdocs"
     
 </IfModule>
 
-LogLevel md:debug
+LogLevel md:trace2
 LogLevel ssl:debug
