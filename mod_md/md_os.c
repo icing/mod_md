@@ -118,12 +118,14 @@ apr_status_t md_make_worker_accessible(const char *fname, apr_pool_t *p)
 #ifdef WIN32
 
 /* TOOD: test if this has a chance to work on WIN32 systems */
-extern void mpm_signal_service(apr_pool_t *ptemp, int signal);
+void mpm_signal_service(apr_pool_t *ptemp, int signal)
+{
+    return APR_ENOTIMPL;
+}
 
 apr_status_t md_server_graceful(apr_pool_t *p, server_rec *s)
 {
-    mpm_signal_service(p, 1);
-    return APR_SUCCESS;
+    return mpm_signal_service(p, 1);
 }
  
 #else
