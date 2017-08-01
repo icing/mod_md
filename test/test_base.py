@@ -51,6 +51,7 @@ class TestEnv:
         cls.HTTPD_HOST = "localhost"
         cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
         cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
+        cls.HTTPD_CHECK_URL = cls.HTTPD_URL 
 
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
         cls.CURL      = cls.config.get('global', 'curl_bin')
@@ -283,54 +284,39 @@ class TestEnv:
         copyfile(conf_src, cls.APACHE_TEST_CONF)
 
     @classmethod
-    def apachectl( cls, conf, cmd ) :
-        cls.install_test_conf(conf)
+    def apachectl( cls, cmd, conf=None, check_live=True ) :
+        if conf:
+            cls.install_test_conf(conf)
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd]
         print "execute: ", " ".join(args)
-        return subprocess.call(args)
-
-    @classmethod
-    def apache_restart( cls, checkWithSSL=False ) :
-        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]
-        print "execute: ", " ".join(args)
         rv = subprocess.call(args)
         if rv == 0:
-            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
-            rv = 0 if cls.is_live(url, 5) else -1
+            if check_live:
+                rv = 0 if cls.is_live(cls.HTTPD_CHECK_URL, 5) else -1
+            else:
+                rv = 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 5) else -1
         return rv
+
+    @classmethod
+    def apache_restart( cls ) :
+        return cls.apachectl( "graceful" )
         
     @classmethod
-    def apache_start( cls, checkWithSSL=False ) :
-        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "start"]
-        print "execute: ", " ".join(args)
-        rv = subprocess.call(args)
-        if rv == 0:
-            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
-            rv = 0 if cls.is_live(url, 5) else -1
-        return rv
+    def apache_start( cls ) :
+        return cls.apachectl( "start" )
 
     @classmethod
-    def apache_stop( cls, checkWithSSL=False ) :
-        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "stop"]
-        print "execute: ", " ".join(args)
-        rv = subprocess.call(args)
-        if rv == 0:
-            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
-            rv = 0 if cls.is_dead(url, 5) else -1
-        return rv
+    def apache_stop( cls ) :
+        return cls.apachectl( "stop", check_live=False )
 
     @classmethod
-    def apache_fail( cls, checkWithSSL=False ) :
-        args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", "graceful"]
-        print "execute: ", " ".join(args)
-        rv = subprocess.call(args)
-        print "returned: ", rv
-        rv = 0 if rv != 0 else -1
+    def apache_fail( cls ) :
+        rv = cls.apachectl( "graceful", check_live=False )
         if rv == 0:
-            url = cls.HTTPD_URL_SSL if checkWithSSL else cls.HTTPD_URL
-            print "check, if dead: " + url
-            rv = 0 if cls.is_dead(url, 5) else -1
-        return rv
+            return -1
+        else:
+            print "check, if dead: " + cls.HTTPD_CHECK_URL
+            return 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 5) else -1
         
     @classmethod
     def apache_err_reset( cls ):
@@ -391,7 +377,7 @@ class TestEnv:
         (output, errput) = p.communicate()
         rv = p.wait()
         if rv != 0:
-            return FALSE
+            return False
 
         p = subprocess.Popen([ cls.OPENSSL, "x509", "-text" ],  
                              stdin=subprocess.PIPE, 
@@ -399,7 +385,7 @@ class TestEnv:
         (output, errput) = p.communicate(output)
         rv = p.wait()
         if rv != 0:
-            return FALSE
+            return False
         return re.search("DNS:" + domain, output, re.MULTILINE) != None
 
     @classmethod

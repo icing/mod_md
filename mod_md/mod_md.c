@@ -22,6 +22,7 @@
 #include <http_request.h>
 #include <http_log.h>
 #include <http_vhost.h>
+#include <ap_listen.h>
 
 #include "md.h"
 #include "mod_md.h"
@@ -58,30 +59,6 @@ typedef struct {
     int can_https;
 } md_ctx;
  
-static void check_ports(md_config_t *config, server_rec *s, int *pcan_http, int *pcan_https)
-{
-    server_addr_rec *srec;
-
-    if (s->port) {
-        if (s->port == config->local_80) {
-            *pcan_http = 1;
-        }
-        else if (s->port == config->local_443) {
-            *pcan_https = 1;
-        }
-    }
-    for (srec = s->addrs; srec; srec = srec->next) {
-        if (srec->host_port) {
-            if (srec->host_port == config->local_80) {
-                *pcan_http = 1;
-            }
-            else if (srec->host_port == config->local_443) {
-                *pcan_https = 1;
-            }
-        }
-    }
-}
-
 static apr_status_t md_calc_md_list(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog,
                                     apr_pool_t *ptemp, server_rec *base_server)
 {
@@ -92,21 +69,40 @@ static apr_status_t md_calc_md_list(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog
     const char *domain;
     apr_status_t rv = APR_SUCCESS;
     md_config_t *config;
+    apr_port_t effective_80, effective_443;
+    ap_listen_rec *lr;
+    apr_sockaddr_t *sa;
 
     ctx->can_http = 0;
     ctx->can_https = 0;
     mds = apr_array_make(p, 5, sizeof(const md_t *));
+
+    config = (md_config_t *)md_config_get(base_server);
+    effective_80 = md_config_geti(config, MD_CONFIG_LOCAL_80);
+    effective_443 = md_config_geti(config, MD_CONFIG_LOCAL_443);
+    
+    for (lr = ap_listeners; lr; lr = lr->next) {
+        for (sa = lr->bind_addr; sa; sa = sa->next) {
+            if  (sa->port == effective_80 
+                 && (!lr->protocol || !apr_strnatcasecmp("http", lr->protocol))) {
+                ctx->can_http = 1;
+            }
+            if  (sa->port == effective_443 
+                 && (!lr->protocol || !apr_strnatcasecmp("https", lr->protocol))) {
+                ctx->can_https = 1;
+            }
+        }
+    }
+    
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                 "server seems%s reachable via http: (port 80->%d) "
+                 "and%s reachable via https: (port 443->%d) ",
+                 ctx->can_http? "" : " not", effective_80,
+                 ctx->can_https? "" : " not", effective_443);
     
     for (s = base_server; s; s = s->next) {
         config = (md_config_t *)md_config_get(s);
 
-        config->local_80 = md_config_geti(config, MD_CONFIG_LOCAL_80);
-        config->local_443 = md_config_geti(config, MD_CONFIG_LOCAL_443);
-        check_ports(config, s, &ctx->can_http, &ctx->can_https);
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
-                     "server with ports 80:%d 443:%d can http=%d https=%d",
-                     config->local_80, config->local_443, ctx->can_http, ctx->can_https);
-    
         for (i = 0; i < config->mds->nelts; ++i) {
             nmd = APR_ARRAY_IDX(config->mds, i, md_t*);
 
@@ -689,11 +685,10 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     md_reg_t *reg;
     apr_status_t rv = APR_SUCCESS;
     const md_t *md;
-    int i, dry_run = 0;
+    int i;
     
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
     if (data == NULL) {
-        dry_run = 1;
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()
                      "initializing post config dry run");
         apr_pool_userdata_set((const void *)1, mod_md_init_key,

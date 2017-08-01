@@ -50,8 +50,6 @@ typedef struct {
     md_t *md;
     const md_creds_t *ncreds;
     
-    int can_http_01;
-    int can_tls_sni_01;
     apr_array_header_t *ca_challenges;
     md_acme_authz_set_t *authz_set;
     apr_interval_time_t authz_monitor_timeout;
@@ -619,12 +617,9 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_HTTP01;
     }
     
-    ad->can_http_01 = d->can_http;
-    ad->can_tls_sni_01 = d->can_https;
-    
-    if (!ad->can_http_01 && !ad->can_tls_sni_01) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: the server reports that is "
-                      "not reachable via http (port 80) or https (port 443). The ACME protocol "
+    if (!d->can_http && !d->can_https) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: the server seems neither "
+                      "reachable via http (port 80) nor https (port 443). The ACME protocol "
                       "needs at least one of those so the CA can talk to the server and verify "
                       "a domain ownership.", d->md->name);
         return APR_EGENERAL;

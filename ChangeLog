@@ -1,3 +1,4 @@
+ * Test cases stop the httpd server less, making better timings and reliability 
  * adding test and fixes for new config directive 'MDCAChallenges' when no configured challenge
    type is supported by the ACME server.
 

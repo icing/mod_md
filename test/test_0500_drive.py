@@ -16,12 +16,16 @@ from test_base import CertUtil
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.init()
+    TestEnv.check_acme()
+    TestEnv.clear_store()
+    TestEnv.install_test_conf()
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
     assert TestEnv.apache_restart() == 0
 
 def teardown_module(module):
     print("teardown_module:%s" % module.__name__)
+    assert TestEnv.apache_stop() == 0
 
 class TestDrive :
 
@@ -31,13 +35,10 @@ class TestDrive :
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.check_acme()
         TestEnv.clear_store()
-        TestEnv.install_test_conf()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
-        assert TestEnv.apache_stop() == 0
 
     # --------- invalid precondition ---------
 
@@ -225,7 +226,7 @@ class TestDrive :
         domain = "test500-106-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name, "test." + domain ])
-        assert TestEnv.apache_start( checkWithSSL=True ) == 0
+        assert TestEnv.apache_start() == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
