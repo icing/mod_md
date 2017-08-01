@@ -118,7 +118,7 @@ apr_status_t md_make_worker_accessible(const char *fname, apr_pool_t *p)
 #ifdef WIN32
 
 /* TOOD: test if this has a chance to work on WIN32 systems */
-void mpm_signal_service(apr_pool_t *ptemp, int signal)
+static apr_status_t mpm_signal_service(apr_pool_t *ptemp, int signal)
 {
     return APR_ENOTIMPL;
 }
