@@ -98,25 +98,7 @@ class TestDrive :
         assert json.loads( open( TestEnv.path_domain(name, archiveVersion=1 )).read() ) == prevMd
 
         # check file system permissions:
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        TestEnv.check_file_access( TestEnv.path_store_json(), 0600 )
-        # domains
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'domains' ), 0700 )
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'domains', name ), 0700 )
-        TestEnv.check_file_access( TestEnv.path_domain_pkey( name ), 0600 )
-        TestEnv.check_file_access( TestEnv.path_domain_cert( name ), 0600 )
-        TestEnv.check_file_access( TestEnv.path_domain_ca_chain( name ), 0600 )
-        TestEnv.check_file_access( TestEnv.path_domain( name ), 0600 )
-        # archive
-        TestEnv.check_file_access( TestEnv.path_domain( name, archiveVersion=1 ), 0600 )
-        # accounts
-        acc = md['ca']['account']
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'accounts' ), 0755 )
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'accounts', acc ), 0755 )
-        TestEnv.check_file_access( TestEnv.path_account( acc ), 0644 )
-        TestEnv.check_file_access( TestEnv.path_account_key( acc ), 0644 )
-        # staging
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'staging' ), 0755 )
+        TestEnv.check_file_permissions( name )
 
     def test_500_101(self):
         # test case: md with 2 domains

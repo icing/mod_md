@@ -55,6 +55,7 @@ AP_DECLARE_MODULE(md) = {
 
 typedef struct {
     apr_array_header_t *mds;
+    apr_array_header_t *unused_names;
     int can_http;
     int can_https;
 } md_ctx;
@@ -75,7 +76,7 @@ static apr_status_t md_calc_md_list(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog
 
     ctx->can_http = 0;
     ctx->can_https = 0;
-    mds = apr_array_make(p, 5, sizeof(const md_t *));
+    mds = apr_array_make(p, 5, sizeof(const md_t*));
 
     config = (md_config_t *)md_config_get(base_server);
     effective_80 = md_config_geti(config, MD_CONFIG_LOCAL_80);
@@ -84,11 +85,11 @@ static apr_status_t md_calc_md_list(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog
     for (lr = ap_listeners; lr; lr = lr->next) {
         for (sa = lr->bind_addr; sa; sa = sa->next) {
             if  (sa->port == effective_80 
-                 && (!lr->protocol || !apr_strnatcasecmp("http", lr->protocol))) {
+                 && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
                 ctx->can_http = 1;
             }
-            if  (sa->port == effective_443 
-                 && (!lr->protocol || !apr_strnatcasecmp("https", lr->protocol))) {
+            else if (sa->port == effective_443
+                     && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
                 ctx->can_https = 1;
             }
         }
@@ -176,8 +177,8 @@ static apr_status_t md_check_vhost_mapping(md_ctx *ctx, apr_pool_t *p, apr_pool_
     /* Find the (at most one) managed domain for each vhost/base server and
      * remember it at our config for it. 
      * The config is not accepted, if a vhost matches 2 or more managed domains.
-     * 
      */
+    ctx->unused_names = apr_array_make(p, 5, sizeof(const char*));
     memset(&r, 0, sizeof(r));
     for (i = 0; i < ctx->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(ctx->mds, i, md_t*);
@@ -255,10 +256,11 @@ next_server:
             continue;
         }
         
-        if (config == NULL) {
+        if (config == NULL && md->drive_mode != MD_DRIVE_ALWAYS) {
             /* Not an error, but looks suspicious */
             ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
                          "No VirtualHost matches Managed Domain %s", md->name);
+            APR_ARRAY_PUSH(ctx->unused_names, const char*)  = md->name;
         }
     }
     return rv;
@@ -712,7 +714,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     }
     
     /* 2. Check mappings of MDs to VirtulHosts defined.
-     * If successful, we have asigned MDs to server_recs in a unique way. Each server_rec
+     * If successful, we have assigned MDs to server_recs in a unique way. Each server_rec
      * config will carry 0 or 1 MD record. */
     if (APR_SUCCESS != (rv = md_check_vhost_mapping(&ctx, p, plog, ptemp, s))) {
         goto out;
@@ -724,7 +726,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "setup md registry");
         goto out;
     }
-    
     if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, ctx.mds, ctx.can_http, ctx.can_https))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
                      "synching %d mds to registry", ctx.mds->nelts);
@@ -743,8 +744,18 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     drive_names = apr_array_make(ptemp, ctx.mds->nelts+1, sizeof(const char *));
     for (i = 0; i < ctx.mds->nelts; ++i) {
         md = APR_ARRAY_IDX(ctx.mds, i, const md_t *);
-        if (md->drive_mode == MD_DRIVE_AUTO) {
-            APR_ARRAY_PUSH(drive_names, const char *) = md->name; 
+        switch (md->drive_mode) {
+            case MD_DRIVE_AUTO:
+                if (md_array_str_index(ctx.unused_names, md->name, 0, 0) >= 0) {
+                    break;
+                }
+                /* fall through */
+            case MD_DRIVE_ALWAYS:
+                APR_ARRAY_PUSH(drive_names, const char *) = md->name; 
+                break;
+            default:
+                /* leave out */
+                break;
         }
     }
     

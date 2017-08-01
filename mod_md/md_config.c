@@ -304,6 +304,9 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
     if (!apr_strnatcasecmp("auto", value) || !apr_strnatcasecmp("automatic", value)) {
         drive_mode = MD_DRIVE_AUTO;
     }
+    else if (!apr_strnatcasecmp("always", value)) {
+        drive_mode = MD_DRIVE_ALWAYS;
+    }
     else if (!apr_strnatcasecmp("manual", value) || !apr_strnatcasecmp("stick", value)) {
         drive_mode = MD_DRIVE_MANUAL;
     }

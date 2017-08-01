@@ -406,6 +406,45 @@ class TestEnv:
         assert result['rv'] == 0
         return result['stdout']
 
+    @classmethod
+    def await_completion(cls, names, timeout):
+        try_until = time.time() + timeout
+        while len(names) > 0:
+            if time.time() >= try_until:
+                return False
+            allChanged = True
+            for name in names:
+                state = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]['state']
+                if state == 2:
+                    names.remove(name)
+            if len(names) != 0:
+                time.sleep(0.5)
+        return True
+
+    @classmethod
+    def check_file_permissions( cls, domain ):
+        md = cls.a2md([ "list", domain ])['jout']['output'][0]
+        assert md
+        acct = md['ca']['account']
+        assert acct
+        cls.check_file_access( cls.path_store_json(),                           0600 )
+        # domains
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'domains' ),        0700 )
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'domains', domain ),0700 )
+        cls.check_file_access( cls.path_domain_pkey( domain ),                  0600 )
+        cls.check_file_access( cls.path_domain_cert( domain ),                  0600 )
+        cls.check_file_access( cls.path_domain_ca_chain( domain ),              0600 )
+        cls.check_file_access( cls.path_domain( domain ),                       0600 )
+        # archive
+        cls.check_file_access( cls.path_domain( domain, archiveVersion=1 ),     0600 )
+        # accounts
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts' ),       0755 )
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts', acct ), 0755 )
+        cls.check_file_access( cls.path_account( acct ),                        0644 )
+        cls.check_file_access( cls.path_account_key( acct ),                    0644 )
+        # staging
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'staging' ),        0755 )
+
 # -----------------------------------------------
 # --
 # --     dynamic httpd configuration

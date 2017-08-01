@@ -73,25 +73,7 @@ class TestRoundtrip:
         assert TestEnv.hasCertAltName(domain)
 
         # check file system permissions:
-        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
-        TestEnv.check_file_access( TestEnv.path_store_json(), 0600 )
-        # domains
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'domains' ), 0700 )
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'domains', domain ), 0700 )
-        TestEnv.check_file_access( TestEnv.path_domain_pkey( domain ), 0600 )
-        TestEnv.check_file_access( TestEnv.path_domain_cert( domain ), 0600 )
-        TestEnv.check_file_access( TestEnv.path_domain_ca_chain( domain ), 0600 )
-        TestEnv.check_file_access( TestEnv.path_domain( domain ), 0600 )
-        # archive
-        TestEnv.check_file_access( TestEnv.path_domain( domain, archiveVersion=1 ), 0600 )
-        # accounts
-        acc = md['ca']['account']
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'accounts' ), 0755 )
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'accounts', acc ), 0755 )
-        TestEnv.check_file_access( TestEnv.path_account( acc ), 0644 )
-        TestEnv.check_file_access( TestEnv.path_account_key( acc ), 0644 )
-        # staging
-        TestEnv.check_file_access( os.path.join( TestEnv.STORE_DIR, 'staging' ), 0755 )
+        TestEnv.check_file_permissions( domain )
 
     def test_600_001(self):
         # test case: same as test_100, but with two parallel managed domains
