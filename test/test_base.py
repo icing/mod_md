@@ -384,7 +384,7 @@ class TestEnv:
          assert os.listdir(path) == []
 
     @classmethod
-    def checkCertAltName(cls, domain):
+    def hasCertAltName(cls, domain):
         p = subprocess.Popen([ cls.OPENSSL, "s_client", "-servername", domain, 
                               "-host", cls.HTTPD_HOST, "-port", cls.HTTPS_PORT], 
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -403,12 +403,22 @@ class TestEnv:
         return re.search("DNS:" + domain, output, re.MULTILINE) != None
 
     @classmethod
-    def checkContent(cls, domain, path, expected):
+    def getStatus(cls, domain, path):
+        auth = ("%s:%s" % (domain, cls.HTTPS_PORT))
+        result = TestEnv.curl([ "-k", "--resolve", ("%s:127.0.0.1" % (auth)), 
+                               "-D", "-", ("https://%s%s" % (auth, path)) ])
+        assert result['rv'] == 0
+        m = re.match("HTTP/\\d(\\.\\d)? +(\\d\\d\\d) .*", result['stdout'])
+        assert m
+        return int(m.group(2))
+
+    @classmethod
+    def getContent(cls, domain, path):
         auth = ("%s:%s" % (domain, cls.HTTPS_PORT))
         result = TestEnv.curl([ "-k", "--resolve", ("%s:127.0.0.1" % (auth)), 
                                ("https://%s%s" % (auth, path)) ])
         assert result['rv'] == 0
-        return result['stdout'] == expected
+        return result['stdout']
 
 # -----------------------------------------------
 # --
@@ -438,8 +448,8 @@ class HttpdConf(object):
     def add_md(self, dnsList):
         open(self.path, "a").write("  ManagedDomain %s\n\n" % " ".join(dnsList))
 
-    def add_ca_challenge(self, challenge_type):
-        open(self.path, "a").write("  MDCAChallenge %s\n" % mode)
+    def add_ca_challenges(self, type_list):
+        open(self.path, "a").write("  MDCAChallenges %s\n" % " ".join(type_list))
 
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):

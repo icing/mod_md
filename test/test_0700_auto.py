@@ -69,7 +69,7 @@ class TestAuto:
         conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.checkCertAltName(domain)
+        assert TestEnv.hasCertAltName(domain)
 
         # check: challenges removed
         TestEnv.check_dir_empty( TestEnv.path_challenges() )
@@ -122,8 +122,8 @@ class TestAuto:
         self._check_md_cert(dnsListB)
 
         # check: SSL is running OK
-        assert TestEnv.checkCertAltName(domainA)
-        assert TestEnv.checkCertAltName(domainB)
+        assert TestEnv.hasCertAltName(domainA)
+        assert TestEnv.hasCertAltName(domainB)
 
     def test_700_003(self):
         # test case: one md, that covers two vhosts
@@ -156,10 +156,10 @@ class TestAuto:
         self._check_md_cert(dnsList)
 
         # check: SSL is running OK
-        assert TestEnv.checkCertAltName(nameA)
-        assert TestEnv.checkContent(nameA, "/name.txt", nameA)
-        assert TestEnv.checkCertAltName(nameB)
-        assert TestEnv.checkContent(nameB, "/name.txt", nameB)
+        assert TestEnv.hasCertAltName(nameA)
+        assert TestEnv.getContent(nameA, "/name.txt") == nameA
+        assert TestEnv.hasCertAltName(nameB)
+        assert TestEnv.getContent(nameB, "/name.txt") == nameB
 
     def test_700_004(self):
         # test case: httpd only allows HTTPS -> drive uses TLS-SNI challenge
@@ -182,11 +182,11 @@ class TestAuto:
         self._check_md_cert(dnsList)
         
         # - check access
-        TestEnv.checkCertAltName(domain)
+        assert TestEnv.hasCertAltName(domain)
 
     def test_700_005(self):
         # test case: drive_mode manual, check that server starts,
-        # but requests do domain are denied
+        # but requests to domain are denied
         domain = "a005-" + TestAuto.dns_uniq
         nameA = "test-a." + domain
         dnsList = [ domain, nameA ]
@@ -206,17 +206,42 @@ class TestAuto:
 
         # - restart, check that md is in store
         assert TestEnv.apache_restart() == 0
-        self._check_md_names(domain, dnsList)
-        # - drive
+        time.sleep(2)
 
+        self._check_md_names(domain, dnsList)
         # check: that request to domains give 503 Service Unavailable
-        TestEnv.checkCertAltName(nameA)
-        test_url_a = "https://%s:%s/name.txt" % (nameA, TestEnv.HTTPS_PORT)
-        dnsResolveA = "%s:%s:127.0.0.1" % (nameA, TestEnv.HTTPS_PORT)
-        result = TestEnv.curl([ "--resolve", dnsResolveA, 
-                              "-k", "-D", "-", test_url_a])
-        assert result['rv'] == 0
-        assert re.match("HTTP/\\d(.\\d)? 503 .*", result['stdout'])
+        assert not TestEnv.hasCertAltName(nameA)
+        assert TestEnv.getStatus(nameA, "/name.txt") == 503
+
+    def test_700_006(self):
+        # test case: drive_mode auto, but only invalid challenges,
+        # but requests to domain should stay denied
+        domain = "a006-" + TestAuto.dns_uniq
+        nameA = "test-a." + domain
+        dnsList = [ domain, nameA ]
+
+        # - generate config with one md
+        conf = HttpdConf(TestAuto.TMP_CONF)
+        conf.add_admin("admin@" + domain)
+        conf.add_ca_challenges([ "invalid-01", "invalid-02" ])
+        #conf.add_drive_mode("auto")
+        conf.add_md(dnsList)
+        conf.add_vhost(TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
+                       withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
+                       keyPath=TestEnv.path_domain_pkey(domain))
+        conf.install()
+
+        # - create docRoot folder
+        self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "a"), "name.txt", nameA)
+
+        # - restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        time.sleep(2)
+
+        self._check_md_names(domain, dnsList)
+        # check: that request to domains give 503 Service Unavailable
+        assert not TestEnv.hasCertAltName(nameA)
+        assert TestEnv.getStatus(nameA, "/name.txt") == 503
 
 
     # --------- _utils_ ---------

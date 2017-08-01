@@ -1,3 +1,6 @@
+ * adding test and fixes for new config directive 'MDCAChallenges' when no configured challenge
+   type is supported by the ACME server.
+
 v0.3.0
 ----------------------------------------------------------------------------------------------------
  * Adding test case coverage for own base64url coder.

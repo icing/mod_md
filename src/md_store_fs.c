@@ -414,7 +414,7 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
             }
         }
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "mk_group_dir %d &s", group, name);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, "mk_group_dir %d %s", group, name);
     return rv;
 }
  

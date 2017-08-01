@@ -220,6 +220,9 @@ md_t *md_copy(apr_pool_t *p, const md_t *src)
         memcpy(md, src, sizeof(*md));
         md->domains = apr_array_copy(p, src->domains);
         md->contacts = apr_array_copy(p, src->contacts);
+        if (src->ca_challenges) {
+            md->ca_challenges = apr_array_copy(p, src->ca_challenges);
+        }
     }    
     return md;   
 }
@@ -243,6 +246,9 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
         if (src->cert_url) md->cert_url = apr_pstrdup(p, src->cert_url);
         md->defn_line_number = src->defn_line_number;
+        if (src->ca_challenges) {
+            md->ca_challenges = md_array_str_clone(p, src->ca_challenges);
+        }
     }    
     return md;   
 }

@@ -623,10 +623,10 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     ad->can_tls_sni_01 = d->can_https;
     
     if (!ad->can_http_01 && !ad->can_tls_sni_01) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: the server reports that is is "
-        "not reachable via http (port 80) or https (port 443). The ACME protocol needs "
-        "at least one of those so the CA can talk to the server and verify a domain "
-        "ownership.", d->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: the server reports that is "
+                      "not reachable via http (port 80) or https (port 443). The ACME protocol "
+                      "needs at least one of those so the CA can talk to the server and verify "
+                      "a domain ownership.", d->md->name);
         return APR_EGENERAL;
     }
     
@@ -680,6 +680,13 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv = APR_SUCCESS;
     int renew = 1;
+
+    if (md_log_is_level(d->p, MD_LOG_DEBUG)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: staging started, "
+                      "state=%d, can_http=%d, can_https=%d, challenges='%s'",
+                      d->md->name, d->md->state, d->can_http, d->can_https,
+                      apr_array_pstrcat(d->p, ad->ca_challenges, ' '));
+    }
 
     /* Find out where we're at with this managed domain */
     if (ad->ncreds && ad->ncreds->pkey && ad->ncreds->cert && ad->ncreds->chain) {
@@ -736,22 +743,22 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             
             if (APR_SUCCESS == rv && !ad->cert) {
                 if (APR_SUCCESS != (rv = ad_setup_authz(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: setup authz resource", 
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
                                   ad->md->name);
                     goto out;
                 }
                 if (APR_SUCCESS != (rv = ad_start_challenges(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: start challenges", 
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
                                   ad->md->name);
                     goto out;
                 }
                 if (APR_SUCCESS != (rv = ad_monitor_challenges(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: monitor challenges", 
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
                                   ad->md->name);
                     goto out;
                 }
                 if (APR_SUCCESS != (rv = ad_setup_certificate(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, d->p, "%s: setup certificate", 
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
                                   ad->md->name);
                     goto out;
                 }

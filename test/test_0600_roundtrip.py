@@ -70,7 +70,7 @@ class TestRoundtrip:
         # check: SSL is running OK
         test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
         dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
-        assert TestEnv.checkCertAltName(domain)
+        assert TestEnv.hasCertAltName(domain)
 
         # check file system permissions:
         md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
@@ -126,8 +126,8 @@ class TestRoundtrip:
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.checkCertAltName(domainA)
-        assert TestEnv.checkCertAltName(domainB)
+        assert TestEnv.hasCertAltName(domainA)
+        assert TestEnv.hasCertAltName(domainB)
 
     def test_600_002(self):
         # test case: one md, that covers two vhosts
@@ -166,10 +166,10 @@ class TestRoundtrip:
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.checkCertAltName(nameA)
-        assert TestEnv.checkContent(nameA, "/name.txt", nameA)
-        assert TestEnv.checkCertAltName(nameB)
-        assert TestEnv.checkContent(nameB, "/name.txt", nameB)
+        assert TestEnv.hasCertAltName(nameA)
+        assert TestEnv.getContent(nameA, "/name.txt") == nameA
+        assert TestEnv.hasCertAltName(nameB)
+        assert TestEnv.getContent(nameB, "/name.txt") == nameB
 
     # --------- _utils_ ---------
 

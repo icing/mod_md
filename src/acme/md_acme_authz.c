@@ -422,7 +422,19 @@ typedef struct {
     apr_pool_t *p;
     const char *type;
     md_acme_authz_cha_t *accepted;
+    apr_array_header_t *offered;
 } cha_find_ctx;
+
+static apr_status_t collect_offered(void *baton, size_t index, md_json_t *json)
+{
+    cha_find_ctx *ctx = baton;
+    
+    const char *ctype = md_json_gets(json, MD_KEY_TYPE, NULL);
+    if (ctype) {
+        APR_ARRAY_PUSH(ctx->offered, const char*) = apr_pstrdup(ctx->p, ctype);
+    }
+    return 1;
+}
 
 static apr_status_t find_type(void *baton, size_t index, md_json_t *json)
 {
@@ -457,10 +469,18 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
     }
     
     if (!fctx.accepted) {
-        rv = APR_ENOTIMPL;
+        rv = APR_EINVAL;
+        fctx.offered = apr_array_make(p, 5, sizeof(const char*));
+        md_json_itera(collect_offered, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                      "%s: no suitable/supported challenge found in %s",
-                      authz->domain, authz->location);
+                      "%s: the server offers no ACME challenge that is configured "
+                      "for this MD. The server offered '%s' and available for this "
+                      "MD are: '%s' (via %s).",
+                      authz->domain, 
+                      apr_array_pstrcat(p, fctx.offered, ' '),
+                      apr_array_pstrcat(p, challenges, ' '),
+                      authz->location);
+        return rv;
     }
     
     for (i = 0; i < CHA_TYPES_LEN; ++i) {
