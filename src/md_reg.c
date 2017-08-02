@@ -210,7 +210,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
             } 
 
             state = MD_S_COMPLETE;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: complete", md->name);
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: is complete", md->name);
         }
     }
 
@@ -758,6 +758,9 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     fields |= MD_UPD_CONTACTS;
                 }
                 if (MD_VAL_UPDATE(md, smd, renew_window)) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                                  "%s: update renew_window, old=%ld, new=%ld", 
+                                  smd->name, (long)smd->renew_window, md->renew_window);
                     smd->renew_window = md->renew_window;
                     fields |= MD_UPD_RENEW_WINDOW;
                 }

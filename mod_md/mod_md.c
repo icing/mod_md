@@ -277,7 +277,7 @@ static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
     server_rec *s = baton;
     apr_status_t rv;
     
-    ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, s, "store event=%d on %s %s (group %d)", 
+    ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s, "store event=%d on %s %s (group %d)", 
                  ev, (ftype == APR_DIR)? "dir" : "file", fname, group);
                  
     /* Directories in group CHALLENGES and STAGING are written to by our watchdog,

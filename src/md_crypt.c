@@ -607,7 +607,7 @@ int md_cert_covers_md(md_cert_t *cert, const md_t *md)
         md_cert_get_alt_names(&cert->alt_names, cert, cert->pool);
     }
     if (cert->alt_names) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, cert->pool, "cert has %d alt names",
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, cert->pool, "cert has %d alt names",
                       cert->alt_names->nelts); 
         for (i = 0; i < md->domains->nelts; ++i) {
             name = APR_ARRAY_IDX(md->domains, i, const char *);
@@ -793,7 +793,7 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
                 rv = APR_SUCCESS;
             }
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "cert parsed");
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "cert parsed");
     }
     return rv;
 }
@@ -829,7 +829,6 @@ apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const ch
         if (0 < (err =  ERR_get_error())
             && !(ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE)) {
             /* not the expected one when no more PEM encodings are found */
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "reading chain %s: %d", fname, err);
             rv = APR_EINVAL;
             goto out;
         }
@@ -849,7 +848,7 @@ apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const ch
         }        
     }
 out:
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, p, "read chain file %s, found %d certs", 
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "read chain file %s, found %d certs", 
                   fname, certs? certs->nelts : 0);
     *pcerts = (APR_SUCCESS == rv)? certs : NULL;
     return rv;
