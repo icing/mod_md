@@ -181,8 +181,14 @@ static apr_status_t jselect_set(json_t *val, md_json_t *json, va_list ap)
     
     j = jselect_parent(&key, 1, json, ap);
     
+    if (!j) {
+        json_decref(val);
+        return APR_EINVAL;
+    }
+    
     if (key) {
-        if (!j || !json_is_object(j)) {
+        if (!json_is_object(j)) {
+            json_decref(val);
             return APR_EINVAL;
         }
         json_object_set(j, key, val);
@@ -205,12 +211,16 @@ static apr_status_t jselect_set_new(json_t *val, md_json_t *json, va_list ap)
     
     j = jselect_parent(&key, 1, json, ap);
     
-    if (!j || !json_is_object(j)) {
+    if (!j) {
         json_decref(val);
         return APR_EINVAL;
     }
     
     if (key) {
+        if (!json_is_object(j)) {
+            json_decref(val);
+            return APR_EINVAL;
+        }
         json_object_set_new(j, key, val);
     }
     else {
@@ -612,6 +622,9 @@ apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, void *baton,
     json_array_clear(j);
     wrap.p = json->p;
     for (i = 0; i < a->nelts; ++i) {
+        if (!cb) {
+            return APR_EINVAL;
+        }    
         wrap.j = json_string("");
         if (APR_SUCCESS == (rv = cb(APR_ARRAY_IDX(a, i, void*), &wrap, json->p, baton))) {
             json_array_append_new(j, wrap.j);

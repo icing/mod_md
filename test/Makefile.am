@@ -23,7 +23,7 @@ TESTS = unit/main
 
 check_PROGRAMS = unit/main
 
-unit_main_SOURCES = unit/main.c unit/md_json.c unit/md_util.c
+unit_main_SOURCES = unit/main.c unit/test_md_json.c unit/test_md_util.c
 unit_main_LDADD   = $(top_builddir)/src/libapachemd.la
 
 unit_main_CFLAGS  = $(CHECK_CFLAGS) -I$(top_srcdir)/src
