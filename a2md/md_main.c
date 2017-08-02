@@ -251,6 +251,9 @@ static void log_print(const char *file, int line, md_log_level_t level,
                     apr_strerror(rv, errbuff, sizeof(errbuff)/sizeof(errbuff[0])), 
                     buffer);
         }
+        else if (active_level == MD_LOG_INFO) {
+            fprintf(stderr, "%s\n", buffer);
+        }
         else {
             fprintf(stderr, "[%s:%d %s][ok] %s\n", file, line, 
                     md_log_level_name(level), buffer);

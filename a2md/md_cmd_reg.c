@@ -242,12 +242,67 @@ md_cmd_t MD_RegUpdateCmd = {
 /**************************************************************************************************/
 /* command: drive */
 
+static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
+{
+    int errored, force, renew, reset;
+    const char *challenge, *msg;
+    apr_status_t rv;
+    
+    reset = md_cmd_ctx_has_option(ctx, "reset");  
+    force = md_cmd_ctx_has_option(ctx, "force");
+    challenge = md_cmd_ctx_get_option(ctx, "challenge");
+     
+    if (APR_SUCCESS != (rv = md_reg_assess(ctx->reg, md, &errored, &renew, ctx->p))) {
+        msg = "error assessing the current state of the "
+              "Managed Domain. Please check the server "
+              "logs or run this command in very verbose form and check the output.";
+        goto out;
+    }
+    
+    if (errored) {
+        rv = APR_EGENERAL;
+        msg = "is in error state. Please check the server "
+              "logs or run this command in very verbose form and check the output.";
+        goto out;
+    }
+    
+    if (renew || force) {
+        
+        msg = "%s: get credentials";
+        if (md->state == MD_S_COMPLETE) {
+            msg = force? "%s: forcing renewal" : "%s: up for renewal";
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
+        
+        if (APR_SUCCESS == (rv = md_reg_stage(ctx->reg, md, challenge, reset, ctx->p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
+            
+            rv = md_reg_load(ctx->reg, md->name, ctx->p);
+            
+            if (APR_SUCCESS == rv) {
+                msg = "new credentials active on next server restart";
+            }
+            else {
+                msg = "error activating new credentials";
+            }
+        }
+        else {
+            msg = "error obtaining new credentials";
+        }
+    }
+    else {
+        msg = "up-to-date";
+    }
+out:
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
+    return rv;
+}
+
 static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_array_header_t *mdlist = apr_array_make(ctx->p, 5, sizeof(md_t *));
     md_t *md;
     apr_status_t rv;
-    const char *challenge;
     int i;
  
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "drive do");
@@ -266,15 +321,10 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
     }   
     
-    challenge = md_cmd_ctx_get_option(ctx, "challenge");
-    
     rv = APR_SUCCESS;
     for (i = 0; i < mdlist->nelts; ++i) {
         md_t *md = APR_ARRAY_IDX(mdlist, i, md_t*);
-            
-        if (APR_SUCCESS != (rv = md_reg_drive(ctx->reg, md, challenge, 
-                                              md_cmd_ctx_has_option(ctx, "reset"),  
-                                              md_cmd_ctx_has_option(ctx, "force"), ctx->p))) {
+        if (APR_SUCCESS != (rv = assess_and_drive(ctx, md))) {
             break;
         }
     }
