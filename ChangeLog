@@ -1,3 +1,4 @@
+ * Fixed defaults for port mapping
  * New 'MDDriveMode always' to acquite certificates for Managed Domains not used in any
    VirtualHost on the server. Fixed test cases for auto drive mode. Refactored some copy+paste
    code in tests.

@@ -563,9 +563,9 @@ int md_config_geti(const md_config_t *config, md_config_var_t var)
         case MD_CONFIG_DRIVE_MODE:
             return (config->drive_mode != DEF_VAL)? config->drive_mode : defconf.drive_mode;
         case MD_CONFIG_LOCAL_80:
-            return config->local_80;
+            return (config->local_80 != DEF_VAL)? config->local_80 : 80;
         case MD_CONFIG_LOCAL_443:
-            return config->local_443;
+            return (config->local_443 != DEF_VAL)? config->local_443 : 443;
         default:
             return 0;
     }
