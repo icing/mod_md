@@ -37,6 +37,7 @@
 struct md_reg_t {
     struct md_store_t *store;
     struct apr_hash_t *protos;
+    int was_synched;
     int can_http;
     int can_https;
 };
@@ -666,8 +667,11 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     apr_status_t rv;
 
     if (APR_SUCCESS != (rv = sync_props(reg, ptemp, can_http, can_https))) {
+        reg->was_synched = 0;
         return rv;
     }
+    
+    reg->was_synched = 1;
     
     ctx.p = ptemp;
     ctx.conf_mds = master_mds;
@@ -797,21 +801,24 @@ static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_
                                       md_reg_t *reg, const md_t *md, 
                                       const char *challenge, int reset, apr_pool_t *p) 
 {
-    apr_status_t rv;
+    apr_status_t rv = APR_SUCCESS;
 
-    if (APR_SUCCESS != (rv = load_props(reg, p))) {
-        return rv;
+    /* If this registry instance was not synched before (and obtained server
+     * properties that way), read them from the store.
+     */
+    if (reg->was_synched 
+        || APR_SUCCESS == (rv = load_props(reg, p))) {
+
+        driver->proto = proto;
+        driver->p = p;
+        driver->challenge = challenge;
+        driver->can_http = reg->can_http;
+        driver->can_https = reg->can_https;
+        driver->reg = reg;
+        driver->store = md_reg_store_get(reg);
+        driver->md = md;
+        driver->reset = reset;
     }
-    
-    driver->proto = proto;
-    driver->p = p;
-    driver->challenge = challenge;
-    driver->can_http = reg->can_http;
-    driver->can_https = reg->can_https;
-    driver->reg = reg;
-    driver->store = md_reg_store_get(reg);
-    driver->md = md;
-    driver->reset = reset;
 
     return rv;
 }
