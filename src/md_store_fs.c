@@ -347,11 +347,12 @@ static apr_status_t fs_fload(void **pvalue, md_store_fs_t *s_fs, const char *fpa
                 rv = APR_ENOTIMPL;
                 break;
         }
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, 
+                      "loading type %d from %s", vtype, fpath);
     }
     else { /* check for existence only */
         rv = md_util_is_file(fpath, p);
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, "loading type %d from %s", vtype, fpath);
     return rv;
 }
 

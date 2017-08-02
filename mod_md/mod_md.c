@@ -783,7 +783,7 @@ static int md_is_managed(server_rec *s)
 {
     md_config_t *conf = (md_config_t *)md_config_get(s);
 
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, 
+    ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s, 
                   "%s: has conf = %d, has md %s", s->server_hostname,  
                  !!conf, (conf && conf->md)? conf->md->name : "(none)");
     return conf && conf->md;
