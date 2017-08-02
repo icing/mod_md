@@ -1,3 +1,8 @@
+v0.4.0
+----------------------------------------------------------------------------------------------------
+ * Various test runs on live server with ACME staging and real service. First green lock
+   obtained by mod_md!
+ * Various fixes to permission issues on ubuntu setup server (root/www-data users)
  * Fixed defaults for port mapping
  * New 'MDDriveMode always' to acquite certificates for Managed Domains not used in any
    VirtualHost on the server. Fixed test cases for auto drive mode. Refactored some copy+paste
