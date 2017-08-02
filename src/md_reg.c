@@ -879,8 +879,8 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     name = va_arg(ap, const char *);
     
     if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, name, NULL, ptemp))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ptemp, "%s: nothing staged", name);
-        return APR_SUCCESS;
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, ptemp, "%s: nothing staged", name);
+        return APR_ENOENT;
     }
     
     md = md_reg_get(reg, name, p);
