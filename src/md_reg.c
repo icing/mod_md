@@ -771,6 +771,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                         && !md_array_str_eq(md->ca_challenges, smd->ca_challenges, 0)) {
                         smd->ca_challenges = (md->ca_challenges?
                                               apr_array_copy(ptemp, md->ca_challenges) : NULL);
+                        fields |= MD_UPD_CA_CHALLENGES;
                     }
                 }
                 
