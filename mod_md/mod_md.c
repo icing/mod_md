@@ -447,7 +447,7 @@ typedef struct {
     md_reg_t *reg;
 } md_watchdog;
 
-static apr_status_t process_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
+static apr_status_t drive_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
 {
     apr_status_t rv = APR_SUCCESS;
     apr_time_t renew_time;
@@ -518,7 +518,8 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             /* Check if all Managed Domains are ok or if we have to do something */
             for (i = 0; i < wd->mds->nelts; ++i) {
                 md = APR_ARRAY_IDX(wd->mds, i, md_t *);
-                if (APR_SUCCESS != (rv = process_md(wd, md, ptemp))) {
+                if (APR_SUCCESS != (rv = drive_md(wd, md, ptemp))) {
+                    wd->all_valid = 0;
                     wd->had_error = 1;
                     ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() 
                                  "processing %s", md->name);
