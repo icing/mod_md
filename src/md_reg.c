@@ -635,7 +635,7 @@ static apr_status_t load_props(md_reg_t *reg, apr_pool_t *p)
 
 static apr_status_t sync_props(md_reg_t *reg, apr_pool_t *p, int can_http, int can_https)
 {
-    if (reg->can_http != can_http || reg->can_https != can_https) {
+    if (1/*reg->can_http != can_http || reg->can_https != can_https*/) {
         md_json_t *json = md_json_create(p);
         md_json_setb(can_http, json, MD_KEY_PROTO, MD_KEY_HTTP, NULL);
         md_json_setb(can_https, json, MD_KEY_PROTO, MD_KEY_HTTPS, NULL);

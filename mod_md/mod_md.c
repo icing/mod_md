@@ -726,7 +726,8 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "setup md registry");
         goto out;
     }
-    if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, ctx.mds, ctx.can_http, ctx.can_https))) {
+    if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, ctx.mds, 
+                                         ctx.can_http, ctx.can_https))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
                      "synching %d mds to registry", ctx.mds->nelts);
         goto out;
