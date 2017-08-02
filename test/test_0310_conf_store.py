@@ -17,8 +17,8 @@ config = SafeConfigParser()
 config.read('test.ini')
 PREFIX = config.get('global', 'prefix')
 
-SECS_PER_DAY = 24 * 60 * 60
-MS_PER_DAY = SECS_PER_DAY * 1000
+SEC_PER_DAY = 24 * 60 * 60
+MS_PER_DAY = SEC_PER_DAY * 1000
 NS_PER_DAY = MS_PER_DAY * 1000
 
 def setup_module(module):
@@ -164,7 +164,7 @@ class TestConf:
         TestEnv.install_test_conf("renew_30");
         assert TestEnv.apache_restart() == 0
         # todo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * NS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
 
     # --------- remove from store ---------
 
@@ -243,12 +243,12 @@ class TestConf:
         TestEnv.install_test_conf("renew_30");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * NS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
 
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         # check: renew window not set
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * NS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
     # --------- change existing config definitions ---------
 
@@ -316,13 +316,13 @@ class TestConf:
         TestEnv.install_test_conf("renew_30");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * NS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
 
         TestEnv.install_test_conf("renew_10");
         assert TestEnv.apache_restart() == 0
         # check: renew window not set
         # ToDo: how to check fallback to default value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 10 * NS_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 10 * SEC_PER_DAY
 
     # --------- status reset on critical store changes ---------
 
