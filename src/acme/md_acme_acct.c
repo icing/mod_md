@@ -459,9 +459,16 @@ apr_status_t md_acme_use_acct(md_acme_t *acme, md_store_t *store,
     
     if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey, 
                                                store, MD_SG_ACCOUNTS, acct_id, acme->p))) {
-        acme->acct = acct;
-        acme->acct_key = pkey;
-        rv = acct_validate(acme, store, p);
+        if (acct->ca_url && !strcmp(acct->ca_url, acme->url)) {
+            acme->acct = acct;
+            acme->acct_key = pkey;
+            rv = acct_validate(acme, store, p);
+        }
+        else {
+            /* account is from a nother server or, more likely, from another
+             * protocol endpoint on the same server */
+            rv = APR_ENOENT;
+        }
     }
     return rv;
 }
