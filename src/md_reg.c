@@ -832,9 +832,10 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     reset = va_arg(ap, int); 
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
-    init_proto_driver(driver, proto, reg, md, challenge, reset, ptemp);
-    
-    if (APR_SUCCESS == (rv = proto->init(driver))) {
+    rv = init_proto_driver(driver, proto, reg, md, challenge, reset, ptemp);
+    if (APR_SUCCESS == rv && 
+        APR_SUCCESS == (rv = proto->init(driver))) {
+        
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
         rv = proto->stage(driver);
     }

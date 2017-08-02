@@ -846,8 +846,12 @@ static int md_is_challenge(conn_rec *c, const char *servername,
                               "%s: is a tls-sni-01 challenge host", servername);
                 return 1;
             }
-            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, rv, c, APLOGNO()
+            ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO()
                           "%s: challenge data not complete, key unavailable", servername);
+        }
+        else {
+            ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO()
+                          "%s: unknown TLS SNI challenge host", servername);
         }
     }
     *pcert = NULL;
