@@ -154,7 +154,7 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     rv = md_load(ctx->store, MD_SG_DOMAINS, name, &md, ctx->p);
     if (APR_ENOENT == rv) {
-        fprintf(stderr, "managed domain not found: %s\n", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "%s: not found", name);
         return rv;
     }
     else if (APR_SUCCESS != rv) {

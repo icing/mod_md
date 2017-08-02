@@ -686,6 +686,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
     /* Find out where we're at with this managed domain */
     if (ad->ncreds && ad->ncreds->pkey && ad->ncreds->cert && ad->ncreds->chain) {
         /* There is a full set staged, to be loaded */
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: all data staged", d->md->name);
         renew = 0;
     }
     
@@ -699,6 +700,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
 
         if (!ad->md) {
             /* re-initialize staging */
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: setup staging", d->md->name);
             md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
             ad->md = md_copy(d->p, d->md);
             ad->md->cert_url = NULL; /* do not retrieve the old cert */
@@ -713,6 +715,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
 
         if (APR_SUCCESS == rv && !ad->cert) {
             ad->phase = "get certificate";
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: need certificate", d->md->name);
             
             /* Chose (or create) and ACME account to use */
             rv = ad_set_acct(d);
@@ -722,12 +725,17 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
              * lifetime of an account */
             if (APR_SUCCESS == rv) {
                 ad->phase = "check agreement";
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                              "%s: check Terms-of-Service agreement", d->md->name);
+                
                 rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement);
             }
             
             /* If we know a cert's location, try to get it. Previous download might
              * have failed. If server 404 it, we clear our memory of it. */
             if (APR_SUCCESS == rv && ad->md->cert_url) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                              "%s: polling certificate", d->md->name);
                 rv = ad_cert_poll(d, 1);
                 if (APR_STATUS_IS_ENOENT(rv)) {
                     /* Server reports to know nothing about it. */
@@ -737,34 +745,44 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             }
             
             if (APR_SUCCESS == rv && !ad->cert) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                              "%s: setup new authorization", d->md->name);
                 if (APR_SUCCESS != (rv = ad_setup_authz(d))) {
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
                                   ad->md->name);
                     goto out;
                 }
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                              "%s: setup new challenges", d->md->name);
                 if (APR_SUCCESS != (rv = ad_start_challenges(d))) {
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
                                   ad->md->name);
                     goto out;
                 }
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                              "%s: monitoring challenge status", d->md->name);
                 if (APR_SUCCESS != (rv = ad_monitor_challenges(d))) {
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
                                   ad->md->name);
                     goto out;
                 }
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                              "%s: creating certificate request", d->md->name);
                 if (APR_SUCCESS != (rv = ad_setup_certificate(d))) {
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
                                   ad->md->name);
                     goto out;
                 }
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: certificate obtained", 
-                              ad->md->name);
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                              "%s: received certificate", d->md->name);
             }
             
         }
         
         if (APR_SUCCESS == rv && !ad->chain) {
             ad->phase = "install chain";
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                          "%s: retrieving certificate chain", d->md->name);
             rv = ad_chain_install(d);
         }
     }

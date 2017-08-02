@@ -140,7 +140,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     
     md = md_reg_get(ctx->reg, name, ctx->p);
     if (NULL == md) {
-        fprintf(stderr, "managed domain not found: %s\n", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: not found", name);
         return APR_ENOENT;
     }
 
@@ -268,9 +268,9 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
     
     if (renew || force) {
         
-        msg = "%s: get credentials";
+        msg = "incomplete, sign up";
         if (md->state == MD_S_COMPLETE) {
-            msg = force? "%s: forcing renewal" : "%s: up for renewal";
+            msg = force? "forcing renewal" : "for renewal";
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
         
@@ -310,7 +310,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         for (i = 0; i < ctx->argc; ++i) {
             md = md_reg_get(ctx->reg, ctx->argv[i], ctx->p);
             if (!md) {
-                fprintf(stderr, "md not found: %s\n", ctx->argv[i]);
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "%s: not found", ctx->argv[i]);
                 return APR_ENOENT;
             }
             APR_ARRAY_PUSH(mdlist, const md_t *) = md;
