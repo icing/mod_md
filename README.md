@@ -64,7 +64,7 @@ ManagedDomain your_domain.de www.your_domain.de
 ```
 The ```SSLCertificate*``` configurations are gone and you added a ```ManagedDomain``` with a list of host names (here, there are two, it could be just one or maybe ten).
 
-More examples and other documentation you can find [on the wiki](/mod_md/wiki/Simple_Usage).
+More examples and other documentation you can find [on the wiki](https://github.com/icing/mod_md/wiki).
 
 ## Status
 
