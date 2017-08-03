@@ -3,15 +3,74 @@
 
 Copyright 2017 greenbytes GmbH
 
-This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). The name is derived from the ACME protocol that is at the heart of mod_md. ACME stands for Automated Certificate Management Environment, and mod_md Manages Domains using this protocol.
+This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). 
 
-This code here is in an incubation stage, to help people review and comment on this before I bring it into the main Apache httpd repository. Issues you can raise here, general discussion is probably best at the httpd dev mailing list.
+This code here is to help people review and comment and test before I bring it into the main Apache httpd repository. Issues you can raise here, general discussion is probably best at the httpd dev mailing list.
+
+## What can I expect?
+
+When you have installed ```mod_md``` and the patched ```mod_ssl``` in your Apache
+and configured ```your_domain``` to be managed (how, I explain more below), you will
+see something like the following in your log file:
+
+```
+[...00.587735] [md:info] ...<your_domain>: setup staging
+[...00.588024] [md:info] ...<your_domain>: need certificate
+[...07.040614] [md:info] ...<your_domain>: check Terms-of-Service agreement
+[...07.040692] [md:info] ...<your_domain>: setup new authorization
+[...13.604130] [md:info] ...<your_domain>: setup new challenges
+[...19.522348] [md:info] ...<your_domain>: monitoring challenge status
+[...25.387469] [md:info] ...<your_domain>: checked all domain authorizations
+[...25.387551] [md:info] ...<your_domain>: creating certificate request
+[...35.480524] [md:info] ...<your_domain>: received certificate
+[...35.480565] [md:info] ...<your_domain>: retrieving certificate chain
+[...41.634865] [md:notice] ... 1 Managed Domain has been setup and 
+               changes will be activated on next (graceful) server restart.
+```
+
+when you then restart the server, the new Let's Encrypt certificate is used by ```your_domain```. Before it expires, ```mod_md``` will obtain a new one and you will see a similar message in your server log.
+
+## What do I need to do?
+
+Apart from the installation, you need to configure your server to load ```mod_md``` and tell it where it should take over your ```https``` management. A simple example:
+
+You have a virtual host defined like this:
+
+```
+<VirtualHost *:443>
+    ServerName www.your_domain.de
+    ServerAlias your_domain.de
+    Protocols h2 http/1.1
+
+    SSLEngine on
+    SSLCertificateFile /etc/mycerts/your_domain.de/fullchain.pem
+    SSLCertificateKeyFile /etc/mycerts/your_domain.de/privkey.pem
+    ...
+</VirtualHost>
+```
+then you could change it to this:
+
+```
+ManagedDomain your_domain.de www.your_domain.de
+
+<VirtualHost *:443>
+    ServerName www.your_domain.de
+    ServerAlias your_domain.de
+    Protocols h2 http/1.1
+
+    SSLEngine on
+    ...
+</VirtualHost>
+```
+The ```SSLCertificate*``` configurations are gone and you added a ```ManagedDomain``` with a list of host names (here, there are two, it could be just one or maybe ten).
+
+More examples and other documentation you can find [on the wiki](/mod_md/wiki/Simple_Usage).
+
+## Status
 
 ***NEW***: the Apache2 PPA for ubuntu by @oerdnj, see [here](https://launchpad.net/~ondrej/+archive/ubuntu/apache2/+packages), has a patched ```mod_ssl``` just as ```mod_md``` needs it! Thanks! So, in such a server you just need to drop mod_md from here.
 
 ***v0.4.0:*** I have tested that version on ubuntu 14.04 with the PPA from @oerdnj on my live server against the read Let's Encrypt service. The first green lock in the browser, managed by ```mod_md```. We're getting close!
-
-## Status
 
 What you find here are **early experience versions** for people who like living on the edge and want to help me test not yet released changes.
 
@@ -31,7 +90,6 @@ Tests have been verfied to run on MacOS and Ubuntu 16.04 under the following con
  * you have a local boulder server installed and it resolved host names against your httpd (see below)
 
 So, it's a bit tricky when your OS does not support features like ```SNI``` in its standard config.
-
 
 ## Install
 

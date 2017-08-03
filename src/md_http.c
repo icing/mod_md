@@ -26,6 +26,7 @@ struct md_http_t {
     apr_bucket_alloc_t *bucket_alloc;
     apr_off_t resp_limit;
     md_http_impl_t *impl;
+    const char *user_agent;
 };
 
 static md_http_impl_t *cur_impl;
@@ -41,7 +42,7 @@ void md_http_use_implementation(md_http_impl_t *impl)
 
 static long next_req_id;
 
-apr_status_t md_http_create(md_http_t **phttp, apr_pool_t *p)
+apr_status_t md_http_create(md_http_t **phttp, apr_pool_t *p, const char *user_agent)
 {
     md_http_t *http;
     apr_status_t rv = APR_SUCCESS;
@@ -63,6 +64,7 @@ apr_status_t md_http_create(md_http_t **phttp, apr_pool_t *p)
     http = apr_pcalloc(p, sizeof(*http));
     http->pool = p;
     http->impl = cur_impl;
+    http->user_agent = apr_pstrdup(p, user_agent);
     http->bucket_alloc = apr_bucket_alloc_create(p);
     if (!http->bucket_alloc) {
         return APR_EGENERAL;
@@ -100,6 +102,7 @@ static apr_status_t req_create(md_http_request_t **preq, md_http_t *http,
     req->resp_limit = http->resp_limit;
     req->cb = cb;
     req->baton = baton;
+    req->user_agent = http->user_agent;
 
     *preq = req;
     return rv;

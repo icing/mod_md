@@ -1,3 +1,13 @@
+v0.5.0
+----------------------------------------------------------------------------------------------------
+ * Documenation on wiki for several use cases, explaining file store layout and security
+ * User-Agent now sent to CA.
+   Driving from httpd: Apache/rev mod_md/rev (Something, like certbot)
+   Driving from a2md:  apachemd/rev mod_md/rev (Something, like certbot)
+ * Logging adjusted for more readable INFO level on relevant changes
+ * NOTICE level log when new certificate have been obtained and restart is recommended
+ * removed code for service restart, should now compile under Win32
+ 
 v0.4.0
 ----------------------------------------------------------------------------------------------------
  * Various test runs on live server with ACME staging and real service. First green lock

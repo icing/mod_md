@@ -30,10 +30,13 @@
 #include "../md_log.h"
 #include "../md_store.h"
 #include "../md_util.h"
+#include "../md_version.h"
 
 #include "md_acme.h"
 #include "md_acme_acct.h"
 
+
+static const char *base_product;
 
 typedef struct acme_problem_status_t acme_problem_status_t;
 
@@ -81,8 +84,9 @@ static apr_status_t problem_status_get(const char *type) {
     return APR_EGENERAL;
 }
 
-apr_status_t md_acme_init(apr_pool_t *p)
+apr_status_t md_acme_init(apr_pool_t *p, const char *base)
 {
+    base_product = base;
     return md_crypt_init(p);
 }
 
@@ -107,6 +111,8 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url)
     acme = apr_pcalloc(p, sizeof(*acme));
     acme->url = url;
     acme->p = p;
+    acme->user_agent = apr_psprintf(p, "%s mod_md/%s (Something, like certbot)", 
+                                    base_product, MOD_MD_VERSION);
     acme->pkey_bits = 4096;
     acme->max_retries = 3;
     
@@ -128,7 +134,8 @@ apr_status_t md_acme_setup(md_acme_t *acme)
     md_json_t *json;
     
     assert(acme->url);
-    if (!acme->http && APR_SUCCESS != (rv = md_http_create(&acme->http, acme->p))) {
+    if (!acme->http && APR_SUCCESS != (rv = md_http_create(&acme->http, acme->p,
+                                                           acme->user_agent))) {
         return rv;
     }
     md_http_set_response_limit(acme->http, 1024*1024);

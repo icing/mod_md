@@ -49,6 +49,7 @@ struct md_acme_t {
     const char *url;                /* directory url of the ACME service */
     const char *sname;              /* short name for the service, not necessarily unique */
     apr_pool_t *p;
+    const char *user_agent;
     struct md_acme_acct_t *acct;
     struct md_pkey_t *acct_key;
     
@@ -67,7 +68,7 @@ struct md_acme_t {
 /**
  * Global init, call once at start up.
  */
-apr_status_t md_acme_init(apr_pool_t *pool);
+apr_status_t md_acme_init(apr_pool_t *pool, const char *base_version);
 
 /**
  * Create a new ACME server instance. If path is not NULL, will use that directory

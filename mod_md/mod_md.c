@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <apr_strings.h>
 
+#include <ap_release.h>
 #include <mpm_common.h>
 #include <httpd.h>
 #include <http_protocol.h>
@@ -36,6 +37,7 @@
 #include "md_reg.h"
 #include "md_util.h"
 #include "md_version.h"
+#include "acme/md_acme.h"
 #include "acme/md_acme_authz.h"
 
 #include "md_os.h"
@@ -152,7 +154,7 @@ static apr_status_t md_calc_md_list(md_ctx *ctx, apr_pool_t *p, apr_pool_t *plog
                 }
                 APR_ARRAY_PUSH(mds, md_t *) = nmd;
                 
-                ap_log_error(APLOG_MARK, APLOG_INFO, 0, base_server, APLOGNO()
+                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
                              "Added MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, renew=%ld]",
                              nmd->name, nmd->ca_url, nmd->ca_proto, nmd->ca_agreement,
                              nmd->drive_mode, (long)nmd->renew_window);
@@ -946,7 +948,9 @@ static void md_child_init(apr_pool_t *pool, server_rec *s)
 static void md_hooks(apr_pool_t *pool)
 {
     static const char *const mod_ssl[] = { "mod_ssl.c", NULL};
-    
+
+    md_acme_init(pool, AP_SERVER_BASEVERSION);
+        
     ap_log_perror(APLOG_MARK, APLOG_TRACE1, 0, pool, "installing hooks");
     
     /* Run once after configuration is set, before mod_ssl.
