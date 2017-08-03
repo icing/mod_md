@@ -129,6 +129,9 @@ START_TEST(booleans)
     ck_assert_int_eq( md_json_setb(42, json, NULL), 0 );
     ck_assert_int_eq( json->j->refcount,  -1 ); /* jansson constant */
     ck_assert_int_eq( md_json_getb(json, NULL), 1 );
+
+    /* Non-existent boolean defaults to false */
+    ck_assert_int_eq( md_json_getb(json, "key", NULL), 0 );
 }
 END_TEST
 
@@ -143,6 +146,12 @@ START_TEST(longs)
     ck_assert_int_eq( md_json_setl(42, json, NULL), 0 );
     ck_assert_int_eq( json->j->refcount,  1 );
     ck_assert_int_eq( md_json_getl(json, NULL), 42 );
+
+    /* Getting long as double casts to double */
+    ck_assert_double_eq_tol( md_json_getn(json, NULL), 42.0, 0.001 );
+
+    /* Non-existent long defaults to zero */
+    ck_assert_int_eq( md_json_getl(json, "key", NULL), 0 );
 }
 END_TEST
 
@@ -157,6 +166,12 @@ START_TEST(doubles)
     ck_assert_int_eq( md_json_setn(3.14152, json, NULL), 0 );
     ck_assert_int_eq( json->j->refcount,  1 );
     ck_assert_double_eq_tol( md_json_getn(json, NULL), 3.14152, 0.001 );
+
+    /* Getting double as long defaults to zero */
+    ck_assert_double_eq_tol( md_json_getl(json, NULL), 0.0, 0.001);
+
+    /* Non-existent double defaults to zero */
+    ck_assert_double_eq_tol( md_json_getn(json, "key", NULL), 0.0, 0.001 );
 }
 END_TEST
 
@@ -171,6 +186,9 @@ START_TEST(strings)
     ck_assert_int_eq( md_json_sets("test-value-1", json, NULL), 0 );
     ck_assert_int_eq( json->j->refcount,  1 );
     ck_assert_str_eq( md_json_gets(json, NULL), "test-value-1");
+
+    /* Non-existent string defaults to NULL */
+    ck_assert_ptr_eq( md_json_gets(json, "key", NULL), NULL );
 }
 END_TEST
 
