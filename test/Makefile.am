@@ -39,7 +39,6 @@ unit_tests: $(TESTS)
         
 endif
 
-all: $(SERVER_DIR)/.test-setup
 
 $(SERVER_DIR)/conf/ssl/valid_pkey.pem:
 	@mkdir -p $(SERVER_DIR)/conf/ssl

@@ -255,6 +255,6 @@ apr_status_t md_acme_get_json(struct md_json_t **pjson, md_acme_t *acme,
 
 apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *jpayload);
 
-apr_status_t md_acme_protos_add(apr_hash_t *protos, apr_pool_t *p);
+apr_status_t md_acme_protos_add(struct apr_hash_t *protos, apr_pool_t *p);
 
 #endif /* md_acme_h */
