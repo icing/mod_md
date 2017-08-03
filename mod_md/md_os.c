@@ -34,61 +34,6 @@
 #include "md_util.h"
 #include "md_os.h"
 
-#if 0
-
-#define MD_ERRFN_USERDATA_KEY         "MDCHILDERRFN"
-
-static void grace_child_errfn(apr_pool_t *pool, apr_status_t err, const char *description)
-{
-    server_rec *s;
-    void *v;
-
-    apr_pool_userdata_get(&v, MD_ERRFN_USERDATA_KEY, pool);
-    s = v;
-
-    if (s) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, err, s, APLOGNO() "%s", description);
-    }
-}
-
-static apr_status_t server_graceful(apr_proc_t **pproc, apr_pool_t *p, server_rec *s) 
-{
-    apr_procattr_t *attr;
-    apr_status_t rv;
-    const char **argv;
-    apr_proc_t *proc;
-    
-    if (APR_SUCCESS != (rv = apr_procattr_create(&attr, p))
-        || APR_SUCCESS != (rv = apr_procattr_io_set(attr, APR_NO_PIPE, APR_NO_PIPE, APR_NO_PIPE))
-        || APR_SUCCESS != (rv = apr_procattr_cmdtype_set(attr, APR_PROGRAM_PATH))
-        || APR_SUCCESS != (rv = apr_procattr_detach_set(attr, 1))
-        || APR_SUCCESS != (rv = apr_procattr_child_errfn_set(attr, grace_child_errfn))) {
-        return rv;
-    }
-    apr_pool_userdata_set(s, MD_ERRFN_USERDATA_KEY, apr_pool_cleanup_null, p);
-    
-    proc = apr_pcalloc(p, sizeof(*proc));
-    proc->pid = -1;
-    proc->err = proc->in = proc->out = NULL;
-
-    argv = (const char **)apr_pcalloc(p, 6 * sizeof(const char *));
-    argv[0] = "/opt/apache-trunk/bin/apachectl";
-    argv[1] = "-d";
-    argv[2] = ap_server_root_relative(p, "");
-    argv[3] = "-k";
-    argv[4] = "graceful";
-    argv[5] = NULL;
-    
-    ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() "%s started (%s)", argv[0], argv[2]);
-    /*rv = apr_proc_create(proc, argv[0], argv, NULL, attr, p); 
-    ap_log_error( APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO() "graceful restart");
-    *pproc = proc;
-    
-    return rv;*/
-    return APR_ENOTIMPL;
-}
-#endif /* 0 */
-
 apr_status_t md_try_chown(const char *fname, int uid, int gid, apr_pool_t *p)
 {
 #if AP_NEED_SET_MUTEX_PERMS
@@ -117,26 +62,20 @@ apr_status_t md_make_worker_accessible(const char *fname, apr_pool_t *p)
 
 #ifdef WIN32
 
-/* TOOD: test if this has a chance to work on WIN32 systems */
-static apr_status_t mpm_signal_service(apr_pool_t *ptemp, int signal)
-{
-    return APR_ENOTIMPL;
-}
-
 apr_status_t md_server_graceful(apr_pool_t *p, server_rec *s)
 {
-    return mpm_signal_service(p, 1);
+    return APR_ENOTIMPL;
 }
  
 #else
 
 apr_status_t md_server_graceful(apr_pool_t *p, server_rec *s)
 { 
-    if (kill(getppid(), AP_SIG_GRACEFUL) < 0) {
-        ap_log_error(APLOG_MARK, APLOG_TRACE1, errno, NULL, "sending signal to parent");
-        return APR_EACCES;
-    }
-    return APR_SUCCESS;
+    apr_status_t rv;
+    
+    rv = (kill(getppid(), AP_SIG_GRACEFUL) < 0)? APR_ENOTIMPL : APR_SUCCESS;
+    ap_log_error(APLOG_MARK, APLOG_TRACE1, errno, NULL, "sent signal to parent");
+    return rv;
 }
 
 #endif

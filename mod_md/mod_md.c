@@ -437,8 +437,8 @@ typedef struct {
     server_rec *s;
     ap_watchdog_t *watchdog;
     int all_valid;
-    int had_error;
-    int may_restart;
+    int error_count;
+    int processed_count;
 
     int error_runs;
     apr_time_t next_change;
@@ -472,7 +472,7 @@ static apr_status_t drive_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
             if (APR_SUCCESS == rv) {
                 md->state = MD_S_COMPLETE;
                 md->expires = 0;
-                wd->may_restart = 1;
+                ++wd->processed_count;
             }
         }
         else {
@@ -508,8 +508,8 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             interval = apr_time_from_sec(MD_SECS_PER_DAY / 2);
 
             wd->all_valid = 1;
-            wd->may_restart = 0;
-            wd->had_error = 0;
+            wd->processed_count = 0;
+            wd->error_count = 0;
             wd->next_change = 0;
             
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
@@ -520,20 +520,16 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                 md = APR_ARRAY_IDX(wd->mds, i, md_t *);
                 if (APR_SUCCESS != (rv = drive_md(wd, md, ptemp))) {
                     wd->all_valid = 0;
-                    wd->had_error = 1;
+                    ++wd->error_count;
                     ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO() 
                                  "processing %s", md->name);
                 }
             }
 
             /* Determine when we want to run next */
-            wd->error_runs = wd->had_error? (wd->error_runs + 1) : 0;
+            wd->error_runs = wd->error_count? (wd->error_runs + 1) : 0;
             if (wd->all_valid) {
                 ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, wd->s, "all managed domains are valid");
-            }
-            else if (wd->may_restart) {
-                ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
-                             "awaiting restart");
             }
             else {
                 /* back off duration, depending on the errors we encounter in a row */
@@ -573,12 +569,25 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             break;
     }
 
-    if (wd->may_restart) {
-        rv = md_server_graceful(ptemp, wd->s);
-        if (APR_STATUS_IS_EACCES(rv)) {
-            /* TODO: running under-privileged most likely... */
+    if (wd->processed_count) {
+        if (wd->all_valid) {
+            rv = md_server_graceful(ptemp, wd->s);
+            if (APR_ENOTIMPL == rv) {
+                /* self-graceful restart not supported in this setup */
+                ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, wd->s, APLOGNO()
+                             "%d Managed Domain%s been setup and changes will be "
+                             "activated on next (graceful) server restart.",
+                             wd->processed_count, (wd->processed_count > 1)? "s have" : " has");
+            }
         }
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, wd->s, APLOGNO() "signaled restart");
+        else {
+            ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, wd->s, APLOGNO()
+                         "%d Managed Domain%s been setup, while %d%s "
+                         "still being worked on. You may activate the changes made "
+                         "by triggering a (graceful) restart at any time.",
+                         wd->processed_count, (wd->processed_count > 1)? "s have" : " has",
+                         wd->error_count, (wd->error_count > 1)? " are" : " is");
+        }
     }
     
     return APR_SUCCESS;
@@ -785,10 +794,14 @@ static int md_is_managed(server_rec *s)
 {
     md_config_t *conf = (md_config_t *)md_config_get(s);
 
-    ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s, 
-                  "%s: has conf = %d, has md %s", s->server_hostname,  
-                 !!conf, (conf && conf->md)? conf->md->name : "(none)");
-    return conf && conf->md;
+    if (conf && conf->md) {
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO() 
+                     "%s: manages server %s", conf->md->name, s->server_hostname);
+        return 1;
+    }
+    ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,  
+                 "server %s is not managed", s->server_hostname);
+    return 0;
 }
 
 static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
@@ -811,6 +824,8 @@ static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
             if (md->state != MD_S_COMPLETE) {
                 return APR_EAGAIN;
             }
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO() 
+                         "%s: loading credentials for server %s", md->name, s->server_hostname);
             return md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile, pchainfile);
         }
     }
