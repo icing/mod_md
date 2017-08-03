@@ -300,6 +300,23 @@ START_TEST(objects)
 }
 END_TEST
 
+START_TEST(json_writep_returns_NULL_for_corrupted_json_struct)
+{
+    md_json_t *json = md_json_create(g_pool);
+    md_json_t *val1 = md_json_create(g_pool);
+
+    /* { "val1": 20, "val2": 40 } */
+    md_json_setl(20,   val1, NULL);
+    md_json_setj(val1, json, "val1", NULL);
+    md_json_setl(40,   json, "val2", NULL);
+
+    /* Intentionally corrupt val1. */
+    val1->j->type = (json_type) -2;
+
+    ck_assert_ptr_eq( md_json_writep(json, g_pool, 0), NULL );
+}
+END_TEST
+
 TCase *md_json_test_case(void)
 {
     TCase *testcase = tcase_create("md_json");
@@ -317,6 +334,8 @@ TCase *md_json_test_case(void)
     tcase_add_test(testcase, string_arrays);
     tcase_add_test(testcase, json_arrays);
     tcase_add_test(testcase, objects);
+
+    tcase_add_test(testcase, json_writep_returns_NULL_for_corrupted_json_struct);
 
     return testcase;
 }
