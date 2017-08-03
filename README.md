@@ -31,8 +31,8 @@ docker-compose run -e FAKE_DNS=192.168.1.65 --service-ports boulder ./start.py
 ```
 where ```192.168.1.65``` is the address my Apache httpd is listening on.
 
-When running the tests, make sure your Docker instance is able to access port
-5002 on the host.
+When running the tests, make sure your Docker instance is able to access ports
+5001 and 5002 on the host.
 
 ## Changes
 
