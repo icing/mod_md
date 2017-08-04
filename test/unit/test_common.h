@@ -20,6 +20,21 @@
 #include <check.h>
 
 /*
+ * Compatibility ck_assert macros for Check < 0.11.
+ */
+#if (CHECK_MAJOR_VERSION == 0) && (CHECK_MINOR_VERSION < 11)
+#  include <math.h>   /* fabs() */
+#  include <string.h> /* memcmp() */
+
+#  define ck_assert_double_eq_tol(a, b, tol) \
+              ck_assert(fabs((a) - (b)) <= (tol))
+#  define ck_assert_mem_eq(a, b, len) \
+              ck_assert(!memcmp((a), (b), (len)))
+#  define ck_assert_ptr_nonnull(p) \
+              ck_assert((p) != NULL)
+#endif
+
+/*
  * A list of Check test case declarations, usually one per source file. Add your
  * test case here when adding a new source file, then add it to the
  * main_test_suite() in main.c.
