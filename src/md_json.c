@@ -750,6 +750,12 @@ typedef struct {
     apr_file_t *f;
 } j_write_ctx;
 
+/* Convert from md_json_fmt_t to the Jansson json_dumpX flags. */
+static size_t fmt_to_flags(md_json_fmt_t fmt)
+{
+    return (fmt == MD_JSON_FMT_COMPACT) ? JSON_COMPACT : JSON_INDENT(2); 
+}
+
 static int dump_cb(const char *buffer, size_t len, void *baton)
 {
     apr_bucket_brigade *bb = baton;
@@ -761,8 +767,7 @@ static int dump_cb(const char *buffer, size_t len, void *baton)
 
 apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, apr_bucket_brigade *bb)
 {
-    size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
-    int rv = json_dump_callback(json->j, dump_cb, bb, flags);
+    int rv = json_dump_callback(json->j, dump_cb, bb, fmt_to_flags(fmt));
     return rv? APR_EGENERAL : APR_SUCCESS;
 }
 
@@ -778,12 +783,11 @@ static int chunk_cb(const char *buffer, size_t len, void *baton)
 
 const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
 {
-    size_t flags = (fmt == MD_JSON_FMT_COMPACT)? JSON_COMPACT : JSON_INDENT(2); 
     apr_array_header_t *chunks;
     int rv;
 
     chunks = apr_array_make(p, 10, sizeof(char *));
-    rv = json_dump_callback(json->j, chunk_cb, chunks, flags);
+    rv = json_dump_callback(json->j, chunk_cb, chunks, fmt_to_flags(fmt));
 
     if (rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p,
