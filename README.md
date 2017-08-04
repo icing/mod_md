@@ -98,13 +98,15 @@ run this module. Additionally, you need an installed libjansson and libcurl.
 And additionally, you want an installed OpenSSL >=1.0.2, where libcurl is built
 against. It may work with other *SSL libraries, however I have not verified that. 
 
-To run the tests, you need [pytest](https://docs.pytest.org/en/latest/) and a local [boulder](https://github.com/letsencrypt/boulder) installation (I use the docker one they provide. Read the instructions in their excellent documentation). The instance I run via
+To run the tests, you need [pytest](https://docs.pytest.org/en/latest/), [PyOpenSSL](https://pyopenssl.org/en/stable/),  and a local [boulder](https://github.com/letsencrypt/boulder) installation (I use the docker one they provide. Read the instructions in their excellent documentation). The instance I run via
 
 ```
 docker-compose run -e FAKE_DNS=192.168.1.65 --service-ports boulder ./start.py 
 ```
 where ```192.168.1.65``` is the address my Apache httpd is listening on.
 
+When running the tests, make sure your Docker instance is able to access ports
+5001 and 5002 on the host.
 
 ## Changes
 
