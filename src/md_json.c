@@ -753,7 +753,11 @@ typedef struct {
 /* Convert from md_json_fmt_t to the Jansson json_dumpX flags. */
 static size_t fmt_to_flags(md_json_fmt_t fmt)
 {
-    return (fmt == MD_JSON_FMT_COMPACT) ? JSON_COMPACT : JSON_INDENT(2); 
+    /* NOTE: JSON_PRESERVE_ORDER is off by default before Jansson 2.8. It
+     * doesn't have any semantic effect on the protocol, but it does let the
+     * md_json_writeX unit tests run deterministically. */
+    return JSON_PRESERVE_ORDER |
+           ((fmt == MD_JSON_FMT_COMPACT) ? JSON_COMPACT : JSON_INDENT(2)); 
 }
 
 static int dump_cb(const char *buffer, size_t len, void *baton)
