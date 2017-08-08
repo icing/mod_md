@@ -674,7 +674,26 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         rv = md_util_path_merge(&arch_dir, ptemp, dir, name, NULL);
         if (APR_SUCCESS != rv) goto out;
         
-        while (1) {
+#ifdef WIN32
+        /* WIN32 and handling of files/dirs. What can one say? */
+        
+        while (n < 1000) {
+            narch_dir = apr_psprintf(ptemp, "%s.%d", arch_dir, n);
+            rv = md_util_is_dir(narch_dir, ptemp);
+            if (APR_STATUS_IS_ENOENT(rv)) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "using archive dir: %s", 
+                              narch_dir);
+                break;
+            }
+            else {
+                ++n;
+                narch_dir = NULL;
+            }
+        }
+
+#else   /* ifdef WIN32 */
+
+        while (n < 1000) {
             narch_dir = apr_psprintf(ptemp, "%s.%d", arch_dir, n);
             rv = apr_dir_make(narch_dir, MD_FPROT_D_UONLY, ptemp);
             if (APR_SUCCESS == rv) {
@@ -684,13 +703,25 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
             }
             else if (APR_EEXIST == rv) {
                 ++n;
+                narch_dir = NULL;
             }
             else {
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "creating archive dir: %s", 
                               narch_dir);
                 goto out;
             }
-        } 
+        }
+         
+#endif   /* ifdef WIN32 (else part) */
+        
+        if (!narch_dir) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "ran out of numbers less than 1000 "
+                          "while looking for an available one in %s to archive the data "
+                          "from %s. Either something is generally wrong or you need to "
+                          "clean up some of those directories.", arch_dir, from_dir);
+            rv = APR_EGENERAL;
+            goto out;
+        }
         
         if (APR_SUCCESS != (rv = apr_file_rename(to_dir, narch_dir, ptemp))) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "rename from %s to %s", 

@@ -1,3 +1,9 @@
+v0.6.0
+----------------------------------------------------------------------------------------------------
+ * Restructuring of the source tree to something very similar as it will appear in the 
+   Apache subversion repository. Will make synching of changes easier.
+ * Test of special handling of store archive handling for Windows system. See issue #24.
+
 v0.5.0
 ----------------------------------------------------------------------------------------------------
  * Documenation on wiki for several use cases, explaining file store layout and security
