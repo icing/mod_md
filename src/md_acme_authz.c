@@ -25,14 +25,14 @@
 #include <apr_strings.h>
 #include <apr_tables.h>
 
-#include "../md.h"
-#include "../md_crypt.h"
-#include "../md_json.h"
-#include "../md_http.h"
-#include "../md_log.h"
-#include "../md_jws.h"
-#include "../md_store.h"
-#include "../md_util.h"
+#include "md.h"
+#include "md_crypt.h"
+#include "md_json.h"
+#include "md_http.h"
+#include "md_log.h"
+#include "md_jws.h"
+#include "md_store.h"
+#include "md_util.h"
 
 #include "md_acme.h"
 #include "md_acme_authz.h"

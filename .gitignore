@@ -34,7 +34,7 @@ Makefile
 mod_cert-*.tar.gz
 m4
 .cache
-a2md/a2md
+src/a2md
 
 # Automake test-suite artifacts
 /test-driver

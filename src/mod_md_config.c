@@ -25,9 +25,9 @@
 #include <http_vhost.h>
 
 #include "md.h"
-#include "md_config.h"
 #include "md_util.h"
-#include "md_private.h"
+#include "mod_md_private.h"
+#include "mod_md_config.h"
 
 
 #define DEF_VAL     (-1)

@@ -42,8 +42,7 @@ AM_INIT_AUTOMAKE([subdir-objects no-define])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_SRCDIR([mod_md/config.c])
-AC_CONFIG_HEADERS([mod_md/config.h])
+AC_CONFIG_HEADERS([src/config.h])
 
 AC_ARG_ENABLE([werror],
     [AS_HELP_STRING([--enable-werror],
@@ -86,7 +85,7 @@ AC_SUBST(HTTPS_PORT)
 HTTPD_USER="$USER"
 AC_SUBST(HTTPD_USER)
 
-MODULE_SRC="$PWD/mod_md"
+MODULE_SRC="$PWD/src"
 AC_SUBST(MODULE_SRC)
 
 
@@ -172,7 +171,7 @@ else
     AC_MSG_NOTICE("using APXS=$APXS as configured")
 fi
 
-export BUILD_SUBDIRS="src mod_md a2md test"
+export BUILD_SUBDIRS="src test"
 
 prefix="$($APXS -q prefix)"
 prefix="${prefix:-/usr}"
@@ -305,8 +304,6 @@ AC_SUBST(LIBEXEC_DIR)
 
 AC_CONFIG_FILES([
     Makefile
-    a2md/Makefile
-    mod_md/Makefile
     src/md_version.h
     src/Makefile
     test/Makefile

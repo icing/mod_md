@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 SUBDIRS         = @BUILD_SUBDIRS@
-DIST_SUBDIRS    = src mod_md a2md
+DIST_SUBDIRS    = src
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -22,15 +22,15 @@ dist_doc_DATA   = README README.md LICENSE
 
 .PHONY: test
 
-test: a2md/a2md mod_md/mod_md.la
+test:
 	$(MAKE) -C test/ test
 
-test-auto: a2md/a2md mod_md/mod_md.la
+test-auto:
 	$(MAKE) -C test/ test-auto
 
-test-drive: a2md/a2md mod_md/mod_md.la
+test-drive:
 	$(MAKE) -C test/ test-drive
 
-test-configs: a2md/a2md mod_md/mod_md.la
+test-configs:
 	$(MAKE) -C test/ test-configs
 

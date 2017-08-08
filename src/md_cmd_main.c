@@ -24,7 +24,7 @@
 #include <apr_strings.h>
 
 #include "md.h"
-#include "acme/md_acme.h"
+#include "md_acme.h"
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"

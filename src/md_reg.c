@@ -31,8 +31,8 @@
 #include "md_store.h"
 #include "md_util.h"
 
-#include "acme/md_acme.h"
-#include "acme/md_acme_acct.h"
+#include "md_acme.h"
+#include "md_acme_acct.h"
 
 struct md_reg_t {
     struct md_store_t *store;
