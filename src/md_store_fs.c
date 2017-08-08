@@ -37,6 +37,8 @@
 /**************************************************************************************************/
 /* file system based implementation of md_store_t */
 
+#define MD_STORE_VERSION        1.0
+
 typedef struct {
     apr_fileperms_t dir;
     apr_fileperms_t file;
@@ -99,6 +101,7 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
     int i;
     
     md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
+    md_json_setn(MD_STORE_VERSION, json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
 
     /*if (APR_SUCCESS != (rv = md_rand_bytes(key, sizeof(key), p))) {
         return rv;
@@ -128,18 +131,21 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
     md_json_t *json;
     const char *s, *key64;
     apr_status_t rv;
+    double store_version;
     
     if (APR_SUCCESS == (rv = md_json_readf(&json, p, fname))) {
-        s = md_json_gets(json, MD_KEY_VERSION, NULL);
-        if (!s) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "missing key: %s", MD_KEY_VERSION);
-            return APR_EINVAL;
+        store_version = md_json_getn(json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
+        if (store_version <= 0.0) {
+            /* ok, an old one, compatible to 1.0 */
+            store_version = 1.0;
         }
-        if (strcmp(MOD_MD_VERSION, s) < 0) {
+        if (store_version > MD_STORE_VERSION) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "version too new: %s", s);
             return APR_EINVAL;
         }
-        /* TODO: need to migrate store? */
+        else if (store_version > MD_STORE_VERSION) {
+            /* migrate future store version changes */
+        } 
         
         key64 = md_json_dups(p, json, MD_KEY_KEY, NULL);
         if (!key64) {
