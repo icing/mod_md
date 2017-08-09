@@ -186,7 +186,7 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     /* Remove anything we no longer need */
     for (i = 0; i < ad->authz_set->authzs->nelts; ++i) {
         authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
-        if (!md_contains(md, authz->domain)) {
+        if (!md_contains(md, authz->domain, 0)) {
             md_acme_authz_set_remove(ad->authz_set, authz->domain);
             changed = 1;
         }

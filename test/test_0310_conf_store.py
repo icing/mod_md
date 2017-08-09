@@ -185,8 +185,8 @@ class TestConf:
         self._check_md_names("example.org", dnsList, 1, 1)
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
-        # check: DNS stays part of md in store
-        self._check_md_names("example.org", dnsList, 1, 1)
+        # check: DNS has been removed from md in store
+        self._check_md_names("example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
 
     def test_310_202(self):
         # test case: remove primary name from managed domain
@@ -196,7 +196,7 @@ class TestConf:
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         # check: md stays with previous name, complete dns list
-        self._check_md_names("name.example.org", dnsList, 1, 1)
+        self._check_md_names("name.example.org", ["example.org", "www.example.org", "mail.example.org"], 1, 1)
 
     def test_310_203(self):
         # test case: remove one md, keep another

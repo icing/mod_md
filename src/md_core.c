@@ -29,9 +29,9 @@
 #include "md_util.h"
 
 
-int md_contains(const md_t *md, const char *domain)
+int md_contains(const md_t *md, const char *domain, int case_sensitive)
 {
-   return md_array_str_index(md->domains, domain, 0, 0) >= 0;
+   return md_array_str_index(md->domains, domain, 0, case_sensitive) >= 0;
 }
 
 const char *md_common_name(const md_t *md1, const md_t *md2)
@@ -45,7 +45,7 @@ const char *md_common_name(const md_t *md1, const md_t *md2)
     
     for (i = 0; i < md1->domains->nelts; ++i) {
         const char *name1 = APR_ARRAY_IDX(md1->domains, i, const char*);
-        if (md_contains(md2, name1)) {
+        if (md_contains(md2, name1, 0)) {
             return name1;
         }
     }
@@ -70,7 +70,7 @@ apr_size_t md_common_name_count(const md_t *md1, const md_t *md2)
     hits = 0;
     for (i = 0; i < md1->domains->nelts; ++i) {
         const char *name1 = APR_ARRAY_IDX(md1->domains, i, const char*);
-        if (md_contains(md2, name1)) {
+        if (md_contains(md2, name1, 0)) {
             ++hits;
         }
     }
@@ -90,13 +90,13 @@ md_t *md_create_empty(apr_pool_t *p)
     return md;
 }
 
-int md_equal_domains(const md_t *md1, const md_t *md2)
+int md_equal_domains(const md_t *md1, const md_t *md2, int case_sensitive)
 {
     int i;
     if (md1->domains->nelts == md2->domains->nelts) {
         for (i = 0; i < md1->domains->nelts; ++i) {
             const char *name1 = APR_ARRAY_IDX(md1->domains, i, const char*);
-            if (!md_contains(md2, name1)) {
+            if (!md_contains(md2, name1, case_sensitive)) {
                 return 0;
             }
         }
@@ -111,7 +111,7 @@ int md_contains_domains(const md_t *md1, const md_t *md2)
     if (md1->domains->nelts >= md2->domains->nelts) {
         for (i = 0; i < md2->domains->nelts; ++i) {
             const char *name2 = APR_ARRAY_IDX(md2->domains, i, const char*);
-            if (!md_contains(md1, name2)) {
+            if (!md_contains(md1, name2, 0)) {
                 return 0;
             }
         }
@@ -169,7 +169,7 @@ md_t *md_get_by_domain(struct apr_array_header_t *mds, const char *domain)
     int i;
     for (i = 0; i < mds->nelts; ++i) {
         md_t *md = APR_ARRAY_IDX(mds, i, md_t *);
-        if (md_contains(md, domain)) {
+        if (md_contains(md, domain, 0)) {
             return md;
         }
     }

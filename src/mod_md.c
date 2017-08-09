@@ -227,7 +227,7 @@ static apr_status_t md_check_vhost_mapping(md_ctx *ctx, apr_pool_t *p, apr_pool_
 
                     /* This server matches a managed domain. If it contains names or
                      * alias that are not in this md, a generated certificate will not match. */
-                    if (!md_contains(md, s->server_hostname)) {
+                    if (!md_contains(md, s->server_hostname, 0)) {
                         ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                      "Virtual Host %s:%d matches Managed Domain '%s', but the name"
                                      " itself is not managed. A requested MD certificate will "
@@ -239,7 +239,7 @@ static apr_status_t md_check_vhost_mapping(md_ctx *ctx, apr_pool_t *p, apr_pool_
                     else {
                         for (k = 0; k < s->names->nelts; ++k) {
                             name = APR_ARRAY_IDX(s->names, k, const char*);
-                            if (!md_contains(md, name)) {
+                            if (!md_contains(md, name, 0)) {
                                 ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
                                              "Virtual Host %s:%d matches Managed Domain '%s', but "
                                              "the ServerAlias %s is not covered by the MD. "

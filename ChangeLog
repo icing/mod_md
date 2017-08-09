@@ -1,3 +1,6 @@
+ * when synching new configurations into the store, the list of domain names is now kept
+   exactly the same. This allows removal of a member that fails challenges. Before, only
+   additions have been stored. Test cases adjusted.
  * Fixed 'uninitialized var use' when logging too new store version, reported in #25
 
 v0.6.0
