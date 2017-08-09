@@ -1,3 +1,6 @@
+ * global or inside ManagedDomain, 'MDMembers auto|manual' defines if ServerName and ServerAlias
+   names of a VirtualHost are automatically added to the members of a Managed Domain or not.
+   Default is 'auto'.
  * staging informtation, e.g. temp files during ACME protocol runs, gets automatically reset
    when the managed domain changes.
  * when synching new configurations into the store, the list of domain names is now kept

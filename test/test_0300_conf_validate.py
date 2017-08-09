@@ -108,6 +108,13 @@ class TestConf:
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.apache_err_count()
 
+    def test_300_011b(self):
+        # ManagedDomain, misses one ServerAlias, but auto add enabled
+        assert TestEnv.apache_stop() == 0
+        TestEnv.install_test_conf("test_011b");
+        assert TestEnv.apache_restart() == 0
+        assert (0, 0) == TestEnv.apache_err_count()
+
     def test_300_012(self):
         # ManagedDomain does not match any vhost
         TestEnv.install_test_conf("test_012");

@@ -17,3 +17,5 @@ DocumentRoot "@SERVER_DIR@/htdocs"
 
 LogLevel md:trace2
 LogLevel ssl:debug
+
+MDMembers manual

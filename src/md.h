@@ -69,6 +69,7 @@ struct md_t {
     apr_interval_time_t renew_window;/* time before expiration that starts renewal */
     
     struct apr_array_header_t *domains; /* all DNS names this MD includes */
+    int transitive;                 /* != 0 iff VirtualHost names/aliases are auto-added */
     md_drive_mode_t drive_mode;     /* mode of obtaining credentials */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
     
@@ -116,6 +117,7 @@ struct md_t {
 #define MD_KEY_STATUS           "status"
 #define MD_KEY_STORE            "store"
 #define MD_KEY_TOKEN            "token"
+#define MD_KEY_TRANSITIVE       "transitive"
 #define MD_KEY_TYPE             "type"
 #define MD_KEY_URL              "url"
 #define MD_KEY_URI              "uri"
