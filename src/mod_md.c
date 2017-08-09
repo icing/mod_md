@@ -470,7 +470,9 @@ static apr_status_t drive_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
         else if (renew) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO() 
                          "md(%s): state=%d, driving", md->name, md->state);
+                         
             rv = md_reg_stage(wd->reg, md, NULL, 0, ptemp);
+            
             if (APR_SUCCESS == rv) {
                 md->state = MD_S_COMPLETE;
                 md->expires = 0;

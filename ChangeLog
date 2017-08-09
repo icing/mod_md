@@ -1,3 +1,5 @@
+ * staging informtation, e.g. temp files during ACME protocol runs, gets automatically reset
+   when the managed domain changes.
  * when synching new configurations into the store, the list of domain names is now kept
    exactly the same. This allows removal of a member that fails challenges. Before, only
    additions have been stored. Test cases adjusted.
