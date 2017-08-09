@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B2B81EAD1F0E680800E35CA3"
+               BlueprintIdentifier = "B2B81EBA1F0E693500E35CA3"
                BuildableName = "all"
                BlueprintName = "all"
                ReferencedContainer = "container:mod_md.xcodeproj">
@@ -51,16 +51,6 @@
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B2B81EAD1F0E680800E35CA3"
-            BuildableName = "all"
-            BlueprintName = "all"
-            ReferencedContainer = "container:mod_md.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
       <AdditionalOptions>
       </AdditionalOptions>
    </LaunchAction>
@@ -70,16 +60,6 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B2B81EAD1F0E680800E35CA3"
-            BuildableName = "all"
-            BlueprintName = "all"
-            ReferencedContainer = "container:mod_md.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

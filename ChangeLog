@@ -1,3 +1,5 @@
+ * Fixed 'uninitialized var use' when logging too new store version, reported in #25
+
 v0.6.0
 ----------------------------------------------------------------------------------------------------
  * Restructuring of the source tree to something very similar as it will appear in the 

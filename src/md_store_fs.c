@@ -129,7 +129,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
                                     apr_pool_t *p, apr_pool_t *ptemp)
 {
     md_json_t *json;
-    const char *s, *key64;
+    const char *key64;
     apr_status_t rv;
     double store_version;
     
@@ -140,7 +140,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
             store_version = 1.0;
         }
         if (store_version > MD_STORE_VERSION) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "version too new: %s", s);
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "version too new: %s", store_version);
             return APR_EINVAL;
         }
         else if (store_version > MD_STORE_VERSION) {

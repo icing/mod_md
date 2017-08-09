@@ -900,7 +900,7 @@ static int md_http_challenge_pr(request_rec *r)
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
 
             r->status = HTTP_NOT_FOUND;
-            if (!strchr(name, '/') && store) {
+            if (!ap_strchr_c(name, '/') && store) {
                 base_dir = ap_server_root_relative(r->pool, base_dir);
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, 
                               "Challenge for %s (%s)", r->hostname, r->uri);
