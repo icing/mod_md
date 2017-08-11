@@ -8,7 +8,6 @@
 
 /* Begin PBXFileReference section */
 		755F874C1F273ECB00871895 /* global.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = global.conf.in; sourceTree = "<group>"; };
-		755F874E1F27878800871895 /* mod_md.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = mod_md.xml; sourceTree = "<group>"; };
 		758B85541F261AB10076B27A /* httpd_http.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_http.conf.in; sourceTree = "<group>"; };
 		758B85551F261AB10076B27A /* httpd_https.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_https.conf.in; sourceTree = "<group>"; };
 		758B85561F263F740076B27A /* renew_10.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_10.conf; sourceTree = "<group>"; };
@@ -90,6 +89,7 @@
 		B2B330181F39E9D500579179 /* md_cmd_store.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd_store.h; sourceTree = "<group>"; };
 		B2B330191F39E9D500579179 /* md_cmd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd.h; sourceTree = "<group>"; };
 		B2B3301A1F3B44B100579179 /* test_011b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_011b.conf; sourceTree = "<group>"; };
+		B2B3304D1F3B4CF100579179 /* mod_md.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = mod_md.xml; sourceTree = "<group>"; };
 		B2B81E8D1F0A907900E35CA3 /* empty.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = empty.conf; sourceTree = "<group>"; };
 		B2B81E8E1F0A907900E35CA3 /* one_md_ca.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_ca.conf; sourceTree = "<group>"; };
 		B2B81E8F1F0A907900E35CA3 /* one_md_admin.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_admin.conf; sourceTree = "<group>"; };
@@ -132,7 +132,7 @@
 		755F874D1F27875D00871895 /* docs */ = {
 			isa = PBXGroup;
 			children = (
-				755F874E1F27878800871895 /* mod_md.xml */,
+				B2B3304C1F3B4CF100579179 /* httpd */,
 			);
 			path = docs;
 			sourceTree = SOURCE_ROOT;
@@ -215,6 +215,14 @@
 				B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */,
 			);
 			path = test_drive;
+			sourceTree = "<group>";
+		};
+		B2B3304C1F3B4CF100579179 /* httpd */ = {
+			isa = PBXGroup;
+			children = (
+				B2B3304D1F3B4CF100579179 /* mod_md.xml */,
+			);
+			path = httpd;
 			sourceTree = "<group>";
 		};
 		B2B81EC81F13830600E35CA3 /* ssl */ = {
