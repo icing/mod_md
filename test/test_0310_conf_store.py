@@ -190,6 +190,12 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
 
+    def test_310_117(self):
+        # test case: automatically collect md names from vhost config
+        TestEnv.install_test_conf("member_auto");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['domains'] == [ 'example2.org', 'www.example2.org', 'test.example2.org' ]
+
     # --------- remove from store ---------
 
     def test_310_200(self):
