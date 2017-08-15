@@ -160,11 +160,35 @@ class TestConf:
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
 
     def test_310_112(self):
+        # test case: drive mode always
+        TestEnv.install_test_conf("drive_always");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
+
+    def test_310_113(self):
         # test case: renew window - 30 days
         TestEnv.install_test_conf("renew_30");
         assert TestEnv.apache_restart() == 0
         # todo: how to check renew value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
+
+    def test_310_114(self):
+        # test case: ca challenge type - http-01
+        TestEnv.install_test_conf("challenge_http");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01' ]
+
+    def test_310_115(self):
+        # test case: ca challenge type - http-01
+        TestEnv.install_test_conf("challenge_tls-sni");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-sni-01' ]
+
+    def test_310_116(self):
+        # test case: ca challenge type - all
+        TestEnv.install_test_conf("challenge_all");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
 
     # --------- remove from store ---------
 
@@ -250,6 +274,33 @@ class TestConf:
         # check: renew window not set
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
+    @pytest.mark.parametrize("confFile,expCode", [ 
+        ("drive_manual", 0), 
+        ("drive_auto", 1), 
+        ("drive_always", 2)
+    ])
+    def test_310_207(self, confFile, expCode):
+        # test case: remove drive mode from conf -> fallback to default (auto)
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == expCode
+
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+
+    @pytest.mark.skip(reason="removed config directive should cause sucessive cert renewal to work on any possible challenge type")
+    def test_310_208(self):
+        # test case: remove challenges from conf -> fallback to default (not set)
+        TestEnv.install_test_conf("challenge_http");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01' ]
+
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert 'challenges' not in TestEnv.a2md(["list"])['jout']['output'][0]['ca']
+
+
     # --------- change existing config definitions ---------
 
     def test_310_300(self):
@@ -301,7 +352,7 @@ class TestConf:
         self._check_md_contacts(name, ["mailto:webmaster@example.org"])
 
     def test_310_304(self):
-        # test case: change drive mode - manual -> auto
+        # test case: change drive mode - manual -> auto -> always
         # setup: drive mode manual
         TestEnv.install_test_conf("drive_manual");
         assert TestEnv.apache_restart() == 0
@@ -310,6 +361,10 @@ class TestConf:
         TestEnv.install_test_conf("drive_auto");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        # test case: drive mode always
+        TestEnv.install_test_conf("drive_always");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
 
     def test_310_305(self):
         # test case: change config value for renew window, use various syntax alternatives
@@ -323,6 +378,21 @@ class TestConf:
         # check: renew window not set
         # ToDo: how to check fallback to default value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 10 * SEC_PER_DAY
+
+    def test_310_306(self):
+        # test case: change challenge types - http -> tls-sni -> all
+        # setup: drive mode manual
+        TestEnv.install_test_conf("challenge_http");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01' ]
+        # test case: drive mode auto
+        TestEnv.install_test_conf("challenge_tls-sni");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-sni-01' ]
+        # test case: drive mode always
+        TestEnv.install_test_conf("challenge_all");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
 
     # --------- status reset on critical store changes ---------
 

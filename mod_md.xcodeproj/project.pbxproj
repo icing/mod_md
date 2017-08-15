@@ -13,6 +13,10 @@
 		758B85561F263F740076B27A /* renew_10.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_10.conf; sourceTree = "<group>"; };
 		758B85571F263F740076B27A /* renew_30.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_30.conf; sourceTree = "<group>"; };
 		75EAB2611F41BBEB00277D33 /* test_014.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_014.conf.in; sourceTree = "<group>"; };
+		75EAB2621F42C18D00277D33 /* challenge_all.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = challenge_all.conf; sourceTree = "<group>"; };
+		75EAB2631F42C18D00277D33 /* challenge_http.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = challenge_http.conf; sourceTree = "<group>"; };
+		75EAB2641F42C18D00277D33 /* challenge_tls-sni.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "challenge_tls-sni.conf"; sourceTree = "<group>"; };
+		75EAB2651F42C18D00277D33 /* drive_always.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = drive_always.conf; sourceTree = "<group>"; };
 		75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0600_roundtrip.py; sourceTree = "<group>"; };
 		75EDD0821F14E75A003CBD39 /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		75EDD0831F14E75A003CBD39 /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
@@ -171,6 +175,10 @@
 		B262F6CE1EFCFE1100D396A1 /* test_conf_store */ = {
 			isa = PBXGroup;
 			children = (
+				75EAB2621F42C18D00277D33 /* challenge_all.conf */,
+				75EAB2631F42C18D00277D33 /* challenge_http.conf */,
+				75EAB2641F42C18D00277D33 /* challenge_tls-sni.conf */,
+				75EAB2651F42C18D00277D33 /* drive_always.conf */,
 				75EDD0881F1CA2D4003CBD39 /* drive_auto.conf */,
 				75EDD0891F1CA2D4003CBD39 /* drive_manual.conf */,
 				B2B81E8D1F0A907900E35CA3 /* empty.conf */,
