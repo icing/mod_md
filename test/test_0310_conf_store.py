@@ -401,16 +401,20 @@ class TestConf:
         # setup: create complete md in store
         domain = "test310-400-" + TestConf.dns_uniq
         name = "www." + domain
-        assert TestEnv.a2md(["add", name])['rv'] == 0
+        assert TestEnv.a2md([ "add", name, "test1." + domain ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "-vvv", "drive", name ] )['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
-        # setup: add second domain
-        assert TestEnv.a2md([ "update", name, "domains", name, "test." + domain ])['rv'] == 0
-        # check: state reset to INCOMPLETE
+
+        # remove one domain -> status stays COMPLETE
+        assert TestEnv.a2md([ "update", name, "domains", name ])['rv'] == 0
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        
+        # add other domain -> status INCOMPLETE
+        assert TestEnv.a2md([ "update", name, "domains", name, "test2." + domain ])['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
 
     def test_310_401(self):
