@@ -28,7 +28,7 @@ def setup_module(module):
 
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    # assert TestEnv.apache_stop() == 0
+    assert TestEnv.apache_stop() == 0
 
 
 class TestAuto:
@@ -42,6 +42,7 @@ class TestAuto:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
+        TestEnv.apache_err_reset();
         TestEnv.clear_store()
         TestEnv.install_test_conf();
         self.test_n = int(re.match("test_(.+)", method.__name__).group(1))
@@ -67,8 +68,13 @@ class TestAuto:
         # restart, check that MD is synched to store
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert not TestEnv.await_completion([ domain ], 1)
-        
+        time.sleep( 2 )
+        # assert drive did not start
+        md = TestEnv.a2md([ "-j", "list", domain ])['jout']['output'][0]
+        assert md['state'] == TestEnv.MD_S_INCOMPLETE
+        assert 'account' not in md['ca']
+        assert TestEnv.apache_err_scan( re.compile('.*\[md:debug\].*no mds to auto drive') )
+
         # add vhost for MD, restart should drive it
         conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True)
         conf.install()
@@ -156,9 +162,13 @@ class TestAuto:
 
 
     #-----------------------------------------------------------------------------------------------
-    # test case: drive with using challenge 'tls-sni-01' explicitly
+    # test case: drive with using single challenge type explicitly
     #
-    def test_7004(self):
+    @pytest.mark.parametrize("challengeType", [ 
+        ("tls-sni-01"), 
+        ("http-01")
+    ])
+    def test_7004(self, challengeType):
         domain = self.test_domain
         dns_list = [ domain, "www." + domain ]
 
@@ -166,32 +176,7 @@ class TestAuto:
         conf = HttpdConf( TestAuto.TMP_CONF )
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "auto" )
-        conf.add_ca_challenges( [ "tls-sni-01" ] )
-        conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
-        conf.install()
-
-        # restart (-> drive), check that MD was synched and completes
-        assert TestEnv.apache_restart() == 0
-        self._check_md_names(domain, dns_list)
-        assert TestEnv.await_completion( [ domain ], 30 )
-        self._check_md_cert(dns_list)
-        
-        # check file access
-        assert TestEnv.hasCertAltName(domain)
-
-    #-----------------------------------------------------------------------------------------------
-    # test case: drive with using challenge 'http-01' explicitly
-    #
-    def test_7005(self):
-        domain = self.test_domain
-        dns_list = [ domain, "www." + domain ]
-
-        # generate 1 MD and 1 vhost
-        conf = HttpdConf( TestAuto.TMP_CONF )
-        conf.add_admin( "admin@" + domain )
-        conf.add_drive_mode( "auto" )
-        conf.add_ca_challenges( [ "http-01" ] )
+        conf.add_ca_challenges( [ challengeType ] )
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
         conf.install()
@@ -208,7 +193,7 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive_mode manual, check that server starts, but requests to domain are 503'd
     #
-    def test_7006(self):
+    def test_7005(self):
         domain = self.test_domain
         nameA = "test-a." + domain
         dns_list = [ domain, nameA ]
@@ -239,7 +224,7 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive MD with only invalid challenges, domains should stay 503'd
     #
-    def test_7007(self):
+    def test_7006(self):
         domain = self.test_domain
         nameA = "test-a." + domain
         dns_list = [ domain, nameA ]
@@ -260,7 +245,12 @@ class TestAuto:
         # restart, check that md is in store
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert not TestEnv.await_completion( [ domain ], 2 )
+        time.sleep( 2 )
+        # assert drive did not start
+        md = TestEnv.a2md([ "-j", "list", domain ])['jout']['output'][0]
+        assert md['state'] == TestEnv.MD_S_INCOMPLETE
+        assert 'account' not in md['ca']
+        assert TestEnv.apache_err_scan( re.compile('.*\[md:warn\].*the server offers no ACME challenge that is configured for this MD') )
 
         # check: that request to domains give 503 Service Unavailable
         assert not TestEnv.hasCertAltName(nameA)
@@ -271,7 +261,7 @@ class TestAuto:
     # MD not used in any virtual host, with drive mode 'always'
     # auto drive *should* pick it up
     #
-    def test_7008(self):
+    def test_7007(self):
         domain = self.test_domain
         dns_list = [ domain ]
 

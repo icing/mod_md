@@ -350,6 +350,18 @@ class TestEnv:
                     wcount = 0
             return (ecount, wcount)
 
+    @classmethod
+    def apache_err_scan( cls, regex ):
+        if not os.path.isfile(cls.ERROR_LOG):
+            return False
+        fin = open(cls.ERROR_LOG)
+        for line in fin:
+            m = regex.match(line)
+            if m:
+                return True
+        return False
+
+
     # --------- check utilities ---------
 
     @classmethod
