@@ -268,7 +268,7 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
         }
 
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10039)
-                     "COmpleted MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, renew=%ld]",
+                     "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, renew=%ld]",
                      md->name, md->ca_url, md->ca_proto, md->ca_agreement,
                      md->drive_mode, (long)md->renew_window);
     }
