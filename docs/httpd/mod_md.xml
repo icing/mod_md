@@ -199,8 +199,8 @@ ManagedDomain example.org www.example.org mail.example.org
     <directivesynopsis>
         <name>MDDriveMode</name>
         <description>Controls if the certificate issuing runs automatically or is started manually via command line</description>
-        <syntax>MDDriveMode  auto|manual</syntax>
-        <default>MDDriveMode  auto</default>
+        <syntax>MDDriveMode auto|manual|always</syntax>
+        <default>MDDriveMode auto</default>
         <contextlist>
             <context>server config</context>
             <context>managed domain</context>
@@ -209,10 +209,14 @@ ManagedDomain example.org www.example.org mail.example.org
             <p><module>mod_md</module> calls it <em>driving</em> a protocol/domain to obtain the certificates. There are two separate modes: <code>auto</<code> and <code>manual</code>
             </p>
             <p>Per default drive mode <code>auto</auto>will do its best to automate everything.
-            The other mode is <code>manual<code> where <module>mod_md</module> will not contact the CA itself. 
+            </p>
+            <p>In drive mode <code>manual<code> <module>mod_md</module> will not contact the CA itself. 
             Instead, you may use the provided command line utility <code>a2md</code> to perform this - separate from your httpd process.
             </p>
-            <p><strong>Note:</strong> Drive mode <code>auto</code> requires <module>mod_watchdog</module> to be active in your server.</p>
+            <p>In drive mode <code>always<code> <module>mod_md</module> will fetch a certificate for the managed domain even if the given names are not used in any <directive module="mod_core" type="section">VirtualHost</directive> context.
+            The default mode <code>auto<code> would otherwise skip this managed domain definition.
+            </p>
+            <p><strong>Note:</strong> Drive modes <code>auto</code> and <code>always</code> require <module>mod_watchdog</module> to be active in your server.</p>
         </usage>
     </directivesynopsis>
 
@@ -234,6 +238,30 @@ ManagedDomain example.org www.example.org mail.example.org
 &lt;ManagedDomain example.org&gt;
     MDMember www.example.org
     MDMember mail.example.org
+&lt;/ManagedDomain example.org&gt;
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>MDCAChallenges</name>
+        <description>Set the allowed challenge types tha mod_md should be allowed to use</description>
+        <syntax>MDCAChallenges challenge-type [ other-challenge-tpes-list ]</syntax>
+        <default>MDDriveMode  http-01 tls-sni-01</default>
+        <contextlist>
+            <context>server config</context>
+            <context>managed domain</context>
+        </contextlist>
+        <usage>
+            <p>Within the ACME protocol the server offers a list of different challenges. The client chooses one of these, locally prepares the requested conditions and reports back to the server.
+            This directive may limit <module>mod_md</module>'s choice to only the given challange types.
+            </p>
+            <p>Currently only these types are implemented: <code>http-01</code> and <code>tls-sni-01</code></p>
+            <example><title>Example</title>
+                <highlight language="config">
+&lt;ManagedDomain example.org&gt;
+    MDCAChallenges http-01
 &lt;/ManagedDomain example.org&gt;
                 </highlight>
             </example>
