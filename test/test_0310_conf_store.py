@@ -295,7 +295,6 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
 
-    @pytest.mark.skip(reason="removed config directive should cause sucessive cert renewal to work on any possible challenge type")
     def test_310_208(self):
         # test case: remove challenges from conf -> fallback to default (not set)
         TestEnv.install_test_conf("challenge_http");
