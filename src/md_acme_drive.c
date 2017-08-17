@@ -651,7 +651,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
         rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
         if (APR_SUCCESS == rv) {
             /* So, we have a copy in staging, but is it a recent or an old one? */
-            if (!md_is_newer(d->store, MD_SG_STAGING, MD_SG_DOMAINS, d->md->name, d->p)) {
+            if (md_is_newer(d->store, MD_SG_DOMAINS, MD_SG_STAGING, d->md->name, d->p)) {
                 reset_staging = 1;
             }
         }
