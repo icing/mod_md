@@ -13,12 +13,13 @@
 # limitations under the License.
 #
 SUBDIRS         = @BUILD_SUBDIRS@
-DIST_SUBDIRS    = src docs
+DIST_SUBDIRS    = src
 
 ACLOCAL_AMFLAGS = -I m4
 
 
 dist_doc_DATA   = README README.md LICENSE
+EXTRA_DIST      = docs
 
 .PHONY: test
 
