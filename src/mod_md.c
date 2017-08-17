@@ -460,19 +460,19 @@ static apr_status_t drive_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
     int errored, renew;
     char ts[APR_RFC822_DATE_LEN];
     
-    if (APR_SUCCESS == (rv = md_reg_assess(wd->reg, md, &errored, &renew, wd->p))) {
+    if (md->state == MD_S_COMPLETE && !md->expires) {
+        /* This is our indicator that we did already renewed this managed domain
+         * successfully and only wait on the next restart for it to activate */
+        now = apr_time_now();
+        ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO(10051) 
+                     "md(%s): has been renewed, should be activated in %s", 
+                     md->name, (md->valid_from <= now)? "about now" : 
+                     md_print_duration(ptemp, md->valid_from - now));
+    }
+    else if (APR_SUCCESS == (rv = md_reg_assess(wd->reg, md, &errored, &renew, wd->p))) {
         if (errored) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10050) 
                          "md(%s): in error state", md->name);
-        }
-        else if (md->state == MD_S_COMPLETE && !md->expires) {
-            /* This is our indicator that we did already renew this managed domain
-             * successfully and only wait on the next restart for it to activate */
-            now = apr_time_now();
-            ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO(10051) 
-                         "md(%s): has been renewed, should be activated in %s", 
-                         md->name, (md->valid_from <= now)? "about now" : 
-                         md_print_duration(ptemp, md->valid_from - now));
         }
         else if (renew) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10052) 
@@ -557,7 +557,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                 }
                 else {
                     ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, wd->s, 
-                                 "all managed domains are valid, activate right away");
+                                 "all managed domains are valid");
                 }
             }
             else {
