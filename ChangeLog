@@ -9,6 +9,8 @@ v0.7.0
    for clients with weird clocks, refs #1. 
  * Fixed store sync when MDCAChallenges was removed again from an MD. 
  * Fixed crash when MD matched the base server, fixes #23
+ * Fixed watchgod resetting staging when server processes disappeared (e.g. reached
+   max requests or other limits).
 
 v0.6.1
 ----------------------------------------------------------------------------------------------------
