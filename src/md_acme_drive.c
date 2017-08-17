@@ -785,6 +785,26 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
                           "%s: retrieving certificate chain", d->md->name);
             rv = ad_chain_install(d);
         }
+
+        if (APR_SUCCESS == rv && ad->cert) {
+            apr_time_t now = apr_time_now();
+            apr_interval_time_t max_delay, delay_activation; 
+            
+            /* determine when this cert should be activated */
+            d->stage_valid_from = md_cert_get_not_before(ad->cert);
+            if (d->md->state == MD_S_COMPLETE && d->md->expires > now) {            
+                /**
+                 * The MD is complete and un-expired. This is a renewal run. 
+                 * Give activation 24 hours leeway (if we have that time) to
+                 * accomodate for clients with somewhat weird clocks.
+                 */
+                delay_activation = apr_time_from_sec(MD_SECS_PER_DAY);
+                if (delay_activation > (max_delay = d->md->expires - now)) {
+                    delay_activation = max_delay;
+                }
+                d->stage_valid_from += delay_activation;
+            }
+        }
     }
 out:    
     return rv;

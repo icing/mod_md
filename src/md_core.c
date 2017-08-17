@@ -291,6 +291,11 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             apr_rfc822_date(ts, md->expires);
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
         }
+        if (md->valid_from > 0) {
+            char *ts = apr_pcalloc(p, APR_RFC822_DATE_LEN);
+            apr_rfc822_date(ts, md->valid_from);
+            md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
+        }
         md_json_setl(apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
         if (md->ca_challenges && md->ca_challenges->nelts > 0) {
             apr_array_header_t *na;
@@ -322,6 +327,10 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
         if (s && *s) {
             md->expires = apr_date_parse_rfc(s);
+        }
+        s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
+        if (s && *s) {
+            md->valid_from = apr_date_parse_rfc(s);
         }
         md->renew_window = apr_time_from_sec(md_json_getl(json, MD_KEY_RENEW_WINDOW, NULL));
         if (md_json_has_key(json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL)) {
