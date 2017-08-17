@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [0.6.1], [stefan.eissing@greenbytes.de])
+AC_INIT([mod_md], [0.7.0], [stefan.eissing@greenbytes.de])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -67,9 +67,6 @@ AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
 
 AC_ARG_WITH([boulder], [AS_HELP_STRING([--with-boulder], [Use given url for boulder])],
     [request_boulder=$withval], [request_boulder=def])
-
-MD_TEST_PHASE=1
-AC_SUBST(MD_TEST_PHASE)
 
 SERVER_NAME=$(hostname -f)
 AC_SUBST(SERVER_NAME)
@@ -133,8 +130,7 @@ fi
 AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
 AC_PATH_PROG([PKGCONFIG], [pkg-config])
 
-# This is all experimental by default for now
-MD_EXPERIMENTAL=1
+MD_EXPERIMENTAL=0
 AC_SUBST(MD_EXPERIMENTAL)
 
 # When experimental, default to the LetsEncrypt ACME staging endpoint

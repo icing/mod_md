@@ -245,6 +245,26 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
     return md;   
 }
 
+md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
+{
+    md_t *n = apr_pcalloc(p, sizeof(*n));
+
+    n->ca_url = add->ca_url? add->ca_url : base->ca_url;
+    n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
+    n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
+    n->drive_mode = (add->drive_mode != MD_DRIVE_DEFAULT)? add->drive_mode : base->drive_mode;
+    n->renew_window = (add->renew_window <= 0)? add->renew_window : base->renew_window;
+    n->transitive = (add->transitive < 0)? add->transitive : base->transitive;
+    if (add->ca_challenges) {
+        n->ca_challenges = apr_array_copy(p, add->ca_challenges);
+    }
+    else if (base->ca_challenges) {
+        n->ca_challenges = apr_array_copy(p, base->ca_challenges);
+    }
+    return n;
+}
+
+
 /**************************************************************************************************/
 /* format conversion */
 

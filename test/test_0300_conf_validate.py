@@ -128,7 +128,7 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.apache_err_count()
 
-    @pytest.mark.skip(reason="global server name rejected as md part of md name list")
+    #@pytest.mark.skip(reason="global server name rejected as md part of md name list")
     def test_300_014(self):
         # global server name as managed domain name
         TestEnv.install_test_conf("test_014");

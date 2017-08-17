@@ -213,6 +213,11 @@ md_t *md_clone(apr_pool_t *p, const md_t *src);
  */
 md_t *md_copy(apr_pool_t *p, const md_t *src);
 
+/**
+ * Create a merged md with the settings of add overlaying the ones from base.
+ */
+md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base);
+
 /** 
  * Convert the managed domain into a JSON representation and vice versa. 
  *

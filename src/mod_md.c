@@ -128,7 +128,7 @@ static apr_status_t apply_to_servers(md_t *md, server_rec *base_server,
      */
     memset(&r, 0, sizeof(r));
     sc = NULL;
-        
+    
     /* This MD may apply to 0, 1 or more sever_recs */
     for (s = base_server; s; s = s->next) {
         r.server = s;
@@ -145,14 +145,14 @@ static apr_status_t apply_to_servers(md_t *md, server_rec *base_server,
                              "Server %s:%d matches md %s (config %s)", 
                              s->server_hostname, s->port, md->name, sc->name);
                 
-                if (sc->md == md) {
+                if (sc->assigned == md) {
                     /* already matched via another domain name */
                     goto next_server;
                 }
-                else if (sc->md) {
+                else if (sc->assigned) {
                     ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10042)
                                  "conflict: MD %s matches server %s, but MD %s also matches.",
-                                 md->name, s->server_hostname, sc->md->name);
+                                 md->name, s->server_hostname, sc->assigned->name);
                     rv = APR_EINVAL;
                     goto next_server;
                 }
@@ -172,11 +172,12 @@ static apr_status_t apply_to_servers(md_t *md, server_rec *base_server,
                                  s->server_admin);
                 }
                 /* remember */
-                sc->md = md;
+                sc->assigned = md;
                 
                 /* This server matches a managed domain. If it contains names or
                  * alias that are not in this md, a generated certificate will not match. */
-                if (APR_SUCCESS == (rv2 = check_coverage(md, s->server_hostname, s, p))) {
+                if (APR_SUCCESS == (rv2 = check_coverage(md, s->server_hostname, s, p))
+                    && s->names) {
                     for (j = 0; j < s->names->nelts; ++j) {
                         name = APR_ARRAY_IDX(s->names, j, const char*);
                         if (APR_SUCCESS != (rv2 = check_coverage(md, name, s, p))) {
@@ -796,9 +797,9 @@ static int md_is_managed(server_rec *s)
 {
     md_srv_conf_t *conf = md_config_get(s);
 
-    if (conf && conf->md) {
+    if (conf && conf->assigned) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10076) 
-                     "%s: manages server %s", conf->md->name, s->server_hostname);
+                     "%s: manages server %s", conf->assigned->name, s->server_hostname);
         return 1;
     }
     ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,  
@@ -821,11 +822,11 @@ static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
     
     sc = md_config_get(s);
     
-    if (sc && sc->md) {
+    if (sc && sc->assigned) {
         assert(sc->mc);
         assert(sc->mc->store);
         if (APR_SUCCESS == (rv = md_reg_init(&reg, p, sc->mc->store))) {
-            md = md_reg_get(reg, sc->md->name, p);
+            md = md_reg_get(reg, sc->assigned->name, p);
             if (md->state != MD_S_COMPLETE) {
                 return APR_EAGAIN;
             }

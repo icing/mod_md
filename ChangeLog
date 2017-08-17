@@ -1,3 +1,14 @@
+v0.7.0
+----------------------------------------------------------------------------------------------------
+ * LIVE: the real Let's Encrypt CA is now live by default! If you need to experiment, configure
+``` 
+    MDCertificateAuthority https://acme-staging.api.letsencrypt.org/directory
+```    
+ * Fixed store sync when MDCAChallenges was removed again from an MD. 
+ * Fixed crash when MD matched the base server, fixes #23
+
+v0.6.1
+----------------------------------------------------------------------------------------------------
  * global or inside ManagedDomain, 'MDMembers auto|manual' defines if ServerName and ServerAlias
    names of a VirtualHost are automatically added to the members of a Managed Domain or not.
    Default is 'auto'.
