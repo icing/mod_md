@@ -260,9 +260,15 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
             ptype = md_json_gets(problem, "type", NULL); 
             pdetail = md_json_gets(problem, "detail", NULL);
             req->rv = problem_status_get(ptype);
-             
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, req->rv, req->p,
-                          "acme problem %s: %s", ptype, pdetail);
+            
+            if (APR_STATUS_IS_EAGAIN(req->rv)) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, req->rv, req->p,
+                              "acme reports %s: %s", ptype, pdetail);
+            }
+            else {
+                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, req->rv, req->p,
+                              "acme problem %s: %s", ptype, pdetail);
+            }
             return req->rv;
         }
     }

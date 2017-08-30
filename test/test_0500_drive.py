@@ -61,7 +61,7 @@ class TestDrive :
             )['rv'] == 0
         run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
-        assert re.search("need to accept terms-of-service", run["stderr"])
+        assert re.search("the CA requires you to accept the terms-of-service as specified in ", run["stderr"])
 
     
     # test_102 removed, was based on false assumption

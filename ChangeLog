@@ -1,5 +1,9 @@
 v0.7.1-DEV
 ----------------------------------------------------------------------------------------------------
+ * Cleaned up reporting of missing/mismatched MDCertificateAgreement in the logs. This will
+   no longer trigger early retries.
+ * badNonce encounters are no longer reported as errors. Retries are attempted now silently.
+   Refs issue #35
  * new default MDRenewWindow. Instead of 14 days, the default is now a third before the end of
    the certificates lifetime. For the usual 90 days of Let's Encrypt certificates, this makes
    an effective renewal window of 30 days - as recommended by LE. Refs issue #30

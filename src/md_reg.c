@@ -307,6 +307,8 @@ apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, 
         case MD_S_EXPIRED:
             renew = 1;
             break;
+        case MD_S_MISSING:
+            break;
     }
     *prenew = renew;
     *perrored = errored;

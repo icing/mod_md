@@ -614,11 +614,13 @@ static int agreement_required(md_acme_acct_t *acct)
             || (acct->tos_required && strcmp(acct->tos_required, acct->agreement)));
 }
 
-apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, const char *agreement)
+apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, 
+                                     const char *agreement, const char **prequired)
 {
     apr_status_t rv = APR_SUCCESS;
     
     /* Check if (correct) Terms-of-Service for account were accepted */
+    *prequired = NULL;
     if (agreement_required(acme->acct)) {
         const char *tos = acme->acct->tos_required;
         if (!tos) {
@@ -642,10 +644,8 @@ apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, const char 
             rv = md_acme_agree(acme, p, tos);
         }
         else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, acme->p, 
-                          "need to accept terms-of-service <%s> for account %s", 
-                          tos, acme->acct->id);
-            rv = APR_EACCES;
+            *prequired = apr_pstrdup(p, tos);
+            rv = APR_INCOMPLETE;
         }
     }
     return rv;

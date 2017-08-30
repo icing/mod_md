@@ -274,7 +274,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
         
         if (APR_SUCCESS == (rv = md_reg_stage(ctx->reg, md, challenge, reset, NULL, ctx->p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
             
             rv = md_reg_load(ctx->reg, md->name, ctx->p);
             

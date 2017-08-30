@@ -34,6 +34,7 @@ typedef enum {
     MD_S_COMPLETE,                  /* MD has all necessary information, can go live */
     MD_S_EXPIRED,                   /* MD is complete, but credentials have expired */
     MD_S_ERROR,                     /* MD data is flawed, unable to be processed as is */ 
+    MD_S_MISSING,                   /* MD is missing config information, cannot proceed */
 } md_state_t;
 
 typedef enum {

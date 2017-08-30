@@ -674,6 +674,12 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
         ad->md = NULL;
     }
     
+    if (ad->md && ad->md->state == MD_S_MISSING) {
+        /* There is config information missing. It makes no sense to drive this MD further */
+        rv = APR_INCOMPLETE;
+        goto out;
+    }
+    
     if (ad->md) {
         /* staging in progress. look for new ACME account information collected there */
         rv = md_reg_creds_get(&ad->ncreds, d->reg, MD_SG_STAGING, d->md, d->p);
@@ -724,11 +730,32 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
              * requests for new authorizations are denied. ToS may change during the
              * lifetime of an account */
             if (APR_SUCCESS == rv) {
+                const char *required;
+                
                 ad->phase = "check agreement";
                 md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                               "%s: check Terms-of-Service agreement", d->md->name);
                 
-                rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement);
+                rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement, &required);
+                
+                if (APR_STATUS_IS_INCOMPLETE(rv) && required) {
+                    /* The CA wants the user to agree to Terms-of-Services. Until the user
+                     * has reconfigured and restarted the server, this MD cannot be
+                     * driven further */
+                    ad->md->state = MD_S_MISSING;
+                    md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
+
+                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
+                                  "%s: the CA requires you to accept the terms-of-service "
+                                  "as specified in <%s>.\n"
+                                  "Please read the document that you find at that URL and, "
+                                  "if you agree to the condictions, configure \n"
+                                  "  MDCertificateAgreement url\n"
+                                  "with exactly that URL in your Apache. "
+                                  "Then restart the server to activate.", 
+                                  ad->md->name, required);
+                    goto out;
+                }
             }
             
             /* If we know a cert's location, try to get it. Previous download might
