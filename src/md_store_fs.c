@@ -60,8 +60,6 @@ struct md_store_fs_t {
     
     int port_80;
     int port_443;
-
-    const unsigned char *dupkey;
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
@@ -98,32 +96,23 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
 {
     md_json_t *json = md_json_create(p);
     const char *key64;
+    unsigned char *key;
     apr_status_t rv;
-    unsigned char key[FS_STORE_KLEN];
-    int i;
     
     md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
     md_json_setn(MD_STORE_VERSION, json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
 
-    /*if (APR_SUCCESS != (rv = md_rand_bytes(key, sizeof(key), p))) {
+    s_fs->key_len = FS_STORE_KLEN;
+    s_fs->key = key = apr_pcalloc(p, FS_STORE_KLEN);
+    if (APR_SUCCESS != (rv = md_rand_bytes(key, s_fs->key_len, p))) {
         return rv;
-    }*/
-    for (i = 0; i < FS_STORE_KLEN; ++i) {
-        key[i] = 'a' + (i % 26);
-    } 
-
-    s_fs->key_len = sizeof(key);
-    s_fs->key = apr_pcalloc(p, sizeof(key) + 1);
-    memcpy((void*)s_fs->key, key, sizeof(key));
-    s_fs->dupkey = apr_pmemdup(p, key, sizeof(key));
+    }
         
-    key64 = md_util_base64url_encode((char *)key, sizeof(key), ptemp);
+    key64 = md_util_base64url_encode((char *)key, s_fs->key_len, ptemp);
     md_json_sets(key64, json, MD_KEY_KEY, NULL);
-    
     rv = md_json_fcreatex(json, ptemp, MD_JSON_FMT_INDENT, fname, MD_FPROT_F_UONLY);
     memset((char*)key64, 0, strlen(key64));
 
-    assert(memcmp(s_fs->key, s_fs->dupkey, FS_STORE_KLEN) == 0);
     return rv;
 }
 
@@ -131,7 +120,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
                                     apr_pool_t *p, apr_pool_t *ptemp)
 {
     md_json_t *json;
-    const char *key64;
+    const char *key64, *key;
     apr_status_t rv;
     double store_version;
     
@@ -155,12 +144,13 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
             return APR_EINVAL;
         }
         
-        s_fs->key_len = md_util_base64url_decode((const char **)&s_fs->key, key64, p);
-        if (s_fs->key_len < FS_STORE_KLEN) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "key too short: %d", s_fs->key_len);
+        s_fs->key_len = md_util_base64url_decode(&key, key64, p);
+        s_fs->key = (const unsigned char*)key;
+        if (s_fs->key_len != FS_STORE_KLEN) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "key length unexpected: %d", 
+                          s_fs->key_len);
             return APR_EINVAL;
         }
-        s_fs->dupkey = apr_pmemdup(p, s_fs->key, FS_STORE_KLEN);
     }
     return rv;
 }
@@ -320,7 +310,6 @@ static void get_pass(const char **ppass, apr_size_t *plen,
         *plen = 0;
     }
     else {
-        assert(memcmp(s_fs->key, s_fs->dupkey, FS_STORE_KLEN) == 0);
         *ppass = (const char *)s_fs->key;
         *plen = s_fs->key_len;
     }

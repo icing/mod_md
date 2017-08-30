@@ -69,6 +69,7 @@ class TestEnv:
         cls.ACME_SERVER_OK = False
 
         cls.set_store_dir('md')
+        cls.purge_store()
         cls.install_test_conf()
 
     @classmethod
@@ -208,12 +209,21 @@ class TestEnv:
     # --------- access local store ---------
 
     @classmethod
-    def clear_store( cls ) : 
-        print("clear store dir: %s" % TestEnv.STORE_DIR)
+    def purge_store( cls ) : 
+        print("purge store dir: %s" % TestEnv.STORE_DIR)
         assert len(TestEnv.STORE_DIR) > 1
         if os.path.exists(TestEnv.STORE_DIR):
             shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=False)
         os.makedirs(TestEnv.STORE_DIR)
+
+    @classmethod
+    def clear_store( cls ) : 
+        print("clear store dir: %s" % TestEnv.STORE_DIR)
+        assert len(TestEnv.STORE_DIR) > 1
+        if not os.path.exists(TestEnv.STORE_DIR):
+            os.makedirs(TestEnv.STORE_DIR)
+        for dir in [ "challenges", "tmp", "archive", "domains", "accounts", "staging" ]:
+            shutil.rmtree(os.path.join(TestEnv.STORE_DIR, dir), ignore_errors=True)
 
     @classmethod
     def authz_save( cls, name, content ) :

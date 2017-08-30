@@ -26,7 +26,7 @@ class TestStore:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.clear_store()
+        TestEnv.purge_store()
  
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
