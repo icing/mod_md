@@ -1,5 +1,6 @@
 v0.7.1-DEV
 ----------------------------------------------------------------------------------------------------
+ * Removed pun "Something, like certbot" from the User-Agent request header. Refs issue #34
  * Cleaned up reporting of missing/mismatched MDCertificateAgreement in the logs. This will
    no longer trigger early retries.
  * badNonce encounters are no longer reported as errors. Retries are attempted now silently.
