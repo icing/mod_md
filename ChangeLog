@@ -1,3 +1,11 @@
+v0.7.1-DEV
+----------------------------------------------------------------------------------------------------
+ * new default MDRenewWindow. Instead of 14 days, the default is now a third before the end of
+   the certificates lifetime. For the usual 90 days of Let's Encrypt certificates, this makes
+   an effective renewal window of 30 days - as recommended by LE. Refs issue #30
+ * Enabled conversion warnings if supported by compiler, eliminated several signed/unsigned
+   warnings.
+
 v0.7.0
 ----------------------------------------------------------------------------------------------------
  * LIVE: the real Let's Encrypt CA is now live by default! If you need to experiment, configure

@@ -65,8 +65,8 @@ static md_srv_conf_t defconf = {
     1,
     MD_DRIVE_AUTO,
     0,
-    apr_time_from_sec(14 * MD_SECS_PER_DAY),
-
+    apr_time_from_sec(90 * MD_SECS_PER_DAY), /* If the cert lifetime were 90 days, renew */
+    apr_time_from_sec(30 * MD_SECS_PER_DAY), /* 30 days before. Adjust to actual lifetime */
     MD_ACME_DEF_URL,
     "ACME",
     NULL,
@@ -109,6 +109,7 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
     sc->transitive = DEF_VAL;
     sc->drive_mode = DEF_VAL;
     sc->must_staple = DEF_VAL;
+    sc->renew_norm = DEF_VAL;
     sc->renew_window = DEF_VAL;
     sc->ca_url = NULL;
     sc->ca_proto = NULL;
@@ -121,6 +122,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
     to->transitive = from->transitive;
     to->drive_mode = from->drive_mode;
     to->must_staple = from->must_staple;
+    to->renew_norm = from->renew_norm;
     to->renew_window = from->renew_window;
     to->ca_url = from->ca_url;
     to->ca_proto = from->ca_proto;
@@ -133,6 +135,7 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->transitive != DEF_VAL) md->transitive = from->transitive;
     if (from->drive_mode != DEF_VAL) md->drive_mode = from->drive_mode;
     if (from->must_staple != DEF_VAL) md->must_staple = from->must_staple;
+    if (from->renew_norm != DEF_VAL) md->renew_norm = from->renew_norm;
     if (from->renew_window != DEF_VAL) md->renew_window = from->renew_window;
 
     if (from->ca_url) md->ca_url = from->ca_url;
@@ -166,6 +169,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
 
     nsc->transitive = (add->transitive != DEF_VAL)? add->transitive : base->transitive;
     nsc->drive_mode = (add->drive_mode != DEF_VAL)? add->drive_mode : base->drive_mode;
+    nsc->renew_window = (add->renew_norm != DEF_VAL)? add->renew_norm : base->renew_norm;
     nsc->renew_window = (add->renew_window != DEF_VAL)? add->renew_window : base->renew_window;
 
     nsc->ca_url = add->ca_url? add->ca_url : base->ca_url;
@@ -242,7 +246,7 @@ static const char *md_config_sec_start(cmd_parms *cmd, void *mconfig, const char
         return  MD_CMD_MD_SECTION "> directive missing closing '>'";
     }
 
-    arg = apr_pstrndup(cmd->pool, arg, endp-arg);
+    arg = apr_pstrndup(cmd->pool, arg, (apr_size_t)(endp-arg));
     if (!arg || !*arg) {
         return MD_CMD_MD_SECTION " > section must specify a unique domain name";
     }
@@ -444,23 +448,54 @@ static apr_status_t duration_parse(const char *value, apr_interval_time_t *ptime
     return rv;
 }
 
+static apr_status_t percentage_parse(const char *value, int *ppercent)
+{
+    char *endp;
+    apr_int64_t n;
+    
+    n = apr_strtoi64(value, &endp, 10);
+    if (errno) {
+        return errno;
+    }
+    if (*endp == '%') {
+        if (n < 0 || n >= 100) {
+            return APR_BADARG;
+        }
+        *ppercent = (int)n;
+        return APR_SUCCESS;
+    }
+    return APR_EINVAL;
+}
+
 static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const char *value)
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
     apr_interval_time_t timeout;
-
-    /* Inspired by http_core.c */
-    if (duration_parse(value, &timeout, "d") != APR_SUCCESS) {
-        return "MDRenewWindow has wrong format";
-    }
-        
+    int percent;
+    
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
     }
-    config->renew_window = timeout;
-    return NULL;
+
+    /* Inspired by http_core.c */
+    if (duration_parse(value, &timeout, "d") == APR_SUCCESS) {
+        config->renew_norm = 0;
+        config->renew_window = timeout;
+        return NULL;
+    }
+    else {
+        switch (percentage_parse(value, &percent)) {
+            case APR_SUCCESS:
+                config->renew_norm = 100;
+                config->renew_window = percent;
+                return NULL;
+            case APR_BADARG:
+                return "MDRenewWindow as percent must be less than 100";
+        }
+    }
+    return "MDRenewWindow has unrecognized format";
 }
 
 static const char *md_config_set_store_dir(cmd_parms *cmd, void *arg, const char *value)
@@ -654,6 +689,8 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
 apr_interval_time_t md_config_get_interval(const md_srv_conf_t *sc, md_config_var_t var)
 {
     switch (var) {
+        case MD_CONFIG_RENEW_NORM:
+            return (sc->renew_norm != DEF_VAL)? sc->renew_norm : defconf.renew_norm;
         case MD_CONFIG_RENEW_WINDOW:
             return (sc->renew_window != DEF_VAL)? sc->renew_window : defconf.renew_window;
         default:

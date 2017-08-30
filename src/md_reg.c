@@ -281,11 +281,26 @@ apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, 
                 md->state = MD_S_EXPIRED;
                 renew = 1;
             }
-            else if ((md->expires - now) <= md->renew_window) {
-                int days = (int)(apr_time_sec(md->expires - now) / MD_SECS_PER_DAY);
-                md_log_perror( MD_LOG_MARK, MD_LOG_DEBUG, 0, p,  
-                              "md(%s): %d days to expiry, attempt renewal", md->name, days);
-                renew = 1;
+            else {
+                apr_interval_time_t renew_win, left, life;
+
+                renew_win = md->renew_window;
+                if (md->renew_norm > 0 
+                    && md->renew_norm > renew_win
+                    && md->expires > md->valid_from) {
+                    /* Calc renewal days as fraction of cert lifetime - if known */
+                    life = md->expires - md->valid_from; 
+                    renew_win = (apr_interval_time_t)(life * (md->renew_norm / (double)renew_win));
+                }
+                
+                left = md->expires - now;
+                if (left <= renew_win) {
+                    int days_left = (int)(apr_time_sec(left) / MD_SECS_PER_DAY);
+                    md_log_perror( MD_LOG_MARK, MD_LOG_DEBUG, 0, p,  
+                                  "md(%s): %d days to expiry, attempt renewal", 
+                                  md->name, days_left);
+                    renew = 1;
+                }                
             }
             break;
         case MD_S_INCOMPLETE:
@@ -513,6 +528,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_RENEW_WINDOW & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update renew-window: %s", name);
+        nmd->renew_norm = updates->renew_norm;
         nmd->renew_window = updates->renew_window;
     }
     if (MD_UPD_CA_CHALLENGES & fields) {
@@ -554,7 +570,7 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     md_store_group_t group;
     
     pcreds = va_arg(ap, md_creds_t **);
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     md = va_arg(ap, const md_t *);
     
     if (ok_or_noent(rv = md_cert_load(reg->store, group, md->name, &cert, p))
@@ -767,10 +783,12 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->contacts = md->contacts;
                     fields |= MD_UPD_CONTACTS;
                 }
-                if (MD_VAL_UPDATE(md, smd, renew_window)) {
+                if (MD_VAL_UPDATE(md, smd, renew_window) 
+                    || MD_VAL_UPDATE(md, smd, renew_norm)) {
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                                  "%s: update renew_window, old=%ld, new=%ld", 
-                                  smd->name, (long)smd->renew_window, md->renew_window);
+                                  "%s: update renew norm=%ld, window=%ld", 
+                                  smd->name, (long)md->renew_norm, (long)md->renew_window);
+                    smd->renew_norm = md->renew_norm;
                     smd->renew_window = md->renew_window;
                     fields |= MD_UPD_RENEW_WINDOW;
                 }
@@ -880,7 +898,7 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge,
         return APR_SUCCESS;
     }
     
-    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
+    proto = apr_hash_get(reg->protos, md->ca_proto, (apr_ssize_t)strlen(md->ca_proto));
     if (!proto) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
@@ -918,7 +936,7 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         return APR_EINVAL;
     }
     
-    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
+    proto = apr_hash_get(reg->protos, md->ca_proto, (apr_ssize_t)strlen(md->ca_proto));
     if (!proto) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);

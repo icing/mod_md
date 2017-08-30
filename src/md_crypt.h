@@ -43,7 +43,7 @@ typedef struct md_pkey_t md_pkey_t;
 
 apr_status_t md_crypt_init(apr_pool_t *pool);
 
-apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, int bits);
+apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits);
 void md_pkey_free(md_pkey_t *pkey);
 
 const char *md_pkey_get_rsa_e64(md_pkey_t *pkey, apr_pool_t *p);

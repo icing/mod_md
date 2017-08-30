@@ -71,6 +71,7 @@ struct md_t {
     int transitive;                 /* != 0 iff VirtualHost names/aliases are auto-added */
     int drive_mode;                 /* mode of obtaining credentials */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
+    apr_interval_time_t renew_norm; /* if > 0, normalized cert lifetime */
     apr_interval_time_t renew_window;/* time before expiration that starts renewal */
     
     const char *ca_url;             /* url of CA certificate service */
@@ -114,6 +115,7 @@ struct md_t {
 #define MD_KEY_NAME             "name"
 #define MD_KEY_PROTO            "proto"
 #define MD_KEY_REGISTRATION     "registration"
+#define MD_KEY_RENEW_NORM       "renew-norm"
 #define MD_KEY_RENEW_WINDOW     "renew-window"
 #define MD_KEY_RESOURCE         "resource"
 #define MD_KEY_STATE            "state"

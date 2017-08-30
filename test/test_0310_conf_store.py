@@ -167,10 +167,10 @@ class TestConf:
 
     def test_310_113(self):
         # test case: renew window - 30 days
-        TestEnv.install_test_conf("renew_30");
+        TestEnv.install_test_conf("renew_14");
         assert TestEnv.apache_restart() == 0
         # todo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
     def test_310_114(self):
         # test case: ca challenge type - http-01
@@ -270,15 +270,16 @@ class TestConf:
 
     def test_310_206(self):
         # test case: remove renew window from conf -> fallback to default
-        TestEnv.install_test_conf("renew_30");
+        TestEnv.install_test_conf("renew_14");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         # check: renew window not set
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-norm'] == 90 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
 
     @pytest.mark.parametrize("confFile,expCode", [ 
         ("drive_manual", 0), 
@@ -373,10 +374,10 @@ class TestConf:
 
     def test_310_305(self):
         # test case: change config value for renew window, use various syntax alternatives
-        TestEnv.install_test_conf("renew_30");
+        TestEnv.install_test_conf("renew_14");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
         TestEnv.install_test_conf("renew_10");
         assert TestEnv.apache_restart() == 0

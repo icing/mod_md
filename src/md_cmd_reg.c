@@ -103,7 +103,7 @@ static apr_status_t cmd_reg_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
         md_reg_do(list_add_md, mdlist, ctx->reg, ctx->p);
-        qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
+        qsort(mdlist->elts, (size_t)mdlist->nelts, sizeof(md_t *), md_name_cmp);
     
         for (i = 0; i < mdlist->nelts; ++i) {
             md = APR_ARRAY_IDX(mdlist, i, const md_t*);
@@ -317,7 +317,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     else {
         md_reg_do(list_add_md, mdlist, ctx->reg, ctx->p);
-        qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
+        qsort(mdlist->elts, (size_t)mdlist->nelts, sizeof(md_t *), md_name_cmp);
     }   
     
     rv = APR_SUCCESS;

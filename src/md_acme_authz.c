@@ -560,7 +560,7 @@ md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p)
         authz->domain = md_json_dups(p, json, MD_KEY_DOMAIN, NULL);            
         authz->location = md_json_dups(p, json, MD_KEY_LOCATION, NULL);            
         authz->dir = md_json_dups(p, json, MD_KEY_DIR, NULL);            
-        authz->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);            
+        authz->state = (md_acme_authz_state_t)md_json_getl(json, MD_KEY_STATE, NULL);            
         return authz;
     }
     return NULL;
@@ -631,7 +631,7 @@ static apr_status_t p_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_lis
     const char *md_name;
     int create;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     md_name = va_arg(ap, const char *);
     set = va_arg(ap, md_acme_authz_set_t *);
     create = va_arg(ap, int);
@@ -657,7 +657,7 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
     const char *md_name;
     int i;
 
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     md_name = va_arg(ap, const char *);
 
     if (APR_SUCCESS == md_acme_authz_set_load(store, group, md_name, &authz_set, p)) {

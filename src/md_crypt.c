@@ -231,7 +231,7 @@ apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p,
             apr_pool_cleanup_register(p, pkey, pkey_cleanup, apr_pool_cleanup_null);
         }
         else {
-            long err = ERR_get_error();
+            unsigned long err = ERR_get_error();
             rv = APR_EINVAL;
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
                           "error loading pkey %s: %s (pass phrase was %snull)", fname,
@@ -251,6 +251,7 @@ static apr_status_t pkey_to_buffer(buffer *buffer, md_pkey_t *pkey, apr_pool_t *
     void *cb_baton = NULL;
     passwd_ctx ctx;
     unsigned long err;
+    int i;
     
     if (!bio) {
         return APR_ENOMEM;
@@ -278,11 +279,12 @@ static apr_status_t pkey_to_buffer(buffer *buffer, md_pkey_t *pkey, apr_pool_t *
         return APR_EINVAL;
     }
 
-    buffer->len = BIO_pending(bio);
-    if (buffer->len > 0) {
-        buffer->data = apr_palloc(p, buffer->len+1);
-        buffer->len = BIO_read(bio, buffer->data, (int)buffer->len);
-        buffer->data[buffer->len] = '\0';
+    i = BIO_pending(bio);
+    if (i > 0) {
+        buffer->data = apr_palloc(p, (apr_size_t)i + 1);
+        i = BIO_read(bio, buffer->data, i);
+        buffer->data[i] = '\0';
+        buffer->len = (apr_size_t)i;
     }
     BIO_free(bio);
     return APR_SUCCESS;
@@ -303,7 +305,7 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
     return rv;
 }
 
-apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, int bits)
+apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits)
 {
     EVP_PKEY_CTX *ctx = NULL;
     apr_status_t rv;
@@ -312,7 +314,7 @@ apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, int bits)
     ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     if (ctx 
         && EVP_PKEY_keygen_init(ctx) >= 0
-        && EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits) >= 0
+        && EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, (int)bits) >= 0
         && EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) >= 0) {
         rv = APR_SUCCESS;
     }
@@ -350,7 +352,7 @@ static void RSA_get0_key(const RSA *r,
 static const char *bn64(const BIGNUM *b, apr_pool_t *p) 
 {
     if (b) {
-         int len = BN_num_bytes(b);
+         apr_size_t len = (apr_size_t)BN_num_bytes(b);
          char *buffer = apr_pcalloc(p, len);
          if (buffer) {
             BN_bn2bin(b, (unsigned char *)buffer);
@@ -393,7 +395,7 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
     const char *sign64 = NULL;
     apr_status_t rv = APR_ENOMEM;
     
-    buffer = apr_pcalloc(p, EVP_PKEY_size(pkey->pkey));
+    buffer = apr_pcalloc(p, (apr_size_t)EVP_PKEY_size(pkey->pkey));
     if (buffer) {
         ctx = EVP_MD_CTX_create();
         if (ctx) {
@@ -728,6 +730,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
 static apr_status_t cert_to_buffer(buffer *buffer, md_cert_t *cert, apr_pool_t *p)
 {
     BIO *bio = BIO_new(BIO_s_mem());
+    int i;
     
     if (!bio) {
         return APR_ENOMEM;
@@ -740,11 +743,12 @@ static apr_status_t cert_to_buffer(buffer *buffer, md_cert_t *cert, apr_pool_t *
         return APR_EINVAL;
     }
 
-    buffer->len = BIO_pending(bio);
-    if (buffer->len > 0) {
-        buffer->data = apr_palloc(p, buffer->len+1);
-        buffer->len = BIO_read(bio, buffer->data, (int)buffer->len);
-        buffer->data[buffer->len] = '\0';
+    i = BIO_pending(bio);
+    if (i > 0) {
+        buffer->data = apr_palloc(p, (apr_size_t)i + 1);
+        i = BIO_read(bio, buffer->data, i);
+        buffer->data[i] = '\0';
+        buffer->len = (apr_size_t)i;
     }
     BIO_free(bio);
     return APR_SUCCESS;
@@ -797,7 +801,7 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
             const unsigned char *bf = (const unsigned char*)der;
             X509 *x509;
             
-            if (NULL == (x509 = d2i_X509(NULL, &bf, der_len))) {
+            if (NULL == (x509 = d2i_X509(NULL, &bf, (long)der_len))) {
                 rv = APR_EINVAL;
             }
             else {
@@ -1027,12 +1031,12 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const md_t *md,
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", md->name);
         rv = APR_EGENERAL; goto out;
     }
-    s = csr_der = apr_pcalloc(p, csr_der_len + 1);
+    s = csr_der = apr_pcalloc(p, (apr_size_t)csr_der_len + 1);
     if (i2d_X509_REQ(csr, (unsigned char**)&s) != csr_der_len) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", md->name);
         rv = APR_EGENERAL; goto out;
     }
-    csr_der_64 = md_util_base64url_encode(csr_der, csr_der_len, p);
+    csr_der_64 = md_util_base64url_encode(csr_der, (apr_size_t)csr_der_len, p);
     rv = APR_SUCCESS;
     
 out:

@@ -374,10 +374,10 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     void **pvalue;
     apr_status_t rv;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char *);
     aspect = va_arg(ap, const char *);
-    vtype = va_arg(ap, int);
+    vtype = (md_store_vtype_t)va_arg(ap, int);
     pvalue= va_arg(ap, void **);
         
     rv = fs_get_fname(&fpath, &s_fs->s, group, name, aspect, ptemp);
@@ -438,8 +438,8 @@ static apr_status_t pfs_is_newer(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
     int *pnewer;
     apr_status_t rv;
     
-    group1 = va_arg(ap, int);
-    group2 = va_arg(ap, int);
+    group1 = (md_store_group_t)va_arg(ap, int);
+    group2 = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     aspect = va_arg(ap, const char*);
     pnewer = va_arg(ap, int*);
@@ -483,10 +483,10 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     const char *pass;
     apr_size_t pass_len;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     aspect = va_arg(ap, const char*);
-    vtype = va_arg(ap, int);
+    vtype = (md_store_vtype_t)va_arg(ap, int);
     value = va_arg(ap, void *);
     create = va_arg(ap, int);
     
@@ -540,7 +540,7 @@ static apr_status_t pfs_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     apr_finfo_t info;
     md_store_group_t group;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     aspect = va_arg(ap, const char *);
     force = va_arg(ap, int);
@@ -599,7 +599,7 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     md_store_group_t group;
     apr_status_t rv;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     
     groupname = md_store_group_name(group);
@@ -684,8 +684,8 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     int archive;
     apr_status_t rv;
     
-    from = va_arg(ap, int);
-    to = va_arg(ap, int);
+    from = (md_store_group_t)va_arg(ap, int);
+    to = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     archive = va_arg(ap, int);
     
