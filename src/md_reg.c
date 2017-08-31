@@ -162,18 +162,13 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
         state = MD_S_INCOMPLETE;
-        if (!creds->pkey) {
+        if (!creds->privkey) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                           "md{%s}: incomplete, without private key", md->name);
         }
-        else if (!creds->cert) {
+        else if (!creds->pubcert) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                           "md{%s}: incomplete, has key but no certificate", md->name);
-        }
-        else if (!creds->chain) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                          "md{%s}: incomplete, has key and certificate, but no chain file.", 
-                          md->name);
         }
         else {
             valid_from = md_cert_get_not_before(creds->cert);
@@ -199,8 +194,8 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
                 goto out;
             }
 
-            for (i = 0; i < creds->chain->nelts; ++i) {
-                cert = APR_ARRAY_IDX(creds->chain, i, const md_cert_t *);
+            for (i = 1; i < creds->pubcert->nelts; ++i) {
+                cert = APR_ARRAY_IDX(creds->pubcert, i, const md_cert_t *);
                 if (!md_cert_is_valid_now(cert)) {
                     state = MD_S_ERROR;
                     md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
@@ -434,16 +429,10 @@ apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
 {
     apr_status_t rv;
     
-    rv = md_store_get_fname(pkeyfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PKEY, p);
+    *pchainfile = NULL;
+    rv = md_store_get_fname(pkeyfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PRIVKEY, p);
     if (APR_SUCCESS == rv) {
-        rv = md_store_get_fname(pcertfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_CERT, p);
-    }
-    if (APR_SUCCESS == rv) {
-        rv = md_store_get_fname(pchainfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_CHAIN, p);
-        if (APR_STATUS_IS_ENOENT(rv)) {
-            *pchainfile = NULL;
-            rv = APR_SUCCESS;
-        }
+        rv = md_store_get_fname(pcertfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PUBCERT, p);
     }
     return rv;
 }
@@ -562,29 +551,28 @@ static int ok_or_noent(apr_status_t rv)
 static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
-    apr_status_t rv;
-    md_cert_t *cert;
-    md_pkey_t *pkey;
-    apr_array_header_t *chain;
+    md_pkey_t *privkey;
+    apr_array_header_t *pubcert;
     md_creds_t *creds, **pcreds;
     const md_t *md;
     md_cert_state_t cert_state;
     md_store_group_t group;
+    apr_status_t rv;
     
     pcreds = va_arg(ap, md_creds_t **);
     group = (md_store_group_t)va_arg(ap, int);
     md = va_arg(ap, const md_t *);
     
-    if (ok_or_noent(rv = md_cert_load(reg->store, group, md->name, &cert, p))
-        && ok_or_noent(rv = md_pkey_load(reg->store, group, md->name, &pkey, p))
-        && ok_or_noent(rv = md_chain_load(reg->store, group, md->name, &chain, p))) {
+    if (ok_or_noent(rv = md_pkey_load(reg->store, group, md->name, &privkey, p))
+        && ok_or_noent(rv = md_pubcert_load(reg->store, group, md->name, &pubcert, p))) {
         rv = APR_SUCCESS;
             
         creds = apr_pcalloc(p, sizeof(*creds));
-        creds->cert = cert;
-        creds->pkey = pkey;
-        creds->chain = chain;
-        
+        creds->privkey = privkey;
+        if (pubcert && pubcert->nelts > 0) {
+            creds->pubcert = pubcert;
+            creds->cert = APR_ARRAY_IDX(pubcert, 0, md_cert_t *);
+        }
         if (creds->cert) {
             switch ((cert_state = md_cert_state_get(creds->cert))) {
                 case MD_CERT_VALID:

@@ -822,19 +822,16 @@ md_cert_state_t md_cert_state_get(md_cert_t *cert)
     return MD_CERT_UNKNOWN;
 }
 
-apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const char *fname)
+apr_status_t md_chain_fappend(struct apr_array_header_t *certs, apr_pool_t *p, const char *fname)
 {
     FILE *f;
     apr_status_t rv;
-    apr_array_header_t *certs = NULL;
     X509 *x509;
     md_cert_t *cert;
     unsigned long err;
     
     rv = md_util_fopen(&f, fname, "r");
     if (rv == APR_SUCCESS) {
-        certs = apr_array_make(p, 5, sizeof(md_cert_t *));
-        
         ERR_clear_error();
         while (NULL != (x509 = PEM_read_X509(f, NULL, NULL, NULL))) {
             cert = make_cert(p, x509);
@@ -866,6 +863,16 @@ apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const ch
 out:
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "read chain file %s, found %d certs", 
                   fname, certs? certs->nelts : 0);
+    return rv;
+}
+
+apr_status_t md_chain_fload(apr_array_header_t **pcerts, apr_pool_t *p, const char *fname)
+{
+    apr_array_header_t *certs;
+    apr_status_t rv;
+
+    certs = apr_array_make(p, 5, sizeof(md_cert_t *));
+    rv = md_chain_fappend(certs, p, fname);
     *pcerts = (APR_SUCCESS == rv)? certs : NULL;
     return rv;
 }

@@ -759,7 +759,7 @@ const char *md_print_duration(apr_pool_t *p, apr_interval_time_t duration)
 
 /* base64 url encoding ****************************************************************************/
 
-static const unsigned int N6 = (unsigned int)-1;
+static unsigned int const N6 = (unsigned int)-1;
 
 static const unsigned int BASE64URL_UINT6[] = {
 /*   0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f        */

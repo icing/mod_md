@@ -132,7 +132,8 @@ struct md_t {
 #define MD_KEY_VERSION          "version"
 
 #define MD_FN_MD                "md.json"
-#define MD_FN_PKEY              "pkey.pem"
+#define MD_FN_PRIVKEY           "privkey.pem"
+#define MD_FN_PUBCERT           "pubcert.pem"
 #define MD_FN_CERT              "cert.pem"
 #define MD_FN_CHAIN             "chain.pem"
 #define MD_FN_HTTPD_JSON        "httpd.json"
@@ -233,9 +234,9 @@ md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
 
 typedef struct md_creds_t md_creds_t;
 struct md_creds_t {
+    struct md_pkey_t *privkey;
+    struct apr_array_header_t *pubcert;    /* complete md_cert* chain */
     struct md_cert_t *cert;
-    struct md_pkey_t *pkey;
-    struct apr_array_header_t *chain;      /* list of md_cert* */
     int expired;
 };
 

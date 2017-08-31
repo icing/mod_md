@@ -37,7 +37,7 @@
 /**************************************************************************************************/
 /* file system based implementation of md_store_t */
 
-#define MD_STORE_VERSION        1.0
+#define MD_STORE_VERSION        2
 
 typedef struct {
     apr_fileperms_t dir;
@@ -116,6 +116,71 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
     return rv;
 }
 
+static apr_status_t rename_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                                const char *dir, const char *name, 
+                                apr_filetype_e ftype)
+{
+    const char *from, *to;
+    apr_status_t rv = APR_SUCCESS;
+
+    if (APR_SUCCESS == (rv = md_util_path_merge(&from, ptemp, dir, name, NULL))
+        && APR_SUCCESS == (rv = md_util_path_merge(&to, ptemp, dir, MD_FN_PRIVKEY, NULL))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "renaming %s/%s to %s", 
+                      dir, name, MD_FN_PRIVKEY);
+        return apr_file_rename(from, to, ptemp);
+    }
+    return rv;
+}
+
+static apr_status_t mk_pubcert(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                               const char *dir, const char *name, 
+                               apr_filetype_e ftype)
+{
+    md_cert_t *cert;
+    apr_array_header_t *chain, *pubcert;
+    const char *fname, *fpubcert;
+    apr_status_t rv = APR_SUCCESS;
+    
+    if (   APR_SUCCESS == (rv = md_util_path_merge(&fpubcert, ptemp, dir, MD_FN_PUBCERT, NULL))
+        && APR_STATUS_IS_ENOENT((rv = md_chain_fload(&pubcert, ptemp, fpubcert)))
+        && APR_SUCCESS == (rv = md_util_path_merge(&fname, ptemp, dir, name, NULL))
+        && APR_SUCCESS == (rv = md_cert_fload(&cert, ptemp, fname))
+        && APR_SUCCESS == (rv = md_util_path_merge(&fname, ptemp, dir, MD_FN_CHAIN, NULL))) {
+        
+        rv = md_chain_fload(&chain, ptemp, fname);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            chain = apr_array_make(ptemp, 1, sizeof(md_cert_t*));
+            rv = APR_SUCCESS;
+        }
+        if (APR_SUCCESS == rv) {
+            pubcert = apr_array_make(ptemp, chain->nelts + 1, sizeof(md_cert_t*));
+            APR_ARRAY_PUSH(pubcert, md_cert_t *) = cert;
+            apr_array_cat(pubcert, chain);
+            rv = md_chain_fsave(pubcert, ptemp, fpubcert, MD_FPROT_F_UONLY);
+        }
+    }
+    return rv;
+}
+
+static apr_status_t upgrade_from_1_0(md_store_fs_t *s_fs, apr_pool_t *p, apr_pool_t *ptemp)
+{
+    md_store_group_t g;
+    apr_status_t rv = APR_SUCCESS;
+    
+    /* Migrate pkey.pem -> privkey.pem */
+    for (g = MD_SG_NONE; g < MD_SG_COUNT && APR_SUCCESS == rv; ++g) {
+        rv = md_util_files_do(rename_pkey, s_fs, p, s_fs->base, 
+                              md_store_group_name(g), "*", "pkey.pem", NULL);
+    }
+    /* Generate fullcert.pem from cert.pem and chain.pem where missing */
+    rv = md_util_files_do(mk_pubcert, s_fs, p, s_fs->base, 
+                          md_store_group_name(MD_SG_DOMAINS), "*", MD_FN_CERT, NULL);
+    rv = md_util_files_do(mk_pubcert, s_fs, p, s_fs->base, 
+                          md_store_group_name(MD_SG_ARCHIVE), "*", MD_FN_CERT, NULL);
+    
+    return rv;
+}
+
 static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname, 
                                     apr_pool_t *p, apr_pool_t *ptemp)
 {
@@ -134,10 +199,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "version too new: %s", store_version);
             return APR_EINVAL;
         }
-        else if (store_version > MD_STORE_VERSION) {
-            /* migrate future store version changes */
-        } 
-        
+
         key64 = md_json_dups(p, json, MD_KEY_KEY, NULL);
         if (!key64) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "missing key: %s", MD_KEY_KEY);
@@ -151,6 +213,20 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
                           s_fs->key_len);
             return APR_EINVAL;
         }
+
+        /* Need to migrate format? */
+        if (store_version < MD_STORE_VERSION) {
+            if (store_version <= 1.0) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "migrating store v1.0 -> v1.1");
+                rv = upgrade_from_1_0(s_fs, p, ptemp);
+            }
+            
+            if (APR_SUCCESS == rv) {
+                md_json_setn(MD_STORE_VERSION, json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
+                rv = md_json_freplace(json, ptemp, MD_JSON_FMT_INDENT, fname, MD_FPROT_F_UONLY);
+           }
+           md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, "migrated store");
+        } 
     }
     return rv;
 }

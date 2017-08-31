@@ -132,6 +132,16 @@
 		B2D31AED1EC1B506007BECC8 /* test.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.conf; sourceTree = "<group>"; };
 		B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = modules.conf.in; sourceTree = "<group>"; };
 		B2D31B071EC33CBE007BECC8 /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		B2FB5A431F57087400856773 /* test_0010_store_migrate.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0010_store_migrate.py; sourceTree = "<group>"; };
+		B2FB5A491F570AAA00856773 /* account.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = account.json; sourceTree = "<group>"; };
+		B2FB5A4A1F570AAA00856773 /* account.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = account.pem; sourceTree = "<group>"; };
+		B2FB5A4D1F570AAA00856773 /* md.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = md.json; sourceTree = "<group>"; };
+		B2FB5A511F570AAA00856773 /* cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cert.pem; sourceTree = "<group>"; };
+		B2FB5A521F570AAA00856773 /* chain.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = chain.pem; sourceTree = "<group>"; };
+		B2FB5A531F570AAA00856773 /* md.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = md.json; sourceTree = "<group>"; };
+		B2FB5A541F570AAA00856773 /* pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pkey.pem; sourceTree = "<group>"; };
+		B2FB5A551F570AAA00856773 /* httpd.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = httpd.json; sourceTree = "<group>"; };
+		B2FB5A561F570AAA00856773 /* md_store.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = md_store.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -164,6 +174,7 @@
 		B262F6CD1EFCFE1100D396A1 /* data */ = {
 			isa = PBXGroup;
 			children = (
+				B2FB5A441F57097000856773 /* store_migrate */,
 				B2B81EC81F13830600E35CA3 /* ssl */,
 				B262F6CE1EFCFE1100D396A1 /* test_conf_store */,
 				B262F6D21EFCFE1100D396A1 /* test_conf_validate */,
@@ -280,12 +291,12 @@
 		B2D309EF1EC1AD26007BECC8 /* test */ = {
 			isa = PBXGroup;
 			children = (
-				B2123B851F2DD7A200267CAF /* unit */,
 				B2D31AEA1EC1B506007BECC8 /* conf */,
 				B262F6CD1EFCFE1100D396A1 /* data */,
 				B2B81ED31F165F8300E35CA3 /* htdocs */,
 				B2B81E931F0BB4F300E35CA3 /* Makefile.am */,
 				B20333361EDDA82300E5BE7E /* test_0001_store.py */,
+				B2FB5A431F57087400856773 /* test_0010_store_migrate.py */,
 				B255730A1EE6CF6100E0B132 /* test_0100_reg_add.py */,
 				B255730B1EE6CF6100E0B132 /* test_0110_reg_update.py */,
 				B2B81EA71F0E35B000E35CA3 /* test_0120_reg_list.py */,
@@ -297,8 +308,9 @@
 				B255730D1EE956B000E0B132 /* test_0500_drive.py */,
 				75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */,
 				B2B81ED71F17BF3200E35CA3 /* test_0700_auto.py */,
-				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
 				B255730C1EE6D11200E0B132 /* test_base.py */,
+				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
+				B2123B851F2DD7A200267CAF /* unit */,
 			);
 			path = test;
 			sourceTree = SOURCE_ROOT;
@@ -370,6 +382,110 @@
 			);
 			path = src;
 			sourceTree = SOURCE_ROOT;
+		};
+		B2FB5A441F57097000856773 /* store_migrate */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A451F57097000856773 /* 1.0 */,
+			);
+			path = store_migrate;
+			sourceTree = "<group>";
+		};
+		B2FB5A451F57097000856773 /* 1.0 */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A461F57097000856773 /* sample1 */,
+			);
+			path = 1.0;
+			sourceTree = "<group>";
+		};
+		B2FB5A461F57097000856773 /* sample1 */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A471F570AAA00856773 /* accounts */,
+				B2FB5A4B1F570AAA00856773 /* archive */,
+				B2FB5A4E1F570AAA00856773 /* challenges */,
+				B2FB5A4F1F570AAA00856773 /* domains */,
+				B2FB5A551F570AAA00856773 /* httpd.json */,
+				B2FB5A561F570AAA00856773 /* md_store.json */,
+				B2FB5A571F570AAA00856773 /* staging */,
+				B2FB5A581F570AAA00856773 /* tmp */,
+			);
+			path = sample1;
+			sourceTree = "<group>";
+		};
+		B2FB5A471F570AAA00856773 /* accounts */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A481F570AAA00856773 /* ACME-localhost-0000 */,
+			);
+			path = accounts;
+			sourceTree = "<group>";
+		};
+		B2FB5A481F570AAA00856773 /* ACME-localhost-0000 */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A491F570AAA00856773 /* account.json */,
+				B2FB5A4A1F570AAA00856773 /* account.pem */,
+			);
+			path = "ACME-localhost-0000";
+			sourceTree = "<group>";
+		};
+		B2FB5A4B1F570AAA00856773 /* archive */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A4C1F570AAA00856773 /* 7007-1502285564.org.1 */,
+			);
+			path = archive;
+			sourceTree = "<group>";
+		};
+		B2FB5A4C1F570AAA00856773 /* 7007-1502285564.org.1 */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A4D1F570AAA00856773 /* md.json */,
+			);
+			path = "7007-1502285564.org.1";
+			sourceTree = "<group>";
+		};
+		B2FB5A4E1F570AAA00856773 /* challenges */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = challenges;
+			sourceTree = "<group>";
+		};
+		B2FB5A4F1F570AAA00856773 /* domains */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A501F570AAA00856773 /* 7007-1502285564.org */,
+			);
+			path = domains;
+			sourceTree = "<group>";
+		};
+		B2FB5A501F570AAA00856773 /* 7007-1502285564.org */ = {
+			isa = PBXGroup;
+			children = (
+				B2FB5A511F570AAA00856773 /* cert.pem */,
+				B2FB5A521F570AAA00856773 /* chain.pem */,
+				B2FB5A531F570AAA00856773 /* md.json */,
+				B2FB5A541F570AAA00856773 /* pkey.pem */,
+			);
+			path = "7007-1502285564.org";
+			sourceTree = "<group>";
+		};
+		B2FB5A571F570AAA00856773 /* staging */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = staging;
+			sourceTree = "<group>";
+		};
+		B2FB5A581F570AAA00856773 /* tmp */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = tmp;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 

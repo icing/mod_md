@@ -1,5 +1,15 @@
-v0.7.1-DEV
+v0.8.0-DEV
 ----------------------------------------------------------------------------------------------------
+ * IMPORTANT: store format change. The following changes will be made to an existing md store on 
+   first start with a new version (be it by mod_md in the server or a run by a new 'a2md'):
+      * pkey.pem will be renamed to privkey.pem
+      * cert.pem and chain.pem will be concatenated to pubcert.pem. The former files will remain,
+        but no longer be used. They will disappear on next renewal.
+   ADVICE: If the current store data is vital to you, please make a backup first!
+
+v0.7.1
+----------------------------------------------------------------------------------------------------
+ * Fixed test case clearing of store to keep key alive, enabling true random store key again.
  * Removed pun "Something, like certbot" from the User-Agent request header. Refs issue #34
  * Cleaned up reporting of missing/mismatched MDCertificateAgreement in the logs. This will
    no longer trigger early retries.

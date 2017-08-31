@@ -69,7 +69,7 @@ class TestEnv:
         cls.ACME_SERVER_OK = False
 
         cls.set_store_dir('md')
-        cls.purge_store()
+        cls.clear_store()
         cls.install_test_conf()
 
     @classmethod
@@ -255,26 +255,24 @@ class TestEnv:
             return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'md.json' )
 
     @classmethod
-    def path_domain_cert( cls, domain, archiveVersion=0 ) :
+    def path_domain_pubcert( cls, domain, archiveVersion=0 ) :
         if archiveVersion == 0:
-            return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'cert.pem')
+            return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'pubcert.pem')
         else:
-            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'cert.pem')
+            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'pubcert.pem')
 
     @classmethod
-    def path_domain_pkey( cls, domain, archiveVersion=0 ) :
+    def path_domain_privkey( cls, domain, archiveVersion=0 ) :
         if archiveVersion == 0:
-            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'pkey.pem')
+            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'privkey.pem')
         else:
-            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'pkey.pem')
+            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'privkey.pem')
 
     @classmethod
-    def path_domain_ca_chain( cls, domain, archiveVersion=0 ) :
-        if archiveVersion == 0:
-            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'chain.pem' )
-        else:
-            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'chain.pem' )
-
+    def replace_store( cls, src):
+        shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=False)
+        shutil.copytree(src, TestEnv.STORE_DIR)
+    
     # --------- control apache ---------
 
     @classmethod
@@ -453,9 +451,8 @@ class TestEnv:
         # domains
         cls.check_file_access( os.path.join( cls.STORE_DIR, 'domains' ),        0700 )
         cls.check_file_access( os.path.join( cls.STORE_DIR, 'domains', domain ),0700 )
-        cls.check_file_access( cls.path_domain_pkey( domain ),                  0600 )
-        cls.check_file_access( cls.path_domain_cert( domain ),                  0600 )
-        cls.check_file_access( cls.path_domain_ca_chain( domain ),              0600 )
+        cls.check_file_access( cls.path_domain_privkey( domain ),               0600 )
+        cls.check_file_access( cls.path_domain_pubcert( domain ),               0600 )
         cls.check_file_access( cls.path_domain( domain ),                       0600 )
         # archive
         cls.check_file_access( cls.path_domain( domain, archiveVersion=1 ),     0600 )
@@ -509,8 +506,8 @@ class HttpdConf(object):
         if withSSL:
             f.write("    SSLEngine on\n")
             if self.writeCertFiles:
-                certPath = certPath if certPath else TestEnv.path_domain_cert(name)
-                keyPath = keyPath if keyPath else TestEnv.path_domain_pkey(name)
+                certPath = certPath if certPath else TestEnv.path_domain_pubcert(name)
+                keyPath = keyPath if keyPath else TestEnv.path_domain_privkey(name)
                 f.write(("    SSLCertificateFile %s\n"
                          "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
         f.write("</VirtualHost>\n\n")
