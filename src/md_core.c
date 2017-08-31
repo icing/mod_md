@@ -229,6 +229,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->name = apr_pstrdup(p, src->name);
         md->drive_mode = src->drive_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
+        md->pkey_bits = src->pkey_bits;
         md->renew_norm = src->renew_norm;
         md->renew_window = src->renew_window;
         md->contacts = md_array_str_clone(p, src->contacts);
@@ -254,6 +255,7 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
     n->drive_mode = (add->drive_mode != MD_DRIVE_DEFAULT)? add->drive_mode : base->drive_mode;
+    n->pkey_bits = (add->pkey_bits > 0)? add->pkey_bits : base->pkey_bits;
     n->renew_norm = (add->renew_norm > 0)? add->renew_norm : base->renew_norm;
     n->renew_window = (add->renew_window > 0)? add->renew_window : base->renew_window;
     n->transitive = (add->transitive >= 0)? add->transitive : base->transitive;
@@ -266,6 +268,13 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
     return n;
 }
 
+unsigned int md_get_pkey_bits(const md_t *md)
+{
+    if (md->pkey_bits > 0 && md->pkey_bits < UINT_MAX) {
+        return (unsigned int)md->pkey_bits;
+    }
+    return MD_PKEY_BITS_DEFAULT;
+}
 
 /**************************************************************************************************/
 /* format conversion */
@@ -285,6 +294,9 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         md_json_sets(md->ca_agreement, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
         if (md->cert_url) {
             md_json_sets(md->cert_url, json, MD_KEY_CERT, MD_KEY_URL, NULL);
+        }
+        if (md->pkey_bits > 0) {
+            md_json_setl((long)md->pkey_bits, json, MD_KEY_CERT, MD_KEY_PKEY_BITS, NULL);
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         md_json_setl(md->drive_mode, json, MD_KEY_DRIVE_MODE, NULL);
@@ -318,6 +330,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
 md_t *md_from_json(md_json_t *json, apr_pool_t *p)
 {
     const char *s;
+    long l;
     md_t *md = md_create_empty(p);
     if (md) {
         md->name = md_json_dups(p, json, MD_KEY_NAME, NULL);            
@@ -328,6 +341,10 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md->ca_agreement = md_json_dups(p, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
         md->cert_url = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_URL, NULL);
+        l = md_json_getl(json, MD_KEY_CERT, MD_KEY_PKEY_BITS, NULL);
+        if (l > 0 && l < INT_MAX) {
+            md->pkey_bits = (unsigned int)l;
+        }
         md->state = (md_state_t)md_json_getl(json, MD_KEY_STATE, NULL);
         md->drive_mode = (int)md_json_getl(json, MD_KEY_DRIVE_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);

@@ -292,7 +292,8 @@ static apr_status_t setup_key_authz(md_acme_authz_cha_t *cha, md_acme_authz_t *a
 }
 
 static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                      md_acme_t *acme, md_store_t *store, apr_pool_t *p)
+                                      md_acme_t *acme, md_store_t *store, 
+                                      unsigned int pkey_bits, apr_pool_t *p)
 {
     const char *data;
     apr_status_t rv;
@@ -347,7 +348,8 @@ static apr_status_t setup_cha_dns(const char **pdns, md_acme_authz_cha_t *cha, a
 }
 
 static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                         md_acme_t *acme, md_store_t *store, apr_pool_t *p)
+                                         md_acme_t *acme, md_store_t *store, 
+                                         unsigned int pkey_bits, apr_pool_t *p)
 {
     md_cert_t *cha_cert;
     md_pkey_t *cha_key;
@@ -365,7 +367,7 @@ static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz
     if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, cha_dns)) 
         || APR_STATUS_IS_ENOENT(rv)) {
         
-        if (APR_SUCCESS != (rv = md_pkey_gen_rsa(&cha_key, p, acme->pkey_bits))) {
+        if (APR_SUCCESS != (rv = md_pkey_gen_rsa(&cha_key, p, pkey_bits))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-sni-01 challgenge key",
                           authz->domain);
             goto out;
@@ -405,7 +407,8 @@ out:
 }
 
 typedef apr_status_t cha_starter(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                 md_acme_t *acme, md_store_t *store, apr_pool_t *p);
+                                 md_acme_t *acme, md_store_t *store, 
+                                 unsigned int pkey_bits, apr_pool_t *p);
                                  
 typedef struct {
     const char *name;
@@ -449,7 +452,8 @@ static apr_status_t find_type(void *baton, size_t index, md_json_t *json)
 }
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
-                                   apr_array_header_t *challenges, apr_pool_t *p)
+                                   apr_array_header_t *challenges, 
+                                   unsigned int pkey_bits, apr_pool_t *p)
 {
     apr_status_t rv;
     int i;
@@ -485,7 +489,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
     
     for (i = 0; i < CHA_TYPES_LEN; ++i) {
         if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
-            return CHA_TYPES[i].start(fctx.accepted, authz, acme, store, p);
+            return CHA_TYPES[i].start(fctx.accepted, authz, acme, store, pkey_bits, p);
         }
     }
     

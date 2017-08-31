@@ -322,7 +322,8 @@ static apr_status_t acct_upd(md_acme_t *acme, apr_pool_t *p,
 }
 
 static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,  
-                                  apr_array_header_t *contacts, const char *agreement)
+                                  apr_array_header_t *contacts, const char *agreement,
+                                  unsigned int pkey_bits)
 {
     apr_status_t rv;
     md_pkey_t *pkey;
@@ -347,7 +348,7 @@ static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,
         }
     }
     
-    if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, acme->p, acme->pkey_bits))
+    if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, acme->p, pkey_bits))
         && APR_SUCCESS == (rv = acct_make(&acme->acct,  p, acme->url, NULL, contacts))) {
         acct_ctx_t ctx;
 
@@ -526,9 +527,9 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store, apr_pool_t *p
 }
 
 apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                 const char *agreement)
+                                 const char *agreement, unsigned int pkey_bits)
 {
-    return acct_register(acme, p, contacts, agreement);
+    return acct_register(acme, p, contacts, agreement, pkey_bits);
 }
 
 /**************************************************************************************************/

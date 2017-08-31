@@ -27,6 +27,7 @@ struct md_store_t;
 struct md_srv_conf_t;
 
 #define MD_TLSSNI01_DNS_SUFFIX     ".acme.invalid"
+#define MD_PKEY_BITS_DEFAULT        4096U
 
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
@@ -71,6 +72,7 @@ struct md_t {
 
     int transitive;                 /* != 0 iff VirtualHost names/aliases are auto-added */
     int drive_mode;                 /* mode of obtaining credentials */
+    unsigned int pkey_bits;         /* number of bits used when generating private keys */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
     apr_interval_time_t renew_norm; /* if > 0, normalized cert lifetime */
     apr_interval_time_t renew_window;/* time before expiration that starts renewal */
@@ -114,6 +116,7 @@ struct md_t {
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"
 #define MD_KEY_LOCATION         "location"
 #define MD_KEY_NAME             "name"
+#define MD_KEY_PKEY_BITS        "privkey-bits"
 #define MD_KEY_PROTO            "proto"
 #define MD_KEY_REGISTRATION     "registration"
 #define MD_KEY_RENEW_NORM       "renew-norm"
@@ -205,6 +208,8 @@ md_t *md_create_empty(apr_pool_t *p);
  * Create a managed domain, given a list of domain names.
  */
 md_t *md_create(apr_pool_t *p, struct apr_array_header_t *domains);
+
+unsigned int md_get_pkey_bits(const md_t *md);
 
 /**
  * Deep copy an md record into another pool.

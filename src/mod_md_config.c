@@ -39,6 +39,7 @@
 #define MD_CMD_MEMBER         "MDMember"
 #define MD_CMD_MEMBERS        "MDMembers"
 #define MD_CMD_PORTMAP        "MDPortMap"
+#define MD_CMD_PKEY_BITS      "MDPrivateKeyBits"
 #define MD_CMD_RENEWWINDOW    "MDRenewWindow"
 #define MD_CMD_STOREDIR       "MDStoreDir"
 
@@ -65,6 +66,7 @@ static md_srv_conf_t defconf = {
     1,
     MD_DRIVE_AUTO,
     0,
+    MD_PKEY_BITS_DEFAULT, 
     apr_time_from_sec(90 * MD_SECS_PER_DAY), /* If the cert lifetime were 90 days, renew */
     apr_time_from_sec(30 * MD_SECS_PER_DAY), /* 30 days before. Adjust to actual lifetime */
     MD_ACME_DEF_URL,
@@ -109,6 +111,7 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
     sc->transitive = DEF_VAL;
     sc->drive_mode = DEF_VAL;
     sc->must_staple = DEF_VAL;
+    sc->pkey_bits = 0;
     sc->renew_norm = DEF_VAL;
     sc->renew_window = DEF_VAL;
     sc->ca_url = NULL;
@@ -122,6 +125,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
     to->transitive = from->transitive;
     to->drive_mode = from->drive_mode;
     to->must_staple = from->must_staple;
+    to->pkey_bits = from->pkey_bits;
     to->renew_norm = from->renew_norm;
     to->renew_window = from->renew_window;
     to->ca_url = from->ca_url;
@@ -135,6 +139,7 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->transitive != DEF_VAL) md->transitive = from->transitive;
     if (from->drive_mode != DEF_VAL) md->drive_mode = from->drive_mode;
     if (from->must_staple != DEF_VAL) md->must_staple = from->must_staple;
+    if (from->pkey_bits > 0) md->pkey_bits = from->pkey_bits;
     if (from->renew_norm != DEF_VAL) md->renew_norm = from->renew_norm;
     if (from->renew_window != DEF_VAL) md->renew_window = from->renew_window;
 
@@ -169,6 +174,8 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
 
     nsc->transitive = (add->transitive != DEF_VAL)? add->transitive : base->transitive;
     nsc->drive_mode = (add->drive_mode != DEF_VAL)? add->drive_mode : base->drive_mode;
+    nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
+    nsc->pkey_bits = (add->pkey_bits > 0)? add->pkey_bits : base->pkey_bits;
     nsc->renew_window = (add->renew_norm != DEF_VAL)? add->renew_norm : base->renew_norm;
     nsc->renew_window = (add->renew_window != DEF_VAL)? add->renew_window : base->renew_window;
 
@@ -590,6 +597,26 @@ static const char *md_config_set_cha_tyes(cmd_parms *cmd, void *dc,
     return NULL;
 }
 
+static const char *md_config_set_pkey_bits(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err;
+    apr_int64_t bits;
+    
+    if (!inside_section(cmd, MD_CMD_MD_SECTION)
+        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+
+    bits = (int)apr_atoi64(value);
+    if (bits <= 2048 || bits >= INT_MAX) {
+        return "must be a number larger than 2048 in order to be considered safe. "
+        "Too large a value will slow down everything. Larger then 4096 probably does "
+        "not make sense unless quantum cryptography really changes spin.";
+    }
+    config->pkey_bits = (unsigned int)bits;
+    return NULL;
+}
 
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1(     MD_CMD_CA, md_config_set_ca, NULL, RSRC_CONF, 
@@ -617,6 +644,8 @@ const command_rec md_cmds[] = {
                   "to indicate that the server port 8000 is reachable as port 80 from the "
                   "internet. Use 80:- to indicate that port 80 is not reachable from "
                   "the outside."),
+    AP_INIT_TAKE1(     MD_CMD_PKEY_BITS, md_config_set_pkey_bits, NULL, RSRC_CONF, 
+                  "set the number of bits to use when creating private keys"),
     AP_INIT_TAKE1(     MD_CMD_STOREDIR, md_config_set_store_dir, NULL, RSRC_CONF, 
                   "the directory for file system storage of managed domain data."),
     AP_INIT_TAKE1(     MD_CMD_RENEWWINDOW, md_config_set_renew_window, NULL, RSRC_CONF, 
@@ -681,6 +710,8 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
             return sc->mc->local_443;
         case MD_CONFIG_TRANSITIVE:
             return (sc->transitive != DEF_VAL)? sc->transitive : defconf.transitive;
+        case MD_CONFIG_PKEY_BITS:
+            return (int)((sc->pkey_bits > 0)? sc->pkey_bits : defconf.pkey_bits);
         default:
             return 0;
     }

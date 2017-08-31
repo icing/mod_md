@@ -67,8 +67,8 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme
                                   struct md_store_t *store, apr_pool_t *p);
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, struct md_acme_t *acme, 
-                                   struct md_store_t *store, 
-                                   apr_array_header_t *challenges, apr_pool_t *p);
+                                   struct md_store_t *store, apr_array_header_t *challenges, 
+                                   unsigned int pkey_bits, apr_pool_t *p);
 apr_status_t md_acme_authz_del(md_acme_authz_t *authz, struct md_acme_t *acme, 
                                struct md_store_t *store, apr_pool_t *p);
 

@@ -1,3 +1,6 @@
+ * New directive ```MDPrivateKeyBits``` to specify the number of bits to use when generating
+   private keys. Can be set globally or of a particular managed domain.
+
 v0.8.0
 ----------------------------------------------------------------------------------------------------
  * IMPORTANT: store format change. The following changes will be made to an existing md store on 

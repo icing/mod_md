@@ -113,7 +113,6 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url)
     acme->p = p;
     acme->user_agent = apr_psprintf(p, "%s mod_md/%s", 
                                     base_product, MOD_MD_VERSION);
-    acme->pkey_bits = 4096;
     acme->max_retries = 3;
     
     if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri_parsed))) {
