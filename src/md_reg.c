@@ -285,7 +285,7 @@ apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, 
                     && md->expires > md->valid_from) {
                     /* Calc renewal days as fraction of cert lifetime - if known */
                     life = md->expires - md->valid_from; 
-                    renew_win = (apr_interval_time_t)(life * (md->renew_norm / (double)renew_win));
+                    renew_win = life * md->renew_norm / renew_win;
                 }
                 
                 left = md->expires - now;

@@ -83,7 +83,7 @@ static void seed_RAND(int pid)
 {   
     unsigned char stackdata[256];
     /* stolen from mod_ssl/ssl_engine_rand.c */
-    apr_size_t n, l;
+    int n;
     struct {
         time_t t;
         pid_t pid;
@@ -99,8 +99,7 @@ static void seed_RAND(int pid)
      */
     my_seed.pid = pid;
     
-    l = sizeof(my_seed);
-    RAND_seed((unsigned char *)&my_seed, l);
+    RAND_seed((unsigned char *)&my_seed, sizeof(my_seed));
     
     /*
      * seed in some current state of the run-time stack (128 bytes)
@@ -173,7 +172,7 @@ static int pem_passwd(char *buf, int size, int rwflag, void *baton)
         if (ctx->pass_len < size) {
             size = (int)ctx->pass_len;
         }
-        memcpy(buf, ctx->pass_phrase, size);
+        memcpy(buf, ctx->pass_phrase, (size_t)size);
     }
     return ctx->pass_len;
 }
@@ -1115,7 +1114,7 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
         rv = APR_EGENERAL; goto out;
     }
     
-    days = ((apr_time_sec(valid_for) + MD_SECS_PER_DAY - 1)/ MD_SECS_PER_DAY);
+    days = (int)((apr_time_sec(valid_for) + MD_SECS_PER_DAY - 1)/ MD_SECS_PER_DAY);
     if (!X509_set_notBefore(x, ASN1_TIME_set(NULL, time(NULL)))) {
         rv = APR_EGENERAL; goto out;
     }

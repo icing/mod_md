@@ -299,11 +299,11 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
         }
         if (md->renew_norm > 0) {
-            md_json_setl(apr_time_sec(md->renew_norm), json, MD_KEY_RENEW_NORM, NULL);
-            md_json_setl(apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
+            md_json_setl((long)apr_time_sec(md->renew_norm), json, MD_KEY_RENEW_NORM, NULL);
+            md_json_setl((long)apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
         }
         else {
-            md_json_setl(apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
+            md_json_setl((long)apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
         }
         if (md->ca_challenges && md->ca_challenges->nelts > 0) {
             apr_array_header_t *na;
