@@ -1,4 +1,4 @@
-v0.8.0-DEV
+v0.8.0
 ----------------------------------------------------------------------------------------------------
  * IMPORTANT: store format change. The following changes will be made to an existing md store on 
    first start with a new version (be it by mod_md in the server or a run by a new 'a2md'):
