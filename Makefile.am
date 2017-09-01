@@ -19,7 +19,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 
 dist_doc_DATA   = README README.md LICENSE
-EXTRA_DIST      = docs
+#EXTRA_DIST      = docs
 
 .PHONY: test
 
