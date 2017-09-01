@@ -751,12 +751,12 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
 
                     md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
                                   "%s: the CA requires you to accept the terms-of-service "
-                                  "as specified in <%s>.\n"
+                                  "as specified in <%s>. "
                                   "Please read the document that you find at that URL and, "
-                                  "if you agree to the condictions, configure \n"
-                                  "  MDCertificateAgreement url\n"
+                                  "if you agree to the conditions, configure "
+                                  "\"MDCertificateAgreement url\" "
                                   "with exactly that URL in your Apache. "
-                                  "Then restart the server to activate.", 
+                                  "Then (graceful) restart the server to activate.", 
                                   ad->md->name, required);
                     goto out;
                 }

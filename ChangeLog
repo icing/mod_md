@@ -1,3 +1,5 @@
+ * Private RSA keys are now generated with 2048 bits by default. Use ```MDPrivateKeyBits``` for
+   higher security. 
  * New directive ```MDPrivateKeyBits``` to specify the number of bits to use when generating
    private keys. Can be set globally or of a particular managed domain.
 

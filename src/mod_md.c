@@ -706,7 +706,7 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
     if (!wd->mds->nelts) {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10065)
                      "no managed domain in state to drive, no watchdog needed, "
-                     "will check again on next server restart");
+                     "will check again on next server (graceful) restart");
         apr_pool_destroy(wd->p);
         return APR_SUCCESS;
     }

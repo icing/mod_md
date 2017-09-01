@@ -27,7 +27,7 @@ struct md_store_t;
 struct md_srv_conf_t;
 
 #define MD_TLSSNI01_DNS_SUFFIX     ".acme.invalid"
-#define MD_PKEY_BITS_DEFAULT        4096U
+#define MD_PKEY_BITS_DEFAULT        2048U
 
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
