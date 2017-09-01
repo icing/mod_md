@@ -1,3 +1,6 @@
+ * moved part of the MD sanity checks from post_config to check_config phase, allowing for error
+   detection in check-only runs.
+
 v0.8.1
 ----------------------------------------------------------------------------------------------------
  * New directive ```MDPrivateKeys``` to specify the type and parameter to private key generation.

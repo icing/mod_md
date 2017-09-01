@@ -741,18 +741,11 @@ static void load_stage_sets(apr_array_header_t *names, apr_pool_t *p,
     return;
 }
 
-static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
-                                   apr_pool_t *ptemp, server_rec *s)
+static apr_status_t md_check_config(apr_pool_t *p, apr_pool_t *plog,
+                                    apr_pool_t *ptemp, server_rec *s)
 {
     const char *mod_md_init_key = "mod_md_init_counter";
     void *data = NULL;
-    md_srv_conf_t *sc;
-    md_mod_conf_t *mc;
-    apr_array_header_t *drive_names;
-    md_reg_t *reg;
-    apr_status_t rv = APR_SUCCESS;
-    const md_t *md;
-    int i;
     
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
     if (data == NULL) {
@@ -767,20 +760,29 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     }
 
     init_setups(p, s);
-    
     md_log_set(log_is_level, log_print, NULL);
+
+    /* Check uniqueness of MDs, calculate global, configured MD list.
+     * If successful, we have a list of MD definitions that do not overlap. */
+    /* We also need to find out if we can be reached on 80/443 from the outside (e.g. the CA) */
+    return md_calc_md_list(p, plog, ptemp, s);
+}
+    
+static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
+                                   apr_pool_t *ptemp, server_rec *s)
+{
+    md_srv_conf_t *sc;
+    md_mod_conf_t *mc;
+    md_reg_t *reg;
+    const md_t *md;
+    apr_array_header_t *drive_names;
+    apr_status_t rv = APR_SUCCESS;
+    int i;
 
     sc = md_config_get(s);
     mc = sc->mc;
     
-    /* 1. Check uniqueness of MDs, calculate global, configured MD list.
-     * If successful, we have a list of MD definitions that do not overlap. */
-    /* We also need to find out if we can be reached on 80/443 from the outside (e.g. the CA) */
-    if (APR_SUCCESS != (rv = md_calc_md_list(p, plog, ptemp, s))) {
-        goto out;
-    }
-    
-    /* 2. Synchronize the defintions we now have with the store via a registry (reg). */
+    /* Synchronize the defintions we now have with the store via a registry (reg). */
     if (APR_SUCCESS != (rv = setup_reg(&reg, p, s, 1))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072)
                      "setup md registry");
@@ -790,10 +792,9 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                                          mc->can_http, mc->can_https))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
                      "synching %d mds to registry", mc->mds->nelts);
-        goto out;
     }
     
-    /* 3. Determine the managed domains that are in auto drive_mode. For those,
+    /* Determine the managed domains that are in auto drive_mode. For those,
      * determine in which state they are:
      *  - UNKNOWN:            should not happen, report, dont drive
      *  - ERROR:              something we do not know how to fix, report, dont drive
@@ -820,7 +821,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         }
     }
     
-    /* 4. I there are MDs to drive, start a watchdog to check on them regularly */
+    /* If there are MDs to drive, start a watchdog to check on them regularly */
     if (drive_names->nelts > 0) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
                      "%d out of %d mds are configured for auto-drive", 
@@ -834,7 +835,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075)
                      "no mds to auto drive, no watchdog needed");
     }
-out:     
+out:
     return rv;
 }
 
@@ -1005,6 +1006,7 @@ static void md_hooks(apr_pool_t *pool)
     
     /* Run once after configuration is set, before mod_ssl.
      */
+    ap_hook_check_config(md_check_config, NULL, mod_ssl, APR_HOOK_MIDDLE);
     ap_hook_post_config(md_post_config, NULL, mod_ssl, APR_HOOK_MIDDLE);
     
     /* Run once after a child process has been created.

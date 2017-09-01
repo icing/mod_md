@@ -66,6 +66,7 @@ class TestConf:
         
     def test_300_004(self):
         # two ManagedDomain definitions, overlapping
+        TestEnv.install_test_conf("test_001");
         assert TestEnv.apache_stop() == 0
         TestEnv.install_test_conf("test_004");
         assert TestEnv.apache_fail() == 0
@@ -111,6 +112,7 @@ class TestConf:
 
     def test_300_011b(self):
         # ManagedDomain, misses one ServerAlias, but auto add enabled
+        TestEnv.install_test_conf("test_001");
         assert TestEnv.apache_stop() == 0
         TestEnv.install_test_conf("test_011b");
         assert TestEnv.apache_restart() == 0

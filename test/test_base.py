@@ -297,7 +297,11 @@ class TestEnv:
             cls.install_test_conf(conf)
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd]
         print "execute: ", " ".join(args)
-        rv = subprocess.call(args)
+        cls.apachectl_stderr = ""
+        p = subprocess.Popen(args, stderr=subprocess.PIPE)
+        (output, cls.apachectl_stderr) = p.communicate()
+        sys.stderr.write(cls.apachectl_stderr)
+        rv = p.wait()
         if rv == 0:
             if check_live:
                 rv = 0 if cls.is_live(cls.HTTPD_CHECK_URL, 5) else -1
@@ -328,6 +332,7 @@ class TestEnv:
         
     @classmethod
     def apache_err_reset( cls ):
+        cls.apachectl_stderr = ""
         if os.path.isfile(cls.ERROR_LOG):
             os.remove(cls.ERROR_LOG)
 
@@ -337,12 +342,21 @@ class TestEnv:
 
     @classmethod
     def apache_err_count( cls ):
-        if not os.path.isfile(cls.ERROR_LOG):
-            return (0, 0)
-        else:
+        ecount = 0
+        wcount = 0
+        
+        if cls.apachectl_stderr:
+            for line in cls.apachectl_stderr.split():
+                m = cls.RE_MD_ERROR.match(line)
+                if m:
+                    ecount += 1
+                    continue
+                m = cls.RE_MD_WARN.match(line)
+                if m:
+                    wcount += 1
+                    continue
+        elif os.path.isfile(cls.ERROR_LOG):
             fin = open(cls.ERROR_LOG)
-            ecount = 0
-            wcount = 0
             for line in fin:
                 m = cls.RE_MD_ERROR.match(line)
                 if m:
@@ -356,7 +370,8 @@ class TestEnv:
                 if m:
                     ecount = 0
                     wcount = 0
-            return (ecount, wcount)
+        
+        return (ecount, wcount)
 
     @classmethod
     def apache_err_scan( cls, regex ):
