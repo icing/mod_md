@@ -125,7 +125,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
         }
     
         if (APR_SUCCESS == (rv = md_acme_create_acct(ad->acme, d->p, md->contacts, 
-                                                     md->ca_agreement, md_get_pkey_bits(d->md)))
+                                                     md->ca_agreement))
             && APR_SUCCESS == (rv = md_acme_acct_save_staged(ad->acme, d->store, md, d->p))) {
             md->ca_account = MD_ACME_ACCT_STAGED;
             update = 1;
@@ -272,7 +272,7 @@ static apr_status_t ad_start_challenges(md_proto_driver_t *d)
                 
             case MD_ACME_AUTHZ_S_PENDING:
                 rv = md_acme_authz_respond(authz, ad->acme, d->store, ad->ca_challenges, 
-                                           md_get_pkey_bits(d->md), d->p);
+                                           d->md->pkey_spec, d->p);
                 changed = 1;
                 break;
                 
@@ -475,7 +475,7 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
     
     rv = md_pkey_load(d->store, MD_SG_STAGING, ad->md->name, &privkey, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
-        if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&privkey, d->p, md_get_pkey_bits(d->md)))) {
+        if (APR_SUCCESS == (rv = md_pkey_gen(&privkey, d->p, d->md->pkey_spec))) {
             rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, ad->md->name, privkey, 1);
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate privkey", ad->md->name);

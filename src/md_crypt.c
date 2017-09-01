@@ -31,6 +31,7 @@
 
 #include "md.h"
 #include "md_crypt.h"
+#include "md_json.h"
 #include "md_log.h"
 #include "md_http.h"
 #include "md_util.h"
@@ -180,6 +181,50 @@ static int pem_passwd(char *buf, int size, int rwflag, void *baton)
 /**************************************************************************************************/
 /* private keys */
 
+md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p)
+{
+    md_json_t *json = md_json_create(p);
+    if (json) {
+        switch (spec->type) {
+            case MD_PKEY_TYPE_DEFAULT:
+                md_json_sets("Default", json, MD_KEY_TYPE, NULL);
+                break;
+            case MD_PKEY_TYPE_RSA:
+                md_json_sets("RSA", json, MD_KEY_TYPE, NULL);
+                if (spec->params.rsa.bits > 2048) {
+                    md_json_setl(spec->params.rsa.bits, json, MD_KEY_BITS, NULL);
+                }
+                break;
+            default:
+                md_json_sets("Unsupported", json, MD_KEY_TYPE, NULL);
+                break;
+        }
+    }
+    return json;    
+}
+
+md_pkey_spec_t *md_pkey_spec_from_json(struct md_json_t *json, apr_pool_t *p)
+{
+    md_pkey_spec_t *spec = apr_pcalloc(p, sizeof(*spec));
+    const char *s;
+    long l;
+    
+    if (spec) {
+        s = md_json_gets(json, MD_KEY_TYPE, NULL);
+        if (!s || !apr_strnatcasecmp("Default", s)) {
+            spec->type = MD_PKEY_TYPE_DEFAULT;
+        }
+        else if (!apr_strnatcasecmp("RSA", s)) {
+            spec->type = MD_PKEY_TYPE_RSA;
+            l = md_json_getl(json, MD_KEY_BITS, NULL);
+            if (l > 2048) {
+                spec->params.rsa.bits = (unsigned int)l;
+            }
+        }
+    }
+    return spec;
+}
+
 static md_pkey_t *make_pkey(apr_pool_t *p) 
 {
     md_pkey_t *pkey = apr_pcalloc(p, sizeof(*pkey));
@@ -304,7 +349,7 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
     return rv;
 }
 
-apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits)
+static apr_status_t gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits)
 {
     EVP_PKEY_CTX *ctx = NULL;
     apr_status_t rv;
@@ -327,6 +372,19 @@ apr_status_t md_pkey_gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits
         EVP_PKEY_CTX_free(ctx);
     }
     return rv;
+}
+
+apr_status_t md_pkey_gen(md_pkey_t **ppkey, apr_pool_t *p, md_pkey_spec_t *spec)
+{
+    md_pkey_type_t ptype = spec? spec->type : MD_PKEY_TYPE_DEFAULT;
+    switch (ptype) {
+        case MD_PKEY_TYPE_DEFAULT:
+            return gen_rsa(ppkey, p, MD_PKEY_RSA_BITS_DEF);
+        case MD_PKEY_TYPE_RSA:
+            return gen_rsa(ppkey, p, spec->params.rsa.bits);
+        default:
+            return APR_ENOTIMPL;
+    }
 }
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L

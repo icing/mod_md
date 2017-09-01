@@ -25,7 +25,7 @@ def setup_module(module):
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
+    TestEnv.apache_stop()
 
 
 class TestConf:
@@ -128,9 +128,25 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.apache_err_count()
 
-    #@pytest.mark.skip(reason="global server name rejected as md part of md name list")
     def test_300_014(self):
         # global server name as managed domain name
         TestEnv.install_test_conf("test_014");
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.apache_err_count()
+
+    def test_300_015(self):
+        # valid pkey specification
+        TestEnv.install_test_conf("test_015");
+        assert TestEnv.apache_restart() == 0
+        assert (0, 0) == TestEnv.apache_err_count()
+
+    def test_300_016(self):
+        # invalid pkey specification
+        TestEnv.install_test_conf("test_016a");
+        assert TestEnv.apache_restart() == 1
+        TestEnv.install_test_conf("test_016b");
+        assert TestEnv.apache_restart() == 1
+        TestEnv.install_test_conf("test_016c");
+        assert TestEnv.apache_restart() == 1
+        TestEnv.install_test_conf("test_016d");
+        assert TestEnv.apache_restart() == 1

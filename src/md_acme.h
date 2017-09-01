@@ -149,7 +149,7 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, struct md_store_t *store, apr_po
  * new account is the one used by the acme instance afterwards, on success.
  */
 apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                 const char *agreement, unsigned int pkey_bits);
+                                 const char *agreement);
 
 apr_status_t md_acme_acct_save(struct md_store_t *store, apr_pool_t *p, md_acme_t *acme,  
                                struct md_acme_acct_t *acct, struct md_pkey_t *acct_key);

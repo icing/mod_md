@@ -90,11 +90,9 @@ static void md_merge_srv(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     if (!md->ca_challenges && md->sc->ca_challenges) {
         md->ca_challenges = apr_array_copy(p, md->sc->ca_challenges);
     }        
-    if (md->pkey_bits <= 0) {
-        int bits = md_config_geti(md->sc, MD_CONFIG_PKEY_BITS);
-        if (bits > 0 && bits < UINT_MAX) {
-            md->pkey_bits = (unsigned int)bits;
-        }
+    if (!md->pkey_spec) {
+        md->pkey_spec = md->sc->pkey_spec;
+        
     }
 }
 

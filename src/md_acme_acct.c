@@ -322,12 +322,12 @@ static apr_status_t acct_upd(md_acme_t *acme, apr_pool_t *p,
 }
 
 static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,  
-                                  apr_array_header_t *contacts, const char *agreement,
-                                  unsigned int pkey_bits)
+                                  apr_array_header_t *contacts, const char *agreement)
 {
     apr_status_t rv;
     md_pkey_t *pkey;
     const char *err = NULL, *uri;
+    md_pkey_spec_t spec;
     int i;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "create new account");
@@ -348,7 +348,10 @@ static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,
         }
     }
     
-    if (APR_SUCCESS == (rv = md_pkey_gen_rsa(&pkey, acme->p, pkey_bits))
+    spec.type = MD_PKEY_TYPE_RSA;
+    spec.params.rsa.bits = MD_ACME_ACCT_PKEY_BITS;
+    
+    if (APR_SUCCESS == (rv = md_pkey_gen(&pkey, acme->p, &spec))
         && APR_SUCCESS == (rv = acct_make(&acme->acct,  p, acme->url, NULL, contacts))) {
         acct_ctx_t ctx;
 
@@ -527,9 +530,9 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store, apr_pool_t *p
 }
 
 apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                 const char *agreement, unsigned int pkey_bits)
+                                 const char *agreement)
 {
-    return acct_register(acme, p, contacts, agreement, pkey_bits);
+    return acct_register(acme, p, contacts, agreement);
 }
 
 /**************************************************************************************************/
