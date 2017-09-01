@@ -147,6 +147,7 @@
 		B2FC60731F597352005B7D9E /* test_016b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016b.conf; sourceTree = "<group>"; };
 		B2FC60741F597352005B7D9E /* test_016c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016c.conf; sourceTree = "<group>"; };
 		B2FC60751F597352005B7D9E /* test_016d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016d.conf; sourceTree = "<group>"; };
+		B2FC60761F59894A005B7D9E /* TODO.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -280,12 +281,12 @@
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
-				755F874D1F27875D00871895 /* docs */,
 				B2D309A01EBA229F007BECC8 /* AUTHORS */,
 				B2D309A11EBA229F007BECC8 /* ChangeLog */,
 				B2D309A21EBA229F007BECC8 /* configure.ac */,
 				B2D309A31EBA229F007BECC8 /* COPYING */,
 				B2D309A41EBA229F007BECC8 /* DISCUSS */,
+				755F874D1F27875D00871895 /* docs */,
 				B2D309A51EBA229F007BECC8 /* INSTALL */,
 				B2D309A61EBA229F007BECC8 /* LICENSE */,
 				B2D309A71EBA229F007BECC8 /* Makefile.am */,
@@ -294,6 +295,7 @@
 				B2D309AA1EBA229F007BECC8 /* README.md */,
 				B2D31B061EC33CBE007BECC8 /* src */,
 				B2D309EF1EC1AD26007BECC8 /* test */,
+				B2FC60761F59894A005B7D9E /* TODO.md */,
 			);
 			path = /Users/sei/projects/mod_cert/mod_cert.xcodeproj;
 			sourceTree = "<absolute>";

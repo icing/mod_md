@@ -3,7 +3,7 @@ v0.8.1
  * New directive ```MDPrivateKeys``` to specify the type and parameter to private key generation.
    Currently only 'RSA' is supported as type with an option number of bits >= 2048 as parameter.
    Simple test cases for config handling added.
- * Private RSA keys are now generated with 2048 bits by default. Use ```MDPrivateKeyBits``` for
+ * Private RSA keys are now generated with 2048 bits by default. Use ```MDPrivateKeys``` for
    higher security. 
  
 v0.8.0
