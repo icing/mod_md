@@ -1,3 +1,5 @@
+ * Making "http-01" the preferred challenge type again, as people "tls-sni-01" requires at least
+   one working certificate vhost right now - which not everyone has.
  * moved part of the MD sanity checks from post_config to check_config phase, allowing for error
    detection in check-only runs.
 
