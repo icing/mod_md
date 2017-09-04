@@ -226,7 +226,11 @@ if test "x$curl_ssl" = "x"; then
     AC_MSG_ERROR([curl from $curl_config does not support SSL.])
 fi
 
-CURL_BIN=$( dirname $curl_config)/curl
+if test x"$curl_config" = "xcurl-config"; then
+    CURL_BIN="curl"
+else
+    CURL_BIN=$( dirname $curl_config)/curl
+fi
 AC_SUBST(CURL_BIN)
 
 AC_CHECK_HEADERS([curl/curl.h])
