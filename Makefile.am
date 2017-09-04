@@ -13,10 +13,9 @@
 # limitations under the License.
 #
 SUBDIRS         = @BUILD_SUBDIRS@
-DIST_SUBDIRS    = src
+DIST_SUBDIRS    = src test
 
 ACLOCAL_AMFLAGS = -I m4
-
 
 dist_doc_DATA   = README README.md LICENSE
 #EXTRA_DIST      = docs
