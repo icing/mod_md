@@ -856,9 +856,8 @@ static int md_is_managed(server_rec *s)
     return 0;
 }
 
-static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
-                                       const char **pkeyfile, const char **pcertfile,
-                                       const char **pchainfile)
+static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
+                                       const char **pkeyfile, const char **pcertfile)
 {
     apr_status_t rv = APR_ENOENT;    
     md_srv_conf_t *sc;
@@ -867,26 +866,53 @@ static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
     
     *pkeyfile = NULL;
     *pcertfile = NULL;
-    *pchainfile = NULL;
     
     sc = md_config_get(s);
     
     if (sc && sc->assigned) {
         assert(sc->mc);
         assert(sc->mc->store);
-        if (APR_SUCCESS == (rv = md_reg_init(&reg, p, sc->mc->store))) {
-            md = md_reg_get(reg, sc->assigned->name, p);
-            if (md->state != MD_S_COMPLETE) {
-                return APR_EAGAIN;
-            }
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10077) 
-                         "%s: loading credentials for server %s", md->name, s->server_hostname);
-            return md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile, pchainfile);
+        if (APR_SUCCESS != (rv = md_reg_init(&reg, p, sc->mc->store))) {
+            return rv;
         }
+
+        md = md_reg_get(reg, sc->assigned->name, p);
+            
+        if (APR_SUCCESS != (rv = md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile))) {
+            return rv;
+        }
+
+        if (!*pkeyfile || !*pcertfile 
+            || APR_SUCCESS != md_util_is_file(*pkeyfile, p)
+            || APR_SUCCESS != md_util_is_file(*pcertfile, p)) {
+            /* Provide temporary, self-signed certificate as fallback, so that
+             * clients do not get obscure TLS handshake errors or will see a fallback
+             * virtual host that is not intended to be served here. */
+            md_store_get_fname(pkeyfile, sc->mc->store, MD_SG_NONE, NULL, MD_FN_FALLBACK_PKEY, p);
+            md_store_get_fname(pcertfile, sc->mc->store, MD_SG_NONE, NULL, MD_FN_FALLBACK_CERT, p);
+            
+            return APR_EAGAIN;
+        }
+
+        /* We have key and cert files, but they might no longer be valid or not
+         * match all domain names. Still use these files for now, but indicate that 
+         * resources should no longer be served until we have a new certificate again. */
+        if (md->state != MD_S_COMPLETE) {
+            return APR_EAGAIN;
+        }
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10077) 
+                     "%s: providing certificate for server %s", md->name, s->server_hostname);
     }
     return rv;
 }
 
+static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
+                                       const char **pkeyfile, const char **pcertfile,
+                                       const char **pchainfile)
+{
+    *pchainfile = NULL;
+    return md_get_certificate(s, p, pkeyfile, pcertfile);
+}
 
 static int md_is_challenge(conn_rec *c, const char *servername,
                            X509 **pcert, EVP_PKEY **pkey)
@@ -1017,6 +1043,7 @@ static void md_hooks(apr_pool_t *pool)
     ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
+    APR_REGISTER_OPTIONAL_FN(md_get_certificate);
     APR_REGISTER_OPTIONAL_FN(md_get_credentials);
     APR_REGISTER_OPTIONAL_FN(md_is_challenge);
 }
