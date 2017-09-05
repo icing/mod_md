@@ -488,16 +488,20 @@ class TestEnv:
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, path, writeCertFiles=False, sslOnly=False):
+    def __init__(self, path, writeCertFiles=False, sslOnly=False, acmeUrl=None, acmeTos=None):
         self.path = path
         self.sslOnly = sslOnly
         self.writeCertFiles = writeCertFiles
+        if acmeUrl == None:
+            acmeUrl = TestEnv.ACME_URL
+        if acmeTos == None:
+            acmeTos = TestEnv.ACME_TOS
         if os.path.isfile(self.path):
             os.remove(self.path)
         open(self.path, "a").write(("  MDCertificateAuthority %s\n"
                                     "  MDCertificateProtocol ACME\n"
                                     "  MDCertificateAgreement %s\n\n")
-                                   % (TestEnv.ACME_URL, TestEnv.ACME_TOS))
+                                   % (acmeUrl, acmeTos))
 
     def add_drive_mode(self, mode):
         open(self.path, "a").write("  MDDriveMode %s\n" % mode)
