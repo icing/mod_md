@@ -307,13 +307,16 @@ class TestDrive :
             assert md["renew"] == tc["renew"], \
                 "Expected renew == {} indicator in {}, test case {}".format(tc["renew"], md, tc)
 
-    @pytest.mark.skip(reason="key generration fails when directive MDPrivateKeys is present")
-    @pytest.mark.parametrize("keyType,keyParams", [
-        ( "RSA", [ 2048 ] ), ( "RSA", [ 3072 ]), ( "RSA", [ 4096 ] )
+    @pytest.mark.skip(reason="key generation fails with directive: MDPrivateKeys RSA 2048")
+    @pytest.mark.parametrize("keyType,keyParams,expKeyLength", [
+        ( "RSA", [ 2048 ], 2048 ),
+        ( "RSA", [ 3072 ], 3072),
+        ( "RSA", [ 4096 ], 4096 ),
+        ( "Default", [ ], 2048 )
     ])
-    def test_500_202(self, keyType, keyParams):
-        # test case: trigger cert renew when entering renew window 
-        # setup: prepare COMPLETE md
+    def test_500_202(self, keyType, keyParams, expKeyLength):
+        # test case: specify RSA key length and verify resulting cert key 
+        # setup: prepare md
         domain = "test500-202-" + TestDrive.dns_uniq
         name = "www." + domain
         conf = HttpdConf( TestDrive.TMP_CONF )
@@ -327,8 +330,9 @@ class TestDrive :
         # setup: drive it
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        # check cert key length
         cert = CertUtil(TestEnv.path_domain_pubcert(name))
-        assert cert.get_key_length() == keyParams[0]
+        assert cert.get_key_length() == expKeyLength
 
     @pytest.mark.skip(reason="wrong TOS url in sandbox not replaced after config change")
     def test_500_203(self):
