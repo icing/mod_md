@@ -1,3 +1,18 @@
+v0.9.0
+----------------------------------------------------------------------------------------------------
+ * Improved interface to mod_ssl for fallback handling. Backward compatible to previous mod_ssl
+   patch, but fallbacks will not work.
+ * Provide a temporary, self-signed certificate with a speaking command and domain name if we
+   have no other cert for a Managed Domain, yet. Refs github issue #32
+ * Continue to provide expired or not-completely matching, existing certificate for a Managed
+   Domain until the renewal was successful. This is helpful when one adds a DNS name to
+   a MD, so the previous domains can be served while a new cert is requested.
+
+v0.8.2
+----------------------------------------------------------------------------------------------------
+ * All files necessary to run tests are not in the release package.
+ * Making "http-01" the preferred challenge type again, as people "tls-sni-01" requires at least
+   one working certificate vhost right now - which not everyone has.
  * moved part of the MD sanity checks from post_config to check_config phase, allowing for error
    detection in check-only runs.
 
