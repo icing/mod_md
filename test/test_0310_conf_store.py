@@ -211,6 +211,22 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
+    def test_310_119(self):
+        # test case: set RSA key length 2048
+        TestEnv.install_test_conf("key_rsa_2048");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA"
+        }
+
+    def test_310_120(self):
+        # test case: set RSA key length 4096
+        TestEnv.install_test_conf("key_rsa_4096");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA",
+            "bits": 4096
+        }
 
     # --------- remove from store ---------
 
@@ -322,6 +338,19 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert 'challenges' not in TestEnv.a2md(["list"])['jout']['output'][0]['ca']
 
+    @pytest.mark.skip(reason="fallback to default, if directive is removed from config?")
+    @pytest.mark.parametrize("confFile", [ 
+        ("key_rsa_2048"), ("key_rsa_4096")
+    ])
+    def test_310_209(self, confFile):
+        # test case: specify RSA key
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey']['type'] == "RSA"
+
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert "privkey" not in TestEnv.a2md(["list"])['jout']['output'][0]
 
     # --------- change existing config definitions ---------
 
@@ -418,6 +447,29 @@ class TestConf:
         TestEnv.install_test_conf("challenge_all");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
+
+    @pytest.mark.skip(reason="store value not resetted when switching back to default value")
+    def test_310_307(self):
+        # test case:  RSA key length: 4096 -> 2048 -> 4096
+        TestEnv.install_test_conf("key_rsa_4096");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA",
+            "bits": 4096
+        }
+
+        TestEnv.install_test_conf("key_rsa_2048");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA"
+        }
+
+        TestEnv.install_test_conf("key_rsa_4096");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA",
+            "bits": 4096
+        }
 
     # --------- status reset on critical store changes ---------
 

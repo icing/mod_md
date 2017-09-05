@@ -312,7 +312,7 @@ class TestDrive :
 
     @pytest.mark.skip(reason="key generration fails when directive MDPrivateKeys is present")
     @pytest.mark.parametrize("keyType,keyParams", [
-        ( "RSA", [ 2048 ] ), ( "RSA", [ 4096 ] )
+        ( "RSA", [ 2048 ] ), ( "RSA", [ 3072 ]), ( "RSA", [ 4096 ] )
     ])
     def test_500_202(self, keyType, keyParams):
         # test case: trigger cert renew when entering renew window 
