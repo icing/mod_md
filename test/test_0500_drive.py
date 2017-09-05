@@ -317,7 +317,7 @@ class TestDrive :
     def test_500_202(self, keyType, keyParams):
         # test case: trigger cert renew when entering renew window 
         # setup: prepare COMPLETE md
-        domain = "test500-201-" + TestDrive.dns_uniq
+        domain = "test500-202-" + TestDrive.dns_uniq
         name = "www." + domain
         conf = HttpdConf( TestDrive.TMP_CONF )
         conf.add_admin( "admin@" + domain )
@@ -332,6 +332,34 @@ class TestDrive :
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert cert.get_key_length() == keyParams[0]
+
+    @pytest.mark.skip(reason="wrong TOS url in sandbox not replaced after config change")
+    def test_500_203(self):
+        # test case: reproduce issue with initially wrong agreement URL
+        domain = "test500-203-" + TestDrive.dns_uniq
+        name = "www." + domain
+        # setup: prepare md with invalid TOS url
+        conf = HttpdConf( TestDrive.TMP_CONF, acmeTos=TestEnv.ACME_TOS2 )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_md( [name] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # drive it -> fail after account registration
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 1
+
+        # adjust config: replace TOS url with correct one
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_md( [name] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # drive it -> runs OK
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
 
 
     # --------- non-critical state change -> keep data ---------

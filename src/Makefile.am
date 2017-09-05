@@ -14,9 +14,7 @@
 #
 
 ACLOCAL_AMFLAGS = -I m4
-
 AUTOMAKE_OPTIONS = foreign
-
 
 lib_LTLIBRARIES    = libmd.la mod_md.la
 
@@ -24,7 +22,7 @@ lib_LTLIBRARIES    = libmd.la mod_md.la
 # static lib, linked by module and a2md
 #---------------------------------------------------------------------------------------------------
 
-libmd_la_CPPFLAGS = -fPIC -g -std=c99 -D_GNU_SOURCE -Werror
+libmd_la_CPPFLAGS = -fPIC -g -std=c99 -D_GNU_SOURCE -Werror @WERROR_CFLAGS@
 libmd_la_LDFLAGS  = @LDFLAGS@ -static -ljansson -lcurl -lssl -lcrypto
 
 A2LIB_OBJECTS = \
@@ -67,7 +65,7 @@ libmd_la_SOURCES = $(A2LIB_HFILES) $(A2LIB_OBJECTS)
 # mod_md for httpd
 #---------------------------------------------------------------------------------------------------
 
-mod_md_la_CPPFLAGS = -g -I../src -std=c99 -D_GNU_SOURCE -Werror
+mod_md_la_CPPFLAGS = -g -I../src -std=c99 -D_GNU_SOURCE -Werror @WERROR_CFLAGS@
 mod_md_la_LDFLAGS  = -module -L../src -lmd -ljansson -lcurl -lssl -lcrypto
 
 OBJECTS = \
@@ -93,7 +91,7 @@ all: mod_md.la
 
 bin_PROGRAMS       = a2md
 
-a2md_CFLAGS  = -g -I../src -std=c99 -D_GNU_SOURCE -Werror
+a2md_CFLAGS  = -g -I../src -std=c99 -D_GNU_SOURCE -Werror @WERROR_CFLAGS@
 a2md_LDFLAGS = @LDFLAGS@ -L../src -lmd -l@LIB_APR@ -l@LIB_APRUTIL@ -ljansson -lcurl -lssl -lcrypto
 
 A2MD_OBJECTS = \
