@@ -289,7 +289,6 @@ class TestDrive :
         conf.add_drive_mode( "manual" )
         conf.add_renew_window( renewWindow )
         conf.add_md( [name] )
-        conf.add_vhost( TestEnv.HTTPS_PORT, name, aliasList=[], withSSL=True)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
@@ -310,6 +309,30 @@ class TestDrive :
                 print "FAIL: replacing self-signed cert: %s" % testData["validDays"]
                 print "FAIL: expecting status %s, but was: %s\n" % ( testData["expStatus"], status )
             assert status == testData["expStatus"]
+
+    @pytest.mark.skip(reason="key generration fails when directive MDPrivateKeys is present")
+    @pytest.mark.parametrize("keyType,keyParams", [
+        ( "RSA", [ 2048 ] ), ( "RSA", [ 4096 ] )
+    ])
+    def test_500_202(self, keyType, keyParams):
+        # test case: trigger cert renew when entering renew window 
+        # setup: prepare COMPLETE md
+        domain = "test500-201-" + TestDrive.dns_uniq
+        name = "www." + domain
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_private_key(keyType, keyParams)
+        conf.add_md( [name] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # setup: drive it
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        assert cert.get_key_length() == keyParams[0]
+
 
     # --------- non-critical state change -> keep data ---------
 

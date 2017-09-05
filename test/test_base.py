@@ -505,6 +505,9 @@ class HttpdConf(object):
     def add_renew_window(self, window):
         open(self.path, "a").write("  MDRenewWindow %s\n" % window)
 
+    def add_private_key(self, keyType, keyParams):
+        open(self.path, "a").write("  MDPrivateKeys %s %s\n" % (keyType, " ".join(map(lambda p: str(p), keyParams))) )
+
     def add_admin(self, email):
         open(self.path, "a").write("  ServerAdmin mailto:%s\n\n" % email)
 
@@ -611,6 +614,9 @@ class CertUtil(object):
 
     def get_cn(self):
         return self.cert.get_subject().CN
+
+    def get_key_length(self):
+        return self.cert.get_pubkey().bits()
 
     def get_san_list(self):
         text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
