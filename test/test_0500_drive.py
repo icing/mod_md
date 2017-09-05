@@ -32,6 +32,7 @@ class TestDrive :
 
     @classmethod
     def setup_class(cls):
+        time.sleep(1)
         cls.dns_uniq = "%d.org" % time.time()
         cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
 
@@ -307,7 +308,6 @@ class TestDrive :
             assert md["renew"] == tc["renew"], \
                 "Expected renew == {} indicator in {}, test case {}".format(tc["renew"], md, tc)
 
-    @pytest.mark.skip(reason="key generation fails with directive: MDPrivateKeys RSA 2048")
     @pytest.mark.parametrize("keyType,keyParams,expKeyLength", [
         ( "RSA", [ 2048 ], 2048 ),
         ( "RSA", [ 3072 ], 3072),
@@ -328,13 +328,14 @@ class TestDrive :
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # setup: drive it
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0, \
+            "Expected drive to succeeed for MDPrivateKeys {} {}".format(keyType, keyParams)
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check cert key length
         cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert cert.get_key_length() == expKeyLength
 
-    @pytest.mark.skip(reason="wrong TOS url in sandbox not replaced after config change")
+    #@pytest.mark.skip(reason="wrong TOS url in sandbox not replaced after config change")
     def test_500_203(self):
         # test case: reproduce issue with initially wrong agreement URL
         domain = "test500-203-" + TestDrive.dns_uniq
@@ -356,6 +357,7 @@ class TestDrive :
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
         conf.install()
+        time.sleep(1)
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # drive it -> runs OK

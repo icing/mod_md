@@ -630,10 +630,11 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *arg,
         }
         else if (argc == 2) {
             bits = (int)apr_atoi64(argv[1]);
-            if (bits < 2048 || bits >= INT_MAX) {
-                return "must be a 2048 or higher in order to be considered safe. "
-                "Too large a value will slow down everything. Larger then 4096 probably does "
-                "not make sense unless quantum cryptography really changes spin.";
+            if (bits < MD_PKEY_RSA_BITS_MIN || bits >= INT_MAX) {
+                return apr_psprintf(cmd->pool, "must be %d or higher in order to be considered "
+                "safe. Too large a value will slow down everything. Larger then 4096 probably does "
+                "not make sense unless quantum cryptography really changes spin.", 
+                MD_PKEY_RSA_BITS_MIN);
             }
         }
         else {

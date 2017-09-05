@@ -36,6 +36,7 @@ class TestAuto:
 
     @classmethod
     def setup_class(cls):
+        time.sleep(1)
         cls.dns_uniq = "%d.org" % time.time()
         cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
 

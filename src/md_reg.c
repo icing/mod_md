@@ -497,6 +497,13 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         nmd->ca_challenges = (updates->ca_challenges? 
                               apr_array_copy(p, updates->ca_challenges) : NULL);
     }
+    if (MD_UPD_PKEY_SPEC & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update pkey spec: %s", name);
+        nmd->pkey_spec = NULL;
+        if (updates->pkey_spec) {
+            nmd->pkey_spec = apr_pmemdup(p, updates->pkey_spec, sizeof(md_pkey_spec_t));
+        }
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
         rv = state_init(reg, ptemp, nmd, 0);
@@ -763,6 +770,13 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 else if (smd->ca_challenges) {
                     smd->ca_challenges = NULL;
                     fields |= MD_UPD_CA_CHALLENGES;
+                }
+                if (!md_pkey_spec_eq(md->pkey_spec, smd->pkey_spec)) {
+                    fields |= MD_UPD_PKEY_SPEC;
+                    smd->pkey_spec = NULL;
+                    if (md->pkey_spec) {
+                        smd->pkey_spec = apr_pmemdup(p, md->pkey_spec, sizeof(md_pkey_spec_t));
+                    }
                 }
                 
                 if (fields) {

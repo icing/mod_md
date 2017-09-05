@@ -39,6 +39,7 @@ class TestConf:
 
     @classmethod
     def setup_class(cls):
+        time.sleep(1)
         cls.dns_uniq = "%d.org" % time.time()
 
     def setup_method(self, method):
@@ -215,7 +216,8 @@ class TestConf:
         TestEnv.install_test_conf("key_rsa_2048");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
-            "type": "RSA"
+            "type": "RSA",
+            "bits": 2048
         }
 
     def test_310_120(self):
@@ -336,7 +338,6 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert 'challenges' not in TestEnv.a2md(["list"])['jout']['output'][0]['ca']
 
-    @pytest.mark.skip(reason="fallback to default, if directive is removed from config?")
     @pytest.mark.parametrize("confFile", [ 
         ("key_rsa_2048"), ("key_rsa_4096")
     ])
@@ -447,7 +448,6 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
 
-    @pytest.mark.skip(reason="store value not resetted when switching back to default value")
     def test_310_307(self):
         # test case:  RSA key length: 4096 -> 2048 -> 4096
         TestEnv.install_test_conf("key_rsa_4096");
@@ -460,7 +460,8 @@ class TestConf:
         TestEnv.install_test_conf("key_rsa_2048");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
-            "type": "RSA"
+            "type": "RSA",
+            "bits": 2048
         }
 
         TestEnv.install_test_conf("key_rsa_4096");
