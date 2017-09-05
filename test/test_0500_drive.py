@@ -11,6 +11,7 @@ import urllib
 
 from datetime import datetime
 from test_base import TestEnv
+from test_base import HttpdConf
 from test_base import CertUtil
 
 def setup_module(module):
@@ -32,6 +33,7 @@ class TestDrive :
     @classmethod
     def setup_class(cls):
         cls.dns_uniq = "%d.org" % time.time()
+        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -263,6 +265,51 @@ class TestDrive :
         self._check_md_cert([ name, "test." + domain ])
         new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert old_cert.get_serial() != new_cert.get_serial()
+
+    @pytest.mark.skip(reason="critical remaining valid duration not detected")
+    @pytest.mark.parametrize("renewWindow,testDataList", [
+        ("14d", [
+            { "validDays": { "since": 5, "until": 180 }, "expStatus": 2 },    # COMPLETE
+            { "validDays": { "since": 200, "until": 15 }, "expStatus": 2 },   # COMPLETE
+            { "validDays": { "since": 200, "until": 13 }, "expStatus": 1 },   # INCOMPLETE
+        ]),
+        ("30%", [
+            { "validDays": { "since": 0, "until": 180 }, "expStatus": 2 },    # COMPLETE
+            { "validDays": { "since": 120, "until": 60 }, "expStatus": 2 },   # COMPLETE
+            { "validDays": { "since": 126, "until": 53 }, "expStatus": 1 },   # INCOMPLETE
+        ])
+    ])
+    def test_500_201(self, renewWindow, testDataList):
+        # test case: trigger cert renew when entering renew window 
+        # setup: prepare COMPLETE md
+        domain = "test500-201-" + TestDrive.dns_uniq
+        name = "www." + domain
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_renew_window( renewWindow )
+        conf.add_md( [name] )
+        conf.add_vhost( TestEnv.HTTPS_PORT, name, aliasList=[], withSSL=True)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # setup: drive it
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        cert1 = CertUtil(TestEnv.path_domain_pubcert(name))
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+
+        # replace cert by self-signed one -> check md status
+        print "TRACE: start testing renew window: %s" % renewWindow
+        for testData in testDataList:
+            print "TRACE: create self-signed cert: %s" % testData["validDays"]
+            CertUtil.create_self_signed_cert( [name], testData["validDays"])
+            cert2 = CertUtil(TestEnv.path_domain_pubcert(name))
+            assert cert2.get_serial() != cert1.get_serial()
+            status = TestEnv.a2md([ "list", name ])['jout']['output'][0]['state']
+            if status != testData["expStatus"]:
+                print "FAIL: replacing self-signed cert: %s" % testData["validDays"]
+                print "FAIL: expecting status %s, but was: %s\n" % ( testData["expStatus"], status )
+            assert status == testData["expStatus"]
 
     # --------- non-critical state change -> keep data ---------
 

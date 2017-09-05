@@ -142,13 +142,24 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.apache_err_count()
 
-    def test_300_016(self):
+    @pytest.mark.parametrize("confFile,expErrMsg", [ 
+        ("test_016a", "unsupported private key type"), 
+        ("test_016b", "needs to specify the private key type"), 
+        ("test_016c", "must be a 2048 or higher"), 
+        ("test_016d", "key type 'RSA' has only one optinal parameter") ])
+    def test_300_016(self, confFile, expErrMsg):
         # invalid pkey specification
-        TestEnv.install_test_conf("test_016a");
+        TestEnv.install_test_conf(confFile);
         assert TestEnv.apache_restart() == 1
-        TestEnv.install_test_conf("test_016b");
+        assert expErrMsg in TestEnv.apachectl_stderr
+
+    @pytest.mark.parametrize("confFile,expErrMsg", [ 
+        ("test_017a", "has unrecognized format"), 
+        ("test_017b", "has unrecognized format"), 
+        ("test_017c", "takes one argument"), 
+        ("test_017d", "must be less than 100") ])
+    def test_300_017(self, confFile, expErrMsg):
+        # invalid renew window directive
+        TestEnv.install_test_conf(confFile);
         assert TestEnv.apache_restart() == 1
-        TestEnv.install_test_conf("test_016c");
-        assert TestEnv.apache_restart() == 1
-        TestEnv.install_test_conf("test_016d");
-        assert TestEnv.apache_restart() == 1
+        assert expErrMsg in TestEnv.apachectl_stderr

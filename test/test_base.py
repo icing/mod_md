@@ -19,6 +19,7 @@ from httplib import HTTPConnection
 from shutil import copyfile
 from urlparse import urlparse
 
+SEC_PER_DAY = 24 * 60 * 60
 
 class TestEnv:
 
@@ -501,6 +502,9 @@ class HttpdConf(object):
     def add_drive_mode(self, mode):
         open(self.path, "a").write("  MDDriveMode %s\n" % mode)
 
+    def add_renew_window(self, window):
+        open(self.path, "a").write("  MDRenewWindow %s\n" % window)
+
     def add_admin(self, email):
         open(self.path, "a").write("  ServerAdmin mailto:%s\n\n" % email)
 
@@ -538,6 +542,44 @@ class HttpdConf(object):
 class CertUtil(object):
     # Utility class for inspecting certificates in test cases
     # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
+
+    @classmethod
+    def create_self_signed_cert( cls, nameList, validDays ):
+        name = nameList[0]
+        certFilePath = TestEnv.path_domain_pubcert(name)
+        keyFilePath = TestEnv.path_domain_privkey(name)
+
+        # create a key pair
+        if os.path.exists(keyFilePath):
+            key_buffer = open(keyFilePath, 'rt').read()
+            k = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_buffer)
+        else:
+            k = OpenSSL.crypto.PKey()
+            k.generate_key(OpenSSL.crypto.TYPE_RSA, 1024)
+
+        # create a self-signed cert
+        cert = OpenSSL.crypto.X509()
+        cert.get_subject().C = "DE"
+        cert.get_subject().ST = "NRW"
+        cert.get_subject().L = "Muenster"
+        cert.get_subject().O = "greenbytes GmbH"
+        cert.get_subject().CN = name
+        cert.set_serial_number(1000)
+        cert.gmtime_adj_notBefore( - validDays["since"] * SEC_PER_DAY)
+        cert.gmtime_adj_notAfter( validDays["until"] * SEC_PER_DAY)
+        cert.set_issuer(cert.get_subject())
+
+        cert.add_extensions([ OpenSSL.crypto.X509Extension(
+            b"subjectAltName", False, ", ".join( map(lambda n: "DNS:" + n, nameList) )
+        ) ])
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha1')
+
+        open(certFilePath, "wt").write(
+            OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert))
+        open(keyFilePath, "wt").write(
+            OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, k))
+
 
     def __init__(self, cert_path):
         self.cert_path = cert_path
