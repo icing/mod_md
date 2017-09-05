@@ -166,11 +166,18 @@ class TestConf:
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
 
     def test_310_113(self):
-        # test case: renew window - 30 days
-        TestEnv.install_test_conf("renew_14");
+        # test case: renew window - 14 days
+        TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
-        # todo: how to check renew value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+
+    @pytest.mark.skip(reason="percent values not stored correctly")
+    def test_310_113a(self):
+        # test case: renew window - 10 percent
+        TestEnv.install_test_conf("renew_10p");
+        assert TestEnv.apache_restart() == 0
+        # TODO: place appropriate checks here
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] != 0
 
     def test_310_114(self):
         # test case: ca challenge type - http-01
@@ -195,6 +202,31 @@ class TestConf:
         TestEnv.install_test_conf("member_auto");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['domains'] == [ 'testdomain.org', 'test.testdomain.org', 'mail.testdomain.org' ]
+
+    def test_310_118(self):
+        # add renew window to existing md
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        TestEnv.install_test_conf("renew_14d");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+
+    def test_310_119(self):
+        # test case: set RSA key length 2048
+        TestEnv.install_test_conf("key_rsa_2048");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA"
+        }
+
+    def test_310_120(self):
+        # test case: set RSA key length 4096
+        TestEnv.install_test_conf("key_rsa_4096");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA",
+            "bits": 4096
+        }
 
     # --------- remove from store ---------
 
@@ -270,7 +302,7 @@ class TestConf:
 
     def test_310_206(self):
         # test case: remove renew window from conf -> fallback to default
-        TestEnv.install_test_conf("renew_14");
+        TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
@@ -306,6 +338,19 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert 'challenges' not in TestEnv.a2md(["list"])['jout']['output'][0]['ca']
 
+    @pytest.mark.skip(reason="fallback to default, if directive is removed from config?")
+    @pytest.mark.parametrize("confFile", [ 
+        ("key_rsa_2048"), ("key_rsa_4096")
+    ])
+    def test_310_209(self, confFile):
+        # test case: specify RSA key
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey']['type'] == "RSA"
+
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert "privkey" not in TestEnv.a2md(["list"])['jout']['output'][0]
 
     # --------- change existing config definitions ---------
 
@@ -372,18 +417,21 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
 
+    @pytest.mark.skip(reason="percent values are not stored correctly")
     def test_310_305(self):
         # test case: change config value for renew window, use various syntax alternatives
-        TestEnv.install_test_conf("renew_14");
+        TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
-        # ToDo: how to check renew value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
         TestEnv.install_test_conf("renew_10");
         assert TestEnv.apache_restart() == 0
-        # check: renew window not set
-        # ToDo: how to check fallback to default value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 10 * SEC_PER_DAY
+
+        TestEnv.install_test_conf("renew_10p");
+        assert TestEnv.apache_restart() == 0
+        # TODO: place appropriate checks here
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] != 0
 
     def test_310_306(self):
         # test case: change challenge types - http -> tls-sni -> all
@@ -399,6 +447,29 @@ class TestConf:
         TestEnv.install_test_conf("challenge_all");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
+
+    @pytest.mark.skip(reason="store value not resetted when switching back to default value")
+    def test_310_307(self):
+        # test case:  RSA key length: 4096 -> 2048 -> 4096
+        TestEnv.install_test_conf("key_rsa_4096");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA",
+            "bits": 4096
+        }
+
+        TestEnv.install_test_conf("key_rsa_2048");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA"
+        }
+
+        TestEnv.install_test_conf("key_rsa_4096");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
+            "type": "RSA",
+            "bits": 4096
+        }
 
     # --------- status reset on critical store changes ---------
 
