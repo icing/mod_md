@@ -266,17 +266,16 @@ class TestDrive :
         new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert old_cert.get_serial() != new_cert.get_serial()
 
-    @pytest.mark.skip(reason="critical remaining valid duration not detected")
     @pytest.mark.parametrize("renewWindow,testDataList", [
         ("14d", [
-            { "validDays": { "since": 5, "until": 180 }, "expStatus": 2 },    # COMPLETE
-            { "validDays": { "since": 200, "until": 15 }, "expStatus": 2 },   # COMPLETE
-            { "validDays": { "since": 200, "until": 13 }, "expStatus": 1 },   # INCOMPLETE
+            { "valid": { "notBefore": -5,   "notAfter": 180 }, "renew" : False }, 
+            { "valid": { "notBefore": -200, "notAfter": 15  }, "renew" : False },
+            { "valid": { "notBefore": -200, "notAfter": 13  }, "renew" : True },
         ]),
         ("30%", [
-            { "validDays": { "since": 0, "until": 180 }, "expStatus": 2 },    # COMPLETE
-            { "validDays": { "since": 120, "until": 60 }, "expStatus": 2 },   # COMPLETE
-            { "validDays": { "since": 126, "until": 53 }, "expStatus": 1 },   # INCOMPLETE
+            { "valid": { "notBefore": -0,   "notAfter": 180 }, "renew" : False },
+            { "valid": { "notBefore": -120, "notAfter": 60  }, "renew" : False },
+            { "valid": { "notBefore": -126, "notAfter": 53  }, "renew" : True },
         ])
     ])
     def test_500_201(self, renewWindow, testDataList):
@@ -299,16 +298,14 @@ class TestDrive :
 
         # replace cert by self-signed one -> check md status
         print "TRACE: start testing renew window: %s" % renewWindow
-        for testData in testDataList:
-            print "TRACE: create self-signed cert: %s" % testData["validDays"]
-            CertUtil.create_self_signed_cert( [name], testData["validDays"])
+        for tc in testDataList:
+            print "TRACE: create self-signed cert: %s" % tc["valid"]
+            CertUtil.create_self_signed_cert( [name], tc["valid"])
             cert2 = CertUtil(TestEnv.path_domain_pubcert(name))
             assert cert2.get_serial() != cert1.get_serial()
-            status = TestEnv.a2md([ "list", name ])['jout']['output'][0]['state']
-            if status != testData["expStatus"]:
-                print "FAIL: replacing self-signed cert: %s" % testData["validDays"]
-                print "FAIL: expecting status %s, but was: %s\n" % ( testData["expStatus"], status )
-            assert status == testData["expStatus"]
+            md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+            assert md["renew"] == tc["renew"], \
+                "Expected renew == {} indicator in {}, test case {}".format(tc["renew"], md, tc)
 
     @pytest.mark.skip(reason="key generration fails when directive MDPrivateKeys is present")
     @pytest.mark.parametrize("keyType,keyParams", [

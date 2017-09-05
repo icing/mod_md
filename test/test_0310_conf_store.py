@@ -171,14 +171,13 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
 
-    @pytest.mark.skip(reason="percent values not stored correctly")
     def test_310_113a(self):
         # test case: renew window - 10 percent
         TestEnv.install_test_conf("renew_10p");
         assert TestEnv.apache_restart() == 0
         # TODO: place appropriate checks here
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] != 0
-
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '10%'
+        
     def test_310_114(self):
         # test case: ca challenge type - http-01
         TestEnv.install_test_conf("challenge_http");
@@ -310,8 +309,7 @@ class TestConf:
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         # check: renew window not set
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-norm'] == 90 * SEC_PER_DAY
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 30 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '33%'
 
     @pytest.mark.parametrize("confFile,expCode", [ 
         ("drive_manual", 0), 
@@ -417,21 +415,22 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
 
-    @pytest.mark.skip(reason="percent values are not stored correctly")
     def test_310_305(self):
         # test case: change config value for renew window, use various syntax alternatives
         TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+        md = TestEnv.a2md(["list"])['jout']['output'][0]
+        assert md['renew-window'] == 14 * SEC_PER_DAY
 
         TestEnv.install_test_conf("renew_10");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 10 * SEC_PER_DAY
+        md = TestEnv.a2md(["list"])['jout']['output'][0]
+        assert md['renew-window'] == 10 * SEC_PER_DAY
 
         TestEnv.install_test_conf("renew_10p");
         assert TestEnv.apache_restart() == 0
-        # TODO: place appropriate checks here
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] != 0
+        md = TestEnv.a2md(["list"])['jout']['output'][0]
+        assert md['renew-window'] == '10%'
 
     def test_310_306(self):
         # test case: change challenge types - http -> tls-sni -> all

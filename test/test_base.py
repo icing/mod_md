@@ -572,8 +572,8 @@ class CertUtil(object):
         cert.get_subject().O = "greenbytes GmbH"
         cert.get_subject().CN = name
         cert.set_serial_number(1000)
-        cert.gmtime_adj_notBefore( - validDays["since"] * SEC_PER_DAY)
-        cert.gmtime_adj_notAfter( validDays["until"] * SEC_PER_DAY)
+        cert.gmtime_adj_notBefore( validDays["notBefore"] * SEC_PER_DAY)
+        cert.gmtime_adj_notAfter( validDays["notAfter"] * SEC_PER_DAY)
         cert.set_issuer(cert.get_subject())
 
         cert.add_extensions([ OpenSSL.crypto.X509Extension(

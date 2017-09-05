@@ -496,8 +496,8 @@ static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const ch
     else {
         switch (percentage_parse(value, &percent)) {
             case APR_SUCCESS:
-                config->renew_norm = 100;
-                config->renew_window = percent;
+                config->renew_norm = apr_time_from_sec(100 * MD_SECS_PER_DAY);
+                config->renew_window = apr_time_from_sec(percent * MD_SECS_PER_DAY);
                 return NULL;
             case APR_BADARG:
                 return "MDRenewWindow as percent must be less than 100";
