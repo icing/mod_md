@@ -1,3 +1,6 @@
+ * Synched mod_ssl patch with Apache subversion again and made v4 of the patch. Only changes
+   were in log messages, so no need to repatch existing installations.
+
 v0.9.1
 ----------------------------------------------------------------------------------------------------
  * various fixes in MDRenewWindow handling when specifying percent. Serialization changed. If 
