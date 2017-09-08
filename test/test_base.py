@@ -521,6 +521,9 @@ class HttpdConf(object):
     def add_ca_challenges(self, type_list):
         open(self.path, "a").write("  MDCAChallenges %s\n" % " ".join(type_list))
 
+    def add_http_proxy(self, url):
+        open(self.path, "a").write("  MDHttpProxy %s\n" % url)
+
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
         f = open(self.path, "a") 

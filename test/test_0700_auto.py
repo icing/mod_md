@@ -278,6 +278,29 @@ class TestAuto:
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
 
+    #-----------------------------------------------------------------------------------------------
+    # Specify a non-working http proxy
+    #
+    def test_7008(self):
+        domain = self.test_domain
+        dns_list = [ domain ]
+
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "always" )
+        conf.add_http_proxy( "http://localhost:1" )
+        conf.add_md( dns_list )
+        conf.install()
+
+        # - restart (-> drive), check that md is in store
+        assert TestEnv.apache_restart() == 0
+        time.sleep( 2 )
+        # assert drive did not start
+        md = TestEnv.a2md([ "-j", "list", domain ])['jout']['output'][0]
+        assert md['state'] == TestEnv.MD_S_INCOMPLETE
+        assert 'account' not in md['ca']
+        assert TestEnv.apache_err_scan( re.compile('.*\[md:debug\].*Connection refused: ') )
+
 
     # --------- _utils_ ---------
 

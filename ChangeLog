@@ -1,3 +1,5 @@
+ * New config directive 'MDHttpProxy <url>' to specify a HTTP(S) proxy for outgoing connections.
+   Supported in a2md with the '--proxy <url>' command line option.
  * Synched mod_ssl patch with Apache subversion again and made v4 of the patch. Only changes
    were in log messages, so no need to repatch existing installations.
 
