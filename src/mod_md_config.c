@@ -444,6 +444,9 @@ static apr_status_t duration_parse(const char *value, apr_interval_time_t *ptime
             funits = MD_SECS_PER_DAY;
         }
     }
+    else if (endp == value) {
+        return APR_EINVAL;
+    }
     else if (*endp == 'd') {
         *ptimeout = apr_time_from_sec(n * MD_SECS_PER_DAY);
         return APR_SUCCESS;
