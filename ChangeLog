@@ -1,3 +1,5 @@
+v0.9.2
+----------------------------------------------------------------------------------------------------
  * Fixes for conversions in gcc, fixed duration parsing when apr_strtoi64() defaults to 0 on
    not seeing any digit.
  * New config directive 'MDHttpProxy <url>' to specify a HTTP(S) proxy for outgoing connections.
