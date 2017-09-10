@@ -7,5 +7,6 @@ conf/global.conf
 conf/httpd_http.conf
 conf/httpd_https.conf
 conf/modules.conf
+data/test_conf_validate/test_014.conf
 *.pyc
 data/test_roundtrip/temp.conf

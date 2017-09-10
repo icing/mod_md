@@ -37,7 +37,7 @@
 /**************************************************************************************************/
 /* file system based implementation of md_store_t */
 
-#define MD_STORE_VERSION        1.0
+#define MD_STORE_VERSION        3
 
 typedef struct {
     apr_fileperms_t dir;
@@ -60,8 +60,6 @@ struct md_store_fs_t {
     
     int port_80;
     int port_443;
-
-    const unsigned char *dupkey;
 };
 
 #define FS_STORE(store)     (md_store_fs_t*)(((char*)store)-offsetof(md_store_fs_t, s))
@@ -98,32 +96,87 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
 {
     md_json_t *json = md_json_create(p);
     const char *key64;
+    unsigned char *key;
     apr_status_t rv;
-    unsigned char key[FS_STORE_KLEN];
-    int i;
     
-    md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
     md_json_setn(MD_STORE_VERSION, json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
 
-    /*if (APR_SUCCESS != (rv = md_rand_bytes(key, sizeof(key), p))) {
+    s_fs->key_len = FS_STORE_KLEN;
+    s_fs->key = key = apr_pcalloc(p, FS_STORE_KLEN);
+    if (APR_SUCCESS != (rv = md_rand_bytes(key, s_fs->key_len, p))) {
         return rv;
-    }*/
-    for (i = 0; i < FS_STORE_KLEN; ++i) {
-        key[i] = 'a' + (i % 26);
-    } 
-
-    s_fs->key_len = sizeof(key);
-    s_fs->key = apr_pcalloc(p, sizeof(key) + 1);
-    memcpy((void*)s_fs->key, key, sizeof(key));
-    s_fs->dupkey = apr_pmemdup(p, key, sizeof(key));
+    }
         
-    key64 = md_util_base64url_encode((char *)key, sizeof(key), ptemp);
+    key64 = md_util_base64url_encode((char *)key, s_fs->key_len, ptemp);
     md_json_sets(key64, json, MD_KEY_KEY, NULL);
-    
     rv = md_json_fcreatex(json, ptemp, MD_JSON_FMT_INDENT, fname, MD_FPROT_F_UONLY);
     memset((char*)key64, 0, strlen(key64));
 
-    assert(memcmp(s_fs->key, s_fs->dupkey, FS_STORE_KLEN) == 0);
+    return rv;
+}
+
+static apr_status_t rename_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                                const char *dir, const char *name, 
+                                apr_filetype_e ftype)
+{
+    const char *from, *to;
+    apr_status_t rv = APR_SUCCESS;
+
+    if (APR_SUCCESS == (rv = md_util_path_merge(&from, ptemp, dir, name, NULL))
+        && APR_SUCCESS == (rv = md_util_path_merge(&to, ptemp, dir, MD_FN_PRIVKEY, NULL))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "renaming %s/%s to %s", 
+                      dir, name, MD_FN_PRIVKEY);
+        return apr_file_rename(from, to, ptemp);
+    }
+    return rv;
+}
+
+static apr_status_t mk_pubcert(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                               const char *dir, const char *name, 
+                               apr_filetype_e ftype)
+{
+    md_cert_t *cert;
+    apr_array_header_t *chain, *pubcert;
+    const char *fname, *fpubcert;
+    apr_status_t rv = APR_SUCCESS;
+    
+    if (   APR_SUCCESS == (rv = md_util_path_merge(&fpubcert, ptemp, dir, MD_FN_PUBCERT, NULL))
+        && APR_STATUS_IS_ENOENT((rv = md_chain_fload(&pubcert, ptemp, fpubcert)))
+        && APR_SUCCESS == (rv = md_util_path_merge(&fname, ptemp, dir, name, NULL))
+        && APR_SUCCESS == (rv = md_cert_fload(&cert, ptemp, fname))
+        && APR_SUCCESS == (rv = md_util_path_merge(&fname, ptemp, dir, MD_FN_CHAIN, NULL))) {
+        
+        rv = md_chain_fload(&chain, ptemp, fname);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            chain = apr_array_make(ptemp, 1, sizeof(md_cert_t*));
+            rv = APR_SUCCESS;
+        }
+        if (APR_SUCCESS == rv) {
+            pubcert = apr_array_make(ptemp, chain->nelts + 1, sizeof(md_cert_t*));
+            APR_ARRAY_PUSH(pubcert, md_cert_t *) = cert;
+            apr_array_cat(pubcert, chain);
+            rv = md_chain_fsave(pubcert, ptemp, fpubcert, MD_FPROT_F_UONLY);
+        }
+    }
+    return rv;
+}
+
+static apr_status_t upgrade_from_1_0(md_store_fs_t *s_fs, apr_pool_t *p, apr_pool_t *ptemp)
+{
+    md_store_group_t g;
+    apr_status_t rv = APR_SUCCESS;
+    
+    /* Migrate pkey.pem -> privkey.pem */
+    for (g = MD_SG_NONE; g < MD_SG_COUNT && APR_SUCCESS == rv; ++g) {
+        rv = md_util_files_do(rename_pkey, s_fs, p, s_fs->base, 
+                              md_store_group_name(g), "*", "pkey.pem", NULL);
+    }
+    /* Generate fullcert.pem from cert.pem and chain.pem where missing */
+    rv = md_util_files_do(mk_pubcert, s_fs, p, s_fs->base, 
+                          md_store_group_name(MD_SG_DOMAINS), "*", MD_FN_CERT, NULL);
+    rv = md_util_files_do(mk_pubcert, s_fs, p, s_fs->base, 
+                          md_store_group_name(MD_SG_ARCHIVE), "*", MD_FN_CERT, NULL);
+    
     return rv;
 }
 
@@ -131,7 +184,7 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
                                     apr_pool_t *p, apr_pool_t *ptemp)
 {
     md_json_t *json;
-    const char *key64;
+    const char *key64, *key;
     apr_status_t rv;
     double store_version;
     
@@ -145,22 +198,38 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "version too new: %s", store_version);
             return APR_EINVAL;
         }
-        else if (store_version > MD_STORE_VERSION) {
-            /* migrate future store version changes */
-        } 
-        
+
         key64 = md_json_dups(p, json, MD_KEY_KEY, NULL);
         if (!key64) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "missing key: %s", MD_KEY_KEY);
             return APR_EINVAL;
         }
         
-        s_fs->key_len = md_util_base64url_decode((const char **)&s_fs->key, key64, p);
-        if (s_fs->key_len < FS_STORE_KLEN) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "key too short: %d", s_fs->key_len);
+        s_fs->key_len = md_util_base64url_decode(&key, key64, p);
+        s_fs->key = (const unsigned char*)key;
+        if (s_fs->key_len != FS_STORE_KLEN) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "key length unexpected: %d", 
+                          s_fs->key_len);
             return APR_EINVAL;
         }
-        s_fs->dupkey = apr_pmemdup(p, s_fs->key, FS_STORE_KLEN);
+
+        /* Need to migrate format? */
+        if (store_version < MD_STORE_VERSION) {
+            if (store_version <= 1.0) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "migrating store v1 -> v2");
+                rv = upgrade_from_1_0(s_fs, p, ptemp);
+            }
+            if (store_version <= 2.0) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "migrating store v2 -> v3");
+                md_json_del(json, MD_KEY_VERSION, NULL);
+            }
+            
+            if (APR_SUCCESS == rv) {
+                md_json_setn(MD_STORE_VERSION, json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
+                rv = md_json_freplace(json, ptemp, MD_JSON_FMT_INDENT, fname, MD_FPROT_F_UONLY);
+           }
+           md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, "migrated store");
+        } 
     }
     return rv;
 }
@@ -189,6 +258,57 @@ read:
             goto read;
         }
     }
+    return rv;
+}
+
+static apr_status_t setup_fallback_cert(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    md_pkey_t *fallback_key;
+    md_cert_t *fallback_cert;
+    md_pkey_spec_t spec;
+    apr_status_t rv;
+
+    if (APR_SUCCESS == (rv = fs_load(&s_fs->s, MD_SG_NONE, NULL, MD_FN_FALLBACK_PKEY, 
+                                     MD_SV_PKEY, (void**)&fallback_key, ptemp))
+        && APR_SUCCESS == (rv = fs_load(&s_fs->s, MD_SG_NONE, NULL, MD_FN_FALLBACK_CERT, 
+                                        MD_SV_CERT, (void**)&fallback_cert, ptemp))) {
+        apr_time_t not_after = md_cert_get_not_after(fallback_cert);
+        if (not_after > apr_time_now() + apr_time_from_sec(7 * MD_SECS_PER_DAY)) {
+            /* at least a week more valid, expect drive and restart way before that */
+            return APR_SUCCESS;
+        }
+    }
+    
+    spec.type = MD_PKEY_TYPE_RSA;
+    spec.params.rsa.bits = MD_PKEY_RSA_BITS_DEF;
+        
+    if (APR_SUCCESS != (rv = md_pkey_gen(&fallback_key, ptemp, &spec))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "create fallback key");
+        return rv;
+    }
+    
+    if (APR_SUCCESS != (rv = md_store_save(&s_fs->s, ptemp, MD_SG_NONE, NULL, 
+                                           MD_FN_FALLBACK_PKEY, MD_SV_PKEY, 
+                                           (void*)fallback_key, 0))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "save fallback key");
+        return rv;
+    }
+
+    if (APR_SUCCESS != (rv = md_cert_self_sign(&fallback_cert, "Apache Managed Domain Fallback", 
+                                               "temporary.invalid.certificate", fallback_key, 
+                                               apr_time_from_sec(14 * MD_SECS_PER_DAY), ptemp))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "create fallback certificate");
+        return rv;
+    }
+
+    if (APR_SUCCESS != (rv = md_store_save(&s_fs->s, ptemp, MD_SG_NONE, NULL, 
+                                           MD_FN_FALLBACK_CERT, MD_SV_CERT, 
+                                           (void*)fallback_cert, 0))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "save fallback certificate");
+        return rv;
+    }
+
     return rv;
 }
 
@@ -236,6 +356,9 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
         }
     }
     rv = md_util_pool_vdo(setup_store_file, s_fs, p, NULL);
+    if (APR_SUCCESS == rv) {
+        rv = md_util_pool_vdo(setup_fallback_cert, s_fs, p, NULL);
+    }
     
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "init fs store at %s", path);
@@ -320,7 +443,6 @@ static void get_pass(const char **ppass, apr_size_t *plen,
         *plen = 0;
     }
     else {
-        assert(memcmp(s_fs->key, s_fs->dupkey, FS_STORE_KLEN) == 0);
         *ppass = (const char *)s_fs->key;
         *plen = s_fs->key_len;
     }
@@ -374,10 +496,10 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     void **pvalue;
     apr_status_t rv;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char *);
     aspect = va_arg(ap, const char *);
-    vtype = va_arg(ap, int);
+    vtype = (md_store_vtype_t)va_arg(ap, int);
     pvalue= va_arg(ap, void **);
         
     rv = fs_get_fname(&fpath, &s_fs->s, group, name, aspect, ptemp);
@@ -438,8 +560,8 @@ static apr_status_t pfs_is_newer(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
     int *pnewer;
     apr_status_t rv;
     
-    group1 = va_arg(ap, int);
-    group2 = va_arg(ap, int);
+    group1 = (md_store_group_t)va_arg(ap, int);
+    group2 = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     aspect = va_arg(ap, const char*);
     pnewer = va_arg(ap, int*);
@@ -483,10 +605,10 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     const char *pass;
     apr_size_t pass_len;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     aspect = va_arg(ap, const char*);
-    vtype = va_arg(ap, int);
+    vtype = (md_store_vtype_t)va_arg(ap, int);
     value = va_arg(ap, void *);
     create = va_arg(ap, int);
     
@@ -540,7 +662,7 @@ static apr_status_t pfs_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     apr_finfo_t info;
     md_store_group_t group;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     aspect = va_arg(ap, const char *);
     force = va_arg(ap, int);
@@ -599,7 +721,7 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     md_store_group_t group;
     apr_status_t rv;
     
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     
     groupname = md_store_group_name(group);
@@ -684,8 +806,8 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     int archive;
     apr_status_t rv;
     
-    from = va_arg(ap, int);
-    to = va_arg(ap, int);
+    from = (md_store_group_t)va_arg(ap, int);
+    to = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
     archive = va_arg(ap, int);
     

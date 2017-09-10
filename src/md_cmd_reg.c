@@ -39,11 +39,10 @@
 static apr_status_t cmd_reg_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     md_t *md;
-    const char *err;
     apr_status_t rv;
 
-    err = md_create(&md, ctx->p, md_cmd_gather_args(ctx, 0));
-    if (err) {
+    md = md_create(ctx->p, md_cmd_gather_args(ctx, 0));
+    if (md->domains->nelts == 0) {
         return APR_EINVAL;
     }
 
@@ -104,7 +103,7 @@ static apr_status_t cmd_reg_list(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, "list do");
         md_reg_do(list_add_md, mdlist, ctx->reg, ctx->p);
-        qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
+        qsort(mdlist->elts, (size_t)mdlist->nelts, sizeof(md_t *), md_name_cmp);
     
         for (i = 0; i < mdlist->nelts; ++i) {
             md = APR_ARRAY_IDX(mdlist, i, const md_t*);
@@ -274,8 +273,8 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
         
-        if (APR_SUCCESS == (rv = md_reg_stage(ctx->reg, md, challenge, reset, ctx->p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
+        if (APR_SUCCESS == (rv = md_reg_stage(ctx->reg, md, challenge, reset, NULL, ctx->p))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
             
             rv = md_reg_load(ctx->reg, md->name, ctx->p);
             
@@ -318,7 +317,7 @@ static apr_status_t cmd_reg_drive(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
     else {
         md_reg_do(list_add_md, mdlist, ctx->reg, ctx->p);
-        qsort(mdlist->elts, mdlist->nelts, sizeof(md_t *), md_name_cmp);
+        qsort(mdlist->elts, (size_t)mdlist->nelts, sizeof(md_t *), md_name_cmp);
     }   
     
     rv = APR_SUCCESS;

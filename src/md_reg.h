@@ -32,7 +32,8 @@ typedef struct md_reg_t md_reg_t;
  * Initialize the registry, using the pool and loading any existing information
  * from the store.
  */
-apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *pm, struct md_store_t *store);
+apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *pm, struct md_store_t *store,
+                         const char *proxy_url);
 
 struct md_store_t *md_reg_store_get(md_reg_t *reg);
 
@@ -91,7 +92,8 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
 #define MD_UPD_DRIVE_MODE   0x0080
 #define MD_UPD_RENEW_WINDOW 0x0100
 #define MD_UPD_CA_CHALLENGES 0x0200
-#define MD_UPD_ALL          0x7FFF
+#define MD_UPD_PKEY_SPEC    0x0400
+#define MD_UPD_ALL          0x7FFFFFFF
 
 /**
  * Update the given fields for the managed domain. Take the new
@@ -108,8 +110,7 @@ apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg,
                               md_store_group_t group, const md_t *md, apr_pool_t *p);
 
 apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
-                                   const char **pkeyfile, const char **pcertfile,
-                                   const char **pchainfile);
+                                   const char **pkeyfile, const char **pcertfile);
 
 /**
  * Synchronise the give master mds with the store.
@@ -135,6 +136,8 @@ struct md_proto_driver_t {
     const md_t *md;
     void *baton;
     int reset;
+    apr_time_t stage_valid_from;
+    const char *proxy_url;
 };
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver);
@@ -154,7 +157,8 @@ struct md_proto_t {
  * without interfering with any existing credentials.
  */
 apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, 
-                          const char *challenge, int reset, apr_pool_t *p);
+                          const char *challenge, int reset, 
+                          apr_time_t *pvalid_from, apr_pool_t *p);
 
 /**
  * Load a staged set of new credentials for the managed domain. This will archive
@@ -163,20 +167,5 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md,
  * as they are.
  */
 apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p);
-
-/**
- * Drive the given managed domain toward completeness.
- * This is a convenience method that combines staging and, on success, loading
- * of a new managed domain credentials set.
- *
- * @param reg   the md registry
- * @param md    the managed domain to drive
- * @param challenge the challenge type to use or NULL for auto selection
- * @param reset remove any staging information that has been collected
- * @param force force driving even though it looks unnecessary (e.g. not epxired)
- * @param p     pool to use
- */
-apr_status_t md_reg_drive(md_reg_t *reg, md_t *md, 
-                          const char *challenge, int reset, int force, apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */

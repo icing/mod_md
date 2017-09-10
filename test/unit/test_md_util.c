@@ -77,7 +77,7 @@ static void largetrip(int step)
 
     for (start = 0; start < 256; ++start) {
         for (i = 0; i < 256; ++i) {
-            buffer[(start+(i*step)) % 256] = i;
+            buffer[(start+(i*step)) % 256] = (char)i;
         }
         base64_roundtrip(buffer, 256);
     }

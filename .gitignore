@@ -31,7 +31,7 @@ missing
 stamp-h1
 Makefile.in
 Makefile
-mod_cert-*.tar.gz
+mod_md-*.tar.gz
 m4
 .cache
 src/a2md

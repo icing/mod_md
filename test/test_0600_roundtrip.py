@@ -29,6 +29,7 @@ class TestRoundtrip:
 
     @classmethod
     def setup_class(cls):
+        time.sleep(1)
         cls.dns_uniq = "%d.org" % time.time()
         cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "roundtrip.conf")
 
@@ -135,11 +136,11 @@ class TestRoundtrip:
 
         # - append vhost to config
         conf.add_vhost(TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                       withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
-                       keyPath=TestEnv.path_domain_pkey(domain))
+                       withSSL=True, certPath=TestEnv.path_domain_pubcert(domain), 
+                       keyPath=TestEnv.path_domain_privkey(domain))
         conf.add_vhost(TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
-                       withSSL=True, certPath=TestEnv.path_domain_cert(domain), 
-                       keyPath=TestEnv.path_domain_pkey(domain))
+                       withSSL=True, certPath=TestEnv.path_domain_pubcert(domain), 
+                       keyPath=TestEnv.path_domain_privkey(domain))
         conf.install()
         
         # - create docRoot folder
@@ -171,5 +172,5 @@ class TestRoundtrip:
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
         assert "url" in md['cert']
-        assert os.path.isfile( TestEnv.path_domain_pkey(name) )
-        assert os.path.isfile( TestEnv.path_domain_cert(name) )
+        assert os.path.isfile( TestEnv.path_domain_privkey(name) )
+        assert os.path.isfile( TestEnv.path_domain_pubcert(name) )

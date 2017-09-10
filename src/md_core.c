@@ -24,6 +24,7 @@
 
 #include "md_json.h"
 #include "md.h"
+#include "md_crypt.h"
 #include "md_log.h"
 #include "md_store.h"
 #include "md_util.h"
@@ -189,24 +190,43 @@ md_t *md_get_by_dns_overlap(struct apr_array_header_t *mds, const md_t *md)
     return NULL;
 }
 
-const char *md_create(md_t **pmd, apr_pool_t *p, apr_array_header_t *domains)
+md_t *md_create(apr_pool_t *p, apr_array_header_t *domains)
 {
     md_t *md;
     
-    if (domains->nelts <= 0) {
-        return "needs at least one domain name";
-    }
-    
     md = md_create_empty(p);
-    if (!md) {
-        return "not enough memory";
-    }
-
     md->domains = md_array_str_compact(p, domains, 0);
     md->name = APR_ARRAY_IDX(md->domains, 0, const char *);
     
-    *pmd = md;
-    return NULL;   
+    return md;
+}
+
+int md_should_renew(const md_t *md) 
+{
+    apr_time_t now = apr_time_now();
+
+    if (md->expires <= now) {
+        return 1;
+    }
+    else if (md->expires > 0) {
+        double renew_win,  life;
+        apr_interval_time_t left;
+        
+        renew_win = (double)md->renew_window;
+        if (md->renew_norm > 0 
+            && md->renew_norm > renew_win
+            && md->expires > md->valid_from) {
+            /* Calc renewal days as fraction of cert lifetime - if known */
+            life = (double)(md->expires - md->valid_from); 
+            renew_win = life * renew_win / (double)md->renew_norm;
+        }
+        
+        left = md->expires - now;
+        if (left <= renew_win) {
+            return 1;
+        }                
+    }
+    return 0;
 }
 
 /**************************************************************************************************/
@@ -238,6 +258,8 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->name = apr_pstrdup(p, src->name);
         md->drive_mode = src->drive_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
+        md->pkey_spec = src->pkey_spec;
+        md->renew_norm = src->renew_norm;
         md->renew_window = src->renew_window;
         md->contacts = md_array_str_clone(p, src->contacts);
         if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
@@ -252,6 +274,27 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         }
     }    
     return md;   
+}
+
+md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
+{
+    md_t *n = apr_pcalloc(p, sizeof(*n));
+
+    n->ca_url = add->ca_url? add->ca_url : base->ca_url;
+    n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
+    n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
+    n->drive_mode = (add->drive_mode != MD_DRIVE_DEFAULT)? add->drive_mode : base->drive_mode;
+    n->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
+    n->renew_norm = (add->renew_norm > 0)? add->renew_norm : base->renew_norm;
+    n->renew_window = (add->renew_window > 0)? add->renew_window : base->renew_window;
+    n->transitive = (add->transitive >= 0)? add->transitive : base->transitive;
+    if (add->ca_challenges) {
+        n->ca_challenges = apr_array_copy(p, add->ca_challenges);
+    }
+    else if (base->ca_challenges) {
+        n->ca_challenges = apr_array_copy(p, base->ca_challenges);
+    }
+    return n;
 }
 
 /**************************************************************************************************/
@@ -273,6 +316,9 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         if (md->cert_url) {
             md_json_sets(md->cert_url, json, MD_KEY_CERT, MD_KEY_URL, NULL);
         }
+        if (md->pkey_spec) {
+            md_json_setj(md_pkey_spec_to_json(md->pkey_spec, p), json, MD_KEY_PKEY, NULL);
+        }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         md_json_setl(md->drive_mode, json, MD_KEY_DRIVE_MODE, NULL);
         if (md->expires > 0) {
@@ -280,7 +326,19 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             apr_rfc822_date(ts, md->expires);
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
         }
-        md_json_setl(apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
+        if (md->valid_from > 0) {
+            char *ts = apr_pcalloc(p, APR_RFC822_DATE_LEN);
+            apr_rfc822_date(ts, md->valid_from);
+            md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
+        }
+        if (md->renew_norm > 0) {
+            md_json_sets(apr_psprintf(p, "%ld%%", (long)(md->renew_window * 100L / md->renew_norm)), 
+                                      json, MD_KEY_RENEW_WINDOW, NULL);
+        }
+        else {
+            md_json_setl((long)apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
+        }
+        md_json_setb(md_should_renew(md), json, MD_KEY_RENEW, NULL);
         if (md->ca_challenges && md->ca_challenges->nelts > 0) {
             apr_array_header_t *na;
             na = md_array_str_compact(p, md->ca_challenges, 0);
@@ -304,7 +362,10 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md->ca_agreement = md_json_dups(p, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
         md->cert_url = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_URL, NULL);
-        md->state = (int)md_json_getl(json, MD_KEY_STATE, NULL);
+        if (md_json_has_key(json, MD_KEY_PKEY, MD_KEY_TYPE, NULL)) {
+            md->pkey_spec = md_pkey_spec_from_json(md_json_getj(json, MD_KEY_PKEY, NULL), p);
+        }
+        md->state = (md_state_t)md_json_getl(json, MD_KEY_STATE, NULL);
         md->drive_mode = (int)md_json_getl(json, MD_KEY_DRIVE_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         md->transitive = (int)md_json_getl(json, MD_KEY_TRANSITIVE, NULL);
@@ -312,7 +373,22 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         if (s && *s) {
             md->expires = apr_date_parse_rfc(s);
         }
+        s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
+        if (s && *s) {
+            md->valid_from = apr_date_parse_rfc(s);
+        }
+        md->renew_norm = 0;
         md->renew_window = apr_time_from_sec(md_json_getl(json, MD_KEY_RENEW_WINDOW, NULL));
+        if (md->renew_window <= 0) {
+            const char *s = md_json_gets(json, MD_KEY_RENEW_WINDOW, NULL);
+            if (s && strchr(s, '%')) {
+                int percent = atoi(s);
+                if (0 < percent && percent < 100) {
+                    md->renew_norm = apr_time_from_sec(100 * MD_SECS_PER_DAY);
+                    md->renew_window = apr_time_from_sec(percent * MD_SECS_PER_DAY);
+                }
+            }
+        }
         if (md_json_has_key(json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL)) {
             md->ca_challenges = apr_array_make(p, 5, sizeof(const char*));
             md_json_dupsa(md->ca_challenges, p, json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL);

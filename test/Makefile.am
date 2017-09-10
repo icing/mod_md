@@ -18,15 +18,25 @@ GEN            = gen
 
 .phony: unit_tests
 
+EXTRA_DIST     = conf data htdocs
+ 	
+dist-hook:
+	rm -rf $(distdir)/conf/httpd_http.conf
+	rm -rf $(distdir)/conf/httpd_https.conf
+	rm -rf $(distdir)/conf/modules.conf
+	cp -p $(srcdir)/*.py $(distdir)
+
+
+
 if BUILD_UNIT_TESTS
 TESTS = unit/main
 
 check_PROGRAMS = unit/main
 
-unit_main_SOURCES = unit/main.c unit/test_md_json.c unit/test_md_util.c
+unit_main_SOURCES = unit/main.c unit/test_md_json.c unit/test_md_util.c unit/test_common.h
 unit_main_LDADD   = $(top_builddir)/src/libmd.la
 
-unit_main_CFLAGS  = $(CHECK_CFLAGS) -I$(top_srcdir)/src
+unit_main_CFLAGS  = $(CHECK_CFLAGS) -Werror -I$(top_srcdir)/src
 unit_main_LDADD  += $(CHECK_LIBS) -l$(LIB_APR) -l$(LIB_APRUTIL)
 
 unit_tests: $(TESTS)

@@ -24,8 +24,13 @@ struct md_json_t;
 struct md_cert_t;
 struct md_pkey_t;
 struct md_store_t;
+struct md_srv_conf_t;
+struct md_pkey_spec_t;
 
 #define MD_TLSSNI01_DNS_SUFFIX     ".acme.invalid"
+
+#define MD_PKEY_RSA_BITS_MIN       2048
+#define MD_PKEY_RSA_BITS_DEF       2048
 
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
@@ -33,6 +38,7 @@ typedef enum {
     MD_S_COMPLETE,                  /* MD has all necessary information, can go live */
     MD_S_EXPIRED,                   /* MD is complete, but credentials have expired */
     MD_S_ERROR,                     /* MD data is flawed, unable to be processed as is */ 
+    MD_S_MISSING,                   /* MD is missing config information, cannot proceed */
 } md_state_t;
 
 typedef enum {
@@ -64,30 +70,35 @@ typedef enum {
 typedef struct md_t md_t;
 struct md_t {
     const char *name;               /* unique name of this MD */
-    md_state_t state;               /* state of this MD */
-    apr_time_t expires;             /* When the credentials for this domain expire. 0 if unknown */
-    apr_interval_time_t renew_window;/* time before expiration that starts renewal */
-    
     struct apr_array_header_t *domains; /* all DNS names this MD includes */
+    struct apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
+
     int transitive;                 /* != 0 iff VirtualHost names/aliases are auto-added */
-    md_drive_mode_t drive_mode;     /* mode of obtaining credentials */
+    int drive_mode;                 /* mode of obtaining credentials */
+    struct md_pkey_spec_t *pkey_spec;/* specification for generating new private keys */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
+    apr_interval_time_t renew_norm; /* if > 0, normalized cert lifetime */
+    apr_interval_time_t renew_window;/* time before expiration that starts renewal */
     
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
     const char *ca_account;         /* account used at CA */
     const char *ca_agreement;       /* accepted agreement uri between CA and user */ 
     struct apr_array_header_t *ca_challenges; /* challenge types configured for this MD */
-    struct apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
 
+    md_state_t state;               /* state of this MD */
+    apr_time_t valid_from;          /* When the credentials start to be valid. 0 if unknown */
+    apr_time_t expires;             /* When the credentials expire. 0 if unknown */
     const char *cert_url;           /* url where cert has been created, remember during drive */ 
-
+    
+    const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
 };
 
 #define MD_KEY_ACCOUNT          "account"
 #define MD_KEY_AGREEMENT        "agreement"
+#define MD_KEY_BITS             "bits"
 #define MD_KEY_CA               "ca"
 #define MD_KEY_CA_URL           "ca-url"
 #define MD_KEY_CERT             "cert"
@@ -109,8 +120,10 @@ struct md_t {
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"
 #define MD_KEY_LOCATION         "location"
 #define MD_KEY_NAME             "name"
+#define MD_KEY_PKEY             "privkey"
 #define MD_KEY_PROTO            "proto"
 #define MD_KEY_REGISTRATION     "registration"
+#define MD_KEY_RENEW            "renew"
 #define MD_KEY_RENEW_WINDOW     "renew-window"
 #define MD_KEY_RESOURCE         "resource"
 #define MD_KEY_STATE            "state"
@@ -121,23 +134,25 @@ struct md_t {
 #define MD_KEY_TYPE             "type"
 #define MD_KEY_URL              "url"
 #define MD_KEY_URI              "uri"
+#define MD_KEY_VALID_FROM       "validFrom"
 #define MD_KEY_VALUE            "value"
 #define MD_KEY_VERSION          "version"
 
 #define MD_FN_MD                "md.json"
-#define MD_FN_PKEY              "pkey.pem"
+#define MD_FN_PRIVKEY           "privkey.pem"
+#define MD_FN_PUBCERT           "pubcert.pem"
 #define MD_FN_CERT              "cert.pem"
 #define MD_FN_CHAIN             "chain.pem"
 #define MD_FN_HTTPD_JSON        "httpd.json"
+
+#define MD_FN_FALLBACK_PKEY     "fallback-privkey.pem"
+#define MD_FN_FALLBACK_CERT     "fallback-cert.pem"
 
 /* Check if a string member of a new MD (n) has 
  * a value and if it differs from the old MD o
  */
 #define MD_VAL_UPDATE(n,o,s)    ((n)->s != (o)->s)
 #define MD_SVAL_UPDATE(n,o,s)   ((n)->s && (!(o)->s || strcmp((n)->s, (o)->s)))
-
-#define MD_SECS_PER_HOUR      (60*60)
-#define MD_SECS_PER_DAY       (24*MD_SECS_PER_HOUR)
 
 /**
  * Determine if the Managed Domain contains a specific domain name.
@@ -199,7 +214,7 @@ md_t *md_create_empty(apr_pool_t *p);
 /**
  * Create a managed domain, given a list of domain names.
  */
-const char *md_create(md_t **pmd, apr_pool_t *p, struct apr_array_header_t *domains);
+md_t *md_create(apr_pool_t *p, struct apr_array_header_t *domains);
 
 /**
  * Deep copy an md record into another pool.
@@ -211,6 +226,11 @@ md_t *md_clone(apr_pool_t *p, const md_t *src);
  */
 md_t *md_copy(apr_pool_t *p, const md_t *src);
 
+/**
+ * Create a merged md with the settings of add overlaying the ones from base.
+ */
+md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base);
+
 /** 
  * Convert the managed domain into a JSON representation and vice versa. 
  *
@@ -219,14 +239,19 @@ md_t *md_copy(apr_pool_t *p, const md_t *src);
 struct md_json_t *md_to_json (const md_t *md, apr_pool_t *p);
 md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
 
+/**
+ * Determine if MD should renew its cert (if it has one)
+ */
+int md_should_renew(const md_t *md);
+
 /**************************************************************************************************/
 /* domain credentials */
 
 typedef struct md_creds_t md_creds_t;
 struct md_creds_t {
+    struct md_pkey_t *privkey;
+    struct apr_array_header_t *pubcert;    /* complete md_cert* chain */
     struct md_cert_t *cert;
-    struct md_pkey_t *pkey;
-    struct apr_array_header_t *chain;      /* list of md_cert* */
     int expired;
 };
 

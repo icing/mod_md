@@ -40,12 +40,14 @@ struct md_reg_t {
     int was_synched;
     int can_http;
     int can_https;
+    const char *proxy_url;
 };
 
 /**************************************************************************************************/
 /* life cycle */
 
-apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *store)
+apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *store,
+                         const char *proxy_url)
 {
     md_reg_t *reg;
     apr_status_t rv;
@@ -55,7 +57,7 @@ apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *stor
     reg->protos = apr_hash_make(p);
     reg->can_http = 1;
     reg->can_https = 1;
-    
+    reg->proxy_url = proxy_url? apr_pstrdup(p, proxy_url) : NULL;
     rv = md_acme_protos_add(reg->protos, p);
     
     *preg = (rv == APR_SUCCESS)? reg : NULL;
@@ -151,18 +153,18 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
 /**************************************************************************************************/
 /* state assessment */
 
-static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
+static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_changes)
 {
     md_state_t state = MD_S_UNKNOWN;
     const md_creds_t *creds;
     const md_cert_t *cert;
-    apr_time_t expires = 0;
+    apr_time_t expires = 0, valid_from = 0;
     apr_status_t rv;
     int i;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
         state = MD_S_INCOMPLETE;
-        if (!creds->pkey) {
+        if (!creds->privkey) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                           "md{%s}: incomplete, without private key", md->name);
         }
@@ -170,12 +172,8 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                           "md{%s}: incomplete, has key but no certificate", md->name);
         }
-        else if (!creds->chain) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                          "md{%s}: incomplete, has key and certificate, but no chain file.", 
-                          md->name);
-        }
         else {
+            valid_from = md_cert_get_not_before(creds->cert);
             expires = md_cert_get_not_after(creds->cert);
             if (md_cert_has_expired(creds->cert)) {
                 state = MD_S_EXPIRED;
@@ -198,8 +196,8 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
                 goto out;
             }
 
-            for (i = 0; i < creds->chain->nelts; ++i) {
-                cert = APR_ARRAY_IDX(creds->chain, i, const md_cert_t *);
+            for (i = 1; i < creds->pubcert->nelts; ++i) {
+                cert = APR_ARRAY_IDX(creds->pubcert, i, const md_cert_t *);
                 if (!md_cert_is_valid_now(cert)) {
                     state = MD_S_ERROR;
                     md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
@@ -220,40 +218,24 @@ out:
         state = MD_S_ERROR;
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}: error", md->name);
     }
-    md->state = state;
-    md->expires = expires;
-    return rv;
-}
-
-static apr_status_t state_vinit(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_reg_t *reg = baton;
-    md_t *md = va_arg(ap, md_t *);
     
-    return state_init(reg, p, md);
-}
-
-static apr_status_t md_state_init(md_reg_t *reg, md_t *md, apr_pool_t *p)
-{
-    return md_util_pool_vdo(state_vinit, reg, p, md, NULL);
-}
-
-static md_t *state_check(md_reg_t *reg, md_t *md, apr_pool_t *p) 
-{
-    if (md) {
-        int ostate = md->state;
-        if (APR_SUCCESS == state_init(reg, p, md) && md->state != ostate) {
-            md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
-        }
+    if (save_changes && md->state == state
+        && md->valid_from == valid_from && md->expires == expires) {
+        save_changes = 0;
     }
-    return md;
+    md->state = state;
+    md->valid_from = valid_from;
+    md->expires = expires;
+    if (save_changes && APR_SUCCESS == rv) {
+        return md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
+    }
+    return rv;
 }
 
 apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, apr_pool_t *p)
 {
     int renew = 0;
     int errored = 0;
-    apr_time_t now = apr_time_now();
     
     switch (md->state) {
         case MD_S_UNKNOWN:
@@ -274,21 +256,20 @@ apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, 
                              "md(%s): looks complete, but has unknown expiration date.", md->name);
                 errored = 1;
             }
-            else if (md->expires <= now) {
+            else if (md->expires <= apr_time_now()) {
                 /* Maybe we hibernated in the meantime? */
                 md->state = MD_S_EXPIRED;
                 renew = 1;
             }
-            else if ((md->expires - now) <= md->renew_window) {
-                int days = (int)(apr_time_sec(md->expires - now) / MD_SECS_PER_DAY);
-                md_log_perror( MD_LOG_MARK, MD_LOG_DEBUG, 0, p,  
-                              "md(%s): %d days to expiry, attempt renewal", md->name, days);
-                renew = 1;
+            else {
+                renew = md_should_renew(md);
             }
             break;
         case MD_S_INCOMPLETE:
         case MD_S_EXPIRED:
             renew = 1;
+            break;
+        case MD_S_MISSING:
             break;
     }
     *prenew = renew;
@@ -312,7 +293,7 @@ static int reg_md_iter(void *baton, md_store_t *store, md_t *md, apr_pool_t *pte
     reg_do_ctx *ctx = baton;
     
     if (!ctx->exclude || strcmp(ctx->exclude, md->name)) {
-        md = state_check(ctx->reg, (md_t*)md, ptemp);
+        state_init(ctx->reg, ptemp, (md_t*)md, 1);
         return ctx->cb(ctx->baton, ctx->reg, md);
     }
     return 1;
@@ -343,7 +324,8 @@ md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p)
     md_t *md;
     
     if (APR_SUCCESS == md_load(reg->store, MD_SG_DOMAINS, name, &md, p)) {
-        return state_check(reg, md, p);
+        state_init(reg, p, md, 1);
+        return md;
     }
     return NULL;
 }
@@ -372,12 +354,15 @@ md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p)
     ctx.md = NULL;
     
     md_reg_do(find_domain, &ctx, reg, p);
-    return state_check(reg, (md_t*)ctx.md, p);
+    if (ctx.md) {
+        state_init(reg, p, ctx.md, 1);
+    }
+    return ctx.md;
 }
 
 typedef struct {
     const md_t *md_checked;
-    const md_t *md;
+    md_t *md;
     const char *s;
 } find_overlap_ctx;
 
@@ -406,25 +391,20 @@ md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, a
     if (pdomain && ctx.s) {
         *pdomain = ctx.s;
     }
-    return state_check(reg, (md_t*)ctx.md, p);
+    if (ctx.md) {
+        state_init(reg, p, ctx.md, 1);
+    }
+    return ctx.md;
 }
 
 apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
-                                   const char **pkeyfile, const char **pcertfile,
-                                   const char **pchainfile)
+                                   const char **pkeyfile, const char **pcertfile)
 {
     apr_status_t rv;
     
-    rv = md_store_get_fname(pkeyfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PKEY, p);
+    rv = md_store_get_fname(pkeyfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PRIVKEY, p);
     if (APR_SUCCESS == rv) {
-        rv = md_store_get_fname(pcertfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_CERT, p);
-    }
-    if (APR_SUCCESS == rv) {
-        rv = md_store_get_fname(pchainfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_CHAIN, p);
-        if (APR_STATUS_IS_ENOENT(rv)) {
-            *pchainfile = NULL;
-            rv = APR_SUCCESS;
-        }
+        rv = md_store_get_fname(pcertfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PUBCERT, p);
     }
     return rv;
 }
@@ -441,7 +421,7 @@ static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md = va_arg(ap, md_t *);
     mine = md_clone(ptemp, md);
     if (APR_SUCCESS == (rv = check_values(reg, ptemp, md, MD_UPD_ALL))
-        && APR_SUCCESS == (rv = md_state_init(reg, mine, ptemp))
+        && APR_SUCCESS == (rv = state_init(reg, ptemp, mine, 0))
         && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, mine, 1))) {
     }
     return rv;
@@ -511,6 +491,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_RENEW_WINDOW & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update renew-window: %s", name);
+        nmd->renew_norm = updates->renew_norm;
         nmd->renew_window = updates->renew_window;
     }
     if (MD_UPD_CA_CHALLENGES & fields) {
@@ -518,9 +499,16 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         nmd->ca_challenges = (updates->ca_challenges? 
                               apr_array_copy(p, updates->ca_challenges) : NULL);
     }
+    if (MD_UPD_PKEY_SPEC & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update pkey spec: %s", name);
+        nmd->pkey_spec = NULL;
+        if (updates->pkey_spec) {
+            nmd->pkey_spec = apr_pmemdup(p, updates->pkey_spec, sizeof(md_pkey_spec_t));
+        }
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
-        rv = md_state_init(reg, nmd, ptemp);
+        rv = state_init(reg, ptemp, nmd, 0);
     }
     return rv;
 }
@@ -542,29 +530,28 @@ static int ok_or_noent(apr_status_t rv)
 static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
-    apr_status_t rv;
-    md_cert_t *cert;
-    md_pkey_t *pkey;
-    apr_array_header_t *chain;
+    md_pkey_t *privkey;
+    apr_array_header_t *pubcert;
     md_creds_t *creds, **pcreds;
     const md_t *md;
     md_cert_state_t cert_state;
     md_store_group_t group;
+    apr_status_t rv;
     
     pcreds = va_arg(ap, md_creds_t **);
-    group = va_arg(ap, int);
+    group = (md_store_group_t)va_arg(ap, int);
     md = va_arg(ap, const md_t *);
     
-    if (ok_or_noent(rv = md_cert_load(reg->store, group, md->name, &cert, p))
-        && ok_or_noent(rv = md_pkey_load(reg->store, group, md->name, &pkey, p))
-        && ok_or_noent(rv = md_chain_load(reg->store, group, md->name, &chain, p))) {
+    if (ok_or_noent(rv = md_pkey_load(reg->store, group, md->name, &privkey, p))
+        && ok_or_noent(rv = md_pubcert_load(reg->store, group, md->name, &pubcert, p))) {
         rv = APR_SUCCESS;
             
         creds = apr_pcalloc(p, sizeof(*creds));
-        creds->cert = cert;
-        creds->pkey = pkey;
-        creds->chain = chain;
-        
+        creds->privkey = privkey;
+        if (pubcert && pubcert->nelts > 0) {
+            creds->pubcert = pubcert;
+            creds->cert = APR_ARRAY_IDX(pubcert, 0, md_cert_t *);
+        }
         if (creds->cert) {
             switch ((cert_state = md_cert_state_get(creds->cert))) {
                 case MD_CERT_VALID:
@@ -765,20 +752,32 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->contacts = md->contacts;
                     fields |= MD_UPD_CONTACTS;
                 }
-                if (MD_VAL_UPDATE(md, smd, renew_window)) {
+                if (MD_VAL_UPDATE(md, smd, renew_window) 
+                    || MD_VAL_UPDATE(md, smd, renew_norm)) {
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                                  "%s: update renew_window, old=%ld, new=%ld", 
-                                  smd->name, (long)smd->renew_window, md->renew_window);
+                                  "%s: update renew norm=%ld, window=%ld", 
+                                  smd->name, (long)md->renew_norm, (long)md->renew_window);
+                    smd->renew_norm = md->renew_norm;
                     smd->renew_window = md->renew_window;
                     fields |= MD_UPD_RENEW_WINDOW;
                 }
                 if (md->ca_challenges) {
                     md->ca_challenges = md_array_str_compact(p, md->ca_challenges, 0);
-                    if (smd->ca_challenges 
-                        && !md_array_str_eq(md->ca_challenges, smd->ca_challenges, 0)) {
-                        smd->ca_challenges = (md->ca_challenges?
-                                              apr_array_copy(ptemp, md->ca_challenges) : NULL);
+                    if (!smd->ca_challenges 
+                        || !md_array_str_eq(md->ca_challenges, smd->ca_challenges, 0)) {
+                        smd->ca_challenges = apr_array_copy(ptemp, md->ca_challenges);
                         fields |= MD_UPD_CA_CHALLENGES;
+                    }
+                }
+                else if (smd->ca_challenges) {
+                    smd->ca_challenges = NULL;
+                    fields |= MD_UPD_CA_CHALLENGES;
+                }
+                if (!md_pkey_spec_eq(md->pkey_spec, smd->pkey_spec)) {
+                    fields |= MD_UPD_PKEY_SPEC;
+                    smd->pkey_spec = NULL;
+                    if (md->pkey_spec) {
+                        smd->pkey_spec = apr_pmemdup(p, md->pkey_spec, sizeof(md_pkey_spec_t));
                     }
                 }
                 
@@ -824,6 +823,7 @@ static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_
         driver->can_https = reg->can_https;
         driver->reg = reg;
         driver->store = md_reg_store_get(reg);
+        driver->proxy_url = reg->proxy_url;
         driver->md = md;
         driver->reset = reset;
     }
@@ -839,12 +839,14 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     int reset;
     md_proto_driver_t *driver;
     const char *challenge;
+    apr_time_t *pvalid_from;
     apr_status_t rv;
     
     proto = va_arg(ap, const md_proto_t *);
     md = va_arg(ap, const md_t *);
     challenge = va_arg(ap, const char *);
     reset = va_arg(ap, int); 
+    pvalid_from = va_arg(ap, apr_time_t*);
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
     rv = init_proto_driver(driver, proto, reg, md, challenge, reset, ptemp);
@@ -853,13 +855,17 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
         
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
         rv = proto->stage(driver);
+
+        if (APR_SUCCESS == rv && pvalid_from) {
+            *pvalid_from = driver->stage_valid_from;
+        }
     }
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: staging done", md->name);
     return rv;
 }
 
 apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge, 
-                          int reset, apr_pool_t *p)
+                          int reset, apr_time_t *pvalid_from, apr_pool_t *p)
 {
     const md_proto_t *proto;
     
@@ -869,7 +875,7 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge,
         return APR_SUCCESS;
     }
     
-    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
+    proto = apr_hash_get(reg->protos, md->ca_proto, (apr_ssize_t)strlen(md->ca_proto));
     if (!proto) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
@@ -877,7 +883,7 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge,
         return APR_EINVAL;
     }
     
-    return md_util_pool_vdo(run_stage, reg, p, proto, md, challenge, reset, NULL);
+    return md_util_pool_vdo(run_stage, reg, p, proto, md, challenge, reset, pvalid_from, NULL);
 }
 
 static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -907,7 +913,7 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         return APR_EINVAL;
     }
     
-    proto = apr_hash_get(reg->protos, md->ca_proto, strlen(md->ca_proto));
+    proto = apr_hash_get(reg->protos, md->ca_proto, (apr_ssize_t)strlen(md->ca_proto));
     if (!proto) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
@@ -950,21 +956,3 @@ apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p)
     return md_util_pool_vdo(run_load, reg, p, name, NULL);
 }
 
-apr_status_t md_reg_drive(md_reg_t *reg, md_t *md, const char *challenge,
-                          int reset, int force, apr_pool_t *p)
-{
-    apr_status_t rv;
-    int errored, renew;
-    
-    if (APR_SUCCESS == (rv = md_reg_assess(reg, md, &errored, &renew, p))) {
-        if (errored) {
-            rv = APR_EGENERAL;
-        }
-        else if (renew || force) {
-            if (APR_SUCCESS == (rv = md_reg_stage(reg, md, challenge, reset, p))) {
-                rv = md_reg_load(reg, md->name, p);
-            }
-        }
-    }
-    return rv;
-}

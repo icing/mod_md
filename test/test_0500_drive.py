@@ -11,6 +11,7 @@ import urllib
 
 from datetime import datetime
 from test_base import TestEnv
+from test_base import HttpdConf
 from test_base import CertUtil
 
 def setup_module(module):
@@ -31,7 +32,9 @@ class TestDrive :
 
     @classmethod
     def setup_class(cls):
+        time.sleep(1)
         cls.dns_uniq = "%d.org" % time.time()
+        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -61,7 +64,7 @@ class TestDrive :
             )['rv'] == 0
         run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
-        assert re.search("need to accept terms-of-service", run["stderr"])
+        assert re.search("the CA requires you to accept the terms-of-service as specified in ", run["stderr"])
 
     
     # test_102 removed, was based on false assumption
@@ -223,23 +226,23 @@ class TestDrive :
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        orig_cert = CertUtil(TestEnv.path_domain_cert(name))
+        orig_cert = CertUtil(TestEnv.path_domain_pubcert(name))
 
         # drive again
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        cert = CertUtil(TestEnv.path_domain_cert(name))
+        cert = CertUtil(TestEnv.path_domain_pubcert(name))
         # check: cert not changed
         assert cert.get_serial() == orig_cert.get_serial()
 
         # drive --force
         assert TestEnv.a2md( [ "-vv", "drive", "--force", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        cert = CertUtil(TestEnv.path_domain_cert(name))
+        cert = CertUtil(TestEnv.path_domain_pubcert(name))
         # check: cert not changed
         assert cert.get_serial() != orig_cert.get_serial()
         # check: previous cert was archived
-        cert = CertUtil(TestEnv.path_domain_cert( name, archiveVersion=2 ))
+        cert = CertUtil(TestEnv.path_domain_pubcert( name, archiveVersion=2 ))
         assert cert.get_serial() == orig_cert.get_serial()
 
 
@@ -254,15 +257,113 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
-        old_cert = CertUtil(TestEnv.path_domain_cert(name))
+        old_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "domains", name, "test." + domain ])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         # check new cert
         self._check_md_cert([ name, "test." + domain ])
-        new_cert = CertUtil(TestEnv.path_domain_cert(name))
+        new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert old_cert.get_serial() != new_cert.get_serial()
+
+    @pytest.mark.parametrize("renewWindow,testDataList", [
+        ("14d", [
+            { "valid": { "notBefore": -5,   "notAfter": 180 }, "renew" : False }, 
+            { "valid": { "notBefore": -200, "notAfter": 15  }, "renew" : False },
+            { "valid": { "notBefore": -200, "notAfter": 13  }, "renew" : True },
+        ]),
+        ("30%", [
+            { "valid": { "notBefore": -0,   "notAfter": 180 }, "renew" : False },
+            { "valid": { "notBefore": -120, "notAfter": 60  }, "renew" : False },
+            { "valid": { "notBefore": -126, "notAfter": 53  }, "renew" : True },
+        ])
+    ])
+    def test_500_201(self, renewWindow, testDataList):
+        # test case: trigger cert renew when entering renew window 
+        # setup: prepare COMPLETE md
+        domain = "test500-201-" + TestDrive.dns_uniq
+        name = "www." + domain
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_renew_window( renewWindow )
+        conf.add_md( [name] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # setup: drive it
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        cert1 = CertUtil(TestEnv.path_domain_pubcert(name))
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+
+        # replace cert by self-signed one -> check md status
+        print "TRACE: start testing renew window: %s" % renewWindow
+        for tc in testDataList:
+            print "TRACE: create self-signed cert: %s" % tc["valid"]
+            CertUtil.create_self_signed_cert( [name], tc["valid"])
+            cert2 = CertUtil(TestEnv.path_domain_pubcert(name))
+            assert cert2.get_serial() != cert1.get_serial()
+            md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+            assert md["renew"] == tc["renew"], \
+                "Expected renew == {} indicator in {}, test case {}".format(tc["renew"], md, tc)
+
+    @pytest.mark.parametrize("keyType,keyParams,expKeyLength", [
+        ( "RSA", [ 2048 ], 2048 ),
+        ( "RSA", [ 3072 ], 3072),
+        ( "RSA", [ 4096 ], 4096 ),
+        ( "Default", [ ], 2048 )
+    ])
+    def test_500_202(self, keyType, keyParams, expKeyLength):
+        # test case: specify RSA key length and verify resulting cert key 
+        # setup: prepare md
+        domain = "test500-202-" + TestDrive.dns_uniq
+        name = "www." + domain
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_private_key(keyType, keyParams)
+        conf.add_md( [name] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # setup: drive it
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0, \
+            "Expected drive to succeeed for MDPrivateKeys {} {}".format(keyType, keyParams)
+        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        # check cert key length
+        cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        assert cert.get_key_length() == expKeyLength
+
+    #@pytest.mark.skip(reason="wrong TOS url in sandbox not replaced after config change")
+    def test_500_203(self):
+        # test case: reproduce issue with initially wrong agreement URL
+        domain = "test500-203-" + TestDrive.dns_uniq
+        name = "www." + domain
+        # setup: prepare md with invalid TOS url
+        conf = HttpdConf( TestDrive.TMP_CONF, acmeTos=TestEnv.ACME_TOS2 )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_md( [name] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # drive it -> fail after account registration
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 1
+
+        # adjust config: replace TOS url with correct one
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_md( [name] )
+        conf.install()
+        time.sleep(1)
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        # drive it -> runs OK
+        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+
 
     # --------- non-critical state change -> keep data ---------
 
@@ -275,13 +376,13 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
-        old_cert = CertUtil(TestEnv.path_domain_cert(name))
+        old_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         # setup: remove one domain
         assert TestEnv.a2md([ "update", name, "domains"] + [ name, "test." + domain ])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         # compare cert serial
-        new_cert = CertUtil(TestEnv.path_domain_cert(name))
+        new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert old_cert.get_serial() == new_cert.get_serial()
 
     def test_500_301(self):
@@ -293,13 +394,13 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
-        old_cert = CertUtil(TestEnv.path_domain_cert(name))
+        old_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "contacts", "test@" + domain ])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # compare cert serial
-        new_cert = CertUtil(TestEnv.path_domain_cert(name))
+        new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert old_cert.get_serial() == new_cert.get_serial()
 
     # --------- network problems ---------
@@ -342,9 +443,9 @@ class TestDrive :
         # md_store = json.loads( open( TestEnv.path_store_json(), 'r' ).read() )
         # encryptKey = md_store['key']
         # print "key (%s): %s" % ( type(encryptKey), encryptKey )
-        CertUtil.validate_privkey(TestEnv.path_domain_pkey(name))
-        cert = CertUtil( TestEnv.path_domain_cert(name) )
-        cert.validate_cert_matches_priv_key( TestEnv.path_domain_pkey(name) )
+        CertUtil.validate_privkey(TestEnv.path_domain_privkey(name))
+        cert = CertUtil( TestEnv.path_domain_pubcert(name) )
+        cert.validate_cert_matches_priv_key( TestEnv.path_domain_privkey(name) )
 
         # check SANs and CN
         assert cert.get_cn() == name

@@ -26,7 +26,7 @@ class TestStore:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.clear_store()
+        TestEnv.purge_store()
  
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -34,7 +34,7 @@ class TestStore:
     def test_000_001(self):
         # verify expected binary version
         run = TestEnv.run([TestEnv.A2MD, "-V"])
-        m = re.match("version: %s-git$" % 
+        m = re.match("version: %s(-git)?$" % 
             TestEnv.config.get('global', 'a2md_version'), run['stdout'])
         assert m
 

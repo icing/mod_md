@@ -1,3 +1,86 @@
+v0.9.2
+----------------------------------------------------------------------------------------------------
+ * Fixes for conversions in gcc, fixed duration parsing when apr_strtoi64() defaults to 0 on
+   not seeing any digit.
+ * New config directive 'MDHttpProxy <url>' to specify a HTTP(S) proxy for outgoing connections.
+   Supported in a2md with the '--proxy <url>' command line option.
+ * Synched mod_ssl patch with Apache subversion again and made v4 of the patch. Only changes
+   were in log messages, so no need to repatch existing installations.
+
+v0.9.1
+----------------------------------------------------------------------------------------------------
+ * various fixes in MDRenewWindow handling when specifying percent. Serialization changed. If 
+   someone already used percent configurations, it is advised to change these to a new value,
+   reload and change back to the wanted ones.
+ * various fixes in handling of MDPrivateKeys when specifying 2048 bits (the default) explicitly.
+ * mod_md version removed from top level md_store.json file. The store has its own format version
+   to facilitate upgrades.
+
+v0.9.0
+----------------------------------------------------------------------------------------------------
+ * Improved interface to mod_ssl for fallback handling. Backward compatible to previous mod_ssl
+   patch, but fallbacks will not work.
+ * Provide a temporary, self-signed certificate with a speaking command and domain name if we
+   have no other cert for a Managed Domain, yet. Refs github issue #32
+ * Continue to provide expired or not-completely matching, existing certificate for a Managed
+   Domain until the renewal was successful. This is helpful when one adds a DNS name to
+   a MD, so the previous domains can be served while a new cert is requested.
+
+v0.8.2
+----------------------------------------------------------------------------------------------------
+ * All files necessary to run tests are not in the release package.
+ * Making "http-01" the preferred challenge type again, as people "tls-sni-01" requires at least
+   one working certificate vhost right now - which not everyone has.
+ * moved part of the MD sanity checks from post_config to check_config phase, allowing for error
+   detection in check-only runs.
+
+v0.8.1
+----------------------------------------------------------------------------------------------------
+ * New directive ```MDPrivateKeys``` to specify the type and parameter to private key generation.
+   Currently only 'RSA' is supported as type with an option number of bits >= 2048 as parameter.
+   Simple test cases for config handling added.
+ * Private RSA keys are now generated with 2048 bits by default. Use ```MDPrivateKeys``` for
+   higher security. 
+ 
+v0.8.0
+----------------------------------------------------------------------------------------------------
+ * IMPORTANT: store format change. The following changes will be made to an existing md store on 
+   first start with a new version (be it by mod_md in the server or a run by a new 'a2md'):
+      * pkey.pem will be renamed to privkey.pem
+      * cert.pem and chain.pem will be concatenated to pubcert.pem. The former files will remain,
+        but no longer be used. They will disappear on next renewal.
+   ADVICE: If the current store data is vital to you, please make a backup first!
+
+v0.7.1
+----------------------------------------------------------------------------------------------------
+ * Fixed test case clearing of store to keep key alive, enabling true random store key again.
+ * Removed pun "Something, like certbot" from the User-Agent request header. Refs issue #34
+ * Cleaned up reporting of missing/mismatched MDCertificateAgreement in the logs. This will
+   no longer trigger early retries.
+ * badNonce encounters are no longer reported as errors. Retries are attempted now silently.
+   Refs issue #35
+ * new default MDRenewWindow. Instead of 14 days, the default is now a third before the end of
+   the certificates lifetime. For the usual 90 days of Let's Encrypt certificates, this makes
+   an effective renewal window of 30 days - as recommended by LE. Refs issue #30
+ * Enabled conversion warnings if supported by compiler, eliminated several signed/unsigned
+   warnings.
+
+v0.7.0
+----------------------------------------------------------------------------------------------------
+ * LIVE: the real Let's Encrypt CA is now live by default! If you need to experiment, configure
+``` 
+    MDCertificateAuthority https://acme-staging.api.letsencrypt.org/directory
+```    
+ * When existing, complete certificates are renewed, the activation of the new ones is
+   delayed by 24 hours (or until the existing ones expire, whatever is earler) to accomodate
+   for clients with weird clocks, refs #1. 
+ * Fixed store sync when MDCAChallenges was removed again from an MD. 
+ * Fixed crash when MD matched the base server, fixes #23
+ * Fixed watchgod resetting staging when server processes disappeared (e.g. reached
+   max requests or other limits).
+
+v0.6.1
+----------------------------------------------------------------------------------------------------
  * global or inside ManagedDomain, 'MDMembers auto|manual' defines if ServerName and ServerAlias
    names of a VirtualHost are automatically added to the members of a Managed Domain or not.
    Default is 'auto'.
