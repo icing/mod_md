@@ -6,6 +6,7 @@ import pytest
 import re
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -49,6 +50,7 @@ class TestEnv:
 
         cls.HTTP_PORT = cls.config.get('global', 'http_port')
         cls.HTTPS_PORT = cls.config.get('global', 'https_port')
+        cls.HTTP_PROXY_PORT = cls.config.get('global', 'http_proxy_port')
         cls.HTTPD_HOST = "localhost"
         cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
         cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
@@ -450,8 +452,8 @@ class TestEnv:
                 return False
             allChanged = True
             for name in names:
-                state = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]['state']
-                if state == 2:
+                md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
+                if md['state'] == 2 and ('renew' not in md or md['renew'] == False):
                     names.remove(name)
             if len(names) != 0:
                 time.sleep(0.5)
@@ -590,20 +592,35 @@ class CertUtil(object):
         open(keyFilePath, "wt").write(
             OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, k))
 
+    @classmethod
+    def load_server_cert( cls, hostIP, hostPort, hostName ):
+        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connection = OpenSSL.SSL.Connection(ctx, s)
+        connection.connect((hostIP, int(hostPort)))
+        connection.setblocking(1)
+        connection.set_tlsext_host_name(hostName)
+        connection.do_handshake()
+        peer_cert = connection.get_peer_certificate()
+        return CertUtil( None, cert=peer_cert )
 
-    def __init__(self, cert_path):
-        self.cert_path = cert_path
-        # load certificate and private key
-        if cert_path.startswith("http"):
-            cert_data = TestEnv.get_plain(cert_path, 1)
-        else:
-            cert_data = CertUtil._load_binary_file(cert_path)
 
-        for file_type in (OpenSSL.crypto.FILETYPE_PEM, OpenSSL.crypto.FILETYPE_ASN1):
-            try:
-                self.cert = OpenSSL.crypto.load_certificate(file_type, cert_data)
-            except Exception as error:
-                self.error = error
+    def __init__(self, cert_path, cert=None):
+        if cert_path is not None:
+            self.cert_path = cert_path
+            # load certificate and private key
+            if cert_path.startswith("http"):
+                cert_data = TestEnv.get_plain(cert_path, 1)
+            else:
+                cert_data = CertUtil._load_binary_file(cert_path)
+
+            for file_type in (OpenSSL.crypto.FILETYPE_PEM, OpenSSL.crypto.FILETYPE_ASN1):
+                try:
+                    self.cert = OpenSSL.crypto.load_certificate(file_type, cert_data)
+                except Exception as error:
+                    self.error = error
+        if cert is not None:
+            self.cert = cert
 
         if self.cert is None:
             raise self.error

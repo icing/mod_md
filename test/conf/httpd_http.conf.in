@@ -3,6 +3,7 @@ Include "conf/global.conf"
 
 Listen @HTTP_PORT@
 Listen @HTTPS_PORT@
+Listen @HTTP_PROXY_PORT@
 
 MDPortMap 80:@HTTP_PORT@ 443:@HTTPS_PORT@
 
@@ -21,5 +22,19 @@ MDPortMap 80:@HTTP_PORT@ 443:@HTTPS_PORT@
     SSLCertificateKeyFile conf/ssl/valid_pkey.pem
 
 </VirtualHost>
+
+# forward proxy config
+<VirtualHost *:@HTTP_PROXY_PORT@>
+    ProxyRequests On
+    ProxyVia On
+    AllowCONNECT 443 @HTTPS_PORT@
+
+    <Proxy *>
+        Order deny,allow
+        Deny from all
+        Allow from localhost
+    </Proxy> 
+</VirtualHost>
+
 
 Include "conf/test.conf"

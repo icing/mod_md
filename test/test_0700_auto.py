@@ -28,7 +28,7 @@ def setup_module(module):
 
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
+    # assert TestEnv.apache_stop() == 0
 
 
 class TestAuto:
@@ -46,8 +46,8 @@ class TestAuto:
         TestEnv.apache_err_reset();
         TestEnv.clear_store()
         TestEnv.install_test_conf();
-        self.test_n = int(re.match("test_(.+)", method.__name__).group(1))
-        self.test_domain =  ("%d-" % self.test_n) + TestAuto.dns_uniq
+        self.test_n = re.match("test_(.+)", method.__name__).group(1)
+        self.test_domain =  ("%s-" % self.test_n) + TestAuto.dns_uniq
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -95,8 +95,8 @@ class TestAuto:
     # test case: same as test_100, but with two parallel managed domains
     #
     def test_7002(self):
-        domainA = ("%da-" % self.test_n) + TestAuto.dns_uniq
-        domainB = ("%db-" % self.test_n) + TestAuto.dns_uniq
+        domainA = ("%sa-" % self.test_n) + TestAuto.dns_uniq
+        domainB = ("%sb-" % self.test_n) + TestAuto.dns_uniq
         
         # generate config with two MDs
         dns_listA = [ domainA, "www." + domainA ]
@@ -292,7 +292,7 @@ class TestAuto:
         conf.add_md( dns_list )
         conf.install()
 
-        # - restart (-> drive), check that md is in store
+        # - restart (-> drive)
         assert TestEnv.apache_restart() == 0
         time.sleep( 2 )
         # assert drive did not start
@@ -300,6 +300,72 @@ class TestAuto:
         assert md['state'] == TestEnv.MD_S_INCOMPLETE
         assert 'account' not in md['ca']
         assert TestEnv.apache_err_scan( re.compile('.*\[md:debug\].*Connection refused: ') )
+
+    #-----------------------------------------------------------------------------------------------
+    # Specify a valid http proxy
+    #
+    def test_7008a(self):
+        domain = self.test_domain
+        dns_list = [ domain ]
+
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "always" )
+        conf.add_http_proxy( "http://localhost:%s"  % TestEnv.HTTP_PROXY_PORT)
+        conf.add_md( dns_list )
+        conf.install()
+
+        # - restart (-> drive), check that md is in store
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.apache_restart() == 0
+        self._check_md_cert( dns_list )
+
+    #-----------------------------------------------------------------------------------------------
+    # Force cert renewal due to critical remaining valid duration
+    # Assert that new cert activation is delayed
+    # 
+    @pytest.mark.skip(reason="mod_md does not re-drive md with status 'renew'=True ")
+    def test_7009(self):
+        domain = self.test_domain
+        dns_list = [ domain ]
+
+        # prepare md
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "auto" )
+        conf.add_renew_window( "10d" )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.install()
+
+        # restart (-> drive), check that md+cert is in store, TLS is up
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
+        self._check_md_cert( dns_list )
+        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        # fetch cert from server
+        cert2 = CertUtil.load_server_cert("127.0.0.1", TestEnv.HTTPS_PORT, domain)
+        assert cert1.get_serial() == cert2.get_serial()
+
+        # create self-signed cert, with critical remaining valid duration -> drive again
+        CertUtil.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 9  })
+        cert3 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        assert cert3.get_serial() == 1000
+        time.sleep(1)
+        assert TestEnv.a2md([ "list", domain])['jout']['output'][0]['renew'] == True
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
+
+        # fetch cert from server -> self-signed still active, activation of new ACME is delayed
+        cert4 = CertUtil.load_server_cert("127.0.0.1", TestEnv.HTTPS_PORT, domain)
+        assert cert4.get_serial() == cert3.get_serial()
+
+        # restart -> new ACME cert becomes active
+        assert TestEnv.apache_stop() == 0
+        assert TestEnv.apache_start() == 0
+        cert5 = CertUtil.load_server_cert("127.0.0.1", TestEnv.HTTPS_PORT, domain)
+        assert cert5.get_serial() != cert3.get_serial()
 
 
     # --------- _utils_ ---------
