@@ -1,5 +1,8 @@
+ * Rewrote logic to re-schedule MD jobs and announce renewal completion and server restarts. Related
+   to issue #42
+ * Additional tweaks for libressl support, thanks to @Sp1l 
  * Implemented alternative for OpenSSL ASN1_TIME_diff() helper which is not available in
-   libressl.
+   libressl. 
 
 v0.9.2
 ----------------------------------------------------------------------------------------------------

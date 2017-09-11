@@ -442,72 +442,130 @@ static APR_OPTIONAL_FN_TYPE(ap_watchdog_register_callback) *wd_register_callback
 static APR_OPTIONAL_FN_TYPE(ap_watchdog_set_callback_interval) *wd_set_interval;
 
 typedef struct {
+    md_t *md;
+
+    int stalled;
+    int renewed;
+    int renewal_notified;
+    apr_time_t restart_at;
+    int need_restart;
+    int restart_processed;
+
+    apr_status_t last_rv;
+    apr_time_t next_check;
+    int error_runs;
+} md_job_t;
+
+typedef struct {
     apr_pool_t *p;
     server_rec *s;
     ap_watchdog_t *watchdog;
-    int all_valid;
-    apr_time_t valid_not_before;
-    int error_count;
-    int processed_count;
-
-    int error_runs;
-    apr_time_t next_change;
-    apr_time_t next_valid;
     
-    apr_array_header_t *mds;
+    apr_time_t next_change;
+    
+    apr_array_header_t *jobs;
     md_reg_t *reg;
 } md_watchdog;
 
-static apr_status_t drive_md(md_watchdog *wd, md_t *md, apr_pool_t *ptemp)
+static void assess_renewal(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp) 
+{
+    apr_time_t now = apr_time_now();
+    if (now >= job->restart_at) {
+        job->need_restart = 1;
+        ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, wd->s, 
+                     "md(%s): has been renewed, needs restart now", job->md->name);
+    }
+    else {
+        job->next_check = job->restart_at;
+        
+        if (job->renewal_notified) {
+            ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, wd->s, 
+                         "%s: renewed cert valid in %s", 
+                         job->md->name, md_print_duration(ptemp, job->restart_at - now));
+        }
+        else {
+            char ts[APR_RFC822_DATE_LEN];
+
+            apr_rfc822_date(ts, job->restart_at);
+            ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, wd->s, APLOGNO(10051) 
+                         "%s: has been renewed successfully and should be activated at %s"
+                         " (this requires a server restart latest in %s)", 
+                         job->md->name, ts, md_print_duration(ptemp, job->restart_at - now));
+            job->renewal_notified = 1;
+        }
+    }
+}
+
+static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
 {
     apr_status_t rv = APR_SUCCESS;
-    apr_time_t renew_time, now, valid_from;
+    apr_time_t valid_from, delay;
     int errored, renew;
     char ts[APR_RFC822_DATE_LEN];
     
-    if (md->state == MD_S_MISSING) {
-        rv = APR_INCOMPLETE;
+    if (apr_time_now() < job->next_check) {
+        /* Job needs to wait */
+        return APR_EAGAIN;
     }
-    if (md->state == MD_S_COMPLETE && !md->expires) {
-        /* This is our indicator that we did already renewed this managed domain
-         * successfully and only wait on the next restart for it to activate */
-        now = apr_time_now();
-        ap_log_error( APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO(10051) 
-                     "md(%s): has been renewed, should be activated in %s", 
-                     md->name, (md->valid_from <= now)? "about now" : 
-                     md_print_duration(ptemp, md->valid_from - now));
+    
+    job->next_check = 0;
+    if (job->md->state == MD_S_MISSING) {
+        job->stalled = 1;
     }
-    else if (APR_SUCCESS == (rv = md_reg_assess(wd->reg, md, &errored, &renew, wd->p))) {
+    
+    if (job->stalled) {
+        /* Missing information, this will not change until configuration
+         * is changed and server restarted */
+         return APR_INCOMPLETE;
+    }
+    else if (job->renewed) {
+        assess_renewal(wd, job, ptemp);
+    }
+    else if (APR_SUCCESS == (rv = md_reg_assess(wd->reg, job->md, &errored, &renew, wd->p))) {
         if (errored) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10050) 
-                         "md(%s): in error state", md->name);
+                         "md(%s): in error state", job->md->name);
         }
         else if (renew) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10052) 
-                         "md(%s): state=%d, driving", md->name, md->state);
+                         "md(%s): state=%d, driving", job->md->name, job->md->state);
                          
-            rv = md_reg_stage(wd->reg, md, NULL, 0, &valid_from, ptemp);
+            rv = md_reg_stage(wd->reg, job->md, NULL, 0, &valid_from, ptemp);
             
             if (APR_SUCCESS == rv) {
-                md->state = MD_S_COMPLETE;
-                md->expires = 0;
-                md->valid_from = valid_from;
-                ++wd->processed_count;
-                if (!wd->next_valid || wd->next_valid > valid_from) {
-                    wd->next_valid = valid_from;
-                }
+                job->renewed = 1;
+                job->restart_at = valid_from;
+                assess_renewal(wd, job, ptemp);
             }
         }
         else {
-            apr_rfc822_date(ts, md->expires);
+            job->next_check = job->md->expires - job->md->renew_window;
+
+            apr_rfc822_date(ts, job->md->expires);
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10053) 
-                         "md(%s): is complete, cert expires %s", md->name, ts);
-            renew_time = md->expires - md->renew_window;
-            if (renew_time < wd->next_change) {
-                wd->next_change = renew_time;
-            }
+                         "md(%s): is complete, cert expires %s", job->md->name, ts);
         }
     }
+    
+    if (APR_SUCCESS == rv) {
+        job->error_runs = 0;
+    }
+    else {
+        ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO(10056) 
+                     "processing %s", job->md->name);
+        ++job->error_runs;
+        /* back off duration, depending on the errors we encounter in a row */
+        delay = apr_time_from_sec(5 << (job->error_runs - 1));
+        if (delay > apr_time_from_sec(60*60)) {
+            delay = apr_time_from_sec(60*60);
+        }
+        job->next_check = apr_time_now() + delay;
+        ap_log_error(APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO(10057) 
+                     "%s: encountered error for the %d. time, next run in %s",
+                     job->md->name, job->error_runs, md_print_duration(ptemp, delay));
+    }
+    
+    job->last_rv = rv;
     return rv;
 }
 
@@ -515,97 +573,50 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
     md_watchdog *wd = baton;
     apr_status_t rv = APR_SUCCESS;
-    md_t *md;
+    md_job_t *job;
     apr_time_t next_run, now;
+    int restart = 0;
     int i;
     
     switch (state) {
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10054)
-                         "md watchdog start, auto drive %d mds", wd->mds->nelts);
+                         "md watchdog start, auto drive %d mds", wd->jobs->nelts);
             break;
         case AP_WATCHDOG_STATE_RUNNING:
             assert(wd->reg);
             
-            wd->all_valid = 1;
-            wd->valid_not_before = 0;
-            wd->processed_count = 0;
-            wd->error_count = 0;
             wd->next_change = 0;
-            wd->next_valid = 0;
-            
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10055)
-                         "md watchdog run, auto drive %d mds", wd->mds->nelts);
+                         "md watchdog run, auto drive %d mds", wd->jobs->nelts);
                          
-            /* Check if all Managed Domains are ok or if we have to do something */
-            for (i = 0; i < wd->mds->nelts; ++i) {
-                md = APR_ARRAY_IDX(wd->mds, i, md_t *);
-                
-                rv = drive_md(wd, md, ptemp);
-                
-                if (APR_STATUS_IS_INCOMPLETE(rv)) {
-                    /* configuration not complete, this MD cannot be driven further */
-                    wd->all_valid = 0;
-                }
-                else if (APR_SUCCESS != rv) {
-                    wd->all_valid = 0;
-                    ++wd->error_count;
-                    ap_log_error( APLOG_MARK, APLOG_ERR, rv, wd->s, APLOGNO(10056) 
-                                 "processing %s", md->name);
-                }
-            }
-
-            /* Determine when we want to run next */
-            wd->error_runs = wd->error_count? (wd->error_runs + 1) : 0;
-
-            if (wd->all_valid) {
-                ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, wd->s, "all managed domains are valid");
-            }
-            else if (wd->error_count == 0) {
-                ap_log_error(APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO() 
-                             "all managed domains driven as far as possible");
-            }
-            
-            now = apr_time_now();
             /* normally, we'd like to run at least twice a day */
-            next_run = now + apr_time_from_sec(MD_SECS_PER_DAY / 2);
-            
-            /* Unless we know of an MD change before that */
-            if (wd->next_change > 0 && wd->next_change < next_run) {
-                next_run = wd->next_change;
-            }
-            
-            /* Or have to activate a new cert even before that */
-            if (wd->next_valid > now && wd->next_valid < next_run) {
-                next_run = wd->next_valid;
-                ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, wd->s, 
-                             "Delaying activation of %d Managed Domain%s by %s", 
-                             wd->processed_count, (wd->processed_count > 1)? "s have" : " has",
-                             md_print_duration(ptemp, next_run - now));
-            }
-            
-            /* Or encountered errors and like to retry even before that */
-            if (wd->error_count > 0) {
-                apr_interval_time_t delay;
+            next_run = apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY / 2);
+
+            /* Check on all the jobs we have */
+            for (i = 0; i < wd->jobs->nelts; ++i) {
+                job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
                 
-                /* back off duration, depending on the errors we encounter in a row */
-                delay = apr_time_from_sec(5 << (wd->error_runs - 1));
-                if (delay > apr_time_from_sec(60*60)) {
-                    delay = apr_time_from_sec(60*60);
+                rv = check_job(wd, job, ptemp);
+
+                if (job->need_restart && !job->restart_processed) {
+                    restart = 1;
                 }
-                if (now + delay < next_run) {
-                    ap_log_error(APLOG_MARK, APLOG_INFO, 0, wd->s, APLOGNO(10057) 
-                                 "encountered errors for the %d. time, next try by %s",
-                                 wd->error_runs, md_print_duration(ptemp, delay));
-                    next_run = now + delay;
+                if (job->next_check && job->next_check < next_run) {
+                    next_run = job->next_check;
                 }
             }
-            
+
+            now = apr_time_now();
             if (APLOGdebug(wd->s)) {
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO()
                              "next run in %s", md_print_duration(ptemp, next_run - now));
             }
             wd_set_interval(wd->watchdog, next_run - now, wd, run_watchdog);
+
+            for (i = 0; i < wd->jobs->nelts; ++i) {
+                job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
+            }
             break;
             
         case AP_WATCHDOG_STATE_STOPPING:
@@ -614,31 +625,31 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             break;
     }
 
-    if (wd->processed_count) {
-        now = apr_time_now();
+    if (restart) {
+        const char *action, *names = "";
+        int n;
         
-        if (wd->all_valid) {
-            if (wd->next_valid <= now) {
-                rv = md_server_graceful(ptemp, wd->s);
-                if (APR_ENOTIMPL == rv) {
-                    /* self-graceful restart not supported in this setup */
-                    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, wd->s, APLOGNO(10059)
-                                 "%d Managed Domain%s been setup and changes will be "
-                                 "activated on next (graceful) server restart.",
-                                 wd->processed_count, (wd->processed_count > 1)? "s have" : " has");
-                }
-            }
-            else {
-                /* activation is delayed */
+        for (i = 0, n = 0; i < wd->jobs->nelts; ++i) {
+            job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
+            if (job->need_restart && !job->restart_processed) {
+                names = apr_psprintf(ptemp, "%s%s%s", names, n? ", " : "", job->md->name);
+                ++n;
+                job->restart_processed = 1;
             }
         }
-        else {
-            ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, wd->s, APLOGNO(10060)
-                         "%d Managed Domain%s been setup, while %d%s "
-                         "still being worked on. You may activate the changes made "
-                         "by triggering a (graceful) restart at any time.",
-                         wd->processed_count, (wd->processed_count > 1)? "s have" : " has",
-                         wd->error_count, (wd->error_count > 1)? " are" : " is");
+
+        if (n > 0) {
+            rv = md_server_graceful(ptemp, wd->s);
+            if (APR_ENOTIMPL == rv) {
+                /* self-graceful restart not supported in this setup */
+                action = " and changes will be activated on next (graceful) server restart.";
+            }
+            else {
+                action = " and server has been asked to restart now.";
+            }
+            ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, wd->s, APLOGNO(10059) 
+                         "The Managed Domain%s %s %s been setup%s",
+                         (n > 1)? "s" : "", names, (n > 1)? "have" : "has", action);
         }
     }
     
@@ -654,6 +665,7 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
     apr_status_t rv;
     const char *name;
     md_t *md;
+    md_job_t *job;
     int i, errored, renew;
     
     wd_get_instance = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_get_instance);
@@ -681,7 +693,7 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
     wd->reg = reg;
     wd->s = s;
     
-    wd->mds = apr_array_make(wd->p, 10, sizeof(md_t *));
+    wd->jobs = apr_array_make(wd->p, 10, sizeof(md_job_t *));
     for (i = 0; i < names->nelts; ++i) {
         name = APR_ARRAY_IDX(names, i, const char *);
         md = md_reg_get(wd->reg, name, wd->p);
@@ -692,14 +704,18 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
                              "md(%s): seems errored. Will not process this any further.", name);
             }
             else {
+                job = apr_pcalloc(wd->p, sizeof(*job));
+                
+                job->md = md;
+                APR_ARRAY_PUSH(wd->jobs, md_job_t*) = job;
+
                 ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10064) 
                              "md(%s): state=%d, driving", name, md->state);
-                APR_ARRAY_PUSH(wd->mds, md_t*) = md;
             }
         }
     }
 
-    if (!wd->mds->nelts) {
+    if (!wd->jobs->nelts) {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10065)
                      "no managed domain in state to drive, no watchdog needed, "
                      "will check again on next server (graceful) restart");
