@@ -219,7 +219,7 @@ class TestDrive :
     def test_500_107(self):
         # test case: drive again on COMPLETE md, then drive --force
         # setup: prepare md in store
-        domain = "test500-100-" + TestDrive.dns_uniq
+        domain = "test500-107-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -245,6 +245,21 @@ class TestDrive :
         cert = CertUtil(TestEnv.path_domain_pubcert( name, archiveVersion=2 ))
         assert cert.get_serial() == orig_cert.get_serial()
 
+    def test_500_108(self):
+        # test case: drive via HTTP proxy
+        domain = "test500-108-" + TestDrive.dns_uniq
+        name = "www." + domain
+        self._prepare_md([ name ])
+        assert TestEnv.apache_restart() == 0
+
+        # drive it, with wrong proxy url -> FAIL
+        r = TestEnv.a2md( [ "-p", "http://localhost:1", "drive", name ] )
+        assert r['rv'] == 1
+        assert "Connection refused" in r['stderr']
+
+        # drive it, working proxy url -> SUCCESS
+        assert TestEnv.a2md( [ "-p", "http://localhost:%s" % TestEnv.HTTP_PROXY_PORT, "drive", name ] )['rv'] == 0
+        self._check_md_cert([ name ])
 
     # --------- critical state change -> drive again ---------
 

@@ -50,6 +50,7 @@ class TestEnv:
 
         cls.HTTP_PORT = cls.config.get('global', 'http_port')
         cls.HTTPS_PORT = cls.config.get('global', 'https_port')
+        cls.HTTP_PROXY_PORT = cls.config.get('global', 'http_proxy_port')
         cls.HTTPD_HOST = "localhost"
         cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
         cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
@@ -451,8 +452,8 @@ class TestEnv:
                 return False
             allChanged = True
             for name in names:
-                state = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]['state']
-                if state == 2:
+                md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
+                if md['state'] == 2 and ('renew' not in md or md['renew'] == False):
                     names.remove(name)
             if len(names) != 0:
                 time.sleep(0.5)

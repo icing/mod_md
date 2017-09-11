@@ -46,8 +46,8 @@ class TestAuto:
         TestEnv.apache_err_reset();
         TestEnv.clear_store()
         TestEnv.install_test_conf();
-        self.test_n = int(re.match("test_(.+)", method.__name__).group(1))
-        self.test_domain =  ("%d-" % self.test_n) + TestAuto.dns_uniq
+        self.test_n = re.match("test_(.+)", method.__name__).group(1)
+        self.test_domain =  ("%s-" % self.test_n) + TestAuto.dns_uniq
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -95,8 +95,8 @@ class TestAuto:
     # test case: same as test_100, but with two parallel managed domains
     #
     def test_7002(self):
-        domainA = ("%da-" % self.test_n) + TestAuto.dns_uniq
-        domainB = ("%db-" % self.test_n) + TestAuto.dns_uniq
+        domainA = ("%sa-" % self.test_n) + TestAuto.dns_uniq
+        domainB = ("%sb-" % self.test_n) + TestAuto.dns_uniq
         
         # generate config with two MDs
         dns_listA = [ domainA, "www." + domainA ]
@@ -292,7 +292,7 @@ class TestAuto:
         conf.add_md( dns_list )
         conf.install()
 
-        # - restart (-> drive), check that md is in store
+        # - restart (-> drive)
         assert TestEnv.apache_restart() == 0
         time.sleep( 2 )
         # assert drive did not start
@@ -300,6 +300,26 @@ class TestAuto:
         assert md['state'] == TestEnv.MD_S_INCOMPLETE
         assert 'account' not in md['ca']
         assert TestEnv.apache_err_scan( re.compile('.*\[md:debug\].*Connection refused: ') )
+
+    #-----------------------------------------------------------------------------------------------
+    # Specify a valid http proxy
+    #
+    def test_7008a(self):
+        domain = self.test_domain
+        dns_list = [ domain ]
+
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "always" )
+        conf.add_http_proxy( "http://localhost:%s"  % TestEnv.HTTP_PROXY_PORT)
+        conf.add_md( dns_list )
+        conf.install()
+
+        # - restart (-> drive), check that md is in store
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.apache_restart() == 0
+        self._check_md_cert( dns_list )
 
     #-----------------------------------------------------------------------------------------------
     # Force cert renewal due to critical remaining valid duration

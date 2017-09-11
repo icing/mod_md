@@ -19,6 +19,10 @@
 		75AF53091F5E82460093DD5C /* test_017b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_017b.conf; sourceTree = "<group>"; };
 		75AF530A1F5E82460093DD5C /* test_017c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_017c.conf; sourceTree = "<group>"; };
 		75AF530B1F5E82460093DD5C /* test_017d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_017d.conf; sourceTree = "<group>"; };
+		75AF530C1F66A9AE0093DD5C /* test_018a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018a.conf; sourceTree = "<group>"; };
+		75AF530D1F66A9AE0093DD5C /* test_018b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018b.conf; sourceTree = "<group>"; };
+		75AF530E1F66A9AE0093DD5C /* test_018c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018c.conf; sourceTree = "<group>"; };
+		75AF530F1F66A9AE0093DD5C /* test_018d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018d.conf; sourceTree = "<group>"; };
 		75EAB2611F41BBEB00277D33 /* test_014.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_014.conf.in; sourceTree = "<group>"; };
 		75EAB2621F42C18D00277D33 /* challenge_all.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = challenge_all.conf; sourceTree = "<group>"; };
 		75EAB2631F42C18D00277D33 /* challenge_http.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = challenge_http.conf; sourceTree = "<group>"; };
@@ -252,6 +256,10 @@
 				75AF53091F5E82460093DD5C /* test_017b.conf */,
 				75AF530A1F5E82460093DD5C /* test_017c.conf */,
 				75AF530B1F5E82460093DD5C /* test_017d.conf */,
+				75AF530C1F66A9AE0093DD5C /* test_018a.conf */,
+				75AF530D1F66A9AE0093DD5C /* test_018b.conf */,
+				75AF530E1F66A9AE0093DD5C /* test_018c.conf */,
+				75AF530F1F66A9AE0093DD5C /* test_018d.conf */,
 			);
 			path = test_conf_validate;
 			sourceTree = "<group>";

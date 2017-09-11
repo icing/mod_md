@@ -163,3 +163,15 @@ class TestConf:
         TestEnv.install_test_conf(confFile);
         assert TestEnv.apache_restart() == 1
         assert expErrMsg in TestEnv.apachectl_stderr
+
+    @pytest.mark.skip(reason="missing validation on url parameter")
+    @pytest.mark.parametrize("confFile,expErrMsg", [ 
+        ("test_018a", "takes one argument"), 
+        ("test_018b", "missing schema"),
+        ("test_018c", "invalid port"),
+        ("test_018d", "takes one argument") ])
+    def test_300_018(self, confFile, expErrMsg):
+        # invalid renew window directive
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_restart() == 1
+        assert expErrMsg in TestEnv.apachectl_stderr
