@@ -598,6 +598,66 @@ static int pem_passwd(char *buf, int size, int rwflag, void *baton)
 }
 
 /**************************************************************************************************/
+/* date time things */
+
+/* Get the apr time (micro seconds, since 1970) from an ASN1 time, as stored in X509
+ * certificates. OpenSSL now has a utility function, but other *SSL derivatives have
+ * not caughts up yet or chose to ignore. An alternative is implemented, we prefer 
+ * however the *SSL to maintain such things.
+ */
+static apr_time_t md_asn1_time_get(const ASN1_TIME* time)
+{
+#ifdef LIBRESSL_VERSION_NUMBER
+    /* courtesy: https://stackoverflow.com/questions/10975542/asn1-time-to-time-t-conversion#11263731
+     * all bugs are mine */
+    apr_time_exp_t t;
+    apr_time_t ts;
+    const char* str = (const char*) time->data;
+    apr_size_t i = 0;
+
+    memset(&t, 0, sizeof(t));
+
+    if (time->type == V_ASN1_UTCTIME) {/* two digit year */
+        t.tm_year = (str[i++] - '0') * 10;
+        t.tm_year += (str[i++] - '0');
+        if (t.tm_year < 70)
+            t.tm_year += 100;
+    } 
+    else if (time->type == V_ASN1_GENERALIZEDTIME) {/* four digit year */
+        t.tm_year = (str[i++] - '0') * 1000;
+        t.tm_year+= (str[i++] - '0') * 100;
+        t.tm_year+= (str[i++] - '0') * 10;
+        t.tm_year+= (str[i++] - '0');
+        t.tm_year -= 1900;
+    }
+    t.tm_mon  = (str[i++] - '0') * 10;
+    t.tm_mon += (str[i++] - '0') - 1; /* -1 since January is 0 not 1. */
+    t.tm_mday = (str[i++] - '0') * 10;
+    t.tm_mday+= (str[i++] - '0');
+    t.tm_hour = (str[i++] - '0') * 10;
+    t.tm_hour+= (str[i++] - '0');
+    t.tm_min  = (str[i++] - '0') * 10;
+    t.tm_min += (str[i++] - '0');
+    t.tm_sec  = (str[i++] - '0') * 10;
+    t.tm_sec += (str[i++] - '0');
+    
+    if (APR_SUCCESS == apr_time_exp_gmt_get(&ts, &t)) {
+        return ts;
+    }
+    return 0;
+#else 
+    int secs, days;
+    apr_time_t ts = apr_time_now();
+    
+    if (ASN1_TIME_diff(&days, &secs, NULL, time)) {
+        ts += apr_time_from_sec((days * MD_SECS_PER_DAY) + secs); 
+    }
+    return ts;
+#endif
+}
+
+
+/**************************************************************************************************/
 /* private keys */
 
 md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p)
@@ -1077,26 +1137,12 @@ int md_cert_has_expired(const md_cert_t *cert)
 
 apr_time_t md_cert_get_not_after(md_cert_t *cert)
 {
-    int secs, days;
-    apr_time_t time = apr_time_now();
-    ASN1_TIME *not_after = X509_get_notAfter(cert->x509);
-    
-    if (ASN1_TIME_diff(&days, &secs, NULL, not_after)) {
-        time += apr_time_from_sec((days * MD_SECS_PER_DAY) + secs); 
-    }
-    return time;
+    return md_asn1_time_get(X509_get_notAfter(cert->x509));
 }
 
 apr_time_t md_cert_get_not_before(md_cert_t *cert)
 {
-    int secs, days;
-    apr_time_t time = apr_time_now();
-    ASN1_TIME *not_after = X509_get_notBefore(cert->x509);
-    
-    if (ASN1_TIME_diff(&days, &secs, NULL, not_after)) {
-        time += apr_time_from_sec((days * MD_SECS_PER_DAY) + secs); 
-    }
-    return time;
+    return md_asn1_time_get(X509_get_notBefore(cert->x509));
 }
 
 int md_cert_covers_domain(md_cert_t *cert, const char *domain_name)

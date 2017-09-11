@@ -1,3 +1,6 @@
+ * Implemented alternative for OpenSSL ASN1_TIME_diff() helper which is not available in
+   libressl.
+
 v0.9.2
 ----------------------------------------------------------------------------------------------------
  * Fixes for conversions in gcc, fixed duration parsing when apr_strtoi64() defaults to 0 on
