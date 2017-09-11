@@ -251,16 +251,20 @@ class TestEnv:
         return os.path.join(TestEnv.STORE_DIR, 'challenges')
 
     @classmethod
-    def path_domain( cls, domain, archiveVersion=0 ) :
+    def path_domain( cls, domain, archiveVersion=0, staging=False ) :
         if archiveVersion == 0:
             return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'md.json' )
+        elif staging == True:
+            return os.path.join( TestEnv.STORE_DIR, 'staging', domain, 'md.json' )
         else:
             return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'md.json' )
 
     @classmethod
-    def path_domain_pubcert( cls, domain, archiveVersion=0 ) :
+    def path_domain_pubcert( cls, domain, archiveVersion=0, staging=False ) :
         if archiveVersion == 0:
             return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'pubcert.pem')
+        elif staging == True:
+            return os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pubcert.pem')
         else:
             return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'pubcert.pem')
 
@@ -270,6 +274,10 @@ class TestEnv:
             return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'privkey.pem')
         else:
             return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'privkey.pem')
+
+    @classmethod
+    def path_fallback_cert( cls ) :
+        return os.path.join( TestEnv.STORE_DIR, 'fallback-cert.pem')
 
     @classmethod
     def replace_store( cls, src):
@@ -452,9 +460,19 @@ class TestEnv:
                 return False
             allChanged = True
             for name in names:
+                # check status in md.json
                 md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
-                if md['state'] == 2 and ('renew' not in md or md['renew'] == False):
-                    names.remove(name)
+                if md['state'] == TestEnv.MD_S_COMPLETE:
+                    if 'renew' in md and md['renew'] == True:
+                        # check staging area, if there's already a new cert waiting
+                        path_cert_staging = TestEnv.path_domain_pubcert( name, staging=True )
+                        if os.path.exists(path_cert_staging):
+                            # OK (completed in staging)
+                            names.remove(name)
+                    else:
+                        # OK (completed)
+                        names.remove(name)
+
             if len(names) != 0:
                 time.sleep(0.5)
         return True
