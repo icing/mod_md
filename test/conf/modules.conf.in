@@ -33,7 +33,6 @@ LoadModule rewrite_module       "@PREFIX@/modules/mod_rewrite.so"
 LoadModule watchdog_module      "@PREFIX@/modules/mod_watchdog.so"
 LoadModule proxy_module         "@PREFIX@/modules/mod_proxy.so"
 LoadModule proxy_http_module    "@PREFIX@/modules/mod_proxy_http.so"
-LoadModule proxy_http2_module   "@PREFIX@/modules/mod_proxy_http2.so"
 LoadModule proxy_connect_module "@PREFIX@/modules/mod_proxy_connect.so"
 
 LoadModule mpm_event_module     "@PREFIX@/modules/mod_mpm_event.so"

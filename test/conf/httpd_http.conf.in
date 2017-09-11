@@ -27,7 +27,6 @@ MDPortMap 80:@HTTP_PORT@ 443:@HTTPS_PORT@
 <VirtualHost *:@HTTP_PROXY_PORT@>
     ProxyRequests On
     ProxyVia On
-    AllowCONNECT 443 @HTTPS_PORT@
 
     <Proxy *>
         Order deny,allow

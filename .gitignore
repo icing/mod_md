@@ -42,3 +42,4 @@ src/a2md
 /test/unit/**/*.log
 /test/unit/**/*.trs
 /test/unit/main
+wiki

@@ -519,6 +519,10 @@ static const char *md_config_set_proxy(cmd_parms *cmd, void *arg, const char *va
     if (err) {
         return err;
     }
+    md_util_abs_http_uri_check(cmd->pool, value, &err);
+    if (err) {
+        return err;
+    }
     sc->mc->proxy_url = value;
     (void)arg;
     return NULL;

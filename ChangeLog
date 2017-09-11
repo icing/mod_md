@@ -1,3 +1,6 @@
+v0.9.3
+----------------------------------------------------------------------------------------------------
+ * Some sanity checks for MDHttpProxy parameter.
  * Rewrote logic to re-schedule MD jobs and announce renewal completion and server restarts. Related
    to issue #42
  * Additional tweaks for libressl support, thanks to @Sp1l 
