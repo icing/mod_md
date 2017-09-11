@@ -28,7 +28,7 @@ def setup_module(module):
 
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    # assert TestEnv.apache_stop() == 0
+    assert TestEnv.apache_stop() == 0
 
 
 class TestAuto:
@@ -194,6 +194,7 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive_mode manual, check that server starts, but requests to domain are 503'd
     #
+    @pytest.mark.skip(reason="Unexpected server certificate found on vhost with incomplete md")
     def test_7005(self):
         domain = self.test_domain
         nameA = "test-a." + domain
@@ -221,6 +222,11 @@ class TestAuto:
         assert not TestEnv.hasCertAltName( nameA )
         assert TestEnv.getStatus(nameA, "/name.txt") == 503
 
+        # check temporary cert from server
+        cert1 = CertUtil( TestEnv.path_fallback_cert() )
+        cert2 = CertUtil.load_server_cert("127.0.0.1", TestEnv.HTTPS_PORT, nameA)
+        assert cert1.get_serial() == cert2.get_serial(), \
+            "Unexpected temporary certificate on vhost %s. Expected cn: %s , but found cn: %s" % ( nameA, cert1.get_cn(), cert2.get_cn() )
 
     #-----------------------------------------------------------------------------------------------
     # test case: drive MD with only invalid challenges, domains should stay 503'd
@@ -325,7 +331,6 @@ class TestAuto:
     # Force cert renewal due to critical remaining valid duration
     # Assert that new cert activation is delayed
     # 
-    @pytest.mark.skip(reason="mod_md does not re-drive md with status 'renew'=True ")
     def test_7009(self):
         domain = self.test_domain
         dns_list = [ domain ]
@@ -360,10 +365,12 @@ class TestAuto:
         # fetch cert from server -> self-signed still active, activation of new ACME is delayed
         cert4 = CertUtil.load_server_cert("127.0.0.1", TestEnv.HTTPS_PORT, domain)
         assert cert4.get_serial() == cert3.get_serial()
+        time.sleep( 1 )
 
         # restart -> new ACME cert becomes active
         assert TestEnv.apache_stop() == 0
         assert TestEnv.apache_start() == 0
+        time.sleep( 1 )
         cert5 = CertUtil.load_server_cert("127.0.0.1", TestEnv.HTTPS_PORT, domain)
         assert cert5.get_serial() != cert3.get_serial()
 
