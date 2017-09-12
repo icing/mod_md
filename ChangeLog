@@ -1,5 +1,7 @@
  * New directive 'MDRequireHttps' for redirecting http: traffic to a Managed Domain, permanently
    or temporarily.
+ * Fix for using a fallback certificate on initial signup of a Managed Domain. Requires also
+   a changed mod_ssl patch (v5) to take effect.
 
 v0.9.3
 ----------------------------------------------------------------------------------------------------

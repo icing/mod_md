@@ -202,7 +202,7 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive_mode manual, check that server starts, but requests to domain are 503'd
     #
-    @pytest.mark.skip(reason="Unexpected server certificate found on vhost with incomplete md")
+    #@pytest.mark.skip(reason="Unexpected server certificate found on vhost with incomplete md")
     def test_7005(self):
         domain = self.test_domain
         nameA = "test-a." + domain
@@ -228,11 +228,11 @@ class TestAuto:
         
         # check: that request to domains give 503 Service Unavailable
         cert1 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
-        assert nameA not in cert1.get_san_list()
+        assert nameA in cert1.get_san_list()
         assert TestEnv.getStatus(nameA, "/name.txt") == 503
 
         # check temporary cert from server
-        cert2 = CertUtil( TestEnv.path_fallback_cert() )
+        cert2 = CertUtil( TestEnv.path_fallback_cert( domain ) )
         assert cert1.get_serial() == cert2.get_serial(), \
             "Unexpected temporary certificate on vhost %s. Expected cn: %s , but found cn: %s" % ( nameA, cert2.get_cn(), cert1.get_cn() )
 

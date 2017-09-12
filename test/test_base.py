@@ -276,8 +276,8 @@ class TestEnv:
             return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'privkey.pem')
 
     @classmethod
-    def path_fallback_cert( cls ) :
-        return os.path.join( TestEnv.STORE_DIR, 'fallback-cert.pem')
+    def path_fallback_cert( cls, domain ) :
+        return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'fallback-cert.pem')
 
     @classmethod
     def replace_store( cls, src):

@@ -1037,11 +1037,6 @@ apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p,
 /**************************************************************************************************/
 /* certificate signing requests */
 
-static const char *alt_name(const char *domain, apr_pool_t *p)
-{
-    return apr_psprintf(p, "DNS:%s", domain);
-}
-
 static const char *alt_names(apr_array_header_t *domains, apr_pool_t *p)
 {
     const char *alts = "", *sep = "", *domain;
@@ -1186,7 +1181,7 @@ out:
 }
 
 apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn, 
-                               const char *domain, md_pkey_t *pkey,
+                               apr_array_header_t *domains, md_pkey_t *pkey,
                                apr_interval_time_t valid_for, apr_pool_t *p)
 {
     X509 *x;
@@ -1198,45 +1193,45 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
     ASN1_INTEGER *asn1_rnd = NULL;
     unsigned char rnd[20];
     
-    assert(domain);
+    assert(domains);
     
     if (NULL == (x = X509_new()) 
         || NULL == (n = X509_NAME_new())) {
         rv = APR_ENOMEM;
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: openssl alloc X509 things", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: openssl alloc X509 things", cn);
         goto out; 
     }
     
     if (APR_SUCCESS != (rv = md_rand_bytes(rnd, sizeof(rnd), p))
         || !(big_rnd = BN_bin2bn(rnd, sizeof(rnd), NULL))
         || !(asn1_rnd = BN_to_ASN1_INTEGER(big_rnd, NULL))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: setup random serial", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: setup random serial", cn);
         rv = APR_EGENERAL; goto out;
     } 
     if (!X509_set_serialNumber(x, asn1_rnd)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: set serial number", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: set serial number", cn);
         rv = APR_EGENERAL; goto out;
     }
     /* set common name and issue */
     if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, (const unsigned char*)cn, -1, -1, 0)
         || !X509_set_subject_name(x, n)
         || !X509_set_issuer_name(x, n)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: name add entry", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: name add entry", cn);
         rv = APR_EGENERAL; goto out;
     }
     /* cert are uncontrained (but not very trustworthy) */
     if (APR_SUCCESS != (rv = add_ext(x, NID_basic_constraints, "CA:TRUE, pathlen:0", p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set basic constraints ext", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set basic constraints ext", cn);
         goto out;
     }
     /* add the domain as alt name */
-    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_name(domain, p), p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", domain);
+    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_names(domains, p), p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", cn);
         goto out;
     }
     /* add our key */
     if (!X509_set_pubkey(x, pkey->pkey)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in x509", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in x509", cn);
         rv = APR_EGENERAL; goto out;
     }
     
@@ -1250,7 +1245,7 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
 
     /* sign with same key */
     if (!X509_sign(x, pkey->pkey, EVP_sha256())) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign x509", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign x509", cn);
         rv = APR_EGENERAL; goto out;
     }
 

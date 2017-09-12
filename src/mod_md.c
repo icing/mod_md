@@ -885,6 +885,34 @@ static int md_is_managed(server_rec *s)
     return 0;
 }
 
+static apr_status_t setup_fallback_cert(md_store_t *store, const md_t *md, apr_pool_t *p)
+{
+    md_pkey_t *pkey;
+    md_cert_t *cert;
+    md_pkey_spec_t spec;
+    apr_status_t rv;
+
+    spec.type = MD_PKEY_TYPE_RSA;
+    spec.params.rsa.bits = MD_PKEY_RSA_BITS_DEF;
+        
+    if (   APR_SUCCESS == (rv = md_pkey_gen(&pkey, p, &spec))
+        && APR_SUCCESS == (rv = md_store_save(store, p, MD_SG_DOMAINS, md->name, 
+                                              MD_FN_FALLBACK_PKEY, MD_SV_PKEY, (void*)pkey, 0))
+        && APR_SUCCESS == (rv = md_cert_self_sign(&cert, "Apache Managed Domain Fallback", 
+                                                  md->domains, pkey, 
+                                                  apr_time_from_sec(14 * MD_SECS_PER_DAY), p))) {
+        rv = md_store_save(store, p, MD_SG_DOMAINS, md->name, 
+                           MD_FN_FALLBACK_CERT, MD_SV_CERT, (void*)cert, 0);
+    }
+
+    return rv;
+}
+
+static int fexists(const char *fname, apr_pool_t *p)
+{
+    return (*fname && APR_SUCCESS == md_util_is_file(fname, p));
+}
+
 static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
                                        const char **pkeyfile, const char **pcertfile)
 {
@@ -902,24 +930,38 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
         assert(sc->mc);
         assert(sc->mc->store);
         if (APR_SUCCESS != (rv = md_reg_init(&reg, p, sc->mc->store, sc->mc->proxy_url))) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "init registry");
             return rv;
         }
 
         md = md_reg_get(reg, sc->assigned->name, p);
             
         if (APR_SUCCESS != (rv = md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile))) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() 
+                         "retrieving credentials for MD %s", md->name);
             return rv;
         }
 
-        if (!*pkeyfile || !*pcertfile 
-            || APR_SUCCESS != md_util_is_file(*pkeyfile, p)
-            || APR_SUCCESS != md_util_is_file(*pcertfile, p)) {
+        if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
             /* Provide temporary, self-signed certificate as fallback, so that
              * clients do not get obscure TLS handshake errors or will see a fallback
              * virtual host that is not intended to be served here. */
-            md_store_get_fname(pkeyfile, sc->mc->store, MD_SG_NONE, NULL, MD_FN_FALLBACK_PKEY, p);
-            md_store_get_fname(pcertfile, sc->mc->store, MD_SG_NONE, NULL, MD_FN_FALLBACK_CERT, p);
+             
+            md_store_get_fname(pkeyfile, sc->mc->store, MD_SG_DOMAINS, 
+                               md->name, MD_FN_FALLBACK_PKEY, p);
+            md_store_get_fname(pcertfile, sc->mc->store, MD_SG_DOMAINS, 
+                               md->name, MD_FN_FALLBACK_CERT, p);
+            if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
+                if (APR_SUCCESS != (rv = setup_fallback_cert(sc->mc->store, md, p))) {
+                    ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, s,  
+                                 "%s: setup fallback certificate", md->name);
+                    return rv;
+                }
+            }
             
+            ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,  
+                         "%s: providing fallback certificate for server %s", 
+                         md->name, s->server_hostname);
             return APR_EAGAIN;
         }
 
