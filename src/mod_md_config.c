@@ -805,7 +805,7 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
         case MD_CONFIG_TRANSITIVE:
             return (sc->transitive != DEF_VAL)? sc->transitive : defconf.transitive;
         case MD_CONFIG_REQUIRE_HTTPS:
-            return (sc->require_https != DEF_VAL)? sc->require_https : defconf.require_https;
+            return (sc->require_https != MD_REQUIRE_UNSET)? sc->require_https : defconf.require_https;
         default:
             return 0;
     }

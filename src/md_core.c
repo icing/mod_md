@@ -256,6 +256,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
     if (md) {
         md->state = src->state;
         md->name = apr_pstrdup(p, src->name);
+        md->require_https = src->require_https;
         md->drive_mode = src->drive_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
         md->pkey_spec = src->pkey_spec;
@@ -283,6 +284,7 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
     n->ca_url = add->ca_url? add->ca_url : base->ca_url;
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
+    n->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
     n->drive_mode = (add->drive_mode != MD_DRIVE_DEFAULT)? add->drive_mode : base->drive_mode;
     n->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
     n->renew_norm = (add->renew_norm > 0)? add->renew_norm : base->renew_norm;
