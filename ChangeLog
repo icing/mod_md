@@ -1,3 +1,6 @@
+ * New directive 'MDRequireHttps' for redirecting http: traffic to a Managed Domain, permanently
+   or temporarily.
+
 v0.9.3
 ----------------------------------------------------------------------------------------------------
  * Some sanity checks for MDHttpProxy parameter.

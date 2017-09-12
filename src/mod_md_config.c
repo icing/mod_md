@@ -43,6 +43,7 @@
 #define MD_CMD_PKEYS          "MDPrivateKeys"
 #define MD_CMD_PROXY          "MDHttpProxy"
 #define MD_CMD_RENEWWINDOW    "MDRenewWindow"
+#define MD_CMD_REQUIREHTTPS   "MDRequireHttps"
 #define MD_CMD_STOREDIR       "MDStoreDir"
 
 #define DEF_VAL     (-1)
@@ -67,6 +68,7 @@ static md_srv_conf_t defconf = {
     &defmc,
 
     1,
+    MD_REQUIRE_OFF,
     MD_DRIVE_AUTO,
     0,
     NULL, 
@@ -112,6 +114,7 @@ static md_mod_conf_t *md_mod_conf_get(apr_pool_t *pool, int create)
 static void srv_conf_props_clear(md_srv_conf_t *sc)
 {
     sc->transitive = DEF_VAL;
+    sc->require_https = MD_REQUIRE_UNSET;
     sc->drive_mode = DEF_VAL;
     sc->must_staple = DEF_VAL;
     sc->pkey_spec = NULL;
@@ -126,6 +129,7 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
 static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
 {
     to->transitive = from->transitive;
+    to->require_https = from->require_https;
     to->drive_mode = from->drive_mode;
     to->must_staple = from->must_staple;
     to->pkey_spec = from->pkey_spec;
@@ -139,6 +143,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
 
 static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t *p)
 {
+    if (from->require_https != MD_REQUIRE_UNSET) md->require_https = from->require_https;
     if (from->transitive != DEF_VAL) md->transitive = from->transitive;
     if (from->drive_mode != DEF_VAL) md->drive_mode = from->drive_mode;
     if (from->must_staple != DEF_VAL) md->must_staple = from->must_staple;
@@ -176,6 +181,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->name = name;
 
     nsc->transitive = (add->transitive != DEF_VAL)? add->transitive : base->transitive;
+    nsc->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
     nsc->drive_mode = (add->drive_mode != DEF_VAL)? add->drive_mode : base->drive_mode;
     nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
     nsc->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
@@ -423,6 +429,33 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
         return err;
     }
     config->drive_mode = drive_mode;
+    return NULL;
+}
+
+static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err;
+    md_require_t require_https;
+
+    if (!apr_strnatcasecmp("off", value)) {
+        require_https = MD_REQUIRE_OFF;
+    }
+    else if (!apr_strnatcasecmp(MD_KEY_TEMPORARY, value)) {
+        require_https = MD_REQUIRE_TEMPORARY;
+    }
+    else if (!apr_strnatcasecmp(MD_KEY_PERMANENT, value)) {
+        require_https = MD_REQUIRE_PERMANENT;
+    }
+    else {
+        return apr_pstrcat(cmd->pool, "unknown MDRequireHttps ", value, NULL);
+    }
+    
+    if (!inside_section(cmd, MD_CMD_MD_SECTION)
+        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    config->require_https = require_https;
     return NULL;
 }
 
@@ -707,6 +740,8 @@ const command_rec md_cmds[] = {
                   "the directory for file system storage of managed domain data."),
     AP_INIT_TAKE1(     MD_CMD_RENEWWINDOW, md_config_set_renew_window, NULL, RSRC_CONF, 
                   "Time length for renewal before certificate expires (defaults to days)"),
+    AP_INIT_TAKE1(     MD_CMD_REQUIREHTTPS, md_config_set_require_https, NULL, RSRC_CONF, 
+                  "Redirect non-secure requests to the https: equivalent."),
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };
 
@@ -769,6 +804,8 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
             return sc->mc->local_443;
         case MD_CONFIG_TRANSITIVE:
             return (sc->transitive != DEF_VAL)? sc->transitive : defconf.transitive;
+        case MD_CONFIG_REQUIRE_HTTPS:
+            return (sc->require_https != DEF_VAL)? sc->require_https : defconf.require_https;
         default:
             return 0;
     }

@@ -14,11 +14,13 @@
  */
 
 #include <assert.h>
+#include <apr_optional.h>
 #include <apr_strings.h>
 
 #include <ap_release.h>
 #include <mpm_common.h>
 #include <httpd.h>
+#include <http_core.h>
 #include <http_protocol.h>
 #include <http_request.h>
 #include <http_log.h>
@@ -41,6 +43,7 @@
 #include "mod_md.h"
 #include "mod_md_config.h"
 #include "mod_md_os.h"
+#include "mod_ssl.h"
 #include "mod_watchdog.h"
 
 static void md_hooks(apr_pool_t *pool);
@@ -430,6 +433,16 @@ static void init_setups(apr_pool_t *p, server_rec *base_server)
 {
     log_server = base_server;
     apr_pool_cleanup_register(p, NULL, cleanup_setups, apr_pool_cleanup_null);
+}
+
+/**************************************************************************************************/
+/* mod_ssl interface */
+
+static APR_OPTIONAL_FN_TYPE(ssl_is_https) *opt_ssl_is_https;
+
+static void init_ssl(void)
+{
+    opt_ssl_is_https = APR_RETRIEVE_OPTIONAL_FN(ssl_is_https);
 }
 
 /**************************************************************************************************/
@@ -835,6 +848,8 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         }
     }
     
+    init_ssl();
+    
     /* If there are MDs to drive, start a watchdog to check on them regularly */
     if (drive_names->nelts > 0) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
@@ -973,7 +988,8 @@ static int md_is_challenge(conn_rec *c, const char *servername,
 /**************************************************************************************************/
 /* ACME challenge responses */
 
-#define ACME_CHALLENGE_PREFIX       "/.well-known/acme-challenge/"
+#define WELL_KNOWN_PREFIX           "/.well-known/"
+#define ACME_CHALLENGE_PREFIX       WELL_KNOWN_PREFIX"acme-challenge/"
 
 static int md_http_challenge_pr(request_rec *r)
 {
@@ -981,14 +997,13 @@ static int md_http_challenge_pr(request_rec *r)
     const md_srv_conf_t *sc;
     const char *name, *data;
     apr_status_t rv;
-            
+    
     if (!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
         if (r->method_number == M_GET) {
             md_store_t *store;
         
             sc = ap_get_module_config(r->server->module_config, &md_module);
             store = sc? sc->mc->store : NULL;
-            
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
 
             r->status = HTTP_NOT_FOUND;
@@ -1027,6 +1042,51 @@ static int md_http_challenge_pr(request_rec *r)
     return DECLINED;
 }
 
+/**************************************************************************************************/
+/* Require Https hook */
+
+static int md_require_https_maybe(request_rec *r)
+{
+    const md_srv_conf_t *sc;
+    apr_uri_t uri;
+    const char *s;
+    int status;
+    
+    if (strncmp(WELL_KNOWN_PREFIX, r->parsed_uri.path, sizeof(WELL_KNOWN_PREFIX)-1)) {
+        sc = ap_get_module_config(r->server->module_config, &md_module);
+        if (sc && sc->assigned && sc->assigned->require_https > MD_REQUIRE_OFF 
+            && opt_ssl_is_https && !opt_ssl_is_https(r->connection)) {
+            /* Do not have https:, but require it. Redirect the request accordingly. 
+             */
+            if (r->method_number == M_GET) {
+                /* safe to use the old-fashioned codes */
+                status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
+                          HTTP_MOVED_PERMANENTLY : HTTP_MOVED_PERMANENTLY);
+            }
+            else {
+                /* these should keep the method unchanged on retry */
+                status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
+                          HTTP_PERMANENT_REDIRECT : HTTP_TEMPORARY_REDIRECT);
+            }
+            
+            s = ap_construct_url(r->pool, r->uri, r);
+            if (APR_SUCCESS == apr_uri_parse(r->pool, s, &uri)) {
+                uri.scheme = (char*)"https";
+                uri.port = 443;
+                uri.port_str = (char*)"443";
+                uri.query = r->parsed_uri.query;
+                uri.fragment = r->parsed_uri.fragment;
+                s = apr_uri_unparse(r->pool, &uri, APR_URI_UNP_OMITUSERINFO);
+                if (s && *s) {
+                    apr_table_setn(r->headers_out, "Location", s);
+                    return status;
+                }
+            }
+        }
+    }
+    return DECLINED;
+}
+
 /* Runs once per created child process. Perform any process 
  * related initionalization here.
  */
@@ -1055,6 +1115,8 @@ static void md_hooks(apr_pool_t *pool)
 
     /* answer challenges *very* early, before any configured authentication may strike */
     ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
+    /* redirect to https if configured */
+    ap_hook_fixups(md_require_https_maybe, NULL, NULL, APR_HOOK_MIDDLE);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);

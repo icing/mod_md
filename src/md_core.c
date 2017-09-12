@@ -344,6 +344,16 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             na = md_array_str_compact(p, md->ca_challenges, 0);
             md_json_setsa(na, json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL);
         }
+        switch (md->require_https) {
+            case MD_REQUIRE_TEMPORARY:
+                md_json_sets(MD_KEY_TEMPORARY, json, MD_KEY_REQUIRE_HTTPS, NULL);
+                break;
+            case MD_REQUIRE_PERMANENT:
+                md_json_sets(MD_KEY_PERMANENT, json, MD_KEY_REQUIRE_HTTPS, NULL);
+                break;
+            default:
+                break;
+        }
         return json;
     }
     return NULL;
@@ -380,7 +390,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->renew_norm = 0;
         md->renew_window = apr_time_from_sec(md_json_getl(json, MD_KEY_RENEW_WINDOW, NULL));
         if (md->renew_window <= 0) {
-            const char *s = md_json_gets(json, MD_KEY_RENEW_WINDOW, NULL);
+            s = md_json_gets(json, MD_KEY_RENEW_WINDOW, NULL);
             if (s && strchr(s, '%')) {
                 int percent = atoi(s);
                 if (0 < percent && percent < 100) {
@@ -393,6 +403,15 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             md->ca_challenges = apr_array_make(p, 5, sizeof(const char*));
             md_json_dupsa(md->ca_challenges, p, json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL);
         }
+        md->require_https = MD_REQUIRE_OFF;
+        s = md_json_gets(json, MD_KEY_REQUIRE_HTTPS, NULL);
+        if (s && !strcmp(MD_KEY_TEMPORARY, s)) {
+            md->require_https = MD_REQUIRE_TEMPORARY;
+        }
+        else if (s && !strcmp(MD_KEY_PERMANENT, s)) {
+            md->require_https = MD_REQUIRE_PERMANENT;
+        }
+        
         return md;
     }
     return NULL;
