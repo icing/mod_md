@@ -448,7 +448,8 @@ static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const c
         require_https = MD_REQUIRE_PERMANENT;
     }
     else {
-        return apr_pstrcat(cmd->pool, "unknown MDRequireHttps ", value, NULL);
+        return apr_pstrcat(cmd->pool, "unknown '", value, 
+                           "', supported parameter values are 'temporary' and 'permanent'", NULL);
     }
     
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
