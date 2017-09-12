@@ -8,6 +8,8 @@
 
 /* Begin PBXFileReference section */
 		755F874C1F273ECB00871895 /* global.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = global.conf.in; sourceTree = "<group>"; };
+		757260DC1F67E03600AA3D50 /* test_019a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_019a.conf; sourceTree = "<group>"; };
+		757260DD1F67E03600AA3D50 /* test_019b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_019b.conf; sourceTree = "<group>"; };
 		758B85541F261AB10076B27A /* httpd_http.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_http.conf.in; sourceTree = "<group>"; };
 		758B85551F261AB10076B27A /* httpd_https.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_https.conf.in; sourceTree = "<group>"; };
 		758B85561F263F740076B27A /* renew_10.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_10.conf; sourceTree = "<group>"; };
@@ -260,6 +262,8 @@
 				75AF530D1F66A9AE0093DD5C /* test_018b.conf */,
 				75AF530E1F66A9AE0093DD5C /* test_018c.conf */,
 				75AF530F1F66A9AE0093DD5C /* test_018d.conf */,
+				757260DC1F67E03600AA3D50 /* test_019a.conf */,
+				757260DD1F67E03600AA3D50 /* test_019b.conf */,
 			);
 			path = test_conf_validate;
 			sourceTree = "<group>";
