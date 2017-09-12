@@ -273,14 +273,16 @@ class TestDrive :
         conf._add_line("  SSLEngine *:" + TestEnv.HTTPS_PORT)
         conf.add_vhost(TestEnv.HTTPS_PORT + " *:" + TestEnv.HTTP_PORT, name, aliasList=[], docRoot="htdocs/test", withSSL=False)
         conf.install()
-        # setup: create resource file
+        # setup: create resource files
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "test"), "name.txt", name)
+        self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR), "name.txt", "example.org")
         assert TestEnv.apache_restart() == 0
 
         # drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         assert TestEnv.apache_restart() == 0
         # test HTTP access - no redirect
+        assert TestEnv.get_content("example.org", "/name.txt", useHTTPS=False) == "example.org"
         assert TestEnv.get_content(name, "/name.txt", useHTTPS=False) == name
         r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
         assert int(r['http_headers']['Content-Length']) == len(name)
@@ -293,10 +295,12 @@ class TestDrive :
         conf.install()
         assert TestEnv.apache_restart() == 0
 
-        # test HTTP access again - redirect to default HTTPS port
+        # test HTTP access again -> redirect to default HTTPS port
         r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
         assert r['http_status'] == 302
         assert r['http_headers']['Location'] == "https://%s/name.txt" % name
+        # test default HTTP vhost -> still no redirect
+        assert TestEnv.get_content("example.org", "/name.txt", useHTTPS=False) == "example.org"
 
 
     # --------- critical state change -> drive again ---------

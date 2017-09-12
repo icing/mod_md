@@ -547,6 +547,11 @@ class HttpdConf(object):
 
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
+        self.start_vhost(port, name, aliasList, docRoot, withSSL, certPath, keyPath)
+        self.close_vhost()
+
+    def start_vhost(self, port, name, aliasList, docRoot="htdocs", 
+                  withSSL=True, certPath=None, keyPath=None):
         f = open(self.path, "a") 
         f.write("<VirtualHost *:%s>\n" % port)
         f.write("    ServerName %s\n" % name)
@@ -561,7 +566,9 @@ class HttpdConf(object):
                 keyPath = keyPath if keyPath else TestEnv.path_domain_privkey(name)
                 f.write(("    SSLCertificateFile %s\n"
                          "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
-        f.write("</VirtualHost>\n\n")
+                  
+    def close_vhost(self):
+        self._add_line("</VirtualHost>\n\n")
 
     def install(self):
         TestEnv.install_test_conf(self.path, self.sslOnly)
