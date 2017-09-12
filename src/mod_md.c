@@ -95,6 +95,9 @@ static void md_merge_srv(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
         md->pkey_spec = md->sc->pkey_spec;
         
     }
+    if (md->require_https < 0) {
+        md->require_https = md_config_geti(md->sc, MD_CONFIG_REQUIRE_HTTPS);
+    }
 }
 
 static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, apr_pool_t *p)
@@ -1103,7 +1106,7 @@ static int md_require_https_maybe(request_rec *r)
             if (r->method_number == M_GET) {
                 /* safe to use the old-fashioned codes */
                 status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
-                          HTTP_MOVED_PERMANENTLY : HTTP_MOVED_PERMANENTLY);
+                          HTTP_MOVED_PERMANENTLY : HTTP_MOVED_TEMPORARILY);
             }
             else {
                 /* these should keep the method unchanged on retry */

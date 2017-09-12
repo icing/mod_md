@@ -436,27 +436,25 @@ static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const c
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
-    md_require_t require_https;
+
+    if (!inside_section(cmd, MD_CMD_MD_SECTION)
+        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
 
     if (!apr_strnatcasecmp("off", value)) {
-        require_https = MD_REQUIRE_OFF;
+        config->require_https = MD_REQUIRE_OFF;
     }
     else if (!apr_strnatcasecmp(MD_KEY_TEMPORARY, value)) {
-        require_https = MD_REQUIRE_TEMPORARY;
+        config->require_https = MD_REQUIRE_TEMPORARY;
     }
     else if (!apr_strnatcasecmp(MD_KEY_PERMANENT, value)) {
-        require_https = MD_REQUIRE_PERMANENT;
+        config->require_https = MD_REQUIRE_PERMANENT;
     }
     else {
         return apr_pstrcat(cmd->pool, "unknown '", value, 
                            "', supported parameter values are 'temporary' and 'permanent'", NULL);
     }
-    
-    if (!inside_section(cmd, MD_CMD_MD_SECTION)
-        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
-        return err;
-    }
-    config->require_https = require_https;
     return NULL;
 }
 

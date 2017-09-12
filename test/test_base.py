@@ -433,7 +433,7 @@ class TestEnv:
         result['http_status'] = int(m.group(2))
         # collect response headers
         h = {}
-        for m in re.findall("^(\\S+): (.*)$", result['stdout'], re.M) :
+        for m in re.findall("^(\\S+): (.*)\r$", result['stdout'], re.M) :
             h[ m[0] ] = m[1]
         result['http_headers'] = h
         return result
@@ -543,7 +543,7 @@ class HttpdConf(object):
         self._add_line("  MDHttpProxy %s\n" % url)
 
     def add_require_ssl(self, mode):
-        self._add_line("  MDRequireHTTPS %s\n" % mode)
+        self._add_line("  MDRequireHttps %s\n" % mode)
 
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):

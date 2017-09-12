@@ -260,7 +260,6 @@ class TestDrive :
         assert TestEnv.a2md( [ "-p", "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT), "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    @pytest.mark.skip(reason="Expected HTTP 302 response, but was HTTP 200")
     def test_500_109(self):
         # test case: redirect on SSL only domain
         # setup: prepare config
@@ -298,7 +297,8 @@ class TestDrive :
         # test HTTP access again -> redirect to default HTTPS port
         r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
         assert r['http_status'] == 302
-        assert r['http_headers']['Location'] == "https://%s/name.txt" % name
+        expLocation = "https://%s/name.txt" % name
+        assert r['http_headers']['Location'] == expLocation
         # test default HTTP vhost -> still no redirect
         assert TestEnv.get_content("example.org", "/name.txt", useHTTPS=False) == "example.org"
 
@@ -392,7 +392,6 @@ class TestDrive :
         cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert cert.get_key_length() == expKeyLength
 
-    #@pytest.mark.skip(reason="wrong TOS url in sandbox not replaced after config change")
     def test_500_203(self):
         # test case: reproduce issue with initially wrong agreement URL
         domain = "test500-203-" + TestDrive.dns_uniq

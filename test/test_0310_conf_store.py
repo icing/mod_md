@@ -228,7 +228,6 @@ class TestConf:
             "bits": 4096
         }
 
-    @pytest.mark.skip(reason="attribute not found in store")
     def test_310_121(self):
         # test case: require HTTPS
         TestEnv.install_test_conf("req_https_temp");
@@ -357,7 +356,6 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert "privkey" not in TestEnv.a2md(["list"])['jout']['output'][0]
 
-    @pytest.mark.skip(reason="expected attribute not found in store")
     @pytest.mark.parametrize("confFile,expMode", [ 
         ("req_https_temp", "temporary"), ("req_https_perm", "permanent")
     ])
@@ -492,7 +490,6 @@ class TestConf:
             "bits": 4096
         }
 
-    @pytest.mark.skip(reason="expected attribute not found in store")
     def test_310_308(self):
         # test case: change HTTPS require settings on existing md
         # setup: nothing set
@@ -504,9 +501,9 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
         # test case: permanent redirect
-        TestEnv.install_test_conf("req_https_temp");
+        TestEnv.install_test_conf("req_https_perm");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "permantent"
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "permanent"
 
 
     # --------- status reset on critical store changes ---------
