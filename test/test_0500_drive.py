@@ -253,12 +253,12 @@ class TestDrive :
         assert TestEnv.apache_restart() == 0
 
         # drive it, with wrong proxy url -> FAIL
-        r = TestEnv.a2md( [ "-p", "http://localhost:1", "drive", name ] )
+        r = TestEnv.a2md( [ "-p", "http://%s:1" % TestEnv.HTTPD_HOST, "drive", name ] )
         assert r['rv'] == 1
         assert "Connection refused" in r['stderr']
 
         # drive it, working proxy url -> SUCCESS
-        assert TestEnv.a2md( [ "-p", "http://localhost:%s" % TestEnv.HTTP_PROXY_PORT, "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-p", "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT), "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
     # --------- critical state change -> drive again ---------

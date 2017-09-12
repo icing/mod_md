@@ -416,25 +416,6 @@ class TestEnv:
          assert os.listdir(path) == []
 
     @classmethod
-    def hasCertAltName(cls, domain):
-        p = subprocess.Popen([ cls.OPENSSL, "s_client", "-servername", domain, 
-                              "-host", cls.HTTPD_HOST, "-port", cls.HTTPS_PORT], 
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (output, errput) = p.communicate()
-        rv = p.wait()
-        if rv != 0:
-            return False
-
-        p = subprocess.Popen([ cls.OPENSSL, "x509", "-text" ],  
-                             stdin=subprocess.PIPE, 
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (output, errput) = p.communicate(output)
-        rv = p.wait()
-        if rv != 0:
-            return False
-        return re.search("DNS:" + domain, output, re.MULTILINE) != None
-
-    @classmethod
     def getStatus(cls, domain, path):
         auth = ("%s:%s" % (domain, cls.HTTPS_PORT))
         result = TestEnv.curl([ "-k", "--resolve", ("%s:127.0.0.1" % (auth)), 

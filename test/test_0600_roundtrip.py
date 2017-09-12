@@ -69,15 +69,14 @@ class TestRoundtrip:
         conf.install()
         assert TestEnv.apache_restart() == 0
         # check: SSL is running OK
-        test_url = "https://%s:%s/" % (domain, TestEnv.HTTPS_PORT)
-        dnsResolve = "%s:%s:127.0.0.1" % (domain, TestEnv.HTTPS_PORT)
-        assert TestEnv.hasCertAltName(domain)
+        cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
+        assert domain in cert.get_san_list()
 
         # check file system permissions:
         TestEnv.check_file_permissions( domain )
 
     def test_600_001(self):
-        # test case: same as test_100, but with two parallel managed domains
+        # test case: same as test_600_000, but with two parallel managed domains
         domainA = "r001a-" + TestRoundtrip.dns_uniq
         domainB = "r001b-" + TestRoundtrip.dns_uniq
         # - generate config with one md
@@ -109,8 +108,10 @@ class TestRoundtrip:
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.hasCertAltName(domainA)
-        assert TestEnv.hasCertAltName(domainB)
+        certA = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainA)
+        assert dnsListA == certA.get_san_list()
+        certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainB)
+        assert dnsListB == certB.get_san_list()
 
     def test_600_002(self):
         # test case: one md, that covers two vhosts
@@ -149,9 +150,12 @@ class TestRoundtrip:
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.hasCertAltName(nameA)
+        certA = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
+        assert nameA in certA.get_san_list()
+        certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameB)
+        assert nameB in certB.get_san_list()
+        assert certA.get_serial() == certB.get_serial()
         assert TestEnv.getContent(nameA, "/name.txt") == nameA
-        assert TestEnv.hasCertAltName(nameB)
         assert TestEnv.getContent(nameB, "/name.txt") == nameB
 
     # --------- _utils_ ---------
