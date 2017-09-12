@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		755E223B1F68166C00819F08 /* req_https_perm.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_https_perm.conf; sourceTree = "<group>"; };
+		755E223C1F68166C00819F08 /* req_https_temp.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_https_temp.conf; sourceTree = "<group>"; };
 		755F874C1F273ECB00871895 /* global.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = global.conf.in; sourceTree = "<group>"; };
 		757260DC1F67E03600AA3D50 /* test_019a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_019a.conf; sourceTree = "<group>"; };
 		757260DD1F67E03600AA3D50 /* test_019b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_019b.conf; sourceTree = "<group>"; };
@@ -223,6 +225,8 @@
 				758B85561F263F740076B27A /* renew_10.conf */,
 				75AF53061F5E82160093DD5C /* renew_10p.conf */,
 				75AF53071F5E82160093DD5C /* renew_14d.conf */,
+				755E223B1F68166C00819F08 /* req_https_perm.conf */,
+				755E223C1F68166C00819F08 /* req_https_temp.conf */,
 				B262F6D11EFCFE1100D396A1 /* two_mds.conf */,
 				B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */,
 				75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */,

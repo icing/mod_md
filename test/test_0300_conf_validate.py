@@ -175,7 +175,7 @@ class TestConf:
         assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(confFile)
         assert expErrMsg in TestEnv.apachectl_stderr
 
-    @pytest.mark.skip(reason="not implemented yet")
+    @pytest.mark.skip(reason="bad error message on test 019a: 'unknown MDRequireHttps yes' ")
     @pytest.mark.parametrize("confFile,expErrMsg", [ 
         ("test_019a", "supported parameter values are 'temporary' and 'permanent'"), 
         ("test_019b", "takes one argument") ])

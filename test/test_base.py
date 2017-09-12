@@ -416,20 +416,34 @@ class TestEnv:
          assert os.listdir(path) == []
 
     @classmethod
-    def getStatus(cls, domain, path):
-        auth = ("%s:%s" % (domain, cls.HTTPS_PORT))
-        result = TestEnv.curl([ "-k", "--resolve", ("%s:127.0.0.1" % (auth)), 
-                               "-D", "-", ("https://%s%s" % (auth, path)) ])
-        assert result['rv'] == 0
-        m = re.match("HTTP/\\d(\\.\\d)? +(\\d\\d\\d) .*", result['stdout'])
-        assert m
-        return int(m.group(2))
+    def getStatus(cls, domain, path, useHTTPS=True):
+        result = cls.get_meta(domain, path, useHTTPS)
+        return result['http_status']
 
     @classmethod
-    def getContent(cls, domain, path):
-        auth = ("%s:%s" % (domain, cls.HTTPS_PORT))
-        result = TestEnv.curl([ "-k", "--resolve", ("%s:127.0.0.1" % (auth)), 
-                               ("https://%s%s" % (auth, path)) ])
+    def get_meta(cls, domain, path, useHTTPS=True):
+        schema = "https" if useHTTPS else "http"
+        port = cls.HTTPS_PORT if useHTTPS else cls.HTTP_PORT
+        result = TestEnv.curl([ "-D", "-", "-k", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)), 
+                               ("%s://%s:%s%s" % (schema, domain, port, path)) ])
+        assert result['rv'] == 0
+        # read status
+        m = re.match("HTTP/\\d(\\.\\d)? +(\\d\\d\\d) .*", result['stdout'])
+        assert m
+        result['http_status'] = int(m.group(2))
+        # collect response headers
+        h = {}
+        for m in re.findall("^(\\S+): (.*)$", result['stdout'], re.M) :
+            h[ m[0] ] = m[1]
+        result['http_headers'] = h
+        return result
+
+    @classmethod
+    def get_content(cls, domain, path, useHTTPS=True):
+        schema = "https" if useHTTPS else "http"
+        port = cls.HTTPS_PORT if useHTTPS else cls.HTTP_PORT
+        result = TestEnv.curl([ "-k", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)), 
+                               ("%s://%s:%s%s" % (schema, domain, port, path)) ])
         assert result['rv'] == 0
         return result['stdout']
 
@@ -504,31 +518,38 @@ class HttpdConf(object):
                                     "  MDCertificateAgreement %s\n\n")
                                    % (acmeUrl, acmeTos))
 
+    def _add_line(self, line):
+        open(self.path, "a").write(line + "\n")
+
     def add_drive_mode(self, mode):
-        open(self.path, "a").write("  MDDriveMode %s\n" % mode)
+        self._add_line("  MDDriveMode %s\n" % mode)
 
     def add_renew_window(self, window):
-        open(self.path, "a").write("  MDRenewWindow %s\n" % window)
+        self._add_line("  MDRenewWindow %s\n" % window)
 
     def add_private_key(self, keyType, keyParams):
-        open(self.path, "a").write("  MDPrivateKeys %s %s\n" % (keyType, " ".join(map(lambda p: str(p), keyParams))) )
+        self._add_line("  MDPrivateKeys %s %s\n" % (keyType, " ".join(map(lambda p: str(p), keyParams))) )
 
     def add_admin(self, email):
-        open(self.path, "a").write("  ServerAdmin mailto:%s\n\n" % email)
+        self._add_line("  ServerAdmin mailto:%s\n\n" % email)
 
     def add_md(self, dnsList):
-        open(self.path, "a").write("  ManagedDomain %s\n\n" % " ".join(dnsList))
+        self._add_line("  ManagedDomain %s\n\n" % " ".join(dnsList))
 
     def add_ca_challenges(self, type_list):
-        open(self.path, "a").write("  MDCAChallenges %s\n" % " ".join(type_list))
+        self._add_line("  MDCAChallenges %s\n" % " ".join(type_list))
 
     def add_http_proxy(self, url):
-        open(self.path, "a").write("  MDHttpProxy %s\n" % url)
+        self._add_line("  MDHttpProxy %s\n" % url)
+
+    def add_require_ssl(self, mode):
+        self._add_line("  MDRequireHTTPS %s\n" % mode)
 
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
         f = open(self.path, "a") 
-        f.write("<VirtualHost *:%s>\n    ServerName %s\n" % (port, name))
+        f.write("<VirtualHost *:%s>\n" % port)
+        f.write("    ServerName %s\n" % name)
         if len(aliasList) > 0:
             for alias in aliasList:
                 f.write("    ServerAlias %s\n" % alias )

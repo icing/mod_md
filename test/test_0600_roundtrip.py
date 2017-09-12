@@ -155,8 +155,8 @@ class TestRoundtrip:
         certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameB)
         assert nameB in certB.get_san_list()
         assert certA.get_serial() == certB.get_serial()
-        assert TestEnv.getContent(nameA, "/name.txt") == nameA
-        assert TestEnv.getContent(nameB, "/name.txt") == nameB
+        assert TestEnv.get_content(nameA, "/name.txt") == nameA
+        assert TestEnv.get_content(nameB, "/name.txt") == nameB
 
     # --------- _utils_ ---------
 

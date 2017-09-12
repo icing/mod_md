@@ -18,8 +18,6 @@ def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.init()
     TestEnv.check_acme()
-    TestEnv.clear_store()
-    TestEnv.install_test_conf()
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
     assert TestEnv.apache_restart() == 0
@@ -39,6 +37,7 @@ class TestDrive :
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.clear_store()
+        TestEnv.install_test_conf()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -261,6 +260,45 @@ class TestDrive :
         assert TestEnv.a2md( [ "-p", "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT), "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
+    @pytest.mark.skip(reason="Expected HTTP 302 response, but was HTTP 200")
+    def test_500_109(self):
+        # test case: redirect on SSL only domain
+        # setup: prepare config
+        domain = "test500-109-" + TestDrive.dns_uniq
+        name = "www." + domain
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_md( [name] )
+        conf._add_line("  SSLEngine *:" + TestEnv.HTTPS_PORT)
+        conf.add_vhost(TestEnv.HTTPS_PORT + " *:" + TestEnv.HTTP_PORT, name, aliasList=[], docRoot="htdocs/test", withSSL=False)
+        conf.install()
+        # setup: create resource file
+        self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "test"), "name.txt", name)
+        assert TestEnv.apache_restart() == 0
+
+        # drive it
+        assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
+        assert TestEnv.apache_restart() == 0
+        # test HTTP access - no redirect
+        assert TestEnv.get_content(name, "/name.txt", useHTTPS=False) == name
+        r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
+        assert int(r['http_headers']['Content-Length']) == len(name)
+        assert "Location" not in r['http_headers']
+        # test HTTPS access
+        assert TestEnv.get_content(name, "/name.txt", useHTTPS=True) == name
+
+        # add redirect directive to config
+        conf.add_require_ssl("temporary")
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+
+        # test HTTP access again - redirect to default HTTPS port
+        r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
+        assert r['http_status'] == 302
+        assert r['http_headers']['Location'] == "https://%s/name.txt" % name
+
+
     # --------- critical state change -> drive again ---------
 
     def test_500_200(self):
@@ -444,6 +482,11 @@ class TestDrive :
         assert TestEnv.a2md( 
             [ "update", dnsList[0], "agreement", TestEnv.ACME_TOS ]
             )['rv'] == 0
+
+    def _write_res_file(self, docRoot, name, content):
+        if not os.path.exists(docRoot):
+            os.makedirs(docRoot)
+        open(os.path.join(docRoot, name), "w").write(content)
 
     def _check_md_cert(self, dnsList):
         name = dnsList[0]

@@ -31,7 +31,6 @@ def setup_module(module):
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
-    TestEnv.install_test_conf(None);
     assert TestEnv.apache_stop() == 0
 
 
@@ -229,6 +228,13 @@ class TestConf:
             "bits": 4096
         }
 
+    @pytest.mark.skip(reason="attribute not found in store")
+    def test_310_121(self):
+        # test case: require HTTPS
+        TestEnv.install_test_conf("req_https_temp");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
+
     # --------- remove from store ---------
 
     def test_310_200(self):
@@ -351,6 +357,21 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert "privkey" not in TestEnv.a2md(["list"])['jout']['output'][0]
 
+    @pytest.mark.skip(reason="expected attribute not found in store")
+    @pytest.mark.parametrize("confFile,expMode", [ 
+        ("req_https_temp", "temporary"), ("req_https_perm", "permanent")
+    ])
+    def test_310_210(self, confFile, expMode):
+        # test case: require HTTPS
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == expMode, "Unexpected HTTPS require mode in store. confFile: {}".format( confFile )
+
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert "require-https" not in TestEnv.a2md(["list"])['jout']['output'][0], "HTTPS require still persisted in store. confFile: {}".format( confFile )
+
+
     # --------- change existing config definitions ---------
 
     def test_310_300(self):
@@ -470,6 +491,23 @@ class TestConf:
             "type": "RSA",
             "bits": 4096
         }
+
+    @pytest.mark.skip(reason="expected attribute not found in store")
+    def test_310_308(self):
+        # test case: change HTTPS require settings on existing md
+        # setup: nothing set
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert "require-https" not in TestEnv.a2md(["list"])['jout']['output'][0]
+        # test case: temporary redirect
+        TestEnv.install_test_conf("req_https_temp");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
+        # test case: permanent redirect
+        TestEnv.install_test_conf("req_https_temp");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "permantent"
+
 
     # --------- status reset on critical store changes ---------
 
