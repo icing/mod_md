@@ -174,3 +174,13 @@ class TestConf:
         TestEnv.install_test_conf(confFile);
         assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(confFile)
         assert expErrMsg in TestEnv.apachectl_stderr
+
+    @pytest.mark.skip(reason="not implemented yet")
+    @pytest.mark.parametrize("confFile,expErrMsg", [ 
+        ("test_019a", "supported parameter values are 'temporary' and 'permanent'"), 
+        ("test_019b", "takes one argument") ])
+    def test_300_019(self, confFile, expErrMsg):
+        # invalid uri for MDProxyPass
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(confFile)
+        assert expErrMsg in TestEnv.apachectl_stderr
