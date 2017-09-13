@@ -68,6 +68,9 @@ AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
 AC_ARG_WITH([boulder], [AS_HELP_STRING([--with-boulder], [Use given url for boulder])],
     [request_boulder=$withval], [request_boulder=def])
 
+AC_ARG_WITH([jansson], [AS_HELP_STRING([--with-jansson], [Use jansson from this prefix])],
+    [request_jansson=$withval], [request_jansson=check])
+
 SERVER_NAME=$(hostname -f)
 AC_SUBST(SERVER_NAME)
 GEN_DIR="$PWD/test/gen"
@@ -190,14 +193,21 @@ AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found"
 
 # We need a JSON lib, like jansson
 #
-AC_CHECK_LIB([jansson], [json_loads], , [AC_MSG_ERROR("library jansson not found")])
 
-AC_CHECK_HEADER([jansson.h], [],  [AC_MSG_WARN("header jansson.h not found")], [
-#include <jansson_config.h>
-#undef   JSON_INLINE
-#define JSON_INLINE 
-#include <jansson.h>
-])
+if test x"$request_jansson" = "xcheck"; then
+    AC_CHECK_LIB([jansson], [json_loads], , [AC_MSG_ERROR("library jansson not found")])
+
+    AC_CHECK_HEADER([jansson.h], [],  [AC_MSG_WARN("header jansson.h not found")], [
+    #include <jansson_config.h>
+    #undef   JSON_INLINE
+    #define JSON_INLINE 
+    #include <jansson.h>
+    ])
+else
+    LDFLAGS="$LDFLAGS -L$request_jansson/lib";
+    CFLAGS="$CFLAGS -I$request_jansson/include";
+    CPPFLAGS="$CPPFLAGS -I$request_jansson/include";
+fi
 
 
 AC_CHECK_LIB([apr-1], [apr_pool_create_ex], [LIB_APR=apr-1], [AC_MSG_ERROR("library apr-1 not found")])
