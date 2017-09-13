@@ -128,6 +128,7 @@ struct md_t {
 #define MD_KEY_KEY              "key"
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"
 #define MD_KEY_LOCATION         "location"
+#define MD_KEY_MUST_STAPLE      "must-staple"
 #define MD_KEY_NAME             "name"
 #define MD_KEY_PERMANENT        "permanent"
 #define MD_KEY_PKEY             "privkey"

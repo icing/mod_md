@@ -536,6 +536,9 @@ class HttpdConf(object):
     def add_md(self, dnsList):
         self._add_line("  ManagedDomain %s\n\n" % " ".join(dnsList))
 
+    def add_must_staple(self, mode):
+        self._add_line("  MDMustStaple %s\n" % mode)
+
     def add_ca_challenges(self, type_list):
         self._add_line("  MDCAChallenges %s\n" % " ".join(type_list))
 
@@ -678,6 +681,11 @@ class CertUtil(object):
 
         def _strip_prefix(s): return s.split(":")[1]  if  s.strip().startswith("DNS:")  else  s.strip()
         return map(_strip_prefix, sans_list)
+
+    def get_must_staple(self):
+        text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
+        m = re.search(r"1.3.6.1.5.5.7.1.24:\s*\n\s*0....", text)
+        return m
 
     @classmethod
     def validate_privkey(cls, privkey_path, passphrase=None):

@@ -1092,9 +1092,19 @@ static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const md_t *
 {
     
     if (md->must_staple) {
-        X509_EXTENSION *x = X509V3_EXT_conf_nid(NULL, NULL, 
-                                                NID_tlsfeature, (char*)"DER:30:03:02:01:05");
+        X509_EXTENSION *x;
+        int nid;
+        
+        nid = OBJ_create("1.3.6.1.5.5.7.1.24", "OCSPReq", "OCSP Request");
+        if (NID_undef == nid) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
+                          "%s: unable to get NID for must-staple", md->name);
+            return APR_EGENERAL;
+        }
+        x = X509V3_EXT_conf_nid(NULL, NULL, nid, (char*)"DER:30:03:02:01:05");
         if (NULL == x) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
+                          "%s: unable to get x509 extension for must-staple", md->name);
             return APR_EGENERAL;
         }
         sk_X509_EXTENSION_push(exts, x);

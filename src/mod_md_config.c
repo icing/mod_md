@@ -39,6 +39,7 @@
 #define MD_CMD_DRIVEMODE      "MDDriveMode"
 #define MD_CMD_MEMBER         "MDMember"
 #define MD_CMD_MEMBERS        "MDMembers"
+#define MD_CMD_MUST_STAPLE    "MDMustStaple"
 #define MD_CMD_PORTMAP        "MDPortMap"
 #define MD_CMD_PKEYS          "MDPrivateKeys"
 #define MD_CMD_PROXY          "MDHttpProxy"
@@ -432,6 +433,29 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
     return NULL;
 }
 
+static const char *md_config_set_must_staple(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err;
+
+    if (!inside_section(cmd, MD_CMD_MD_SECTION)
+        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+
+    if (!apr_strnatcasecmp("off", value)) {
+        config->must_staple = 0;
+    }
+    else if (!apr_strnatcasecmp("on", value)) {
+        config->must_staple = 1;
+    }
+    else {
+        return apr_pstrcat(cmd->pool, "unknown '", value, 
+                           "', supported parameter values are 'on' and 'off'", NULL);
+    }
+    return NULL;
+}
+
 static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const char *value)
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
@@ -726,6 +750,8 @@ const command_rec md_cmds[] = {
     AP_INIT_TAKE_ARGV( MD_CMD_MEMBERS, md_config_sec_add_members, NULL, RSRC_CONF, 
                       "Define domain name(s) part of the Managed Domain. Use 'auto' or "
                       "'manual' to enable/disable auto adding names from virtual hosts."),
+    AP_INIT_TAKE1(     MD_CMD_MUST_STAPLE, md_config_set_must_staple, NULL, RSRC_CONF, 
+                  "Enable/Disable the Must-Staple flag for new certificates."),
     AP_INIT_TAKE12(    MD_CMD_PORTMAP, md_config_set_port_map, NULL, RSRC_CONF, 
                   "Declare the mapped ports 80 and 443 on the local server. E.g. 80:8000 "
                   "to indicate that the server port 8000 is reachable as port 80 from the "
@@ -805,6 +831,8 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
             return (sc->transitive != DEF_VAL)? sc->transitive : defconf.transitive;
         case MD_CONFIG_REQUIRE_HTTPS:
             return (sc->require_https != MD_REQUIRE_UNSET)? sc->require_https : defconf.require_https;
+        case MD_CONFIG_MUST_STAPLE:
+            return (sc->must_staple != DEF_VAL)? sc->must_staple : defconf.must_staple;
         default:
             return 0;
     }

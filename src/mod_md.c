@@ -98,6 +98,9 @@ static void md_merge_srv(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     if (md->require_https < 0) {
         md->require_https = md_config_geti(md->sc, MD_CONFIG_REQUIRE_HTTPS);
     }
+    if (md->must_staple < 0) {
+        md->must_staple = md_config_geti(md->sc, MD_CONFIG_MUST_STAPLE);
+    }
 }
 
 static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, apr_pool_t *p)

@@ -514,6 +514,10 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update transitive: %s", name);
         nmd->transitive = updates->transitive;
     }
+    if (MD_UPD_MUST_STAPLE & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update must-staple: %s", name);
+        nmd->must_staple = updates->must_staple;
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
         rv = state_init(reg, ptemp, nmd, 0);
@@ -795,6 +799,10 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 if (MD_VAL_UPDATE(md, smd, require_https)) {
                     smd->require_https = md->require_https;
                     fields |= MD_UPD_REQUIRE_HTTPS;
+                }
+                if (MD_VAL_UPDATE(md, smd, must_staple)) {
+                    smd->must_staple = md->must_staple;
+                    fields |= MD_UPD_MUST_STAPLE;
                 }
                 
                 if (fields) {

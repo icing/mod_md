@@ -32,6 +32,7 @@ typedef enum {
     MD_CONFIG_TRANSITIVE,
     MD_CONFIG_PROXY,
     MD_CONFIG_REQUIRE_HTTPS,
+    MD_CONFIG_MUST_STAPLE,
 } md_config_var_t;
 
 typedef struct {

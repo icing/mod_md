@@ -86,6 +86,7 @@ md_t *md_create_empty(apr_pool_t *p)
         md->contacts = apr_array_make(p, 5, sizeof(const char *));
         md->drive_mode = MD_DRIVE_DEFAULT;
         md->require_https = MD_REQUIRE_UNSET;
+        md->must_staple = -1;
         md->transitive = -1;
         md->defn_name = "unknown";
         md->defn_line_number = 0;
@@ -258,6 +259,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->state = src->state;
         md->name = apr_pstrdup(p, src->name);
         md->require_https = src->require_https;
+        md->must_staple = src->must_staple;
         md->drive_mode = src->drive_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
         md->pkey_spec = src->pkey_spec;
@@ -286,6 +288,7 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
     n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
     n->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
+    n->must_staple = (add->must_staple >= 0)? add->must_staple : base->must_staple;
     n->drive_mode = (add->drive_mode != MD_DRIVE_DEFAULT)? add->drive_mode : base->drive_mode;
     n->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
     n->renew_norm = (add->renew_norm > 0)? add->renew_norm : base->renew_norm;
@@ -357,6 +360,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             default:
                 break;
         }
+        md_json_setb(md->must_staple > 0, json, MD_KEY_MUST_STAPLE, NULL);
         return json;
     }
     return NULL;
@@ -414,6 +418,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         else if (s && !strcmp(MD_KEY_PERMANENT, s)) {
             md->require_https = MD_REQUIRE_PERMANENT;
         }
+        md->must_staple = (int)md_json_getb(json, MD_KEY_MUST_STAPLE, NULL);
         
         return md;
     }
