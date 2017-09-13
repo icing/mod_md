@@ -71,6 +71,10 @@ AC_ARG_WITH([boulder], [AS_HELP_STRING([--with-boulder], [Use given url for boul
 AC_ARG_WITH([jansson], [AS_HELP_STRING([--with-jansson], [Use jansson from this prefix])],
     [request_jansson=$withval], [request_jansson=check])
 
+AC_ARG_WITH([openssl], [AS_HELP_STRING([--with-openssl], [Use openssl from this prefix])],
+    [request_openssl=$withval], [request_openssl=check])
+
+
 SERVER_NAME=$(hostname -f)
 AC_SUBST(SERVER_NAME)
 GEN_DIR="$PWD/test/gen"
@@ -255,14 +259,20 @@ CFLAGS="$CFLAGS "`$curl_config --cflags`
 LIBS="$LIBS "`$curl_config --libs`
 
 
-OPENSSL_BIN="${prefix}/bin/openssl"
-if test -x "$OPENSSL_BIN"; then
-    : # all fine
+if test x"$request_openssl" = "xcheck"; then
+    OPENSSL_BIN="${prefix}/bin/openssl"
+    if test -x "$OPENSSL_BIN"; then
+        : # all fine
+    else
+        OPENSSL_BIN=openssl
+        AC_CHECK_PROG([FOUND_OPENSS_BIN],[$OPENSSL_BIN],[yes],[no])
+    fi
 else
-    OPENSSL_BIN=openssl
-    AC_CHECK_PROG([FOUND_OPENSS_BIN],[$OPENSSL_BIN],[yes],[no])
+    OPENSSL_BIN="$request_openssl/bin/openssl"
+    LDFLAGS="$LDFLAGS -L$request_openssl/lib";
+    CFLAGS="$CFLAGS -I$request_opsnssl/include";
+    CPPFLAGS="$CPPFLAGS -I$request_openssl/include";
 fi
-
 AM_CONDITIONAL([FOUND_OPENSSL_BIN], [test "x$FOUND_OPENSSL_BIN" != xno])
 AM_COND_IF([FOUND_OPENSSL_BIN],,[AC_MSG_ERROR([required program 'openssl' not found.])])
 AC_SUBST(OPENSSL_BIN)
