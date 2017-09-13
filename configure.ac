@@ -203,10 +203,12 @@ if test x"$request_jansson" = "xcheck"; then
     #define JSON_INLINE 
     #include <jansson.h>
     ])
+    JANSSON_PREFIX=""
 else
     LDFLAGS="$LDFLAGS -L$request_jansson/lib";
     CFLAGS="$CFLAGS -I$request_jansson/include";
     CPPFLAGS="$CPPFLAGS -I$request_jansson/include";
+    JANSSON_PREFIX="$request_jansson"
 fi
 
 
@@ -347,5 +349,6 @@ AC_MSG_NOTICE([summary of build options:
     CPPFLAGS:       ${CPPFLAGS}
     curl            ${CURL_BIN:--}
     curl-config     ${curl_config:--}
+    jansson         ${JANSSON_PREFIX:--}
     openssl         ${OPENSSL_BIN:--}
 ])

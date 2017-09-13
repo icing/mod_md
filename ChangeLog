@@ -1,3 +1,5 @@
+ * --with-jansson configure option provided by [caminada](https://github.com/caminada) to
+   specify an uncommon location of the lib.
  * Adding checks when 'MDRequireHttps' is used. It is considered an error when 'MDPortMap 443:-'
    is used - which negates that a https: port exists. Also, a warning is logged if no 
    VirtualHost can be found for a Managed Domain that has port 443 (or the mapped one) in
