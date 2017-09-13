@@ -119,28 +119,61 @@ static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, 
     }
 }
 
-static apr_status_t apply_to_servers(md_t *md, server_rec *base_server, 
+static apr_status_t md_covers_server(md_t *md, server_rec *s, apr_pool_t *p)
+{
+    apr_status_t rv;
+    const char *name;
+    int i;
+    
+    if (APR_SUCCESS == (rv = check_coverage(md, s->server_hostname, s, p)) && s->names) {
+        for (i = 0; i < s->names->nelts; ++i) {
+            name = APR_ARRAY_IDX(s->names, i, const char*);
+            if (APR_SUCCESS != (rv = check_coverage(md, name, s, p))) {
+                break;
+            }
+        }
+    }
+    return rv;
+}
+
+static int matches_port_somewhere(server_rec *s, int port)
+{
+    server_addr_rec *sa;
+    
+    for (sa = s->addrs; sa; sa = sa->next) {
+        if (sa->host_port == port) {
+            /* host_addr might be general (0.0.0.0) or specific, we count this as match */
+            return 1;
+        }
+        if (sa->host_port == 0) {
+            /* wildcard port, answers to all ports. Rare, but may work. */
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static apr_status_t assign_to_servers(md_t *md, server_rec *base_server, 
                                      apr_pool_t *p, apr_pool_t *ptemp)
 {
-    server_rec *s;
+    server_rec *s, *s_https;
     request_rec r;
     md_srv_conf_t *sc;
     md_mod_conf_t *mc;
-    apr_status_t rv = APR_SUCCESS, rv2;
-    int i, j;
-    const char *domain, *name;
+    apr_status_t rv = APR_SUCCESS;
+    int i;
+    const char *domain;
+    apr_array_header_t *servers;
     
     sc = md_config_get(base_server);
     mc = sc->mc;
-    
-    /* Find the (at most one) managed domain for each vhost/base server and
-     * remember it at our config for it. 
-     * The config is not accepted, if a vhost matches 2 or more managed domains.
+
+    /* Assign the MD to all server_rec configs that it matches. If there already
+     * is an assigned MD not equal this one, the configuration is in error.
      */
     memset(&r, 0, sizeof(r));
-    sc = NULL;
+    servers = apr_array_make(ptemp, 5, sizeof(server_rec*));
     
-    /* This MD may apply to 0, 1 or more sever_recs */
     for (s = base_server; s; s = s->next) {
         r.server = s;
         
@@ -148,8 +181,7 @@ static apr_status_t apply_to_servers(md_t *md, server_rec *base_server,
             domain = APR_ARRAY_IDX(md->domains, i, const char*);
             
             if (ap_matches_request_vhost(&r, domain, s->port)) {
-                /* Create a unique md_srv_conf_t record for this server. 
-                 * We keep local information here. */
+                /* Create a unique md_srv_conf_t record for this server, if there is none yet */
                 sc = md_config_get_unique(s, p);
                 
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10041)
@@ -164,54 +196,91 @@ static apr_status_t apply_to_servers(md_t *md, server_rec *base_server,
                     ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10042)
                                  "conflict: MD %s matches server %s, but MD %s also matches.",
                                  md->name, s->server_hostname, sc->assigned->name);
-                    rv = APR_EINVAL;
-                    goto next_server;
+                    return APR_EINVAL;
                 }
+                
+                /* If server has name or an alias not covered,
+                 * a generated certificate will not match. 
+                 */
+                if (APR_SUCCESS != (rv = md_covers_server(md, s, ptemp))) {
+                    return rv;
+                }
+
+                sc->assigned = md;
+                APR_ARRAY_PUSH(servers, server_rec*) = s;
                 
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10043)
                              "Managed Domain %s applies to vhost %s:%d", md->name,
                              s->server_hostname, s->port);
                 
-                /* If there is a non-default ServerAdmin defined for this vhost, take
-                 * that one as contact info */
-                if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
-                    apr_array_clear(md->contacts);
-                    APR_ARRAY_PUSH(md->contacts, const char *) = 
-                    md_util_schemify(p, s->server_admin, "mailto");
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10044)
-                                 "Managed Domain %s assigned server admin %s", md->name,
-                                 s->server_admin);
-                }
-                /* remember */
-                sc->assigned = md;
-                
-                /* This server matches a managed domain. If it contains names or
-                 * alias that are not in this md, a generated certificate will not match. */
-                if (APR_SUCCESS == (rv2 = check_coverage(md, s->server_hostname, s, p))
-                    && s->names) {
-                    for (j = 0; j < s->names->nelts; ++j) {
-                        name = APR_ARRAY_IDX(s->names, j, const char*);
-                        if (APR_SUCCESS != (rv2 = check_coverage(md, name, s, p))) {
-                            break;
-                        }
-                    }
-                }
-                
-                if (APR_SUCCESS != rv2) {
-                    rv = rv2;
-                }
                 goto next_server;
             }
         }
     next_server:
         continue;
     }
-    
-    if (sc == NULL && md->drive_mode != MD_DRIVE_ALWAYS) {
-        /* Not an error, but looks suspicious */
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(10045)
-                     "No VirtualHost matches Managed Domain %s", md->name);
-        APR_ARRAY_PUSH(mc->unused_names, const char*)  = md->name;
+
+    if (APR_SUCCESS == rv) {
+        if (apr_is_empty_array(servers)) {
+            if (md->drive_mode != MD_DRIVE_ALWAYS) {
+                /* Not an error, but looks suspicious */
+                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(10045)
+                             "No VirtualHost matches Managed Domain %s", md->name);
+                APR_ARRAY_PUSH(mc->unused_names, const char*)  = md->name;
+            }
+        }
+        else {
+            const char *uri;
+            
+            /* Found matching server_rec's. Collect all 'ServerAdmin's into MD's contact list */
+            apr_array_clear(md->contacts);
+            for (i = 0; i < servers->nelts; ++i) {
+                s = APR_ARRAY_IDX(servers, i, server_rec*);
+                if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
+                    uri = md_util_schemify(p, s->server_admin, "mailto");
+                    if (md_array_str_index(md->contacts, uri, 0, 0) < 0) {
+                        APR_ARRAY_PUSH(md->contacts, const char *) = uri; 
+                        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10044)
+                                     "%s: added contact %s", md->name, uri);
+                    }
+                }
+            }
+            
+            if (md->require_https > MD_REQUIRE_OFF) {
+                /* We require https for this MD, but do we have port 443 (or a mapped one)
+                 * available? */
+                if (mc->local_443 <= 0) {
+                    ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
+                                 "MDPortMap says there is no port for https (443), "
+                                 "but MD %s is configured to require https. This "
+                                 "only works when a 443 port is available.", md->name);
+                    return APR_EINVAL;
+                    
+                }
+                
+                /* Ok, we know which local port represents 443, do we have a server_rec
+                 * for MD that has addresses with port 443? */
+                s_https = NULL;
+                for (i = 0; i < servers->nelts; ++i) {
+                    s = APR_ARRAY_IDX(servers, i, server_rec*);
+                    if (matches_port_somewhere(s, mc->local_443)) {
+                        s_https = s;
+                        break;
+                    }
+                }
+                
+                if (!s_https) {
+                    /* Did not find any server_rec that matches this MD *and* has an
+                     * s->addrs match for the https port. Suspicious. */
+                    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO()
+                                 "MD %s is configured to require https, but there seems to be "
+                                 "no VirtualHost for it that has port %d in its address list. "
+                                 "This looks as if it will not work.", 
+                                 md->name, mc->local_443);
+                }
+            }
+        }
+        
     }
     return rv;
 }
@@ -273,9 +342,9 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
             }
         }
 
-        /* Apply to the vhost(s) that this MD matches - if any. Perform some
+        /* Assign MD to the server_rec configs that it matches. Perform some
          * last finishing touches on the MD. */
-        if (APR_SUCCESS != (rv = apply_to_servers(md, base_server, p, ptemp))) {
+        if (APR_SUCCESS != (rv = assign_to_servers(md, base_server, p, ptemp))) {
             return rv;
         }
 
