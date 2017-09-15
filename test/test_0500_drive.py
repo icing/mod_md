@@ -289,18 +289,34 @@ class TestDrive :
         # test HTTPS access
         assert TestEnv.get_content(name, "/name.txt", useHTTPS=True) == name
 
-        # add redirect directive to config
+        # test HTTP access again -> redirect to default HTTPS port
         conf.add_require_ssl("temporary")
         conf.install()
         assert TestEnv.apache_restart() == 0
-
-        # test HTTP access again -> redirect to default HTTPS port
         r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
         assert r['http_status'] == 302
         expLocation = "https://%s/name.txt" % name
         assert r['http_headers']['Location'] == expLocation
+        # should not see this
+        assert not 'Strict-Transport-Security' in r['http_headers']
         # test default HTTP vhost -> still no redirect
         assert TestEnv.get_content("example.org", "/name.txt", useHTTPS=False) == "example.org"
+        r = TestEnv.get_meta(name, "/name.txt", useHTTPS=True)
+        # also not for this
+        assert not 'Strict-Transport-Security' in r['http_headers']
+
+        # test HTTP access again -> redirect permanent
+        conf.add_require_ssl("permanent")
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
+        assert r['http_status'] == 301
+        expLocation = "https://%s/name.txt" % name
+        assert r['http_headers']['Location'] == expLocation
+        assert not 'Strict-Transport-Security' in r['http_headers']
+        # should see this
+        r = TestEnv.get_meta(name, "/name.txt", useHTTPS=True)
+        assert r['http_headers']['Strict-Transport-Security'] == 'max-age=15768000'
 
 
     # --------- critical state change -> drive again ---------

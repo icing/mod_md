@@ -881,6 +881,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     apr_status_t rv = APR_SUCCESS;
     int i;
 
+    md_config_post_config(s, p);
     sc = md_config_get(s);
     mc = sc->mc;
     
@@ -1169,34 +1170,44 @@ static int md_require_https_maybe(request_rec *r)
     const char *s;
     int status;
     
-    if (strncmp(WELL_KNOWN_PREFIX, r->parsed_uri.path, sizeof(WELL_KNOWN_PREFIX)-1)) {
+    if (opt_ssl_is_https 
+        && strncmp(WELL_KNOWN_PREFIX, r->parsed_uri.path, sizeof(WELL_KNOWN_PREFIX)-1)) {
+        
         sc = ap_get_module_config(r->server->module_config, &md_module);
-        if (sc && sc->assigned && sc->assigned->require_https > MD_REQUIRE_OFF 
-            && opt_ssl_is_https && !opt_ssl_is_https(r->connection)) {
-            /* Do not have https:, but require it. Redirect the request accordingly. 
-             */
-            if (r->method_number == M_GET) {
-                /* safe to use the old-fashioned codes */
-                status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
-                          HTTP_MOVED_PERMANENTLY : HTTP_MOVED_TEMPORARILY);
+        if (sc && sc->assigned && sc->assigned->require_https > MD_REQUIRE_OFF) {
+            if (opt_ssl_is_https(r->connection)) {
+                /* Using https:
+                 * if 'permanent' and no one else set a HSTS header already, do it */
+                if (sc->assigned->require_https == MD_REQUIRE_PERMANENT 
+                    && sc->mc->hsts_header && !apr_table_get(r->headers_out, MD_HSTS_HEADER)) {
+                    apr_table_setn(r->headers_out, MD_HSTS_HEADER, sc->mc->hsts_header);
+                }
             }
             else {
-                /* these should keep the method unchanged on retry */
-                status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
-                          HTTP_PERMANENT_REDIRECT : HTTP_TEMPORARY_REDIRECT);
-            }
-            
-            s = ap_construct_url(r->pool, r->uri, r);
-            if (APR_SUCCESS == apr_uri_parse(r->pool, s, &uri)) {
-                uri.scheme = (char*)"https";
-                uri.port = 443;
-                uri.port_str = (char*)"443";
-                uri.query = r->parsed_uri.query;
-                uri.fragment = r->parsed_uri.fragment;
-                s = apr_uri_unparse(r->pool, &uri, APR_URI_UNP_OMITUSERINFO);
-                if (s && *s) {
-                    apr_table_setn(r->headers_out, "Location", s);
-                    return status;
+                /* Not using https:, but require it. Redirect. */
+                if (r->method_number == M_GET) {
+                    /* safe to use the old-fashioned codes */
+                    status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
+                              HTTP_MOVED_PERMANENTLY : HTTP_MOVED_TEMPORARILY);
+                }
+                else {
+                    /* these should keep the method unchanged on retry */
+                    status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
+                              HTTP_PERMANENT_REDIRECT : HTTP_TEMPORARY_REDIRECT);
+                }
+                
+                s = ap_construct_url(r->pool, r->uri, r);
+                if (APR_SUCCESS == apr_uri_parse(r->pool, s, &uri)) {
+                    uri.scheme = (char*)"https";
+                    uri.port = 443;
+                    uri.port_str = (char*)"443";
+                    uri.query = r->parsed_uri.query;
+                    uri.fragment = r->parsed_uri.fragment;
+                    s = apr_uri_unparse(r->pool, &uri, APR_URI_UNP_OMITUSERINFO);
+                    if (s && *s) {
+                        apr_table_setn(r->headers_out, "Location", s);
+                        return status;
+                    }
                 }
             }
         }
@@ -1233,7 +1244,7 @@ static void md_hooks(apr_pool_t *pool)
     /* answer challenges *very* early, before any configured authentication may strike */
     ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
     /* redirect to https if configured */
-    ap_hook_fixups(md_require_https_maybe, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_fixups(md_require_https_maybe, NULL, NULL, APR_HOOK_LAST);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);

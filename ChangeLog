@@ -1,3 +1,8 @@
+v0.9.6
+----------------------------------------------------------------------------------------------------
+ * For Managed Domains with 'MDRequireHttps permanent' a HSTS (rfc6797) header is added
+   in the response with value 'max-age=15768000', if not already there.
+
 v0.9.5
 ----------------------------------------------------------------------------------------------------
  * New directive (srly: what do you expect at this point?) "MDMustStaple on|off" to control if
