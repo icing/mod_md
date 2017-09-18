@@ -234,6 +234,13 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
 
+    def test_310_122(self):
+        # test case: require OCSP stapling
+        TestEnv.install_test_conf("staple_on");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == True
+
+
     # --------- remove from store ---------
 
     def test_310_200(self):
@@ -368,6 +375,16 @@ class TestConf:
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         assert "require-https" not in TestEnv.a2md(["list"])['jout']['output'][0], "HTTPS require still persisted in store. confFile: {}".format( confFile )
+
+    def test_310_211(self):
+        # test case: require OCSP stapling
+        TestEnv.install_test_conf("staple_on");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == True
+
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
 
 
     # --------- change existing config definitions ---------
@@ -504,6 +521,21 @@ class TestConf:
         TestEnv.install_test_conf("req_https_perm");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "permanent"
+
+    def test_310_308(self):
+        # test case: change OCSP stapling settings on existing md
+        # setup: nothing set
+        TestEnv.install_test_conf("one_md");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
+        # test case: OCSP stapling on
+        TestEnv.install_test_conf("staple_on");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == True
+        # test case: OCSP stapling off
+        TestEnv.install_test_conf("staple_off");
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
 
 
     # --------- status reset on critical store changes ---------

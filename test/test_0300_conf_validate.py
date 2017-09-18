@@ -183,3 +183,13 @@ class TestConf:
         TestEnv.install_test_conf(confFile);
         assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(confFile)
         assert expErrMsg in TestEnv.apachectl_stderr
+
+    @pytest.mark.parametrize("confFile,expErrMsg", [ 
+        ("test_020a", "takes one argument"), 
+        ("test_020b", "supported parameter values are 'on' and 'off'"),
+        ("test_020c", "supported parameter values are 'on' and 'off'") ])
+    def test_300_020(self, confFile, expErrMsg):
+        # invalid parameter for MDRequireHttps
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(confFile)
+        assert expErrMsg in TestEnv.apachectl_stderr
