@@ -360,7 +360,7 @@ class TestDrive :
         assert r['http_status'] == 301                          # FAIL: mod_alias generates Location header instead of mod_md
         assert r['http_headers']['Location'] == expLocation
 
-    @pytest.mark.skip(reason="mod_alias fails to set the correct schema in Location URL")
+    #@pytest.mark.skip(reason="mod_alias fails to set the correct schema in Location URL")
     def test_500_111(self):
         # test case: vhost with parallel HTTP/HTTPS, check mod_alias redirects
         # setup: prepare config
@@ -370,8 +370,10 @@ class TestDrive :
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
+        conf._add_line("  LogLevel alias:debug")
+        conf.start_vhost(TestEnv.HTTPS_PORT + " *:" + TestEnv.HTTP_PORT, name, aliasList=[], withSSL=False)
         conf._add_line("  SSLEngine *:" + TestEnv.HTTPS_PORT)
-        conf.add_vhost(TestEnv.HTTPS_PORT + " *:" + TestEnv.HTTP_PORT, name, aliasList=[], withSSL=False)
+        conf.end_vhost()
         conf.install()
         assert TestEnv.apache_restart() == 0
         # drive it

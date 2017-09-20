@@ -61,6 +61,8 @@ struct md_pkey_t {
 static void seed_RAND(int pid)
 {
     char seed[128];
+    
+    (void)pid;
     arc4random_buf(seed, sizeof(seed));
     RAND_seed(seed, sizeof(seed));
 }
@@ -145,6 +147,8 @@ typedef struct {
 static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p) 
 {
     buffer *buf = baton;
+    
+    (void)p;
     return apr_file_write_full(f, buf->data, buf->len, &buf->len);
 }
 
@@ -169,6 +173,8 @@ typedef struct {
 static int pem_passwd(char *buf, int size, int rwflag, void *baton)
 {
     passwd_ctx *ctx = baton;
+    
+    (void)rwflag;
     if (ctx->pass_len > 0) {
         if (ctx->pass_len < size) {
             size = (int)ctx->pass_len;
@@ -252,7 +258,7 @@ md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p)
             case MD_PKEY_TYPE_RSA:
                 md_json_sets("RSA", json, MD_KEY_TYPE, NULL);
                 if (spec->params.rsa.bits >= MD_PKEY_RSA_BITS_MIN) {
-                    md_json_setl(spec->params.rsa.bits, json, MD_KEY_BITS, NULL);
+                    md_json_setl((long)spec->params.rsa.bits, json, MD_KEY_BITS, NULL);
                 }
                 break;
             default:
@@ -649,7 +655,7 @@ apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p,
     unsigned char *buffer;
     size_t blen;
     apr_status_t rv;
-    int i;
+    unsigned int i;
     
     if (APR_SUCCESS == (rv = sha256_digest(&buffer, &blen, p, d, dlen))) {
         cp = dhex = apr_pcalloc(p,  2 * blen + 1);
@@ -1011,6 +1017,7 @@ apr_status_t md_chain_fsave(apr_array_header_t *certs, apr_pool_t *p,
     unsigned long err = 0;
     int i;
     
+    (void)p;
     rv = md_util_fopen(&f, fname, "w");
     if (rv == APR_SUCCESS) {
         apr_file_perms_set(fname, perms);

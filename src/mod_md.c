@@ -300,6 +300,7 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
     apr_sockaddr_t *sa;
     int i, j;
 
+    (void)plog;
     sc = md_config_get(base_server);
     mc = sc->mc;
     
@@ -371,6 +372,7 @@ static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
     server_rec *s = baton;
     apr_status_t rv;
     
+    (void)store;
     ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s, "store event=%d on %s %s (group %d)", 
                  ev, (ftype == APR_DIR)? "dir" : "file", fname, group);
                  
@@ -467,8 +469,10 @@ static server_rec *log_server;
 
 static int log_is_level(void *baton, apr_pool_t *p, md_log_level_t level)
 {
+    (void)baton;
+    (void)p;
     if (log_server) {
-        return APLOG_IS_LEVEL(log_server, level);
+        return APLOG_IS_LEVEL(log_server, (int)level);
     }
     return level <= MD_LOG_INFO;
 }
@@ -856,10 +860,9 @@ static apr_status_t md_check_config(apr_pool_t *p, apr_pool_t *plog,
         apr_pool_userdata_set((const void *)1, mod_md_init_key,
                               apr_pool_cleanup_null, s->process->pool);
     }
-    else {
-        ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO(10071)
-                     "mod_md (v%s), initializing...", MOD_MD_VERSION);
-    }
+    
+    ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO(10071)
+                 "mod_md (v%s), initializing...", MOD_MD_VERSION);
 
     init_setups(p, s);
     md_log_set(log_is_level, log_print, NULL);
@@ -881,6 +884,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     apr_status_t rv = APR_SUCCESS;
     int i;
 
+    (void)plog;
     md_config_post_config(s, p);
     sc = md_config_get(s);
     mc = sc->mc;
@@ -1220,6 +1224,8 @@ static int md_require_https_maybe(request_rec *r)
  */
 static void md_child_init(apr_pool_t *pool, server_rec *s)
 {
+    (void)pool;
+    (void)s;
 }
 
 /* Install this module into the apache2 infrastructure.

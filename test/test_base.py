@@ -551,7 +551,7 @@ class HttpdConf(object):
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
         self.start_vhost(port, name, aliasList, docRoot, withSSL, certPath, keyPath)
-        self.close_vhost()
+        self.end_vhost()
 
     def start_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
@@ -570,7 +570,7 @@ class HttpdConf(object):
                 f.write(("    SSLCertificateFile %s\n"
                          "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
                   
-    def close_vhost(self):
+    def end_vhost(self):
         self._add_line("</VirtualHost>\n\n")
 
     def install(self):

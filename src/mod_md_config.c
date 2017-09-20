@@ -254,7 +254,8 @@ static const char *md_config_sec_start(cmd_parms *cmd, void *mconfig, const char
     apr_array_header_t *domains;
     md_t *md;
     int transitive = -1;
-
+    
+    (void)mconfig;
     if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
     }
@@ -313,6 +314,7 @@ static const char *md_config_sec_add_members(cmd_parms *cmd, void *dc,
     const char *err;
     int i;
     
+    (void)dc;
     if (NULL != (err = md_section_check(cmd, MD_CMD_MD_SECTION))) {
         if (argc == 1) {
             /* only these values are allowed outside a section */
@@ -330,7 +332,7 @@ static const char *md_config_sec_add_members(cmd_parms *cmd, void *dc,
     return NULL;
 }
 
-static const char *md_config_set_names(cmd_parms *cmd, void *arg, 
+static const char *md_config_set_names(cmd_parms *cmd, void *dc, 
                                        int argc, char *const argv[])
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
@@ -339,6 +341,7 @@ static const char *md_config_set_names(cmd_parms *cmd, void *arg,
     md_t *md;
     int i, transitive = -1;
 
+    (void)dc;
     err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE);
     if (err) {
         return err;
@@ -374,6 +377,7 @@ static const char *md_config_set_ca(cmd_parms *cmd, void *dc, const char *value)
     md_srv_conf_t *sc = md_config_get(cmd->server);
     const char *err;
 
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
@@ -387,6 +391,7 @@ static const char *md_config_set_ca_proto(cmd_parms *cmd, void *dc, const char *
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
 
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
@@ -400,6 +405,7 @@ static const char *md_config_set_agreement(cmd_parms *cmd, void *dc, const char 
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
 
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
@@ -414,6 +420,7 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
     const char *err;
     md_drive_mode_t drive_mode;
 
+    (void)dc;
     if (!apr_strnatcasecmp("auto", value) || !apr_strnatcasecmp("automatic", value)) {
         drive_mode = MD_DRIVE_AUTO;
     }
@@ -440,6 +447,7 @@ static const char *md_config_set_must_staple(cmd_parms *cmd, void *dc, const cha
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
 
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
@@ -463,6 +471,7 @@ static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const c
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
 
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
@@ -545,6 +554,7 @@ static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const ch
     apr_interval_time_t timeout;
     int percent;
     
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
@@ -661,6 +671,7 @@ static const char *md_config_set_cha_tyes(cmd_parms *cmd, void *dc,
     const char *err;
     int i;
 
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
@@ -678,13 +689,14 @@ static const char *md_config_set_cha_tyes(cmd_parms *cmd, void *dc,
     return NULL;
 }
 
-static const char *md_config_set_pkeys(cmd_parms *cmd, void *arg, 
+static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc, 
                                        int argc, char *const argv[])
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err, *ptype;
     apr_int64_t bits;
     
+    (void)dc;
     if (!inside_section(cmd, MD_CMD_MD_SECTION)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
