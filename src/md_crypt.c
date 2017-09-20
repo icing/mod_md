@@ -107,11 +107,6 @@ static void seed_RAND(int pid)
     /*
      * seed in some current state of the run-time stack (128 bytes)
      */
-#if HAVE_VALGRIND && 0
-    if (ssl_running_on_valgrind) {
-        VALGRIND_MAKE_MEM_DEFINED(stackdata, sizeof(stackdata));
-    }
-#endif
     n = rand_choosenum(0, sizeof(stackdata)-128-1);
     RAND_seed(stackdata+n, 128);
 }
