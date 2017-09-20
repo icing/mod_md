@@ -142,11 +142,11 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
 typedef struct {
     char *data;
     apr_size_t len;
-} buffer;
+} buffer_rec;
 
 static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p) 
 {
-    buffer *buf = baton;
+    buffer_rec *buf = baton;
     
     (void)p;
     return apr_file_write_full(f, buf->data, buf->len, &buf->len);
@@ -374,7 +374,7 @@ apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p,
     return rv;
 }
 
-static apr_status_t pkey_to_buffer(buffer *buffer, md_pkey_t *pkey, apr_pool_t *p,
+static apr_status_t pkey_to_buffer(buffer_rec *buffer, md_pkey_t *pkey, apr_pool_t *p,
                                    const char *pass, apr_size_t pass_len)
 {
     BIO *bio = BIO_new(BIO_s_mem());
@@ -426,7 +426,7 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
                            const char *pass_phrase, apr_size_t pass_len,
                            const char *fname, apr_fileperms_t perms)
 {
-    buffer buffer;
+    buffer_rec buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p, pass_phrase, pass_len))) {
@@ -858,7 +858,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
     return rv;
 }
 
-static apr_status_t cert_to_buffer(buffer *buffer, md_cert_t *cert, apr_pool_t *p)
+static apr_status_t cert_to_buffer(buffer_rec *buffer, md_cert_t *cert, apr_pool_t *p)
 {
     BIO *bio = BIO_new(BIO_s_mem());
     int i;
@@ -888,7 +888,7 @@ static apr_status_t cert_to_buffer(buffer *buffer, md_cert_t *cert, apr_pool_t *
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
                            const char *fname, apr_fileperms_t perms)
 {
-    buffer buffer;
+    buffer_rec buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
@@ -899,7 +899,7 @@ apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p,
 
 apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p)
 {
-    buffer buffer;
+    buffer_rec buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
