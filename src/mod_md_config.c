@@ -182,6 +182,8 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     
     nsc = (md_srv_conf_t *)apr_pcalloc(pool, sizeof(md_srv_conf_t));
     nsc->name = name;
+    nsc->mc = add->mc? add->mc : base->mc;
+    nsc->assigned = add->assigned? add->assigned : base->assigned;
 
     nsc->transitive = (add->transitive != DEF_VAL)? add->transitive : base->transitive;
     nsc->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;

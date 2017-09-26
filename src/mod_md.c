@@ -58,7 +58,10 @@ AP_DECLARE_MODULE(md) = {
     md_config_create_svr, /* func to create per server config */
     md_config_merge_svr,  /* func to merge per server config */
     md_cmds,              /* command handlers */
-    md_hooks
+    md_hooks,
+#if defined(AP_MODULE_FLAG_NONE)
+    AP_MODULE_FLAG_ALWAYS_MERGE
+#endif
 };
 
 static void md_merge_srv(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
@@ -1060,14 +1063,6 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     return rv;
 }
 
-static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
-                                       const char **pkeyfile, const char **pcertfile,
-                                       const char **pchainfile)
-{
-    *pchainfile = NULL;
-    return md_get_certificate(s, p, pkeyfile, pcertfile);
-}
-
 static int md_is_challenge(conn_rec *c, const char *servername,
                            X509 **pcert, EVP_PKEY **pkey)
 {
@@ -1251,12 +1246,10 @@ static void md_hooks(apr_pool_t *pool)
     ap_hook_child_init(md_child_init, NULL, mod_ssl, APR_HOOK_MIDDLE);
 
     /* answer challenges *very* early, before any configured authentication may strike */
+    ap_hook_post_read_request(md_require_https_maybe, NULL, NULL, APR_HOOK_FIRST);
     ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
-    /* redirect to https if configured */
-    ap_hook_fixups(md_require_https_maybe, NULL, NULL, APR_HOOK_LAST);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);
-    APR_REGISTER_OPTIONAL_FN(md_get_credentials);
     APR_REGISTER_OPTIONAL_FN(md_is_challenge);
 }

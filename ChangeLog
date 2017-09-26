@@ -1,3 +1,11 @@
+v0.9.7
+----------------------------------------------------------------------------------------------------
+ * When building against 2.4.x, one probably needs to configure without ```--enable-werror```,
+   since there were some warnings fixed in Apache httpd trunk.
+ * Removed obsolete function from interface to mod_ssl. Module now requires at least mod_ssl
+   patch v4 in place.
+ * Fallback certificates has version set and no longer claims to be a CA. (re issue #32)
+ * ```MDRequireHttps``` now happens before any ```Redirect```.
  * added some compiler warning flags and adding casts/eliminating some unused params accordingly
 
 v0.9.6
