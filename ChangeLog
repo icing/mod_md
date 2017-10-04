@@ -1,3 +1,8 @@
+v0.9.8
+----------------------------------------------------------------------------------------------------
+ * Protocol driving now uses correct server properties for http/https challenge selection 
+   (refs issue #52).
+
 v0.9.7
 ----------------------------------------------------------------------------------------------------
  * When building against 2.4.x, one probably needs to configure without ```--enable-werror```,
