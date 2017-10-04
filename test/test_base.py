@@ -54,7 +54,8 @@ class TestEnv:
         cls.HTTPD_HOST = "localhost"
         cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
         cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
-        cls.HTTPD_CHECK_URL = cls.HTTPD_URL 
+        cls.HTTPD_PROXY_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PROXY_PORT
+        cls.HTTPD_CHECK_URL = cls.HTTPD_PROXY_URL 
 
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
         cls.CURL      = cls.config.get('global', 'curl_bin')
