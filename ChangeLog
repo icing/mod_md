@@ -1,3 +1,8 @@
+v1.0.0
+----------------------------------------------------------------------------------------------------
+ * New directive 'MDNotifyCmd' that will run when Managed Domains have been signed up/renewed. The
+   names of the MDs is given as arguments to the command.
+
 v0.9.9
 ----------------------------------------------------------------------------------------------------
  * Protocol driving now *applies* correct server properties for http/https challenge selection, 

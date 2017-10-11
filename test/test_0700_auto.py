@@ -449,6 +449,54 @@ class TestAuto:
         self._check_md_names(domain, dns_list)
         assert TestEnv.await_completion( [ domain ], 10 )
 
+    #-----------------------------------------------------------------------------------------------
+    # test case: signup with configured notify cmd that is invalid
+    #
+    def test_7020(self):
+        domain = ("%s-" % self.test_n) + TestAuto.dns_uniq
+        
+        # generate config with two MDs
+        dnsList = [ domain, "www." + domain ]
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@example.org" )
+        conf._add_line( "MDNotifyCmd blablabla" )
+        conf.add_drive_mode( "auto" )
+        conf.add_md( dnsList )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
+        conf.install()
+
+        # restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( domain, dnsList )
+        # await drive completion
+        assert TestEnv.await_completion( [ domain ], 30 )
+        self._check_md_cert(dnsList)
+        # this command should have failed and logged an error
+        assert (1, 0) == TestEnv.apache_err_total()
+
+    def test_7021(self):
+        domain = ("%s-" % self.test_n) + TestAuto.dns_uniq
+        
+        # generate config with two MDs
+        dnsList = [ domain, "www." + domain ]
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@example.org" )
+        conf._add_line( "MDNotifyCmd %s/notify.py" % TestEnv.TESTROOT )
+        conf.add_drive_mode( "auto" )
+        conf.add_md( dnsList )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
+        conf.install()
+
+        # restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( domain, dnsList )
+        # await drive completion
+        assert TestEnv.await_completion( [ domain ], 30 )
+        self._check_md_cert(dnsList)
+        # this command should have failed and logged an error
+        TestEnv.apachectl_stderr = None
+        assert (0, 0) == TestEnv.apache_err_total()
+
     # --------- _utils_ ---------
 
     def _write_res_file(self, docRoot, name, content):

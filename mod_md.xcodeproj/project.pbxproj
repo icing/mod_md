@@ -135,6 +135,7 @@
 		B2B81ED21F164AA600E35CA3 /* md_curl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_curl.h; sourceTree = "<group>"; };
 		B2B81ED41F165F8300E35CA3 /* index.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
 		B2B81ED71F17BF3200E35CA3 /* test_0700_auto.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0700_auto.py; sourceTree = "<group>"; };
+		B2CE87C51F8E28EA000629B2 /* notify.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = notify.py; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
 		B2D309A21EBA229F007BECC8 /* configure.ac */ = {isa = PBXFileReference; lastKnownFileType = text; path = configure.ac; sourceTree = SOURCE_ROOT; };
@@ -340,6 +341,7 @@
 				B262F6CD1EFCFE1100D396A1 /* data */,
 				B2B81ED31F165F8300E35CA3 /* htdocs */,
 				B2B81E931F0BB4F300E35CA3 /* Makefile.am */,
+				B2CE87C51F8E28EA000629B2 /* notify.py */,
 				B20333361EDDA82300E5BE7E /* test_0001_store.py */,
 				B2FB5A431F57087400856773 /* test_0010_store_migrate.py */,
 				B255730A1EE6CF6100E0B132 /* test_0100_reg_add.py */,
