@@ -618,11 +618,42 @@ static void assess_renewal(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
     }
 }
 
+static apr_status_t load_job_props(md_reg_t *reg, md_job_t *job, apr_pool_t *p)
+{
+    md_store_t *store = md_reg_store_get(reg);
+    md_json_t *jprops;
+    apr_status_t rv;
+    
+    rv = md_store_load_json(store, MD_SG_STAGING, job->md->name,
+                            MD_FN_JOB, &jprops, p);
+    if (APR_SUCCESS == rv) {
+        job->restart_processed = md_json_getb(jprops, MD_KEY_PROCESSED, NULL);
+        job->error_runs = (int)md_json_getl(jprops, MD_KEY_ERRORS, NULL);
+    }
+    return rv;
+}
+
+static apr_status_t save_job_props(md_reg_t *reg, md_job_t *job, apr_pool_t *p)
+{
+    md_store_t *store = md_reg_store_get(reg);
+    md_json_t *jprops;
+    apr_status_t rv;
+    
+    rv = md_store_load_json(store, MD_SG_STAGING, job->md->name, MD_FN_JOB, &jprops, p);
+    if (APR_SUCCESS == rv) {
+        md_json_setb(job->restart_processed, jprops, MD_KEY_PROCESSED, NULL);
+        md_json_setl(job->error_runs, jprops, MD_KEY_PROCESSED, NULL);
+        rv = md_store_save_json(store, p, MD_SG_STAGING, job->md->name,
+                                MD_FN_JOB, jprops, 0);
+    }
+    return rv;
+}
+
 static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
 {
     apr_status_t rv = APR_SUCCESS;
     apr_time_t valid_from, delay;
-    int errored, renew;
+    int errored, renew, error_runs;
     char ts[APR_RFC822_DATE_LEN];
     
     if (apr_time_now() < job->next_check) {
@@ -631,6 +662,8 @@ static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
     }
     
     job->next_check = 0;
+    error_runs = job->error_runs;
+
     if (job->md->state == MD_S_MISSING) {
         job->stalled = 1;
     }
@@ -687,6 +720,10 @@ static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
                      job->md->name, job->error_runs, md_print_duration(ptemp, delay));
     }
     
+    if (error_runs != job->error_runs) {
+        save_job_props(wd->reg, job, ptemp);
+    }
+
     job->last_rv = rv;
     return rv;
 }
@@ -695,6 +732,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
     md_watchdog *wd = baton;
     apr_status_t rv = APR_SUCCESS;
+    md_store_t *store;
     md_job_t *job;
     apr_time_t next_run, now;
     int restart = 0;
@@ -704,10 +742,16 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10054)
                          "md watchdog start, auto drive %d mds", wd->jobs->nelts);
+            assert(wd->reg);
+            store = md_reg_store_get(wd->reg);
+        
+            for (i = 0; i < wd->jobs->nelts; ++i) {
+                job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
+                load_job_props(wd->reg, job, ptemp);
+            }
             break;
         case AP_WATCHDOG_STATE_RUNNING:
-            assert(wd->reg);
-            
+        
             wd->next_change = 0;
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10055)
                          "md watchdog run, auto drive %d mds", wd->jobs->nelts);
@@ -749,22 +793,13 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 
     if (restart) {
         const char *action, *names = "";
-        md_json_t *jprops;
-        md_store_t *store = md_reg_store_get(wd->reg);
         int n;
         
         for (i = 0, n = 0; i < wd->jobs->nelts; ++i) {
             job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
             if (job->need_restart && !job->restart_processed) {
-                rv = md_store_load_json(store, MD_SG_STAGING, job->md->name, 
-                                        "job.json", &jprops, ptemp);
-                if (APR_SUCCESS == rv) {
-                    job->restart_processed = md_json_getb(jprops, MD_KEY_PROCESSED, NULL);
-                }
-                if (!job->restart_processed) {
-                    names = apr_psprintf(ptemp, "%s%s%s", names, n? " " : "", job->md->name);
-                    ++n;
-                }
+                names = apr_psprintf(ptemp, "%s%s%s", names, n? " " : "", job->md->name);
+                ++n;
             }
         }
 
@@ -800,14 +835,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                     job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
                     if (job->need_restart && !job->restart_processed) {
                         job->restart_processed = 1;
-                        
-                        rv = md_store_load_json(store, MD_SG_STAGING, job->md->name, 
-                                                MD_FN_JOB, &jprops, ptemp);
-                        if (APR_SUCCESS == rv) {
-                            md_json_setb(1, jprops, MD_KEY_PROCESSED, NULL);
-                            rv = md_store_save_json(store, ptemp, MD_SG_STAGING, job->md->name, 
-                                                    MD_FN_JOB, jprops, 0);
-                        }
+                        save_job_props(wd->reg, job, ptemp);
                     }
                 }
             }
@@ -893,6 +921,18 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
 
                 ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10064) 
                              "md(%s): state=%d, driving", name, md->state);
+                
+                load_job_props(reg, job, wd->p);
+                if (job->error_runs) {
+                    /* We are just restarting. If we encounter jobs that had errors
+                     * running the protocol on previous staging runs, we reset
+                     * the staging area for it, in case we persisted something that
+                     * causes a loop. */
+                    md_store_t *store = md_reg_store_get(wd->reg);
+                    
+                    md_store_purge(store, p, MD_SG_STAGING, job->md->name);
+                    md_store_purge(store, p, MD_SG_CHALLENGES, job->md->name);
+                }
             }
         }
     }
