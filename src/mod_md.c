@@ -163,6 +163,23 @@ static int matches_port_somewhere(server_rec *s, int port)
     return 0;
 }
 
+static int uses_port_only(server_rec *s, int port)
+{
+    server_addr_rec *sa;
+    int match = 0;
+    for (sa = s->addrs; sa; sa = sa->next) {
+        if (sa->host_port == port) {
+            /* host_addr might be general (0.0.0.0) or specific, we count this as match */
+            match = 1;
+        }
+        else {
+            /* uses other port/wildcard */
+            return 0;
+        }
+    }
+    return match;
+}
+
 static apr_status_t assign_to_servers(md_t *md, server_rec *base_server, 
                                      apr_pool_t *p, apr_pool_t *ptemp)
 {
@@ -209,10 +226,15 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
                     return APR_EINVAL;
                 }
                 
-                /* If server has name or an alias not covered,
-                 * a generated certificate will not match. 
-                 */
-                if (APR_SUCCESS != (rv = md_covers_server(md, s, ptemp))) {
+                /* If this server_rec is only for http: requests. Defined
+                 * alias names to not matter for this MD.
+                 * (see gh issue https://github.com/icing/mod_md/issues/57)
+                 * Otherwise, if server has name or an alias not covered,
+                 * it is by default auto-added (config transitive).
+                 * If mode is "manual", a generated certificate will not match
+                 * all necessary names. */
+                if ((!mc->local_80 || !uses_port_only(s, mc->local_80))
+                    && APR_SUCCESS != (rv = md_covers_server(md, s, ptemp))) {
                     return rv;
                 }
 

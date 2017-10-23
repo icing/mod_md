@@ -1,3 +1,8 @@
+v1.0.1
+----------------------------------------------------------------------------------------------------
+ * ServerName/Alias names from pure-http: virtual hosts are no longer aut-added to a Managed Domain.
+   Fixes issue #57.
+
 v1.0.0
 ----------------------------------------------------------------------------------------------------
  * New directive 'MDNotifyCmd' that will run when Managed Domains have been signed up/renewed. The
