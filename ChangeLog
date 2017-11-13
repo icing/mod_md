@@ -1,6 +1,10 @@
+v1.0.2
+----------------------------------------------------------------------------------------------------
+ * staging reset on reload also triggered when MDCertificateAgreement was initially missing.
+
 v1.0.1
 ----------------------------------------------------------------------------------------------------
- * ServerName/Alias names from pure-http: virtual hosts are no longer aut-added to a Managed Domain.
+ * ServerName/Alias names from pure-http: virtual hosts are no longer auto-added to a Managed Domain.
    Fixes issue #57.
  * Error counts of jobs are presisted now. When the server restarts (gracefully) any errored
    staging areas are purged to reset the signup/renewal process. Fixes issue #55
