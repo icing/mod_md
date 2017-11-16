@@ -640,6 +640,10 @@ static apr_status_t save_job_props(md_reg_t *reg, md_job_t *job, apr_pool_t *p)
     apr_status_t rv;
     
     rv = md_store_load_json(store, MD_SG_STAGING, job->md->name, MD_FN_JOB, &jprops, p);
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        jprops = md_json_create(p);
+        rv = APR_SUCCESS;
+    }
     if (APR_SUCCESS == rv) {
         md_json_setb(job->restart_processed, jprops, MD_KEY_PROCESSED, NULL);
         md_json_setl(job->error_runs, jprops, MD_KEY_PROCESSED, NULL);
