@@ -728,7 +728,8 @@ static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
     
 out:
     if (error_runs != job->error_runs) {
-        save_job_props(wd->reg, job, ptemp);
+        apr_status_t rv2 = save_job_props(wd->reg, job, ptemp);
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, wd->s, "%s: saving job props", job->md->name);
     }
 
     job->last_rv = rv;
