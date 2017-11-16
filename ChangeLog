@@ -1,3 +1,11 @@
+v1.0.3
+----------------------------------------------------------------------------------------------------
+ * fixed various bugs in persisting job properties, so that status is persisted accross
+   child process changes and staging is reset on reloads.
+ * changed MDCertificateAgreement url checks. As long as the CA reports that the account
+   has an agreement, no further checking is done. Existing accounts need no changes when
+   a new agreement comes out. This is as Let's Encrypt rolls.
+
 v1.0.2
 ----------------------------------------------------------------------------------------------------
  * staging reset on reload also triggered when MDCertificateAgreement was initially missing.
