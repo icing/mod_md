@@ -177,7 +177,7 @@ Index: modules/ssl/ssl_engine_kernel.c
 +                
 +                if (SSL_check_private_key(ssl) < 1) {
 +                    ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO()
-+                                  "Challenbge certificate and private key %s "
++                                  "Challenge certificate and private key %s "
 +                                  "do not match", servername);
 +                    return APR_EGENERAL;
 +                }
