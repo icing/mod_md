@@ -181,7 +181,7 @@ v0.6.0
 
 v0.5.0
 ----------------------------------------------------------------------------------------------------
- * Documenation on wiki for several use cases, explaining file store layout and security
+ * Documentation on wiki for several use cases, explaining file store layout and security
  * User-Agent now sent to CA.
    Driving from httpd: Apache/rev mod_md/rev (Something, like certbot)
    Driving from a2md:  apachemd/rev mod_md/rev (Something, like certbot)
