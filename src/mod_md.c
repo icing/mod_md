@@ -1348,7 +1348,7 @@ static int md_require_https_maybe(request_rec *r)
 }
 
 /* Runs once per created child process. Perform any process 
- * related initionalization here.
+ * related initialization here.
  */
 static void md_child_init(apr_pool_t *pool, server_rec *s)
 {
