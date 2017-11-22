@@ -210,7 +210,7 @@ struct md_acme_req_t {
     struct md_json_t *req_json;    /* JSON to be POSTed in request body */
 
     apr_table_t *resp_hdrs;        /* HTTP response headers */
-    struct md_json_t *resp_json;   /* JSON response body recevied */
+    struct md_json_t *resp_json;   /* JSON response body received */
     
     apr_status_t rv;               /* status of request */
     
