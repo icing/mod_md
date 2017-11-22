@@ -195,7 +195,7 @@ v0.4.0
    obtained by mod_md!
  * Various fixes to permission issues on ubuntu setup server (root/www-data users)
  * Fixed defaults for port mapping
- * New 'MDDriveMode always' to acquite certificates for Managed Domains not used in any
+ * New 'MDDriveMode always' to acquire certificates for Managed Domains not used in any
    VirtualHost on the server. Fixed test cases for auto drive mode. Refactored some copy+paste
    code in tests.
  * Test cases stop the httpd server less, making better timings and reliability 
