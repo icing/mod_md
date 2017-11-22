@@ -1025,7 +1025,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     sc = md_config_get(s);
     mc = sc->mc;
     
-    /* Synchronize the defintions we now have with the store via a registry (reg). */
+    /* Synchronize the definitions we now have with the store via a registry (reg). */
     if (APR_SUCCESS != (rv = setup_reg(&reg, p, s, mc->can_http, mc->can_https))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072)
                      "setup md registry");
