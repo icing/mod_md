@@ -275,16 +275,16 @@ class TestConf:
 
     def test_310_203(self):
         # test case: remove one md, keep another
-        dnsList1 = ["greenybtes2.de", "www.greenybtes2.de", "mail.greenybtes2.de"]
+        dnsList1 = ["greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"]
         dnsList2 = ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         TestEnv.a2md(["add"] + dnsList1)
         TestEnv.a2md(["add"] + dnsList2)
-        self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
+        self._check_md_names("greenbytes2.de", dnsList1, 1, 2)
         self._check_md_names("testdomain.org", dnsList2, 1, 2)
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         # all mds stay in store
-        self._check_md_names("greenybtes2.de", dnsList1, 1, 2)
+        self._check_md_names("greenbytes2.de", dnsList1, 1, 2)
         self._check_md_names("testdomain.org", dnsList2, 1, 2)
 
     def test_310_204(self):

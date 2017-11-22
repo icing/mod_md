@@ -1,6 +1,6 @@
 v1.0.3
 ----------------------------------------------------------------------------------------------------
- * fixed various bugs in persisting job properties, so that status is persisted accross
+ * fixed various bugs in persisting job properties, so that status is persisted across
    child process changes and staging is reset on reloads.
  * changed MDCertificateAgreement url checks. As long as the CA reports that the account
    has an agreement, no further checking is done. Existing accounts need no changes when
@@ -53,7 +53,7 @@ v0.9.5
    new certificates are requested with the OCSP Must Staple extension.
  * Known limitation: when the server is configured to ditch and restart child processes, for example
    after a certain number of connections/requests, the mod_md watchdog instance might migrate 
-   to a new child process. Since not all its state is persisted, some messsages might appear a
+   to a new child process. Since not all its state is persisted, some messages might appear a
    second time in the logs.
  * --with-openssl configure option provided by [caminada](https://github.com/caminada) to
    specify an uncommon location of the lib.
@@ -154,7 +154,7 @@ v0.7.0
     MDCertificateAuthority https://acme-staging.api.letsencrypt.org/directory
 ```    
  * When existing, complete certificates are renewed, the activation of the new ones is
-   delayed by 24 hours (or until the existing ones expire, whatever is earler) to accomodate
+   delayed by 24 hours (or until the existing ones expire, whatever is earlier) to accomodate
    for clients with weird clocks, refs #1. 
  * Fixed store sync when MDCAChallenges was removed again from an MD. 
  * Fixed crash when MD matched the base server, fixes #23
@@ -166,7 +166,7 @@ v0.6.1
  * global or inside ManagedDomain, 'MDMembers auto|manual' defines if ServerName and ServerAlias
    names of a VirtualHost are automatically added to the members of a Managed Domain or not.
    Default is 'auto'.
- * staging informtation, e.g. temp files during ACME protocol runs, gets automatically reset
+ * staging information, e.g. temp files during ACME protocol runs, gets automatically reset
    when the managed domain changes.
  * when synching new configurations into the store, the list of domain names is now kept
    exactly the same. This allows removal of a member that fails challenges. Before, only
@@ -181,7 +181,7 @@ v0.6.0
 
 v0.5.0
 ----------------------------------------------------------------------------------------------------
- * Documenation on wiki for several use cases, explaining file store layout and security
+ * Documentation on wiki for several use cases, explaining file store layout and security
  * User-Agent now sent to CA.
    Driving from httpd: Apache/rev mod_md/rev (Something, like certbot)
    Driving from a2md:  apachemd/rev mod_md/rev (Something, like certbot)
@@ -195,7 +195,7 @@ v0.4.0
    obtained by mod_md!
  * Various fixes to permission issues on ubuntu setup server (root/www-data users)
  * Fixed defaults for port mapping
- * New 'MDDriveMode always' to acquite certificates for Managed Domains not used in any
+ * New 'MDDriveMode always' to acquire certificates for Managed Domains not used in any
    VirtualHost on the server. Fixed test cases for auto drive mode. Refactored some copy+paste
    code in tests.
  * Test cases stop the httpd server less, making better timings and reliability 

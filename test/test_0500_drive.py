@@ -336,7 +336,7 @@ class TestDrive :
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         assert TestEnv.apache_restart() == 0
 
-        # test overrride HSTS header
+        # test override HSTS header
         conf._add_line('  Header set Strict-Transport-Security "max-age=10886400; includeSubDomains; preload"')
         conf.install()
         assert TestEnv.apache_restart() == 0
@@ -484,7 +484,7 @@ class TestDrive :
         assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # setup: drive it
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0, \
-            "Expected drive to succeeed for MDPrivateKeys {} {}".format(keyType, keyParams)
+            "Expected drive to succeed for MDPrivateKeys {} {}".format(keyType, keyParams)
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check cert key length
         cert = CertUtil(TestEnv.path_domain_pubcert(name))

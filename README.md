@@ -13,11 +13,11 @@ Look [on the wiki](https://github.com/icing/mod_md/wiki) for directions on how t
 
 ## Status
 
-The plan is to backport the module and all the neccessary patches into the next 2.4.x release of Apache httpd. That
+The plan is to backport the module and all the necessary patches into the next 2.4.x release of Apache httpd. That
 will be at least revision 2.4.30. And I will push for it to come out this year. Time will tell.
 
 For the impatient and danger seekers: what you find here is a copy of what lives inside the Apache httpd ```trunk``` repository. While people find an occasional
-hickup - mostly due to some unique aspect in the setups - several people, incuding myself, are running this inside a patched
+hickup - mostly due to some unique aspect in the setups - several people, including myself, are running this inside a patched
 2.4 Apache for months now. And successfully.  
 
 However, this is not _checkout, configure and shoot_. For it to work, you need a patched mod_ssl (patch is provided in directory ```patches```), but that is about the only complication.
@@ -28,7 +28,7 @@ The Apache2 PPA for ubuntu by @oerdnj, see [here](https://launchpad.net/~ondrej/
 
 ### Test Status
 
-Tests have been verfied to run on MacOS and Ubuntu 16.04 under the following conditions:
+Tests have been verified to run on MacOS and Ubuntu 16.04 under the following conditions:
 
  * the *SSL library you compile with supports ```SNI``` 
  * curl is linked against this recent *SSL lib
@@ -50,7 +50,7 @@ Please see the file called LICENSE.
 
 ## Credits
 
-This work is supported by an Award from MOSS, the Mozillla Open Source Support project. Many thanks to these excellent people! You are awesome!
+This work is supported by an Award from MOSS, the Mozilla Open Source Support project. Many thanks to these excellent people! You are awesome!
 
 Test cases mostly written by my colleague @michael-koeller who made this to a good part really a test driven development. Thanks!
 
