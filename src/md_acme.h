@@ -72,7 +72,7 @@ apr_status_t md_acme_init(apr_pool_t *pool, const char *base_version);
 
 /**
  * Create a new ACME server instance. If path is not NULL, will use that directory
- * for persisting information. Will load any inforation persisted in earlier session.
+ * for persisting information. Will load any information persisted in earlier session.
  * url needs only be specified for instances where this has never been persisted before.
  *
  * @param pacme   will hold the ACME server instance on success
