@@ -154,7 +154,7 @@ v0.7.0
     MDCertificateAuthority https://acme-staging.api.letsencrypt.org/directory
 ```    
  * When existing, complete certificates are renewed, the activation of the new ones is
-   delayed by 24 hours (or until the existing ones expire, whatever is earler) to accomodate
+   delayed by 24 hours (or until the existing ones expire, whatever is earlier) to accomodate
    for clients with weird clocks, refs #1. 
  * Fixed store sync when MDCAChallenges was removed again from an MD. 
  * Fixed crash when MD matched the base server, fixes #23
