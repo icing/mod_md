@@ -97,7 +97,7 @@ class TestAcmeAcc :
         jout = TestEnv.run([ "cat", jsonFile ])['jout']
         jout['url'] = jout['url'] + "0"
         open(jsonFile, "w").write(json.dumps(jout))
-        # validate accout
+        # validate account
         assert TestEnv.a2md( ["acme", "validate", acct] )['rv'] == 1
 
     # --------- acme delreg ---------
