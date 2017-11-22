@@ -185,7 +185,7 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
 }
 
 /**************************************************************************************************/
-/* Update an exiosting authorization */
+/* Update an existing authorization */
 
 apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, 
                                   md_store_t *store, apr_pool_t *p)
