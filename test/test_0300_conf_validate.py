@@ -146,7 +146,7 @@ class TestConf:
         ("test_016a", "unsupported private key type"), 
         ("test_016b", "needs to specify the private key type"), 
         ("test_016c", "must be 2048 or higher"), 
-        ("test_016d", "key type 'RSA' has only one optinal parameter") ])
+        ("test_016d", "key type 'RSA' has only one optional parameter") ])
     def test_300_016(self, confFile, expErrMsg):
         # invalid pkey specification
         TestEnv.install_test_conf(confFile);

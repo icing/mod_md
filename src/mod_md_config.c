@@ -734,7 +734,7 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
             }
         }
         else {
-            return "key type 'RSA' has only one optinal parameter, the number of bits";
+            return "key type 'RSA' has only one optional parameter, the number of bits";
         }
 
         if (!config->pkey_spec) {
