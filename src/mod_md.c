@@ -812,7 +812,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
         if (n > 0) {
             int notified = 1;
 
-            /* Run notifiy command for ready MDs (if configured) and persist that
+            /* Run notify command for ready MDs (if configured) and persist that
              * we have done so. This process might be reaped after n requests or die
              * of another cause. The one taking over the watchdog need to notify again.
              */
