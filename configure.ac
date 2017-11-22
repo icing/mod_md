@@ -283,7 +283,7 @@ if test x"$request_openssl" = "xcheck"; then
 else
     OPENSSL_BIN="$request_openssl/bin/openssl"
     LDFLAGS="$LDFLAGS -L$request_openssl/lib";
-    CFLAGS="$CFLAGS -I$request_opsnssl/include";
+    CFLAGS="$CFLAGS -I$request_openssl/include";
     CPPFLAGS="$CPPFLAGS -I$request_openssl/include";
 fi
 AM_CONDITIONAL([FOUND_OPENSSL_BIN], [test "x$FOUND_OPENSSL_BIN" != xno])
