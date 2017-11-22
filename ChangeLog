@@ -1,6 +1,6 @@
 v1.0.3
 ----------------------------------------------------------------------------------------------------
- * fixed various bugs in persisting job properties, so that status is persisted accross
+ * fixed various bugs in persisting job properties, so that status is persisted across
    child process changes and staging is reset on reloads.
  * changed MDCertificateAgreement url checks. As long as the CA reports that the account
    has an agreement, no further checking is done. Existing accounts need no changes when
