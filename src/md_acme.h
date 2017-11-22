@@ -125,7 +125,7 @@ apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *tos);
  * given in the agreement url.
  * If the known agreement is equal to this, nothing is done.
  * If it differs, the account is re-validated in the hope that the server
- * accounces the Tos URL it wants. If this is equal to the agreement specified,
+ * announces the Tos URL it wants. If this is equal to the agreement specified,
  * the server is notified of this. If the server requires a ToS that the account
  * thinks it has already given, it is resend.
  *
