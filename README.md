@@ -17,7 +17,7 @@ The plan is to backport the module and all the neccessary patches into the next 
 will be at least revision 2.4.30. And I will push for it to come out this year. Time will tell.
 
 For the impatient and danger seekers: what you find here is a copy of what lives inside the Apache httpd ```trunk``` repository. While people find an occasional
-hickup - mostly due to some unique aspect in the setups - several people, incuding myself, are running this inside a patched
+hickup - mostly due to some unique aspect in the setups - several people, including myself, are running this inside a patched
 2.4 Apache for months now. And successfully.  
 
 However, this is not _checkout, configure and shoot_. For it to work, you need a patched mod_ssl (patch is provided in directory ```patches```), but that is about the only complication.
