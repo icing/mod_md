@@ -762,7 +762,7 @@ static const char *md_config_set_notify_cmd(cmd_parms *cmd, void *arg, const cha
 
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1(     MD_CMD_CA, md_config_set_ca, NULL, RSRC_CONF, 
-                  "URL of CA issueing the certificates"),
+                  "URL of CA issuing the certificates"),
     AP_INIT_TAKE1(     MD_CMD_CAAGREEMENT, md_config_set_agreement, NULL, RSRC_CONF, 
                   "URL of CA Terms-of-Service agreement you accept"),
     AP_INIT_TAKE_ARGV( MD_CMD_CACHALLENGES, md_config_set_cha_tyes, NULL, RSRC_CONF, 
