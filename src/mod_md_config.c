@@ -774,7 +774,7 @@ const command_rec md_cmds[] = {
     AP_INIT_TAKE_ARGV( MD_CMD_MD, md_config_set_names, NULL, RSRC_CONF, 
                       "A group of server names with one certificate"),
     AP_INIT_RAW_ARGS(  MD_CMD_MD_SECTION, md_config_sec_start, NULL, RSRC_CONF, 
-                     "Container for a manged domain with common settings and certificate."),
+                     "Container for a managed domain with common settings and certificate."),
     AP_INIT_TAKE_ARGV( MD_CMD_MEMBER, md_config_sec_add_members, NULL, RSRC_CONF, 
                       "Define domain name(s) part of the Managed Domain. Use 'auto' or "
                       "'manual' to enable/disable auto adding names from virtual hosts."),
