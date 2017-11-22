@@ -203,7 +203,7 @@ Index: modules/ssl/ssl_private.h
      server_rec *server;
      
      const char *cipher_suite; /* cipher suite used in last reneg */
-+    int service_unavailable;  /* thouugh we negotiate SSL, no requests will be served */
++    int service_unavailable;  /* though we negotiate SSL, no requests will be served */
  } SSLConnRec;
  
  /* BIG FAT WARNING: SSLModConfigRec has unusual memory lifetime: it is
