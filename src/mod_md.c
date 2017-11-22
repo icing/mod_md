@@ -846,7 +846,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                 }
             }
             
-            /* FIXME: the server needs to start gracefully to take the new certficate in.
+            /* FIXME: the server needs to start gracefully to take the new certificate in.
              * This poses a variety of problems to solve satisfactory for everyone:
              * - I myself, have no implementation for Windows 
              * - on *NIX, child processes run with less privileges, preventing
