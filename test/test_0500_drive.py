@@ -336,7 +336,7 @@ class TestDrive :
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         assert TestEnv.apache_restart() == 0
 
-        # test overrride HSTS header
+        # test override HSTS header
         conf._add_line('  Header set Strict-Transport-Security "max-age=10886400; includeSubDomains; preload"')
         conf.install()
         assert TestEnv.apache_restart() == 0
