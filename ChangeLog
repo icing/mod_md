@@ -53,7 +53,7 @@ v0.9.5
    new certificates are requested with the OCSP Must Staple extension.
  * Known limitation: when the server is configured to ditch and restart child processes, for example
    after a certain number of connections/requests, the mod_md watchdog instance might migrate 
-   to a new child process. Since not all its state is persisted, some messsages might appear a
+   to a new child process. Since not all its state is persisted, some messages might appear a
    second time in the logs.
  * --with-openssl configure option provided by [caminada](https://github.com/caminada) to
    specify an uncommon location of the lib.
