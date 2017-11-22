@@ -176,7 +176,7 @@ apr_status_t md_acme_unstore_acct(struct md_store_t *store, apr_pool_t *p, const
 /* request handling */
 
 /**
- * Request callback on a successfull HTTP response (status 2xx).
+ * Request callback on a successful HTTP response (status 2xx).
  */
 typedef apr_status_t md_acme_req_res_cb(md_acme_t *acme, 
                                         const struct md_http_response_t *res, void *baton);
@@ -193,7 +193,7 @@ typedef struct md_acme_req_t md_acme_req_t;
 typedef apr_status_t md_acme_req_init_cb(md_acme_req_t *req, void *baton);
 
 /**
- * Request callback on a successfull response (HTTP response code 2xx) and content
+ * Request callback on a successful response (HTTP response code 2xx) and content
  * type matching application/.*json.
  */
 typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, apr_pool_t *p, 
