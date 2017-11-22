@@ -28,7 +28,7 @@ The Apache2 PPA for ubuntu by @oerdnj, see [here](https://launchpad.net/~ondrej/
 
 ### Test Status
 
-Tests have been verfied to run on MacOS and Ubuntu 16.04 under the following conditions:
+Tests have been verified to run on MacOS and Ubuntu 16.04 under the following conditions:
 
  * the *SSL library you compile with supports ```SNI``` 
  * curl is linked against this recent *SSL lib
