@@ -50,7 +50,7 @@ Please see the file called LICENSE.
 
 ## Credits
 
-This work is supported by an Award from MOSS, the Mozillla Open Source Support project. Many thanks to these excellent people! You are awesome!
+This work is supported by an Award from MOSS, the Mozilla Open Source Support project. Many thanks to these excellent people! You are awesome!
 
 Test cases mostly written by my colleague @michael-koeller who made this to a good part really a test driven development. Thanks!
 
