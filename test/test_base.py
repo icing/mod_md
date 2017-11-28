@@ -319,6 +319,7 @@ class TestEnv:
                 rv = 0 if cls.is_live(cls.HTTPD_CHECK_URL, 5) else -1
             else:
                 rv = 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 5) else -1
+                print ("waited for a apache.is_dead, rv=%d" % rv)
         return rv
 
     @classmethod
@@ -336,11 +337,10 @@ class TestEnv:
     @classmethod
     def apache_fail( cls ) :
         rv = cls.apachectl( "graceful", check_live=False )
-        if rv == 0:
-            return -1
-        else:
+        if rv != 0:
             print "check, if dead: " + cls.HTTPD_CHECK_URL
             return 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 5) else -1
+        return rv
         
     @classmethod
     def apache_err_reset( cls ):
@@ -357,17 +357,7 @@ class TestEnv:
         ecount = 0
         wcount = 0
         
-        if cls.apachectl_stderr:
-            for line in cls.apachectl_stderr.split():
-                m = cls.RE_MD_ERROR.match(line)
-                if m:
-                    ecount += 1
-                    continue
-                m = cls.RE_MD_WARN.match(line)
-                if m:
-                    wcount += 1
-                    continue
-        elif os.path.isfile(cls.ERROR_LOG):
+        if os.path.isfile(cls.ERROR_LOG):
             fin = open(cls.ERROR_LOG)
             for line in fin:
                 m = cls.RE_MD_ERROR.match(line)
