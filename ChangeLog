@@ -1,3 +1,7 @@
+v1.0.6
+----------------------------------------------------------------------------------------------------
+ * fix in configure: checking for the correct arc4random_buf now.
+
 v1.0.5
 ----------------------------------------------------------------------------------------------------
  * restricting post_config dry run to be more silent and performing

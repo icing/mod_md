@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [1.0.5], [stefan.eissing@greenbytes.de])
+AC_INIT([mod_md], [1.0.6], [stefan.eissing@greenbytes.de])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -321,7 +321,7 @@ AC_CHECK_HEADERS([ \
 ])
 
 # we'd like to use this, if it exists
-AC_CHECK_FUNC(arc4random, [CFLAGS="$CFLAGS -DMD_HAVE_ARC4RANDOM"], [])
+AC_CHECK_FUNC(arc4random_buf, [CFLAGS="$CFLAGS -DMD_HAVE_ARC4RANDOM"], [])
 
 
 # Checks for typedefs, structures, and compiler characteristics.
