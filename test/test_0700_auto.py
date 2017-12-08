@@ -497,6 +497,123 @@ class TestAuto:
         TestEnv.apachectl_stderr = None
         assert (0, 0) == TestEnv.apache_err_total()
 
+    #-----------------------------------------------------------------------------------------------
+    # test case: one MD with several dns names. sign up. remove the *first* name
+    # in the MD. restart. should find and keep the existing MD.
+    # See: https://github.com/icing/mod_md/issues/68
+    #
+    def test_7030(self):
+        domain = self.test_domain
+        nameX = "test-x." + domain
+        nameA = "test-a." + domain
+        nameB = "test-b." + domain
+        dns_list = [ nameX, nameA, nameB ]
+
+        # generate 1 MD and 2 vhosts
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.install()
+
+        # restart (-> drive), check that MD was synched and completes
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( nameX, dns_list )
+        assert TestEnv.await_completion( [ nameX ], 30 )
+        self._check_md_cert( dns_list )
+
+        # check: SSL is running OK
+        certA = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
+        assert nameA in certA.get_san_list()
+        certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameB)
+        assert nameB in certB.get_san_list()
+        assert certA.get_serial() == certB.get_serial()
+        
+        # change MD by removing 1st name
+        new_list = [ nameA, nameB ]
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_md( new_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.install()
+        # restart, check that host still works and have same cert
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( nameX, new_list )
+        assert TestEnv.await_completion( [ nameX ], 30 )
+
+        certA2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
+        assert nameA in certA2.get_san_list()
+        assert certA.get_serial() == certA2.get_serial()
+
+    #-----------------------------------------------------------------------------------------------
+    # test case: Same as 7030, but remove *and* add another at the same time.
+    # restart. should find and keep the existing MD and renew for additional name.
+    # See: https://github.com/icing/mod_md/issues/68
+    #
+    def test_7031(self):
+        domain = self.test_domain
+        nameX = "test-x." + domain
+        nameA = "test-a." + domain
+        nameB = "test-b." + domain
+        nameC = "test-c." + domain
+        dns_list = [ nameX, nameA, nameB ]
+
+        # generate 1 MD and 2 vhosts
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.install()
+
+        # restart (-> drive), check that MD was synched and completes
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( nameX, dns_list )
+        assert TestEnv.await_completion( [ nameX ], 30 )
+        self._check_md_cert( dns_list )
+
+        # check: SSL is running OK
+        certA = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
+        assert nameA in certA.get_san_list()
+        certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameB)
+        assert nameB in certB.get_san_list()
+        assert certA.get_serial() == certB.get_serial()
+        
+        # change MD by removing 1st name
+        new_list = [ nameA, nameB, nameC ]
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_md( new_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.install()
+        # restart, check that host still works and have same cert
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( nameX, new_list )
+        assert TestEnv.await_completion( [ nameX ], 30 )
+
+        certA2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
+        assert nameA in certA2.get_san_list()
+        assert certA.get_serial() != certA2.get_serial()
+
     # --------- _utils_ ---------
 
     def _write_res_file(self, docRoot, name, content):

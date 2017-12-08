@@ -5,6 +5,7 @@ v1.0.7
    will lead to shorter chains as the "up" links will stop at the cert that browsers
    trust instead of always going to the topmost root. 
    See https://github.com/letsencrypt/boulder/issues/3259
+ * Fixed a missing argument in a debug log statement.
 
 v1.0.6
 ----------------------------------------------------------------------------------------------------
