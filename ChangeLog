@@ -1,3 +1,11 @@
+v1.0.7
+----------------------------------------------------------------------------------------------------
+ * removed old EXPERIMENTAL code for defaulting to Lets Encrypt staging area.
+ * acme now follows "up" link headers to retrieve issuer certificate chain. This
+   will lead to shorter chains as the "up" links will stop at the cert that browsers
+   trust instead of always going to the topmost root. 
+   See https://github.com/letsencrypt/boulder/issues/3259
+
 v1.0.6
 ----------------------------------------------------------------------------------------------------
  * fix in configure: checking for the correct arc4random_buf now.

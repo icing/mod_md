@@ -155,15 +155,7 @@ AC_SUBST(WERROR_CFLAGS)
 AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
 AC_PATH_PROG([PKGCONFIG], [pkg-config])
 
-MD_EXPERIMENTAL=0
-AC_SUBST(MD_EXPERIMENTAL)
-
-# When experimental, default to the LetsEncrypt ACME staging endpoint
-if test "x$MD_EXPERIMENTAL" = "x1"; then
-    ACME_DEF_URL=https://acme-staging.api.letsencrypt.org/directory
-else
-    ACME_DEF_URL=https://acme-v01.api.letsencrypt.org/directory
-fi
+ACME_DEF_URL=https://acme-v01.api.letsencrypt.org/directory
 AC_SUBST(ACME_DEF_URL)
 
 if test "x$request_boulder" = "xdef"; then
