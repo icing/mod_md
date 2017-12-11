@@ -40,6 +40,7 @@ class TestEnv:
         cls.TESTROOT   = os.path.join(cls.WEBROOT, '..', '..')
 
         cls.APACHECTL = os.path.join(cls.PREFIX, 'bin', 'apachectl')
+        cls.APXS = os.path.join(cls.PREFIX, 'bin', 'apxs')
         cls.ERROR_LOG = os.path.join(cls.WEBROOT, "logs", "error_log")
         cls.APACHE_CONF_DIR = os.path.join(cls.WEBROOT, "conf")
         cls.APACHE_SSL_DIR = os.path.join(cls.APACHE_CONF_DIR, "ssl")
@@ -209,6 +210,23 @@ class TestEnv:
             pytest.fail(msg="ACME server not running", pytrace=False)
             return False
 
+    @classmethod
+    def get_httpd_version( cls ) :
+        p = subprocess.Popen([ cls.APXS, "-q", "HTTPD_VERSION" ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (output, errput) = p.communicate()
+        rv = p.wait()
+        if rv != 0:
+            return "unknown"
+        return output.strip()
+        
+    @classmethod
+    def _versiontuple( cls, v ):
+        return tuple(map(int, (v.split("."))))
+    
+    @classmethod
+    def httpd_is_at_least( cls, minv ) :
+        hv = cls._versiontuple(cls.get_httpd_version())
+        return hv >= cls._versiontuple(minv)
 
     # --------- access local store ---------
 

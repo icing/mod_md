@@ -1,3 +1,6 @@
+ * added httpd version checks to test cases that make use of 2.5.0 mod_ssl features. Tests now
+   run clean against a 2.4.30 installation.
+
 v1.1.0
 ----------------------------------------------------------------------------------------------------
  * IMPORTANT: name change in configuration directives. The Apache team decided that the current
