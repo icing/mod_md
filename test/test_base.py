@@ -542,7 +542,7 @@ class HttpdConf(object):
         self._add_line("  ServerAdmin mailto:%s\n\n" % email)
 
     def add_md(self, dnsList):
-        self._add_line("  ManagedDomain %s\n\n" % " ".join(dnsList))
+        self._add_line("  MDomain %s\n\n" % " ".join(dnsList))
 
     def add_must_staple(self, mode):
         self._add_line("  MDMustStaple %s\n" % mode)
