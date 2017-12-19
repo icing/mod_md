@@ -417,6 +417,7 @@ class TestEnv:
         fin = open(cls.ERROR_LOG)
         for line in fin:
             m = regex.match(line)
+            print ("match: %s" % line)
             if m:
                 return True
         return False

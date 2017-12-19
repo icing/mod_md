@@ -92,6 +92,7 @@
 		B262F6DD1EFCFE1100D396A1 /* test_011.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_011.conf; sourceTree = "<group>"; };
 		B262F6DE1EFCFE1100D396A1 /* test_012.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_012.conf; sourceTree = "<group>"; };
 		B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
+		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
 		B2B330051F39E1D300579179 /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
 		B2B330061F39E1D300579179 /* md_acme_acct.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_acct.h; sourceTree = "<group>"; };
@@ -273,6 +274,7 @@
 				758572931F6FBB4000A0FB3C /* test_020a.conf */,
 				758572941F6FBB4000A0FB3C /* test_020b.conf */,
 				758572951F6FBB4000A0FB3C /* test_020c.conf */,
+				B27308851FE924A9001E049F /* gh-issue-68.conf */,
 			);
 			path = test_conf_validate;
 			sourceTree = "<group>";

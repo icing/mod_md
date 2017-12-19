@@ -193,3 +193,15 @@ class TestConf:
         TestEnv.install_test_conf(confFile);
         assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(confFile)
         assert expErrMsg in TestEnv.apachectl_stderr
+
+    @pytest.mark.parametrize("confFile,expErrMsg", [ 
+        ("gh-issue-68", ".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', but the name/alias not.secret.com itself is not managed. A requested MD certificate will not match ServerName.*" 
+        ), 
+    ])
+    def test_300_021(self, confFile, expErrMsg):
+        TestEnv.install_test_conf(confFile);
+        assert TestEnv.apache_fail() == 0, "Server did start for {}".format(confFile)
+        assert (1, 0) == TestEnv.apache_err_count()
+        if expErrMsg:
+            assert TestEnv.apache_err_scan( re.compile(expErrMsg) )
+
