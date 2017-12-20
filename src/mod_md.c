@@ -1044,11 +1044,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         goto out;
     }
     
-    if (dry_run) {
-        /* enough done in this case */
-        return APR_SUCCESS;
-    }
-    
     if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, mc->mds))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
                      "synching %d mds to registry", mc->mds->nelts);
@@ -1082,6 +1077,10 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     }
     
     init_ssl();
+    
+    if (dry_run) {
+        goto out;
+    }
     
     /* If there are MDs to drive, start a watchdog to check on them regularly */
     if (drive_names->nelts > 0) {

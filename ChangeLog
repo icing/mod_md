@@ -1,3 +1,8 @@
+v1.1.2
+----------------------------------------------------------------------------------------------------
+ * The first configuration check was skipping parts that are needed, especially for new
+   MDs, and crash if mod_ssl calls back "too early". Reverting that change.
+
 v1.1.1
 ----------------------------------------------------------------------------------------------------
  * Fixed backward compaitbility to '<ManagedDomain' configurations, used in pre v1.1.0 versions
