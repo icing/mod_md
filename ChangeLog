@@ -1,3 +1,7 @@
+v1.1.3
+----------------------------------------------------------------------------------------------------
+ * Fixed wrong mem pool use for auto-added server names.
+ 
 v1.1.2
 ----------------------------------------------------------------------------------------------------
  * The first configuration check was skipping parts that are needed, especially for new
