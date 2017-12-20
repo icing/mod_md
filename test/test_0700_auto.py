@@ -139,6 +139,7 @@ class TestAuto:
         # generate 1 MD and 2 vhosts
         conf = HttpdConf( TestAuto.TMP_CONF )
         conf.add_admin( "admin@" + domain )
+        conf.add_must_staple("on")    # add in some variety        
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
                         withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
