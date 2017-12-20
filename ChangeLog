@@ -1,3 +1,9 @@
+v1.1.4
+----------------------------------------------------------------------------------------------------
+ * When ACME fails to authenticate your domain, the exact server answer is logged
+   as error. This helps to find out the reason for the failed challenge, for example
+   when ACME reports a 'Timeout' if it could not reach your server. Implements #70.
+
 v1.1.3
 ----------------------------------------------------------------------------------------------------
  * Fixed wrong mem pool use for auto-added server names.
