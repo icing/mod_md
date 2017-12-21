@@ -443,29 +443,21 @@ static apr_status_t setup_store(md_store_t **pstore, md_mod_conf_t *mc,
 {
     const char *base_dir;
     apr_status_t rv;
+    MD_CHK_VARS;
     
     base_dir = ap_server_root_relative(p, mc->base_dir);
     
-    if (APR_SUCCESS != (rv = md_store_fs_init(pstore, p, base_dir))) {
+    if (!MD_OK(md_store_fs_init(pstore, p, base_dir))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10046)"setup store for %s", base_dir);
         goto out;
     }
 
     md_store_fs_set_event_cb(*pstore, store_file_ev, s);
-    if (APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_CHALLENGES, p, s))) {
+    if (   !MD_OK(check_group_dir(*pstore, MD_SG_CHALLENGES, p, s))
+        || !MD_OK(check_group_dir(*pstore, MD_SG_STAGING, p, s))
+        || !MD_OK(check_group_dir(*pstore, MD_SG_ACCOUNTS, p, s))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10047) 
-                     "setup challenges directory");
-        goto out;
-    }
-    if (APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_STAGING, p, s))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10048) 
-                     "setup staging directory");
-        goto out;
-    }
-    if (APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_ACCOUNTS, p, s))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10049) 
-                     "setup accounts directory");
-        goto out;
+                     "setup challenges directory, call %s", MD_LAST_CHK);
     }
     
 out:
@@ -479,12 +471,13 @@ static apr_status_t setup_reg(md_reg_t **preg, apr_pool_t *p, server_rec *s,
     md_mod_conf_t *mc;
     md_store_t *store;
     apr_status_t rv;
+    MD_CHK_VARS;
     
     sc = md_config_get(s);
     mc = sc->mc;
     
-    if (APR_SUCCESS == (rv = setup_store(&store, mc, p, s))
-        && APR_SUCCESS == (rv = md_reg_init(preg, p, store, mc->proxy_url))) {
+    if (   MD_OK(setup_store(&store, mc, p, s))
+        && MD_OK(md_reg_init(preg, p, store, mc->proxy_url))) {
         mc->reg = *preg;
         return md_reg_set_props(*preg, p, can_http, can_https); 
     }
@@ -1117,26 +1110,28 @@ static int md_is_managed(server_rec *s)
     return 0;
 }
 
-static apr_status_t setup_fallback_cert(md_store_t *store, const md_t *md, apr_pool_t *p)
+static apr_status_t setup_fallback_cert(md_store_t *store, const md_t *md, 
+                                        server_rec *s, apr_pool_t *p)
 {
     md_pkey_t *pkey;
     md_cert_t *cert;
     md_pkey_spec_t spec;
     apr_status_t rv;
-
+    MD_CHK_VARS;
+    
     spec.type = MD_PKEY_TYPE_RSA;
     spec.params.rsa.bits = MD_PKEY_RSA_BITS_DEF;
-        
-    if (   APR_SUCCESS == (rv = md_pkey_gen(&pkey, p, &spec))
-        && APR_SUCCESS == (rv = md_store_save(store, p, MD_SG_DOMAINS, md->name, 
-                                              MD_FN_FALLBACK_PKEY, MD_SV_PKEY, (void*)pkey, 0))
-        && APR_SUCCESS == (rv = md_cert_self_sign(&cert, "Apache Managed Domain Fallback", 
-                                                  md->domains, pkey, 
-                                                  apr_time_from_sec(14 * MD_SECS_PER_DAY), p))) {
-        rv = md_store_save(store, p, MD_SG_DOMAINS, md->name, 
-                           MD_FN_FALLBACK_CERT, MD_SV_CERT, (void*)cert, 0);
+    
+    if (   !MD_OK(md_pkey_gen(&pkey, p, &spec))
+        || !MD_OK(md_store_save(store, p, MD_SG_DOMAINS, md->name, 
+                                MD_FN_FALLBACK_PKEY, MD_SV_PKEY, (void*)pkey, 0))
+        || !MD_OK(md_cert_self_sign(&cert, "Apache Managed Domain Fallback", 
+                                    md->domains, pkey, apr_time_from_sec(14 * MD_SECS_PER_DAY), p))
+        || !MD_OK(md_store_save(store, p, MD_SG_DOMAINS, md->name, 
+                                MD_FN_FALLBACK_CERT, MD_SV_CERT, (void*)cert, 0))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,  
+                     "%s: setup fallback certificate, call %s", md->name, MD_LAST_CHK);
     }
-
     return rv;
 }
 
@@ -1153,6 +1148,7 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     md_reg_t *reg;
     md_store_t *store;
     const md_t *md;
+    MD_CHK_VARS;
     
     *pkeyfile = NULL;
     *pcertfile = NULL;
@@ -1168,7 +1164,7 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
 
         md = md_reg_get(reg, sc->assigned->name, p);
             
-        if (APR_SUCCESS != (rv = md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile))) {
+        if (!MD_OK(md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile))) {
             ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110) 
                          "retrieving credentials for MD %s", md->name);
             return rv;
@@ -1184,9 +1180,7 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
             md_store_get_fname(pcertfile, store, MD_SG_DOMAINS, 
                                md->name, MD_FN_FALLBACK_CERT, p);
             if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
-                if (APR_SUCCESS != (rv = setup_fallback_cert(store, md, p))) {
-                    ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, s,  
-                                 "%s: setup fallback certificate", md->name);
+                if (!MD_OK(setup_fallback_cert(store, md, s, p))) {
                     return rv;
                 }
             }
