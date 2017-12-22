@@ -1154,52 +1154,76 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     *pcertfile = NULL;
     
     sc = md_config_get(s);
-    
-    if (sc && sc->assigned) {
-        assert(sc->mc);
-        reg = sc->mc->reg;
-        assert(reg);
-        store = md_reg_store_get(reg);
-        assert(store);
-
-        md = md_reg_get(reg, sc->assigned->name, p);
-            
-        if (!MD_OK(md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile))) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110) 
-                         "retrieving credentials for MD %s", md->name);
-            return rv;
-        }
-
-        if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
-            /* Provide temporary, self-signed certificate as fallback, so that
-             * clients do not get obscure TLS handshake errors or will see a fallback
-             * virtual host that is not intended to be served here. */
-             
-            md_store_get_fname(pkeyfile, store, MD_SG_DOMAINS, 
-                               md->name, MD_FN_FALLBACK_PKEY, p);
-            md_store_get_fname(pcertfile, store, MD_SG_DOMAINS, 
-                               md->name, MD_FN_FALLBACK_CERT, p);
-            if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
-                if (!MD_OK(setup_fallback_cert(store, md, s, p))) {
-                    return rv;
-                }
-            }
-            
-            ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,  
-                         "%s: providing fallback certificate for server %s", 
-                         md->name, s->server_hostname);
-            return APR_EAGAIN;
-        }
-
-        /* We have key and cert files, but they might no longer be valid or not
-         * match all domain names. Still use these files for now, but indicate that 
-         * resources should no longer be served until we have a new certificate again. */
-        if (md->state != MD_S_COMPLETE) {
-            return APR_EAGAIN;
-        }
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10077) 
-                     "%s: providing certificate for server %s", md->name, s->server_hostname);
+    if (!sc) {
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,  
+                     "asked for certificate of server %s which has no md config", 
+                     s->server_hostname);
+        return APR_ENOENT;
     }
+    
+    if (!sc->assigned) {
+        /* Hmm, mod_ssl (or someone like it) asks for certificates for a server
+         * where we did not assign a MD to. Either the user forgot to configure
+         * that server with SSL certs, has misspelled a server name or we have
+         * a bug that prevented us from taking responsibility for this server.
+         * Either way, make some polite noise */
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s, APLOGNO()  
+                     "asked for certificate of server %s which has no MD assigned. This "
+                     "could be ok, but most likely it is either a misconfiguration or "
+                     "a bug. Please check server names and MD names carefully and if "
+                     "everything checks open, please open an issue.", 
+                     s->server_hostname);
+        return APR_ENOENT;
+    }
+    
+    assert(sc->mc);
+    assert((reg = sc->mc->reg));
+    
+    md = md_reg_get(reg, sc->assigned->name, p);
+    if (!md) {
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO() 
+                     "unable to hand out certificates, as registry can no longer "
+                     "find MD '%s'.", sc->assigned->name);
+        return APR_ENOENT;
+    }
+    
+    if (!MD_OK(md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110) 
+                     "retrieving credentials for MD %s", md->name);
+        return rv;
+    }
+    
+    if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
+        /* Provide temporary, self-signed certificate as fallback, so that
+         * clients do not get obscure TLS handshake errors or will see a fallback
+         * virtual host that is not intended to be served here. */
+        store = md_reg_store_get(reg);
+        assert(store);    
+        
+        md_store_get_fname(pkeyfile, store, MD_SG_DOMAINS, 
+                           md->name, MD_FN_FALLBACK_PKEY, p);
+        md_store_get_fname(pcertfile, store, MD_SG_DOMAINS, 
+                           md->name, MD_FN_FALLBACK_CERT, p);
+        if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
+            if (!MD_OK(setup_fallback_cert(store, md, s, p))) {
+                return rv;
+            }
+        }
+        
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()  
+                     "%s: providing fallback certificate for server %s", 
+                     md->name, s->server_hostname);
+        return APR_EAGAIN;
+    }
+    
+    /* We have key and cert files, but they might no longer be valid or not
+     * match all domain names. Still use these files for now, but indicate that 
+     * resources should no longer be served until we have a new certificate again. */
+    if (md->state != MD_S_COMPLETE) {
+        rv = APR_EAGAIN;
+    }
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10077) 
+                 "%s: providing certificate for server %s", md->name, s->server_hostname);
     return rv;
 }
 

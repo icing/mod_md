@@ -2,7 +2,9 @@ v1.1.5
 ----------------------------------------------------------------------------------------------------
  * Some attempts at code readability, increased logging level for fallback cert generation that
    was swept under the DEBUG carpet before.
-
+ * More verbosity when *not* handing out certificates, e.g. mod_ssl asks, but mod_md has no
+   idea what it is talking about. Some people report misbehaviour here.
+ 
 v1.1.4
 ----------------------------------------------------------------------------------------------------
  * When ACME fails to authenticate your domain, the exact server answer is logged
