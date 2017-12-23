@@ -4,6 +4,8 @@ v1.1.5
    was swept under the DEBUG carpet before.
  * More verbosity when *not* handing out certificates, e.g. mod_ssl asks, but mod_md has no
    idea what it is talking about. Some people report misbehaviour here.
+ * Re-enabled support for md_get_credentials() function that was used in older mod_ssl
+   patch, so that people with old patched servers get a chance to upgrade.
  
 v1.1.4
 ----------------------------------------------------------------------------------------------------

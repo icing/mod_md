@@ -1152,7 +1152,10 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     
     *pkeyfile = NULL;
     *pcertfile = NULL;
-    
+
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO()
+                 "md_get_certificate called for vhost %s.", s->server_hostname);
+
     sc = md_config_get(s);
     if (!sc) {
         ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,  
@@ -1225,6 +1228,22 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10077) 
                  "%s: providing certificate for server %s", md->name, s->server_hostname);
     return rv;
+}
+
+static int compat_warned;
+static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
+                                       const char **pkeyfile, 
+                                       const char **pcertfile, 
+                                       const char **pchainfile)
+{
+    *pchainfile = NULL;
+    if (!compat_warned) {
+        compat_warned = 1;
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, /* no APLOGNO */
+                     "You are using mod_md with an old patch to mod_ssl. This will "
+                     " work for now, but support will be dropped in a future release.");
+    }
+    return md_get_certificate(s, p, pkeyfile, pcertfile);
 }
 
 static int md_is_challenge(conn_rec *c, const char *servername,
@@ -1416,5 +1435,6 @@ static void md_hooks(apr_pool_t *pool)
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);
     APR_REGISTER_OPTIONAL_FN(md_is_challenge);
+    APR_REGISTER_OPTIONAL_FN(md_get_credentials);
 }
 

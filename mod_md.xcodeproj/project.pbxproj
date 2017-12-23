@@ -169,7 +169,6 @@
 		B2FC60741F597352005B7D9E /* test_016c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016c.conf; sourceTree = "<group>"; };
 		B2FC60751F597352005B7D9E /* test_016d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016d.conf; sourceTree = "<group>"; };
 		B2FC60761F59894A005B7D9E /* TODO.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = SOURCE_ROOT; };
-		B2FC607E1F6826C6005B7D9E /* mod_ssl_md-2.4.x-v4.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "mod_ssl_md-2.4.x-v4.diff"; sourceTree = "<group>"; };
 		B2FC607F1F682781005B7D9E /* mod_ssl_md-2.4.x-v5.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "mod_ssl_md-2.4.x-v5.diff"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -531,7 +530,6 @@
 		B2FC60771F5D95DD005B7D9E /* patches */ = {
 			isa = PBXGroup;
 			children = (
-				B2FC607E1F6826C6005B7D9E /* mod_ssl_md-2.4.x-v4.diff */,
 				B2FC607F1F682781005B7D9E /* mod_ssl_md-2.4.x-v5.diff */,
 			);
 			path = patches;
