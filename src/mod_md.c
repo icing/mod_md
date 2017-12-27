@@ -1180,7 +1180,8 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     }
     
     assert(sc->mc);
-    assert((reg = sc->mc->reg));
+    reg = sc->mc->reg;
+    assert(reg);
     
     md = md_reg_get(reg, sc->assigned->name, p);
     if (!md) {
