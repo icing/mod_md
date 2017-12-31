@@ -1,3 +1,9 @@
+v1.1.7-DEV
+----------------------------------------------------------------------------------------------------
+ * MDMustStaple was unable to create the necessary OpenSSL OBJ identifier on some platforms, 
+   possibly because this fails if the OID is already configured in ```openssl.cnf```, see
+   [here](https://github.com/openssl/openssl/issues/2795).
+ 
 v1.1.6
 ----------------------------------------------------------------------------------------------------
  * Fixing a bug when code in assert() checks is not executed.
