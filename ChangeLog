@@ -1,4 +1,4 @@
-v1.1.7-DEV
+v1.1.7
 ----------------------------------------------------------------------------------------------------
  * MDMustStaple was unable to create the necessary OpenSSL OBJ identifier on some platforms, 
    possibly because this fails if the OID is already configured in ```openssl.cnf```, see
