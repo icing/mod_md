@@ -96,9 +96,60 @@ class TestAuto:
         assert self.get_ocsp_response(domain) == "no response sent" 
 
     #-----------------------------------------------------------------------------------------------
-    # MD that must staple
+    # MD that must staple and toggle off again
     # 
     def test_8003(self):
+        domain = self.test_domain
+        dns_list = [ domain ]
+
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_must_staple( "on" )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.install()
+
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.apache_restart() == 0
+        self._check_md_cert( dns_list )
+        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        assert cert1.get_must_staple()
+
+        # toggle MDMustStaple off, expect a cert that has it disabled
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_must_staple( "off" )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.install()
+
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.apache_restart() == 0
+        self._check_md_cert( dns_list )
+        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        assert not cert1.get_must_staple()
+    
+        # toggle MDMustStaple on again, expect a cert that has it enabled
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_must_staple( "on" )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.install()
+
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.apache_restart() == 0
+        self._check_md_cert( dns_list )
+        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        assert cert1.get_must_staple()
+
+    #-----------------------------------------------------------------------------------------------
+    # MD that must staple
+    # 
+    def test_8004(self):
         domain = self.test_domain
         dns_list = [ domain ]
 

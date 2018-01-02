@@ -4,6 +4,7 @@ v1.1.7-DEV
    possibly because this fails if the OID is already configured in ```openssl.cnf```, see
    [here](https://github.com/openssl/openssl/issues/2795).
  * Two memory leaks in cert issuer and alt-names lookup eliminated by Yann Ylavic.
+ * Changing MDMustStaple triggers certificate renewal.
 
 v1.1.6
 ----------------------------------------------------------------------------------------------------

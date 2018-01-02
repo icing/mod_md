@@ -1091,6 +1091,26 @@ static apr_status_t sk_add_alt_names(STACK_OF(X509_EXTENSION) *exts,
 #define MD_OID_MUST_STAPLE_SNAME        "tlsfeature"
 #define MD_OID_MUST_STAPLE_LNAME        "TLS Feature" 
 
+static int get_must_staple_nid()
+{
+    /* Funny API, the OID for must staple might be configured or
+     * might be not. In the second case, we need to add it. But adding
+     * when it already is there is an error... */
+    int nid = OBJ_txt2nid(MD_OID_MUST_STAPLE_NUM);
+    if (NID_undef == nid) {
+        nid = OBJ_create(MD_OID_MUST_STAPLE_NUM, 
+                         MD_OID_MUST_STAPLE_SNAME, MD_OID_MUST_STAPLE_LNAME);
+    }
+    return nid;
+}
+
+int md_cert_must_staple(md_cert_t *cert)
+{
+    /* In case we do not get the NID for it, we treat this as not set. */
+    int nid = get_must_staple_nid();
+    return ((NID_undef != nid)) && X509_get_ext_by_NID(cert->x509, nid, -1) >= 0;
+}
+
 static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const md_t *md, apr_pool_t *p)
 {
     
@@ -1098,14 +1118,7 @@ static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const md_t *
         X509_EXTENSION *x;
         int nid;
         
-        /* Funny API, the OID for must staple might be configured or
-         * might be not. In the second case, we need to add it. But adding
-         * when it already is there is an error... */
-        nid = OBJ_txt2nid(MD_OID_MUST_STAPLE_NUM);
-        if (NID_undef == nid) {
-            nid = OBJ_create(MD_OID_MUST_STAPLE_NUM, 
-                             MD_OID_MUST_STAPLE_SNAME, MD_OID_MUST_STAPLE_LNAME);
-        }
+        nid = get_must_staple_nid();
         if (NID_undef == nid) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
                           "%s: unable to get NID for v3 must-staple TLS feature", md->name);
