@@ -778,10 +778,6 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                              "next run in %s", md_print_duration(ptemp, next_run - now));
             }
             wd_set_interval(wd->watchdog, next_run - now, wd, run_watchdog);
-
-            for (i = 0; i < wd->jobs->nelts; ++i) {
-                job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
-            }
             break;
             
         case AP_WATCHDOG_STATE_STOPPING:
