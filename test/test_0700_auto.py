@@ -139,7 +139,6 @@ class TestAuto:
         # generate 1 MD and 2 vhosts
         conf = HttpdConf( TestAuto.TMP_CONF )
         conf.add_admin( "admin@" + domain )
-        conf.add_must_staple("on")    # add in some variety        
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
                         withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
@@ -199,7 +198,6 @@ class TestAuto:
         # check SSL running OK
         cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert domain in cert.get_san_list()
-        assert not cert.get_must_staple()
 
     #-----------------------------------------------------------------------------------------------
     # test case: drive_mode manual, check that server starts, but requests to domain are 503'd
@@ -273,29 +271,6 @@ class TestAuto:
         assert nameA in cert.get_san_list()
         assert TestEnv.getStatus(nameA, "/name.txt") == 503
 
-
-    #-----------------------------------------------------------------------------------------------
-    # MD not used in any virtual host, with drive mode 'always'
-    # auto drive *should* pick it up
-    #
-    def test_7007(self):
-        domain = self.test_domain
-        dns_list = [ domain ]
-
-        conf = HttpdConf( TestAuto.TMP_CONF )
-        conf.add_admin( "admin@" + domain )
-        conf.add_drive_mode( "always" )
-        conf.add_must_staple( "on" )
-        conf.add_md( dns_list )
-        conf.install()
-
-        # - restart (-> drive), check that md is in store
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
-        assert TestEnv.apache_restart() == 0
-        self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
-        assert cert1.get_must_staple()
 
     #-----------------------------------------------------------------------------------------------
     # Specify a non-working http proxy

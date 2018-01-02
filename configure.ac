@@ -169,7 +169,9 @@ AC_SUBST(BOULDER_URL)
 # this is always the same, so far
 BOULDER_TOS=http://boulder:4000/terms/v1
 AC_SUBST(BOULDER_TOS)
-
+# the url where boulder keeps the issuer certificate
+BOULDER_ISSUER_CERT=http://boulder:4000/acme/issuer-cert
+AC_SUBST(BOULDER_ISSUER_CERT)
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.
