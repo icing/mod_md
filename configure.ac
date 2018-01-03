@@ -360,7 +360,7 @@ AC_MSG_NOTICE([summary of build options:
     HTTPD-VERSION:  ${HTTPD_VERSION}
     C compiler:     ${CC}
     CFLAGS:         ${CFLAGS}
-    WARNCFLAGS:     ${WARNCFLAGS}
+    WARNCFLAGS:     ${WERROR_CFLAGS}
     LDFLAGS:        ${LDFLAGS}
     LIBS:           ${LIBS}
     CPPFLAGS:       ${CPPFLAGS}
