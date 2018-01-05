@@ -1,5 +1,9 @@
-v1.1.8-DEV
+v1.1.8
 ----------------------------------------------------------------------------------------------------
+ * new configuration directive "MDBaseServer on|off" to allow/inhibit management of the base
+   server domains outside VirtualHosts. By default, this is "off", e.g. mod_md will not manage
+   certificates or perform https: redirections on the base server. This follows the 
+   principle of least surprise.
  * Fixed gcc warnings.
 
 v1.1.7
