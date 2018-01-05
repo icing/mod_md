@@ -18,4 +18,4 @@ url_default=@ACME_DEF_URL@
 url = @BOULDER_URL@
 tos = @BOULDER_TOS@
 tos2 = @BOULDER_TOS@/invalid
-issuer_url = @BOULDER_ISSUER_CERT@
+boulder_dir = @BOULDER_DIR@ 

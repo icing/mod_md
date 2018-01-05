@@ -167,8 +167,9 @@ class TestAuto:
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
         assert cert1.get_must_staple()
+        assert self.get_verify_response(domain) == "0 (ok)" 
         # enable once we implement ocsp stapling support
-        #assert self.get_ocsp_response(domain) == "successful (0x0)" 
+        # assert self.get_ocsp_response(domain) == "successful (0x0)" 
 
     # --------- _utils_ ---------
 
@@ -181,13 +182,16 @@ class TestAuto:
         assert os.path.isfile( TestEnv.path_domain_privkey(name) )
         assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
 
-    def get_ocsp_response(self, domain):
-        r = TestEnv.run( [ "openssl", "s_client", "-status", 
+    def get_client_status(self, domain):
+        return TestEnv.run( [ "openssl", "s_client", "-status", 
                           "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
-                          "-CAfile", "%s/issuer.pem" % TestEnv.GEN_DIR, 
+                          "-CAfile", "gen/ca.pem", 
                           "-servername", domain,
                           "-showcerts"
                           ] )
+    
+    def get_ocsp_response(self, domain):
+        r = self.get_client_status( domain )
         regex = re.compile(r'OCSP response:\s*(.+)')
         matches = regex.finditer(r["stdout"])
         for m in matches:
@@ -200,3 +204,11 @@ class TestAuto:
                 return m.group(1)
         return None
         
+    def get_verify_response(self, domain):
+        r = self.get_client_status( domain )
+        regex = re.compile(r'Verify return code:\s*(.+)')
+        matches = regex.finditer(r["stdout"])
+        for m in matches:
+            if m.group(1) != "":
+                return m.group(1)
+        return None

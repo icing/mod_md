@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [1.1.7], [stefan.eissing@greenbytes.de])
+AC_INIT([mod_md], [1.1.8-DEV], [stefan.eissing@greenbytes.de])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -73,6 +73,9 @@ AC_ARG_WITH([jansson], [AS_HELP_STRING([--with-jansson], [Use jansson from this 
 
 AC_ARG_WITH([openssl], [AS_HELP_STRING([--with-openssl], [Use openssl from this prefix])],
     [request_openssl=$withval], [request_openssl=check])
+
+AC_ARG_WITH([boulder-dir], [AS_HELP_STRING([--with-boulder-dir], [Use boulder from this directory])],
+    [request_boulder_dir=$withval], [request_boulder_dir=def])
 
 
 SERVER_NAME=$(hostname -f)
@@ -169,9 +172,18 @@ AC_SUBST(BOULDER_URL)
 # this is always the same, so far
 BOULDER_TOS=http://boulder:4000/terms/v1
 AC_SUBST(BOULDER_TOS)
-# the url where boulder keeps the issuer certificate
-BOULDER_ISSUER_CERT=http://boulder:4000/acme/issuer-cert
-AC_SUBST(BOULDER_ISSUER_CERT)
+
+
+# the path where boulder is installed
+if test "x$request_boulder_dir" = "xdef"; then
+    BOULDER_DIR="$GOPATH/src/github.com/letsencrypt/boulder"
+    test -d "$BOULDER_DIR" || AC_MSG_ERROR([boulder installation not found in default location $BOULDER_DIR. Please use --with-boulder-dir to specify the correct location. ])
+else
+    BOULDER_DIR="$request_boulder_dir"
+    test -d "$BOULDER_DIR" || AC_MSG_ERROR([boulder installation not found as specified in $BOULDER_DIR.])
+fi
+
+AC_SUBST(BOULDER_DIR)
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.
@@ -368,4 +380,5 @@ AC_MSG_NOTICE([summary of build options:
     curl-config     ${curl_config:--}
     jansson         ${JANSSON_PREFIX:--}
     openssl         ${OPENSSL_BIN:--}
+    boulder         ${BOULDER_DIR} (${BOULDER_URL})
 ])

@@ -36,7 +36,7 @@ class TestEnv:
         cls.ACME_URL  = cls.config.get('acme', 'url')
         cls.ACME_TOS  = cls.config.get('acme', 'tos')
         cls.ACME_TOS2 = cls.config.get('acme', 'tos2')
-        cls.ACME_ISSUER_URL = cls.config.get('acme', 'issuer_url')
+        cls.BOULDER_DIR = cls.config.get('acme', 'boulder_dir')
         cls.WEBROOT   = cls.config.get('global', 'server_dir')
         cls.TESTROOT   = os.path.join(cls.WEBROOT, '..', '..')
 

@@ -15,6 +15,7 @@
 
 SERVER_DIR     = @SERVER_DIR@
 GEN            = gen
+BOULDER_DIR    = @BOULDER_DIR@
 
 .phony: unit_tests
 
@@ -85,11 +86,20 @@ test-configs: $(SERVER_DIR)/.test-setup
 	@py.test test_0300_conf_validate.py
 	@py.test test_0310_conf_store.py
 
+# The certificates we need to verify the cert chain we retrieved from ACME
+# For now, we need these two, although a fix is underway that only one becomes
+# necessary. See: https://github.com/letsencrypt/boulder/issues/3307
+$(GEN)/ca.pem: \
+    $(BOULDER_DIR)/test/test-ca.pem \
+    $(BOULDER_DIR)/test/test-ca2.pem
+	@cat $(BOULDER_DIR)/test/test-root.pem $(BOULDER_DIR)/test/test-ca2.pem > $(GEN)/ca.pem
+
 $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/htdocs/index.html \
 		$(SERVER_DIR)/conf/ssl/valid_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_cert.pem \
-		$(SERVER_DIR)/conf/ssl/expired_pkey.pem
+		$(SERVER_DIR)/conf/ssl/expired_pkey.pem \
+                $(GEN)/ca.pem      
 	@mkdir -p $(SERVER_DIR)/conf/ssl
 	@mkdir -p $(SERVER_DIR)/logs
 	rsync -a --exclude="httpd*" --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
