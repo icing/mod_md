@@ -177,10 +177,8 @@ AC_SUBST(BOULDER_TOS)
 # the path where boulder is installed
 if test "x$request_boulder_dir" = "xdef"; then
     BOULDER_DIR="$GOPATH/src/github.com/letsencrypt/boulder"
-    test -d "$BOULDER_DIR" || AC_MSG_ERROR([boulder installation not found in default location $BOULDER_DIR. Please use --with-boulder-dir to specify the correct location. ])
 else
     BOULDER_DIR="$request_boulder_dir"
-    test -d "$BOULDER_DIR" || AC_MSG_ERROR([boulder installation not found as specified in $BOULDER_DIR.])
 fi
 
 AC_SUBST(BOULDER_DIR)

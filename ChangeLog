@@ -1,3 +1,8 @@
+v1.1.9-DEV
+----------------------------------------------------------------------------------------------------
+ * Removed bould check from configure. Not everone building the module needs it installed. 
+   Fixes #76.
+ 
 v1.1.8
 ----------------------------------------------------------------------------------------------------
  * new configuration directive "MDBaseServer on|off" to allow/inhibit management of the base

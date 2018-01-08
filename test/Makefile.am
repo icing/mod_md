@@ -89,7 +89,11 @@ test-configs: $(SERVER_DIR)/.test-setup
 # The certificates we need to verify the cert chain we retrieved from ACME
 # For now, we need these two, although a fix is underway that only one becomes
 # necessary. See: https://github.com/letsencrypt/boulder/issues/3307
+@BOULDER_DIR@:
+	@test -d $(BOULDER_DIR) || echo "boulder installation not found. Please configure using --with-boulder-dir to specify the correct location."; exit 1
+
 $(GEN)/ca.pem: \
+    $(BOULDER_DIR) \
     $(BOULDER_DIR)/test/test-ca.pem \
     $(BOULDER_DIR)/test/test-ca2.pem
 	@cat $(BOULDER_DIR)/test/test-root.pem $(BOULDER_DIR)/test/test-ca2.pem > $(GEN)/ca.pem
