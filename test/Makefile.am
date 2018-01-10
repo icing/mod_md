@@ -94,9 +94,8 @@ test-configs: $(SERVER_DIR)/.test-setup
 
 $(GEN)/ca.pem: \
     $(BOULDER_DIR) \
-    $(BOULDER_DIR)/test/test-ca.pem \
-    $(BOULDER_DIR)/test/test-ca2.pem
-	@cat $(BOULDER_DIR)/test/test-root.pem $(BOULDER_DIR)/test/test-ca2.pem > $(GEN)/ca.pem
+    $(BOULDER_DIR)/test/test-root.pem
+	@cat $(BOULDER_DIR)/test/test-root.pem > $(GEN)/ca.pem
 
 $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/htdocs/index.html \
