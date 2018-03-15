@@ -1,18 +1,19 @@
-/* Copyright 2017 greenbytes GmbH (https://www.greenbytes.de)
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * http://www.apache.org/licenses/LICENSE-2.0
- 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+ 
 #include <assert.h>
 #include <stdlib.h>
 
@@ -105,7 +106,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     }
     
     if (APR_SUCCESS != (rv = md_util_abs_uri_check(p, url, &err))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "invalid ACME uri ($s): %s", err, url);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "invalid ACME uri (%s): %s", err, url);
         return rv;
     }
     
@@ -118,7 +119,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     acme->max_retries = 3;
     
     if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri_parsed))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "parsing ACME uri: ", url);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "parsing ACME uri: %s", url);
         return APR_EINVAL;
     }
     
@@ -249,7 +250,7 @@ apr_status_t md_acme_req_body_init(md_acme_req_t *req, md_json_t *jpayload)
 
     payload_len = strlen(payload);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
-                  "acct payload(len=%d): %s", payload_len, payload);
+                  "acct payload(len=%" APR_SIZE_T_FMT "): %s", payload_len, payload);
     return md_jws_sign(&req->req_json, req->p, payload, payload_len,
                        req->prot_hdrs, req->acme->acct_key, NULL);
 } 
