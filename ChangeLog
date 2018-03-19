@@ -1,3 +1,12 @@
+v1.1.10
+----------------------------------------------------------------------------------------------------
+  * fixes error in renew window calculation that may lead to mod_md running
+    watchdog in a tight loop until actual renewal becomes necessary.
+  * /.well-known/acme-challenge requests that cannot be answered for hostnames
+    outside the configured MDs are free to be answered by other handlers. This allows
+    co-existance between mod_md and other ACME clients on the same server (implements PR62189).
+    Suggested by Arkadiusz Miskiewicz <arekm@maven.pl>.
+
 v1.1.9
 ----------------------------------------------------------------------------------------------------
  * Removed bould check from configure. Not everone building the module needs it installed. 
