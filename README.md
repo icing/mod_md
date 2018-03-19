@@ -13,8 +13,7 @@ Look [on the wiki](https://github.com/icing/mod_md/wiki) for directions on how t
 
 ## Status
 
-The plan is to backport the module and all the necessary patches into the next 2.4.x release of Apache httpd. That
-will be at least revision 2.4.30. And I will push for it to come out this year. Time will tell.
+The module has been backported to Apache 2.4.x branch and will be part of the next release (or is when 2.4.33 is out).
 
 For the impatient and danger seekers: what you find here is a copy of what lives inside the Apache httpd ```trunk``` repository. While people find an occasional
 hickup - mostly due to some unique aspect in the setups - several people, including myself, are running this inside a patched
