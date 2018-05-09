@@ -1,0 +1,24 @@
+diff --git a/modules/md/mod_md.c b/modules/md/mod_md.c
+index 1b8446df4f..4506bc0e16 100644
+--- a/modules/md/mod_md.c
++++ b/modules/md/mod_md.c
+@@ -1304,7 +1304,8 @@ static int md_http_challenge_pr(request_rec *r)
+     md_reg_t *reg;
+     apr_status_t rv;
+     
+-    if (!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
++    if (r->parsed_uri.path &&
++	!strncmp(ACME_CHALLENGE_PREFIX, r->parsed_uri.path, sizeof(ACME_CHALLENGE_PREFIX)-1)) {
+         if (r->method_number == M_GET) {
+         
+             sc = ap_get_module_config(r->server->module_config, &md_module);
+@@ -1358,7 +1359,7 @@ static int md_require_https_maybe(request_rec *r)
+     const char *s;
+     int status;
+     
+-    if (opt_ssl_is_https 
++    if (opt_ssl_is_https && r->parsed_uri.path
+         && strncmp(WELL_KNOWN_PREFIX, r->parsed_uri.path, sizeof(WELL_KNOWN_PREFIX)-1)) {
+         
+         sc = ap_get_module_config(r->server->module_config, &md_module);
+
