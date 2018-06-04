@@ -1,3 +1,15 @@
+v1.1.12
+----------------------------------------------------------------------------------------------------
+  * less confusing logging when MDNotifyCmd returns a failure exit code
+  * MDNotifyCmd can be configured with arguments to which the managed domain
+    names are appended on invocation
+  * added more test cases for MDNotifyCmd use
+
+v1.1.11
+----------------------------------------------------------------------------------------------------
+  * fixes a Null Dereference when specially crafted requests are sent to the server. Reported
+    by Daniel Caminada <daniel.caminada@ergon.ch>.
+
 v1.1.10
 ----------------------------------------------------------------------------------------------------
   * fixes error in renew window calculation that may lead to mod_md running

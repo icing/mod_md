@@ -171,6 +171,7 @@
 		B2FC60761F59894A005B7D9E /* TODO.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = SOURCE_ROOT; };
 		B2FC607F1F682781005B7D9E /* mod_ssl_md-2.4.x-v5.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "mod_ssl_md-2.4.x-v5.diff"; sourceTree = "<group>"; };
 		B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0800_stapling.py; sourceTree = "<group>"; };
+		B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0900_notify.py; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -350,6 +351,7 @@
 				75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */,
 				B2B81ED71F17BF3200E35CA3 /* test_0700_auto.py */,
 				B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */,
+				B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */,
 				B255730C1EE6D11200E0B132 /* test_base.py */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
 				B2123B851F2DD7A200267CAF /* unit */,

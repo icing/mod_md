@@ -90,10 +90,10 @@ class TestEnv:
     _a2md_args_raw = []
     
     @classmethod
-    def run( cls, args ) :
+    def run( cls, args, input=None ) :
         print "execute: ", " ".join(args)
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (output, errput) = p.communicate()
+        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (output, errput) = p.communicate(input)
         rv = p.wait()
         print "stderr: ", errput
         try:
@@ -417,9 +417,7 @@ class TestEnv:
             return False
         fin = open(cls.ERROR_LOG)
         for line in fin:
-            m = regex.match(line)
-            print ("match: %s" % line)
-            if m:
+            if regex.match(line):
                 return True
         return False
 
@@ -575,6 +573,9 @@ class HttpdConf(object):
 
     def add_require_ssl(self, mode):
         self._add_line("  MDRequireHttps %s\n" % mode)
+
+    def add_notify_cmd(self, cmd):
+        self._add_line("  MDNotifyCmd %s\n" % cmd)
 
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):

@@ -396,6 +396,24 @@ class TestDrive :
         assert r['http_status'] == 303
         assert r['http_headers']['Location'] == expLocation
 
+    def test_500_120(self):
+        # test case: NP dereference reported by Daniel Caminada <daniel.caminada@ergon.ch>
+        domain = "test500-120-" + TestDrive.dns_uniq
+        name = "www." + domain
+        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_drive_mode( "manual" )
+        conf.add_md( [name] )
+        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[], withSSL=True)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        r = TestEnv.run( [ "openssl", "s_client",  
+              "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
+              "-servername", "example.com", "-crlf"
+              ], "GET https:// HTTP/1.1\nHost: example.com\n\n" )
+        assert TestEnv.apache_restart() == 0
+        # assert that no crash is reported in the log
+        assert not TestEnv.apache_err_scan( re.compile("^.* child pid \S+ exit .*$") )
 
     # --------- critical state change -> drive again ---------
 
