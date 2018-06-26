@@ -103,7 +103,7 @@ class TestAuto:
         dnsListA = [ domainA, "www." + domainA ]
         dnsListB = [ domainB, "www." + domainB ]
         conf = HttpdConf( TestAuto.TMP_CONF )
-        conf.add_admin( "admin@example.org" )
+        conf.add_admin( "admin@not-forbidden.org" )
         conf.add_drive_mode( "auto" )
         conf.add_md( dnsListA )
         conf.add_md( dnsListB )

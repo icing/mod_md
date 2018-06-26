@@ -63,7 +63,7 @@ class TestAuto:
         # generate config with two MDs
         dnsList = [ domain, "www." + domain ]
         conf = HttpdConf( TestAuto.TMP_CONF )
-        conf.add_admin( "admin@example.org" )
+        conf.add_admin( "admin@not-forbidden.org" )
         conf.add_notify_cmd( "blablabla" )
         conf.add_drive_mode( "auto" )
         conf.add_md( dnsList )
@@ -84,7 +84,7 @@ class TestAuto:
         # generate config with two MDs
         dnsList = [ domain, "www." + domain ]
         conf = HttpdConf( TestAuto.TMP_CONF )
-        conf.add_admin( "admin@example.org" )
+        conf.add_admin( "admin@not-forbidden.org" )
         conf.add_notify_cmd( "%s %s" % (ncmd, nlog) )
         conf.add_drive_mode( "auto" )
         conf.add_md( dnsList )
@@ -108,7 +108,7 @@ class TestAuto:
         # generate config with two MDs
         dnsList = [ domain, "www." + domain ]
         conf = HttpdConf( TestAuto.TMP_CONF )
-        conf.add_admin( "admin@example.org" )
+        conf.add_admin( "admin@not-forbidden.org" )
         conf.add_notify_cmd( "%s %s test_9011" % (ncmd, nlog) )
         conf.add_drive_mode( "auto" )
         conf.add_md( dnsList )

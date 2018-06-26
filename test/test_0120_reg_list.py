@@ -67,7 +67,7 @@ class TestRegAdd :
     def test_120_002(self):
         # test case: validate md state in store
         # check: md without pkey/cert -> INCOMPLETE
-        name = "example.org"
+        name = "not-forbidden.org"
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
@@ -84,7 +84,7 @@ class TestRegAdd :
     def test_120_003(self):
         # test case: broken cert file
         #setup: prepare md in store
-        name = "example.org"
+        name = "not-forbidden.org"
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
@@ -99,7 +99,7 @@ class TestRegAdd :
     def test_120_004(self):
         # test case: broken private key file
         #setup: prepare md in store
-        name = "example.org"
+        name = "not-forbidden.org"
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0

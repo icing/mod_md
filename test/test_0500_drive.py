@@ -59,7 +59,7 @@ class TestDrive :
         name = "www." + domain
         assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
         assert TestEnv.a2md( 
-            [ "update", name, "contacts", "admin@test1.example.org" ] 
+            [ "update", name, "contacts", "admin@test1.not-forbidden.org" ] 
             )['rv'] == 0
         run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
@@ -94,13 +94,30 @@ class TestDrive :
         self._check_md_cert([ name ])
         self._check_account_key( name )
 
-        # check: challenges removed
-        TestEnv.check_dir_empty( TestEnv.path_challenges() )
         # check archive content
         assert json.loads( open( TestEnv.path_domain(name, archiveVersion=1 )).read() ) == prevMd
-
         # check file system permissions:
         TestEnv.check_file_permissions( name )
+        # check: challenges removed
+        TestEnv.check_dir_empty( TestEnv.path_challenges() )
+        # check how the challenge resources are answered in sevceral combinations 
+        result = TestEnv.get_meta(domain, "/.well-known/acme-challenge", False)
+        assert result['rv'] == 0
+        assert result['http_status'] == 404
+        result = TestEnv.get_meta(domain, "/.well-known/acme-challenge/", False)
+        assert result['rv'] == 0
+        assert result['http_status'] == 404
+        result = TestEnv.get_meta(domain, "/.well-known/acme-challenge/123", False)
+        assert result['rv'] == 0
+        assert result['http_status'] == 404
+        assert result['rv'] == 0
+        cdir = os.path.join( TestEnv.path_challenges(), domain )
+        os.makedirs(cdir)
+        open( os.path.join( cdir, 'acme-http-01.txt'), "w" ).write("content-of-123")
+        result = TestEnv.get_meta(domain, "/.well-known/acme-challenge/123", False)
+        assert result['rv'] == 0
+        assert result['http_status'] == 200
+        assert result['http_headers']['Content-Length'] == '14'
 
     def test_500_101(self):
         # test case: md with 2 domains
@@ -271,14 +288,14 @@ class TestDrive :
         conf.install()
         # setup: create resource files
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "test"), "name.txt", name)
-        self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR), "name.txt", "example.org")
+        self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR), "name.txt", "not-forbidden.org")
         assert TestEnv.apache_restart() == 0
 
         # drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         assert TestEnv.apache_restart() == 0
         # test HTTP access - no redirect
-        assert TestEnv.get_content("example.org", "/name.txt", useHTTPS=False) == "example.org"
+        assert TestEnv.get_content("not-forbidden.org", "/name.txt", useHTTPS=False) == "not-forbidden.org"
         assert TestEnv.get_content(name, "/name.txt", useHTTPS=False) == name
         r = TestEnv.get_meta(name, "/name.txt", useHTTPS=False)
         assert int(r['http_headers']['Content-Length']) == len(name)
@@ -297,7 +314,7 @@ class TestDrive :
         # should not see this
         assert not 'Strict-Transport-Security' in r['http_headers']
         # test default HTTP vhost -> still no redirect
-        assert TestEnv.get_content("example.org", "/name.txt", useHTTPS=False) == "example.org"
+        assert TestEnv.get_content("not-forbidden.org", "/name.txt", useHTTPS=False) == "not-forbidden.org"
         r = TestEnv.get_meta(name, "/name.txt", useHTTPS=True)
         # also not for this
         assert not 'Strict-Transport-Security' in r['http_headers']

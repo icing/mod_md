@@ -33,8 +33,8 @@ class TestAcmeAuthz :
     def test_220_001(self):
         # test case: create auth resource
         # setup: register a new account, agree to tos
-        acct = self._prepare_account(["tmp@example.org"], TestEnv.ACME_TOS)
-        domain = "www.test-example.org"
+        acct = self._prepare_account(["tmp@not-forbidden.org"], TestEnv.ACME_TOS)
+        domain = "www.test-not-forbidden.org"
         run = TestEnv.a2md( ["acme", "authz", acct, domain], raw=True )
         assert run['rv'] == 0
         m = re.match("authz: " + domain + " (.*)$", run["stdout"])

@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [1.1.12], [stefan.eissing@greenbytes.de])
+AC_INIT([mod_md], [1.1.13], [stefan.eissing@greenbytes.de])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -169,10 +169,6 @@ else
     BOULDER_URL="$request_boulder"
 fi
 AC_SUBST(BOULDER_URL)
-# this is always the same, so far
-BOULDER_TOS=http://boulder:4000/terms/v1
-AC_SUBST(BOULDER_TOS)
-
 
 # the path where boulder is installed
 if test "x$request_boulder_dir" = "xdef"; then
@@ -182,6 +178,11 @@ else
 fi
 
 AC_SUBST(BOULDER_DIR)
+
+# this is always the same, so far
+BOULDER_TOS=http://boulder:4000/terms/v1
+AC_SUBST(BOULDER_TOS)
+
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.

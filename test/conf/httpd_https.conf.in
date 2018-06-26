@@ -6,8 +6,8 @@ Listen @HTTPS_PORT@
 MDPortMap 443:@HTTPS_PORT@
 
 <VirtualHost *:@HTTPS_PORT@>
-    ServerName example.org
-    ServerAlias www.example.org
+    ServerName not-forbidden.org
+    ServerAlias www.not-forbidden.org
     
     DocumentRoot "@SERVER_DIR@/htdocs"
     

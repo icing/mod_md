@@ -32,13 +32,13 @@ class TestAcmeToS :
 
     def test_210_001(self):
         # test case: register a new account with valid tos agreements
-        contact = "test210-001@example.org"
+        contact = "test210-001@not-forbidden.org"
         acct = self._prepare_account([contact], TestEnv.ACME_TOS)
         self._check_account(acct, ["mailto:" + contact], TestEnv.ACME_TOS)
 
     def test_210_002(self):
         # test case: register a new account with valid tos agreements (short cli argument)
-        contact = "test210-002@example.org"
+        contact = "test210-002@not-forbidden.org"
         run = TestEnv.a2md(["-t", TestEnv.ACME_TOS, "acme", "newreg", contact], raw=True )
         assert run['rv'] == 0
         acct = re.match("registered: (.*)$", run['stdout']).group(1)
@@ -46,12 +46,12 @@ class TestAcmeToS :
  
     def test_210_003(self):
         # test case: register a new account with invalid tos agreements
-        run = TestEnv.a2md(["--terms", TestEnv.ACME_TOS2, "acme", "newreg", "test003@example.org"])
+        run = TestEnv.a2md(["--terms", TestEnv.ACME_TOS2, "acme", "newreg", "test003@not-forbidden.org"])
         assert run["rv"] == 1
  
     def test_210_004(self):
         # test case: register new account, agree to tos afterwards
-        contact = "test210-004@example.org"
+        contact = "test210-004@not-forbidden.org"
         acct = self._prepare_account([contact], None)
         self._check_account(acct, ["mailto:" + contact], None)
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
@@ -59,7 +59,7 @@ class TestAcmeToS :
 
     def test_210_005(self):
         # test case: register new account, agree to wrong tos afterwards
-        contact = "test210-005@example.org"
+        contact = "test210-005@not-forbidden.org"
         acct = self._prepare_account([contact], None)
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS2, "acme", "agree", acct])['rv'] == 1
         self._check_account(acct, ["mailto:" + contact], None)
@@ -70,7 +70,7 @@ class TestAcmeToS :
 
     def test_210_007(self):
         # test case: agree to tos on deleted account
-        contact = "test210-007@example.org"
+        contact = "test210-007@not-forbidden.org"
         acct = self._prepare_account([contact], None)
         assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 1

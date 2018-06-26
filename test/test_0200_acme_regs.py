@@ -32,7 +32,7 @@ class TestAcmeAcc :
     # --------- acme newreg ---------
 
     @pytest.mark.parametrize("contact", [
-        ("x@example.org"), ("xx@example.org"), ("xxx@example.org")
+        ("x@not-forbidden.org"), ("xx@not-forbidden.org"), ("xxx@not-forbidden.org")
     ])
     def test_200_000(self, contact):
         # test case: register a new account, vary length to check base64 encoding
@@ -47,7 +47,7 @@ class TestAcmeAcc :
 
     def test_200_001(self):
         # test case: respect 'mailto:' prefix in contact url
-        contact = "mailto:xx@example.org"
+        contact = "mailto:xx@not-forbidden.org"
         run = TestEnv.a2md( ["acme", "newreg", contact], raw=True )
         assert run['rv'] == 0
         m = re.match("registered: (.*)$", run["stdout"])
@@ -57,7 +57,7 @@ class TestAcmeAcc :
         self._check_account(acct, [contact])
 
     @pytest.mark.parametrize("invalidContact", [
-        ("mehlto:xxx@example.org"), ("no.at.char"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
+        ("mehlto:xxx@not-forbidden.org"), ("no.at.char"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
         ("double..dot@test.com"), ("double@at@test.com")
     ])
     def test_200_002(self, invalidContact):
@@ -66,7 +66,7 @@ class TestAcmeAcc :
 
     def test_200_003(self):
         # test case: use contact list
-        contact = [ "xx@example.org", "aa@example.org" ]
+        contact = [ "xx@not-forbidden.org", "aa@not-forbidden.org" ]
         run = TestEnv.a2md( ["acme", "newreg"] + contact, raw=True )
         assert run['rv'] == 0
         m = re.match("registered: (.*)$", run["stdout"])
@@ -80,7 +80,7 @@ class TestAcmeAcc :
 
     def test_200_100(self):
         # test case: validate new account
-        acct = self._prepare_account(["tmp@example.org"])
+        acct = self._prepare_account(["tmp@not-forbidden.org"])
         assert TestEnv.a2md( ["acme", "validate", acct] )['rv'] == 0
 
     def test_200_101(self):
@@ -90,7 +90,7 @@ class TestAcmeAcc :
     def test_200_102(self):
         # test case: report fail on request signing problem
         # create new account
-        acct = self._prepare_account(["tmp@example.org"])
+        acct = self._prepare_account(["tmp@not-forbidden.org"])
         # modify server's reg url
         # TODO: find storage-independent way to modify local registration data
         jsonFile = TestEnv.path_account(acct)
@@ -104,12 +104,12 @@ class TestAcmeAcc :
 
     def test_200_200(self):
         # test case: register and try delete an account, will fail without persistence
-        acct = self._prepare_account(["tmp@example.org"])
+        acct = self._prepare_account(["tmp@not-forbidden.org"])
         assert TestEnv.a2md( ["delreg", acct] )['rv'] == 1
 
     def test_200_201(self):
         # test case: register and try delete an account with persistence
-        acct = self._prepare_account(["tmp@example.org"])
+        acct = self._prepare_account(["tmp@not-forbidden.org"])
         assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
         # check that store is clean
         # TODO: create a "a2md list accounts" command for this
@@ -118,12 +118,12 @@ class TestAcmeAcc :
 
     def test_200_202(self):
         # test case: delete a persisted account without specifying url
-        acct = self._prepare_account(["tmp@example.org"])
+        acct = self._prepare_account(["tmp@not-forbidden.org"])
         assert TestEnv.run([TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "acme", "delreg", acct] )['rv'] == 0
 
     def test_200_203(self):
         # test case: delete, then validate an account
-        acct = self._prepare_account(["test014@example.org"])
+        acct = self._prepare_account(["test014@not-forbidden.org"])
         assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
         # validate on deleted account fails
         assert TestEnv.a2md( ["acme", "validate", acct] )['rv'] == 1
