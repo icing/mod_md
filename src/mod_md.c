@@ -1342,6 +1342,8 @@ static int md_http_challenge_pr(request_rec *r)
                     apr_brigade_write(bb, NULL, NULL, data, len);
                     ap_pass_brigade(r->output_filters, bb);
                     apr_brigade_cleanup(bb);
+                    
+                    return DONE;
                 }
                 else if (!configured) {
                     /* The request hostname is not for a configured domain. We are not

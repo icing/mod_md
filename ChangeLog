@@ -1,3 +1,7 @@
+v1.1.14
+----------------------------------------------------------------------------------------------------
+  * Preventing other modules from messing with challenge repsonses. Fix by @mkauf. Thanks!
+  
 v1.1.13
 ----------------------------------------------------------------------------------------------------
   * adding test cases for accessing a variety of paths for http-01 challenges to confirm
