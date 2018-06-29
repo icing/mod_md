@@ -356,9 +356,8 @@ class TestAuto:
         time.sleep( 1 )
 
         # restart -> new ACME cert becomes active
-        assert TestEnv.apache_stop() == 0
-        assert TestEnv.apache_start() == 0
-        time.sleep( 1 )
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], 30 )
         cert5 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert cert5.get_serial() != cert3.get_serial()
 
