@@ -1,3 +1,10 @@
+v1.1.16
+----------------------------------------------------------------------------------------------------
+  * When you move the last domain name from an MD to another one, that now empty MD gets moved
+    to the store archive. The JSON file will still show the last domain, in case you want
+    to ressurect after a (human) configuration error. Fixes PR 62572
+    (see <https://bz.apache.org/bugzilla/show_bug.cgi?id=62572>).
+
 v1.1.15
 ----------------------------------------------------------------------------------------------------
   * Using libressl new integration of openssl API functions when available.

@@ -335,9 +335,9 @@ class TestEnv:
         rv = p.wait()
         if rv == 0:
             if check_live:
-                rv = 0 if cls.is_live(cls.HTTPD_CHECK_URL, 5) else -1
+                rv = 0 if cls.is_live(cls.HTTPD_CHECK_URL, 10) else -1
             else:
-                rv = 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 5) else -1
+                rv = 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 10) else -1
                 print ("waited for a apache.is_dead, rv=%d" % rv)
         return rv
 

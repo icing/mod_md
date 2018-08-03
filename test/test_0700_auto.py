@@ -353,7 +353,7 @@ class TestAuto:
         # fetch cert from server -> self-signed still active, activation of new ACME is delayed
         cert4 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert cert4.get_serial() == cert3.get_serial()
-        time.sleep( 1 )
+        time.sleep( 5 ) # these timed waits make trouble sometimes...
 
         # restart -> new ACME cert becomes active
         assert TestEnv.apache_restart() == 0
@@ -540,6 +540,61 @@ class TestAuto:
         certA2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
         assert nameA in certA2.get_san_list()
         assert certA.get_serial() != certA2.get_serial()
+
+    #-----------------------------------------------------------------------------------------------
+    # test case: create two MDs, move them into one
+    # see: <https://bz.apache.org/bugzilla/show_bug.cgi?id=62572>
+    #
+    def test_7032(self):
+        domain = self.test_domain
+        name1 = "server1." + domain
+        name2 = "server2." + TestAuto.dns_uniq # need a separate TLD to avoid rate limites
+
+        # generate 2 MDs and 2 vhosts
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf._add_line( "MDMembers auto" )
+        conf.add_md( [ name1 ] )
+        conf.add_md( [ name2 ] )
+        conf.add_vhost( TestEnv.HTTPS_PORT, name1, aliasList=[], docRoot="htdocs/a", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.add_vhost( TestEnv.HTTPS_PORT, name2, aliasList=[], docRoot="htdocs/b", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.install()
+
+        # restart (-> drive), check that MD was synched and completes
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( name1, [ name1 ] )
+        self._check_md_names( name2, [ name2 ] )
+        assert TestEnv.await_completion( [ name1 ], 30 )
+        self._check_md_cert( [ name2 ] )
+
+        # check: SSL is running OK
+        cert1 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, name1)
+        assert name1 in cert1.get_san_list()
+        cert2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, name2)
+        assert name2 in cert2.get_san_list()
+        
+        # remove second md and vhost, add name2 to vhost1
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf._add_line( "MDMembers auto" )
+        conf.add_md( [ name1 ] )
+        conf.add_vhost( TestEnv.HTTPS_PORT, name1, aliasList=[ name2 ], docRoot="htdocs/a", 
+                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
+                        keyPath=TestEnv.path_domain_privkey( domain ) )
+        conf.install()
+        # restart, check that host still works and have same cert
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( name1, [ name1, name2 ] )
+        assert TestEnv.await_completion( [ name1 ], 10 )
+
+        cert1b = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, name1)
+        assert name1 in cert1b.get_san_list()
+        assert name2 in cert1b.get_san_list()
+        assert cert1.get_serial() != cert1b.get_serial()
 
     # --------- _utils_ ---------
 
