@@ -697,7 +697,6 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                          apr_array_header_t *master_mds) 
 {
     sync_ctx ctx;
-    md_store_t *store = reg->store;
     apr_status_t rv;
 
     ctx.p = ptemp;
@@ -847,7 +846,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 
 apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int archive)
 {
-    return md_store_move(reg->store, p, MD_SG_DOMAINS, MD_SG_ARCHIVE, name, 0);
+    return md_store_move(reg->store, p, MD_SG_DOMAINS, MD_SG_ARCHIVE, name, archive);
 }
 
 
