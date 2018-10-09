@@ -438,7 +438,7 @@ static apr_status_t check_group_dir(md_store_t *store, md_store_group_t group,
     
     if (APR_SUCCESS == (rv = md_store_get_fname(&dir, store, group, NULL, NULL, p))
         && APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UALL_GREAD, p))) {
-        rv = store_file_ev(s, store, MD_S_FS_EV_CREATED, group, dir, APR_DIR, p);
+        rv = store_file_ev(s, store, MD_S_FS_EV_CREATED, (int)group, dir, APR_DIR, p);
     }
     return rv;
 }
@@ -517,10 +517,10 @@ static void log_print(const char *file, int line, md_log_level_t level,
         buffer[LOG_BUF_LEN-1] = '\0';
 
         if (log_server) {
-            ap_log_error(file, line, APLOG_MODULE_INDEX, level, rv, log_server, "%s",buffer);
+            ap_log_error(file, line, APLOG_MODULE_INDEX, (int)level, rv, log_server, "%s",buffer);
         }
         else {
-            ap_log_perror(file, line, APLOG_MODULE_INDEX, level, rv, p, "%s", buffer);
+            ap_log_perror(file, line, APLOG_MODULE_INDEX, (int)level, rv, p, "%s", buffer);
         }
     }
 }
