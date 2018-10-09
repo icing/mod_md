@@ -399,7 +399,7 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
 /* store & registry setup */
 
 static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
-                                    md_store_fs_ev_t ev, int group, 
+                                    md_store_fs_ev_t ev, unsigned int group, 
                                     const char *fname, apr_filetype_e ftype,  
                                     apr_pool_t *p)
 {
@@ -438,7 +438,7 @@ static apr_status_t check_group_dir(md_store_t *store, md_store_group_t group,
     
     if (APR_SUCCESS == (rv = md_store_get_fname(&dir, store, group, NULL, NULL, p))
         && APR_SUCCESS == (rv = apr_dir_make_recursive(dir, MD_FPROT_D_UALL_GREAD, p))) {
-        rv = store_file_ev(s, store, MD_S_FS_EV_CREATED, (int)group, dir, APR_DIR, p);
+        rv = store_file_ev(s, store, MD_S_FS_EV_CREATED, group, dir, APR_DIR, p);
     }
     return rv;
 }
