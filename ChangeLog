@@ -1,3 +1,5 @@
+  * Eliminated some compiler warnings about signedness and unused variables.
+
 v1.1.16
 ----------------------------------------------------------------------------------------------------
   * When you move the last domain name from an MD to another one, that now empty MD gets moved
