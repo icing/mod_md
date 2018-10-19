@@ -105,7 +105,6 @@ class TestConf:
 
     def test_300_011(self):
         # MDomain, misses one ServerAlias
-        assert TestEnv.apache_stop() == 0
         TestEnv.install_test_conf("test_011");
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.apache_err_count()
