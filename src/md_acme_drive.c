@@ -162,7 +162,8 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     apr_status_t rv;
     md_t *md = ad->md;
     md_acme_authz_t *authz;
-    int i, changed;
+    int i;
+    int changed = 0;
     
     assert(ad->md);
     assert(ad->acme);
@@ -186,18 +187,20 @@ static apr_status_t ad_setup_authz(md_proto_driver_t *d)
     }
     
     /* Remove anything we no longer need */
-    for (i = 0; i < ad->authz_set->authzs->nelts; ++i) {
+    for (i = 0; i < ad->authz_set->authzs->nelts;) {
         authz = APR_ARRAY_IDX(ad->authz_set->authzs, i, md_acme_authz_t*);
         if (!md_contains(md, authz->domain, 0)) {
             md_acme_authz_set_remove(ad->authz_set, authz->domain);
             changed = 1;
+        }
+        else {
+            ++i;
         }
     }
     
     /* Add anything we do not already have */
     for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
         const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
-        changed = 0;
         authz = md_acme_authz_set_get(ad->authz_set, domain);
         if (authz) {
             /* check valid */
