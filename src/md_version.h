@@ -27,7 +27,7 @@
  * @macro
  * Version number of the md module as c string
  */
-#define MOD_MD_VERSION "1.1.17-DEV-git"
+#define MOD_MD_VERSION "1.1.17-git"
 
 /**
  * @macro

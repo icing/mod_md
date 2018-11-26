@@ -1,4 +1,10 @@
-  * Eliminated some compiler warnings about signedness and unused variables.
+v1.1.17
+----------------------------------------------------------------------------------------------------
+  * fixed several coding bugs in detection of ACME challenge changes, e.g. when the local
+    MDomains changed and challenges for others had already been set up. Fixes thanks to
+    Michael Kaufmann (@mkauf).
+  * added log messages when (supposed) ACME server's answer was not understood (by @mkauf)
+  * eliminated some compiler warnings about signedness and unused variables.
 
 v1.1.16
 ----------------------------------------------------------------------------------------------------
@@ -48,7 +54,7 @@ v1.1.9
 ----------------------------------------------------------------------------------------------------
  * Removed bould check from configure. Not everone building the module needs it installed. 
    Fixes #76.
- * Tests with boulder now need a mater revision >= 2018-01-10 or you will see failures in the
+ * Tests with boulder now need a later revision >= 2018-01-10 or you will see failures in the
    0800 tests.
  * Updated with log format fixes and copyright ASF insistence from apache httpd trunk
  
