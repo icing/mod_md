@@ -1,11 +1,11 @@
 
 # mod_md - Everybody Spies
 
-Copyright 2017 greenbytes GmbH
+Copyright 2017-2019 greenbytes GmbH
 
 This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). 
 
-This code here is to help people review and comment and test early versions. Issues you can raise here, general discussion is probably best at the httpd dev mailing list.
+This code here is to help people review and comment and test early versions. Issues you can raise here, general discussion is probably best at the httpd dev mailing list. The module is, in Apache terms, **experimental**, meaning features might change based on feedback by the community. It is however a complete implementation of the ACMEv1 protocol and used in production in many locations.
 
 ## Documentation
 
@@ -56,7 +56,7 @@ This work is supported by an Award from MOSS, the Mozilla Open Source Support pr
 
 Test cases mostly written by my colleague @michael-koeller who made this to a good part really a test driven development. Thanks!
 
-Münster, 04.08.2017
+Münster, 07.01.2019
 
 Stefan Eissing, greenbytes GmbH
 
