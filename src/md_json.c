@@ -1017,21 +1017,18 @@ static apr_status_t json_resp_cb(const md_http_response_t *res)
 apr_status_t md_json_http_get(md_json_t **pjson, apr_pool_t *pool,
                               struct md_http_t *http, const char *url)
 {
-    long req_id;
     apr_status_t rv;
     resp_data resp;
     
     memset(&resp, 0, sizeof(resp));
     resp.pool = pool;
     
-    rv = md_http_GET(http, url, NULL, json_resp_cb, &resp, &req_id);
+    rv = md_http_GET(http, url, NULL, json_resp_cb, &resp);
     
     if (rv == APR_SUCCESS) {
-        md_http_await(http, req_id);
         *pjson = resp.json;
         return resp.rv;
     }
     *pjson = NULL;
     return rv;
 }
-

@@ -511,7 +511,7 @@ static apr_status_t ad_setup_certificate(md_proto_driver_t *d)
 
     if (APR_SUCCESS == rv) {
         ad->phase = "submit csr";
-        rv = md_acme_POST(ad->acme, ad->acme->new_cert, on_init_csr_req, NULL, csr_req, d);
+        rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, d);
     }
 
     if (APR_SUCCESS == rv) {
@@ -687,6 +687,97 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
 /**************************************************************************************************/
 /* ACME staging */
 
+static apr_status_t ad_v1_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
+{
+    apr_status_t rv = APR_SUCCESS;
+    
+    ad->phase = "get certificate";
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: need certificate", d->md->name);
+    
+    /* Chose (or create) and ACME account to use */
+    rv = ad_set_acct(d);
+    
+    /* Check that the account agreed to the terms-of-service, otherwise
+     * requests for new authorizations are denied. ToS may change during the
+     * lifetime of an account */
+    if (APR_SUCCESS == rv) {
+        const char *required;
+        
+        ad->phase = "check agreement";
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: check Terms-of-Service agreement", d->md->name);
+        
+        rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement, &required);
+        
+        if (APR_STATUS_IS_INCOMPLETE(rv) && required) {
+            /* The CA wants the user to agree to Terms-of-Services. Until the user
+             * has reconfigured and restarted the server, this MD cannot be
+             * driven further */
+            ad->md->state = MD_S_MISSING;
+            md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
+            
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
+                          "%s: the CA requires you to accept the terms-of-service "
+                          "as specified in <%s>. "
+                          "Please read the document that you find at that URL and, "
+                          "if you agree to the conditions, configure "
+                          "\"MDCertificateAgreement url\" "
+                          "with exactly that URL in your Apache. "
+                          "Then (graceful) restart the server to activate.", 
+                          ad->md->name, required);
+            goto out;
+        }
+    }
+    
+    /* If we know a cert's location, try to get it. Previous download might
+     * have failed. If server 404 it, we clear our memory of it. */
+    if (APR_SUCCESS == rv && ad->md->cert_url) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: polling certificate", d->md->name);
+        rv = ad_cert_poll(d, 1);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            /* Server reports to know nothing about it. */
+            ad->md->cert_url = NULL;
+            rv = md_reg_update(d->reg, d->p, ad->md->name, ad->md, MD_UPD_CERT_URL);
+        }
+    }
+    
+    if (APR_SUCCESS == rv && !ad->cert) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: setup new authorization", d->md->name);
+        if (APR_SUCCESS != (rv = ad_setup_authz(d))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
+                          ad->md->name);
+            goto out;
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: setup new challenges", d->md->name);
+        if (APR_SUCCESS != (rv = ad_start_challenges(d))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
+                          ad->md->name);
+            goto out;
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: monitoring challenge status", d->md->name);
+        if (APR_SUCCESS != (rv = ad_monitor_challenges(d))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
+                          ad->md->name);
+            goto out;
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: creating certificate request", d->md->name);
+        if (APR_SUCCESS != (rv = ad_setup_certificate(d))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
+                          ad->md->name);
+            goto out;
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: received certificate", d->md->name);
+    }
+out:    
+    return rv;
+}
+
 static apr_status_t acme_stage(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad = d->baton;
@@ -758,7 +849,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             return rv;
         }
 
-        if (!ad->md) {
+        if (!ad->md || strcmp(ad->md->ca_url, d->md->ca_url)) {
             /* re-initialize staging */
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: setup staging", d->md->name);
             md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
@@ -774,90 +865,17 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
         }
 
         if (APR_SUCCESS == rv && !ad->cert) {
-            ad->phase = "get certificate";
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: need certificate", d->md->name);
-            
-            /* Chose (or create) and ACME account to use */
-            rv = ad_set_acct(d);
-            
-            /* Check that the account agreed to the terms-of-service, otherwise
-             * requests for new authorizations are denied. ToS may change during the
-             * lifetime of an account */
-            if (APR_SUCCESS == rv) {
-                const char *required;
-                
-                ad->phase = "check agreement";
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                              "%s: check Terms-of-Service agreement", d->md->name);
-                
-                rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement, &required);
-                
-                if (APR_STATUS_IS_INCOMPLETE(rv) && required) {
-                    /* The CA wants the user to agree to Terms-of-Services. Until the user
-                     * has reconfigured and restarted the server, this MD cannot be
-                     * driven further */
-                    ad->md->state = MD_S_MISSING;
-                    md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
-
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                                  "%s: the CA requires you to accept the terms-of-service "
-                                  "as specified in <%s>. "
-                                  "Please read the document that you find at that URL and, "
-                                  "if you agree to the conditions, configure "
-                                  "\"MDCertificateAgreement url\" "
-                                  "with exactly that URL in your Apache. "
-                                  "Then (graceful) restart the server to activate.", 
-                                  ad->md->name, required);
-                    goto out;
-                }
+            /* The process of setting up challenges and verifying domain
+             * names differs between ACME versions. */
+            switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
+            case 1:
+                rv = ad_v1_renew(ad, d);
+                break;
+            case 2:
+            default:
+                rv = APR_EINVAL;
+                break;
             }
-            
-            /* If we know a cert's location, try to get it. Previous download might
-             * have failed. If server 404 it, we clear our memory of it. */
-            if (APR_SUCCESS == rv && ad->md->cert_url) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                              "%s: polling certificate", d->md->name);
-                rv = ad_cert_poll(d, 1);
-                if (APR_STATUS_IS_ENOENT(rv)) {
-                    /* Server reports to know nothing about it. */
-                    ad->md->cert_url = NULL;
-                    rv = md_reg_update(d->reg, d->p, ad->md->name, ad->md, MD_UPD_CERT_URL);
-                }
-            }
-            
-            if (APR_SUCCESS == rv && !ad->cert) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                              "%s: setup new authorization", d->md->name);
-                if (APR_SUCCESS != (rv = ad_setup_authz(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
-                                  ad->md->name);
-                    goto out;
-                }
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                              "%s: setup new challenges", d->md->name);
-                if (APR_SUCCESS != (rv = ad_start_challenges(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
-                                  ad->md->name);
-                    goto out;
-                }
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                              "%s: monitoring challenge status", d->md->name);
-                if (APR_SUCCESS != (rv = ad_monitor_challenges(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
-                                  ad->md->name);
-                    goto out;
-                }
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                              "%s: creating certificate request", d->md->name);
-                if (APR_SUCCESS != (rv = ad_setup_certificate(d))) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
-                                  ad->md->name);
-                    goto out;
-                }
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                              "%s: received certificate", d->md->name);
-            }
-            
         }
         
         if (APR_SUCCESS == rv && !ad->chain) {
@@ -890,8 +908,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             /* determine when this cert should be activated */
             d->stage_valid_from = md_cert_get_not_before(ad->cert);
             if (d->md->state == MD_S_COMPLETE && d->md->expires > now) {            
-                /**
-                 * The MD is complete and un-expired. This is a renewal run. 
+                /* The MD is complete and un-expired. This is a renewal run. 
                  * Give activation 24 hours leeway (if we have that time) to
                  * accommodate for clients with somewhat weird clocks.
                  */
@@ -935,14 +952,13 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     struct md_acme_acct_t *acct;
 
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: preload start", name);
-    /* Load all data which will be taken into the DOMAIN storage group.
+    /* Load data from MD_SG_STAGING and save it into "load_group".
      * This serves several purposes:
      *  1. It's a format check on the input data. 
      *  2. We write back what we read, creating data with our own access permissions
      *  3. We ignore any other accumulated data in STAGING
-     *  4. Once TMP is verified, we can swap/archive groups with a rename
+     *  4. Once "load_group" is complete an ok, we can swap/archive groups with a rename
      *  5. Reading/Writing the data will apply/remove any group specific data encryption.
-     *     With the exemption that DOMAINS and TMP must apply the same policy/keys.
      */
     if (APR_SUCCESS != (rv = md_load(store, MD_SG_STAGING, name, &md, p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading md json", name);

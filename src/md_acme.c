@@ -125,6 +125,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     
     len = strlen(uri_parsed.hostname);
     acme->sname = (len <= 16)? uri_parsed.hostname : apr_pstrdup(p, uri_parsed.hostname + len - 16);
+    acme->version = MD_ACME_VERSION_UNKNOWN;
     
     *pacme = (APR_SUCCESS == rv)? acme : NULL;
     return rv;
@@ -134,8 +135,11 @@ apr_status_t md_acme_setup(md_acme_t *acme)
 {
     apr_status_t rv;
     md_json_t *json;
+    const char *s;
     
     assert(acme->url);
+    acme->version = MD_ACME_VERSION_UNKNOWN;
+    
     if (!acme->http && APR_SUCCESS != (rv = md_http_create(&acme->http, acme->p,
                                                            acme->user_agent, acme->proxy_url))) {
         return rv;
@@ -145,19 +149,7 @@ apr_status_t md_acme_setup(md_acme_t *acme)
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "get directory from %s", acme->url);
     
     rv = md_acme_get_json(&json, acme, acme->url, acme->p);
-    if (APR_SUCCESS == rv) {
-        acme->new_authz = md_json_gets(json, "new-authz", NULL);
-        acme->new_cert = md_json_gets(json, "new-cert", NULL);
-        acme->new_reg = md_json_gets(json, "new-reg", NULL);
-        acme->revoke_cert = md_json_gets(json, "revoke-cert", NULL);
-        if (acme->new_authz && acme->new_cert && acme->new_reg && acme->revoke_cert) {
-            return APR_SUCCESS;
-        }
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p,
-                      "Unable to understand ACME server response. Wrong ACME protocol version?");
-        rv = APR_EINVAL;
-    }
-    else {
+    if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "unsuccessful in contacting ACME "
                       "server at %s. If this problem persists, please check your network "
                       "connectivity from your Apache server to the ACME server. Also, older "
@@ -166,7 +158,38 @@ apr_status_t md_acme_setup(md_acme_t *acme)
                       "curl command. Sometimes, the ACME server might be down for maintenance, "
                       "so failing to contact it is not an immediate problem. mod_md will "
                       "continue retrying this.", acme->url);
+        goto out;
     }
+    
+    if ((s = md_json_gets(json, "new-authz", NULL))) {
+        acme->api.v1.new_authz = s;
+        acme->api.v1.new_cert = md_json_gets(json, "new-cert", NULL);
+        acme->api.v1.new_reg = md_json_gets(json, "new-reg", NULL);
+        acme->api.v1.revoke_cert = md_json_gets(json, "revoke-cert", NULL);
+        if (acme->api.v1.new_authz && acme->api.v1.new_cert 
+            && acme->api.v1.new_reg && acme->api.v1.revoke_cert) {
+            acme->version = MD_ACME_VERSION_1;
+        }
+    }
+    else if ((s = md_json_gets(json, "newAccount", NULL))) {
+        acme->api.v2.new_account = s;
+        acme->api.v2.new_order = md_json_gets(json, "newOrder", NULL);
+        acme->api.v2.revoke_cert = md_json_gets(json, "revokeCert", NULL);
+        acme->api.v2.key_change = md_json_gets(json, "keyChange", NULL);
+        acme->api.v2.new_nonce = md_json_gets(json, "newNonce", NULL);
+        if (acme->api.v2.new_account && acme->api.v2.new_order 
+            && acme->api.v2.revoke_cert && acme->api.v2.key_change
+            && acme->api.v2.new_nonce) {
+            acme->version = MD_ACME_VERSION_2;
+        }
+    }
+    
+    if (MD_ACME_VERSION_UNKNOWN == acme->version) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p,
+                      "Unable to understand ACME server response. Wrong ACME protocol version or link?");
+        rv = APR_EINVAL;
+    }
+out:
     return rv;
 }
 
@@ -195,13 +218,21 @@ static apr_status_t http_update_nonce(const md_http_response_t *res)
     return res->rv;
 }
 
-static apr_status_t md_acme_new_nonce(md_acme_t *acme)
+static apr_status_t get_new_nonce(md_acme_t *acme)
 {
     apr_status_t rv;
-    long id;
     
-    rv = md_http_HEAD(acme->http, acme->new_reg, NULL, http_update_nonce, acme, &id);
-    md_http_await(acme->http, id);
+    switch (MD_ACME_VERSION_MAJOR(acme->version)) {
+    case 1:
+        rv = md_http_HEAD(acme->http, acme->api.v1.new_reg, NULL, http_update_nonce, acme);
+        break;
+    case 2:
+        rv = md_http_HEAD(acme->http, acme->api.v2.new_nonce, NULL, http_update_nonce, acme);
+        break;
+    default:
+        rv = APR_EINVAL;
+        break;
+    }
     return rv;
 }
 
@@ -385,13 +416,13 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     assert(acme->url);
     
     if (strcmp("GET", req->method) && strcmp("HEAD", req->method)) {
-        if (!acme->new_authz) {
+        if (acme->version == MD_ACME_VERSION_UNKNOWN) {
             if (APR_SUCCESS != (rv = md_acme_setup(acme))) {
                 return rv;
             }
         }
         if (!acme->nonce) {
-            if (APR_SUCCESS != (rv = md_acme_new_nonce(acme))) {
+            if (APR_SUCCESS != (rv = get_new_nonce(acme))) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, req->p, 
                               "error retrieving new nonce from ACME server");
                 return rv;
@@ -412,8 +443,6 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     }
 
     if (rv == APR_SUCCESS) {
-        long id = 0;
-        
         if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p, 
                           "req: POST %s, body:\n%s", req->url, body);
@@ -423,14 +452,14 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
                           "req: POST %s", req->url);
         }
         if (!strcmp("GET", req->method)) {
-            rv = md_http_GET(req->acme->http, req->url, NULL, on_response, req, &id);
+            rv = md_http_GET(req->acme->http, req->url, NULL, on_response, req);
         }
         else if (!strcmp("POST", req->method)) {
             rv = md_http_POSTd(req->acme->http, req->url, NULL, "application/json",  
-                               body, body? strlen(body) : 0, on_response, req, &id);
+                               body, body? strlen(body) : 0, on_response, req);
         }
         else if (!strcmp("HEAD", req->method)) {
-            rv = md_http_HEAD(req->acme->http, req->url, NULL, on_response, req, &id);
+            rv = md_http_HEAD(req->acme->http, req->url, NULL, on_response, req);
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, req->p, 
@@ -438,7 +467,6 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
             rv = APR_ENOTIMPL;
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->p, "req sent");
-        md_http_await(acme->http, id);
         
         if (APR_EAGAIN == rv && req->max_retries > 0) {
             --req->max_retries;

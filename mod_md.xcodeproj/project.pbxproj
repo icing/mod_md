@@ -551,7 +551,7 @@
 			buildPhases = (
 			);
 			buildToolPath = /usr/bin/make;
-			buildWorkingDirectory = /Users/sei/projects/mod_md/src;
+			buildWorkingDirectory = /Users/sei/projects/mod_md;
 			dependencies = (
 			);
 			name = all;

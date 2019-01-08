@@ -941,6 +941,12 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md_proto_driver_t *driver;
     apr_status_t rv;
     
+    /* For the MD of given name,  check if something is in the STAGING area.
+     * - If none is there, return that status.
+     * - If the name is no longer in the global registry, ignore this as well
+     *   (might we check this first?)
+     * - 
+     */
     name = va_arg(ap, const char *);
     
     if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, name, NULL, ptemp))) {

@@ -179,7 +179,7 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
     authz_req_ctx_init(&ctx, acme, domain, NULL, p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "create new authz");
-    rv = md_acme_POST(acme, acme->new_authz, on_init_authz, authz_created, NULL, &ctx);
+    rv = md_acme_POST(acme, acme->api.v1.new_authz, on_init_authz, authz_created, NULL, &ctx);
     
     *pauthz = (APR_SUCCESS == rv)? ctx.authz : NULL;
     return rv;

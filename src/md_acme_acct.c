@@ -364,7 +364,7 @@ static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,
 
         ctx.acme = acme;
         ctx.p = p;
-        rv = md_acme_POST(acme, acme->new_reg, on_init_acct_new, acct_upd, NULL, &ctx);
+        rv = md_acme_POST(acme, acme->api.v1.new_reg, on_init_acct_new, acct_upd, NULL, &ctx);
         if (APR_SUCCESS == rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, 
                           "registered new account %s", acme->acct->url);
