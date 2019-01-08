@@ -49,12 +49,28 @@ class TestAcmeToS :
         run = TestEnv.a2md(["--terms", TestEnv.ACME_TOS2, "acme", "newreg", "test003@not-forbidden.org"])
         assert run["rv"] == 1
  
+    def test_210_003b(self):
+        # test case: register a new account with generic 'accepted'
+        contact = "test003b@not-forbidden.org"
+        run = TestEnv.a2md(["-t", "accepted", "acme", "newreg", contact])
+        assert run["rv"] == 0
+        acct = re.match("registered: (.*)", run['stdout']).group(1)
+        self._check_account(acct, ["mailto:" + contact], TestEnv.ACME_TOS)
+ 
     def test_210_004(self):
         # test case: register new account, agree to tos afterwards
         contact = "test210-004@not-forbidden.org"
         acct = self._prepare_account([contact], None)
         self._check_account(acct, ["mailto:" + contact], None)
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
+        self._check_account(acct, ["mailto:" + contact], TestEnv.ACME_TOS)
+
+    def test_210_004b(self):
+        # test case: register new account, agree via 'accepted' afterwards
+        contact = "test210-004@not-forbidden.org"
+        acct = self._prepare_account([contact], None)
+        self._check_account(acct, ["mailto:" + contact], None)
+        assert TestEnv.a2md(["--terms", "accepted", "acme", "agree", acct])['rv'] == 0
         self._check_account(acct, ["mailto:" + contact], TestEnv.ACME_TOS)
 
     def test_210_005(self):
