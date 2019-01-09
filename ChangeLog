@@ -1,3 +1,6 @@
+  * Integrated recent changes from Apache subversion.
+  * Starting support for ACMEv2 protocol
+
 v1.1.17
 ----------------------------------------------------------------------------------------------------
   * fixed several coding bugs in detection of ACME challenge changes, e.g. when the local

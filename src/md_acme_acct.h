@@ -120,8 +120,4 @@ apr_status_t md_acme_acct_save_staged(md_acme_t *acme, struct md_store_t *store,
  */
 apr_status_t md_acme_delete_acct(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
 
-/**
- * Delete the account from the local store without contacting the ACME server.
- */
-apr_status_t md_acme_unstore_acct(struct md_store_t *store, apr_pool_t *p, const char *acct_id);
 #endif /* md_acme_acct_h */
