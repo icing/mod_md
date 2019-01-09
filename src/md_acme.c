@@ -496,6 +496,32 @@ apr_status_t md_acme_save_acct(md_store_t *store, apr_pool_t *p, md_acme_t *acme
     return md_acme_acct_save(store, p, acme, acme->acct, acme->acct_key);
 }
 
+static apr_status_t acmev1_POST_new_account(md_acme_t *acme, 
+                                            md_acme_req_init_cb *on_init,
+                                            md_acme_req_json_cb *on_json,
+                                            md_acme_req_res_cb *on_res,
+                                            void *baton)
+{
+    return md_acme_POST(acme, acme->api.v1.new_reg, on_init, on_json, on_res, baton);
+}
+
+static apr_status_t acmev2_POST_new_account(md_acme_t *acme, 
+                                            md_acme_req_init_cb *on_init,
+                                            md_acme_req_json_cb *on_json,
+                                            md_acme_req_res_cb *on_res,
+                                            void *baton)
+{
+    return md_acme_POST(acme, acme->api.v2.new_account, on_init, on_json, on_res, baton);
+}
+
+apr_status_t md_acme_POST_new_account(md_acme_t *acme, 
+                                      md_acme_req_init_cb *on_init,
+                                      md_acme_req_json_cb *on_json,
+                                      md_acme_req_res_cb *on_res,
+                                      void *baton)
+{
+    return acme->post_new_account_fn(acme, on_init, on_json, on_res, baton);
+}
 
 /**************************************************************************************************/
 /* ACME setup */
@@ -583,6 +609,7 @@ apr_status_t md_acme_setup(md_acme_t *acme)
         acme->ca_agreement = md_json_gets(json, "meta", "terms-of-service", NULL);
         acme->new_nonce_fn = acmev1_new_nonce;
         acme->req_init_fn = acmev1_req_init;
+        acme->post_new_account_fn = acmev1_POST_new_account;
     }
     else if ((s = md_json_gets(json, "newAccount", NULL))) {
         acme->api.v2.new_account = s;
@@ -598,6 +625,7 @@ apr_status_t md_acme_setup(md_acme_t *acme)
         acme->ca_agreement = md_json_gets(json, "meta", "termsOfService", NULL);
         acme->new_nonce_fn = acmev2_new_nonce;
         acme->req_init_fn = acmev2_req_init;
+        acme->post_new_account_fn = acmev2_POST_new_account;
     }
     
     if (MD_ACME_VERSION_UNKNOWN == acme->version) {

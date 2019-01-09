@@ -27,16 +27,23 @@ struct md_pkey_t;
  */
 typedef struct md_acme_acct_t md_acme_acct_t;
 
+typedef enum {
+    MD_ACME_ACCT_ST_UNKNOWN,
+    MD_ACME_ACCT_ST_VALID,
+    MD_ACME_ACCT_ST_DEACTIVATED,
+    MD_ACME_ACCT_ST_REVOKED,
+} md_acme_acct_st;
+
 struct md_acme_acct_t {
     const char *id;                 /* short, unique id for the account */
     const char *url;                /* url of the account, once registered */
     const char *ca_url;             /* url of the ACME protocol endpoint */
+    md_acme_acct_st status;         /* status of this account */
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
     const char *tos_required;       /* terms of service asked for by CA */
     const char *agreement;          /* terms of service agreed to by user */
     
     struct md_json_t *registration; /* data from server registration */
-    int disabled;
 };
 
 #define MD_FN_ACCOUNT           "account.json"

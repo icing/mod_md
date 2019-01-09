@@ -52,10 +52,36 @@ typedef enum {
 } md_acme_state_t;
 
 typedef struct md_acme_t md_acme_t;
+
 typedef struct md_acme_req_t md_acme_req_t;
+/**
+ * Request callback on a successful HTTP response (status 2xx).
+ */
+typedef apr_status_t md_acme_req_res_cb(md_acme_t *acme, 
+                                        const struct md_http_response_t *res, void *baton);
+
+/**
+ * Request callback to initialize before sending. May be invoked more than once in
+ * case of retries.
+ */
+typedef apr_status_t md_acme_req_init_cb(md_acme_req_t *req, void *baton);
+
+/**
+ * Request callback on a successful response (HTTP response code 2xx) and content
+ * type matching application/.*json.
+ */
+typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, apr_pool_t *p, 
+                                         const apr_table_t *headers, 
+                                         struct md_json_t *jbody, void *baton);
 
 typedef apr_status_t md_acme_new_nonce_fn(md_acme_t *acme);
 typedef apr_status_t md_acme_req_init_fn(md_acme_req_t *req, struct md_json_t *jpayload);
+
+typedef apr_status_t md_acme_post_fn(md_acme_t *acme, 
+                                     md_acme_req_init_cb *on_init,
+                                     md_acme_req_json_cb *on_json,
+                                     md_acme_req_res_cb *on_res,
+                                     void *baton);
 
 struct md_acme_t {
     const char *url;                /* directory url of the ACME service */
@@ -89,6 +115,7 @@ struct md_acme_t {
     
     md_acme_new_nonce_fn *new_nonce_fn;
     md_acme_req_init_fn *req_init_fn;
+    md_acme_post_fn *post_new_account_fn;
     
     struct md_http_t *http;
     
@@ -123,6 +150,12 @@ apr_status_t md_acme_setup(md_acme_t *acme);
 
 /**************************************************************************************************/
 /* account handling */
+
+apr_status_t md_acme_POST_new_account(md_acme_t *acme, 
+                                      md_acme_req_init_cb *on_init,
+                                      md_acme_req_json_cb *on_json,
+                                      md_acme_req_res_cb *on_res,
+                                      void *baton);
 
 #define MD_ACME_ACCT_STAGED     "staged"
 
@@ -196,26 +229,6 @@ apr_status_t md_acme_unstore_acct(struct md_store_t *store, apr_pool_t *p, const
 
 /**************************************************************************************************/
 /* request handling */
-
-/**
- * Request callback on a successful HTTP response (status 2xx).
- */
-typedef apr_status_t md_acme_req_res_cb(md_acme_t *acme, 
-                                        const struct md_http_response_t *res, void *baton);
-
-/**
- * Request callback to initialize before sending. May be invoked more than once in
- * case of retries.
- */
-typedef apr_status_t md_acme_req_init_cb(md_acme_req_t *req, void *baton);
-
-/**
- * Request callback on a successful response (HTTP response code 2xx) and content
- * type matching application/.*json.
- */
-typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, apr_pool_t *p, 
-                                         const apr_table_t *headers, 
-                                         struct md_json_t *jbody, void *baton);
 
 struct md_acme_req_t {
     md_acme_t *acme;               /* the ACME server to talk to */
