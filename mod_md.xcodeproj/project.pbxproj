@@ -137,6 +137,7 @@
 		B2B81ED21F164AA600E35CA3 /* md_curl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_curl.h; sourceTree = "<group>"; };
 		B2B81ED41F165F8300E35CA3 /* index.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
 		B2B81ED71F17BF3200E35CA3 /* test_0700_auto.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0700_auto.py; sourceTree = "<group>"; };
+		B2C1BDF821E4FE82002EF7B4 /* test_0202_acmev2_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0202_acmev2_regs.py; sourceTree = "<group>"; };
 		B2CE87C51F8E28EA000629B2 /* notify.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = notify.py; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -344,6 +345,7 @@
 				B255730B1EE6CF6100E0B132 /* test_0110_reg_update.py */,
 				B2B81EA71F0E35B000E35CA3 /* test_0120_reg_list.py */,
 				B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */,
+				B2C1BDF821E4FE82002EF7B4 /* test_0202_acmev2_regs.py */,
 				B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */,
 				B20333391EDDA82300E5BE7E /* test_0220_acme_authz.py */,
 				B2B81EA81F0E35B000E35CA3 /* test_0300_conf_validate.py */,

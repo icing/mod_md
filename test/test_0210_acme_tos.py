@@ -50,7 +50,6 @@ class TestAcmeToS :
         run = TestEnv.a2md(["--terms", TestEnv.ACME_TOS2, "acme", "newreg", "test003@not-forbidden.org"])
         assert run["rv"] == 1
  
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_210_003b(self):
         # test case: register a new account with generic 'accepted'
         contact = "test003b@not-forbidden.org"
@@ -67,7 +66,6 @@ class TestAcmeToS :
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
         self._check_account(acct, ["mailto:" + contact], TestEnv.ACME_TOS)
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_210_004b(self):
         # test case: register new account, agree via 'accepted' afterwards
         contact = "test210-004@not-forbidden.org"

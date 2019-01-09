@@ -26,6 +26,7 @@ struct md_json_t;
 struct md_pkey_t;
 struct md_t;
 struct md_acme_acct_t;
+struct md_acmev2_acct_t;
 struct md_proto_t;
 struct md_store_t;
 
@@ -51,6 +52,10 @@ typedef enum {
 } md_acme_state_t;
 
 typedef struct md_acme_t md_acme_t;
+typedef struct md_acme_req_t md_acme_req_t;
+
+typedef apr_status_t md_acme_new_nonce_fn(md_acme_t *acme);
+typedef apr_status_t md_acme_req_init_fn(md_acme_req_t *req, struct md_json_t *jpayload);
 
 struct md_acme_t {
     const char *url;                /* directory url of the ACME service */
@@ -58,6 +63,7 @@ struct md_acme_t {
     apr_pool_t *p;
     const char *user_agent;
     const char *proxy_url;
+    
     struct md_acme_acct_t *acct;
     struct md_pkey_t *acct_key;
     
@@ -68,6 +74,7 @@ struct md_acme_t {
             const char *new_cert;
             const char *new_reg;
             const char *revoke_cert;
+            
         } v1;
         struct {
             const char *new_account;
@@ -77,6 +84,11 @@ struct md_acme_t {
             const char *new_nonce;
         } v2;
     } api;
+    const char *ca_agreement;
+    const char *acct_name;
+    
+    md_acme_new_nonce_fn *new_nonce_fn;
+    md_acme_req_init_fn *req_init_fn;
     
     struct md_http_t *http;
     
@@ -114,9 +126,7 @@ apr_status_t md_acme_setup(md_acme_t *acme);
 
 #define MD_ACME_ACCT_STAGED     "staged"
 
-apr_status_t md_acme_acct_load(struct md_acme_acct_t **pacct, struct md_pkey_t **ppkey,
-                               struct md_store_t *store, md_store_group_t group, 
-                               const char *name, apr_pool_t *p);
+const char *md_acme_acct_url_get(md_acme_t *acme);
 
 /** 
  * Specify the account to use by name in local store. On success, the account
@@ -154,12 +164,6 @@ apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *tos);
 apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, 
                                      const char *agreement, const char **prequired);
 
-/**
- * Get the ToS agreement for current account.
- */
-const char *md_acme_get_agreement(md_acme_t *acme);
-
-
 /** 
  * Find an existing account in the local store. On APR_SUCCESS, the acme
  * instance will have a current, validated account to use.
@@ -173,8 +177,7 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, struct md_store_t *store, apr_po
 apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
                                  const char *agreement);
 
-apr_status_t md_acme_acct_save(struct md_store_t *store, apr_pool_t *p, md_acme_t *acme,  
-                               struct md_acme_acct_t *acct, struct md_pkey_t *acct_key);
+apr_status_t md_acme_save_acct(struct md_store_t *store, apr_pool_t *p, md_acme_t *acme);
                                
 apr_status_t md_acme_save(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
 
@@ -199,11 +202,6 @@ apr_status_t md_acme_unstore_acct(struct md_store_t *store, apr_pool_t *p, const
  */
 typedef apr_status_t md_acme_req_res_cb(md_acme_t *acme, 
                                         const struct md_http_response_t *res, void *baton);
-
-/**
- * A request against an ACME server
- */
-typedef struct md_acme_req_t md_acme_req_t;
 
 /**
  * Request callback to initialize before sending. May be invoked more than once in
@@ -239,6 +237,8 @@ struct md_acme_req_t {
     int max_retries;               /* how often this might be retried */
     void *baton;                   /* userdata for callbacks */
 };
+
+apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *payload);
 
 apr_status_t md_acme_GET(md_acme_t *acme, const char *url,
                          md_acme_req_init_cb *on_init,

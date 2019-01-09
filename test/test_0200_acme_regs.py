@@ -1,4 +1,4 @@
-# test mod_md acme registrations
+# test mod_md ACMEv1 registrations
 
 import os.path
 import re

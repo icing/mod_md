@@ -1,6 +1,10 @@
   * Integrated recent changes from Apache subversion.
   * Starting support for ACMEv2 protocol
-
+  * MDCertificateAgreement has new value 'accepted' instead of the Terms-of-Services URL. This
+    avoids confusion and reflects more what ACMEv2 protocol requires. For ACMEv1 servers, the
+    correct URL is retrieved from the server's meta data when 'accepted' is configured.
+  
+>>>>>>> Stashed changes
 v1.1.17
 ----------------------------------------------------------------------------------------------------
   * fixed several coding bugs in detection of ACME challenge changes, e.g. when the local

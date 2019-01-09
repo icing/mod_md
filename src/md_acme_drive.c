@@ -134,12 +134,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
     
 out:
     if (APR_SUCCESS == rv) {
-        const char *agreement = md_acme_get_agreement(ad->acme);
         /* Persist the account chosen at the md so we use the same on future runs */
-        if (agreement && !md->ca_agreement) { 
-            md->ca_agreement = agreement;
-            update = 1;
-        }
         if (update) {
             rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
         }

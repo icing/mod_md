@@ -25,18 +25,18 @@ SEC_PER_DAY = 24 * 60 * 60
 class TestEnv:
 
     @classmethod
-    def init( cls ) :
+    def _init_base( cls ) :
         cls.config = SafeConfigParser()
         cls.config.read('test.ini')
         cls.PREFIX = cls.config.get('global', 'prefix')
 
         cls.GEN_DIR   = cls.config.get('global', 'gen_dir')
 
-        cls.ACME_URL_DEFAULT  = cls.config.get('acme', 'url_default')
-        cls.ACME_URL  = cls.config.get('acme', 'url')
-        cls.ACME_TOS  = cls.config.get('acme', 'tos')
-        cls.ACME_TOS2 = cls.config.get('acme', 'tos2')
-        cls.BOULDER_DIR = cls.config.get('acme', 'boulder_dir')
+        cls.ACME_URL_DEFAULT  = cls.config.get(cls.acme_section, 'url_default')
+        cls.ACME_URL  = cls.config.get(cls.acme_section, 'url')
+        cls.ACME_TOS  = cls.config.get(cls.acme_section, 'tos')
+        cls.ACME_TOS2 = cls.config.get(cls.acme_section, 'tos2')
+        cls.BOULDER_DIR = cls.config.get(cls.acme_section, 'boulder_dir')
         cls.WEBROOT   = cls.config.get('global', 'server_dir')
         cls.TESTROOT   = os.path.join(cls.WEBROOT, '..', '..')
 
@@ -77,6 +77,16 @@ class TestEnv:
         cls.set_store_dir('md')
         cls.clear_store()
         cls.install_test_conf()
+
+    @classmethod
+    def init( cls ) :
+        cls.acme_section = 'acmev1'
+        cls._init_base()
+
+    @classmethod
+    def initv2( cls ) :
+        cls.acme_section = 'acmev2'
+        cls._init_base()
 
     @classmethod
     def set_store_dir( cls, dir ) :

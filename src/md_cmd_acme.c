@@ -53,7 +53,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
 
     if (APR_SUCCESS == (rv = md_acme_create_acct(ctx->acme, ctx->p, contacts, ctx->tos))) {
-        md_acme_save(ctx->acme, ctx->store, ctx->p);
+        md_acme_save_acct(ctx->store, ctx->p, ctx->acme); 
         fprintf(stdout, "registered: %s\n", md_acme_get_acct_id(ctx->acme));
     }
     else {
@@ -80,15 +80,12 @@ static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name,
     
     if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name))) {
         if (!tos) {
-            tos = ctx->acme->acct->agreement;
-            if (!tos) {
-                return APR_BADARG;
-            }
+            tos = "accepted";
         }
         rv = md_acme_agree(ctx->acme, ctx->p, tos);
         if (rv == APR_SUCCESS) {
-            rv = md_acme_save(ctx->acme, ctx->store, ctx->p);
-            fprintf(stdout, "agreed terms-of-service: %s\n", ctx->acme->acct->url);
+            rv = md_acme_save_acct(ctx->store, ctx->p, ctx->acme); 
+            fprintf(stdout, "agreed terms-of-service: %s\n", md_acme_acct_url_get(ctx->acme));
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "agree to terms-of-service %s", tos);
@@ -222,12 +219,11 @@ static md_cmd_t AcmeDelregCmd = {
 /**************************************************************************************************/
 /* command: acme authz */
 
-static apr_status_t acme_newauthz(md_cmd_ctx *ctx, md_acme_acct_t *acct, const char *domain) 
+static apr_status_t acme_newauthz(md_cmd_ctx *ctx, const char *domain) 
 {
     apr_status_t rv;
     md_acme_authz_t *authz;
 
-    (void)acct;
     rv = md_acme_authz_register(&authz, ctx->acme, ctx->store, domain, ctx->p); 
     
     if (rv == APR_SUCCESS) {
@@ -251,7 +247,7 @@ static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     s = ctx->argv[0];
     if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, s))) {
         for (i = 1; i < ctx->argc; ++i) {
-            rv = acme_newauthz(ctx, ctx->acme->acct, ctx->argv[i]);
+            rv = acme_newauthz(ctx, ctx->argv[i]);
             if (rv != APR_SUCCESS) {
                 break;
             }

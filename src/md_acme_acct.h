@@ -104,11 +104,11 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, struct md_store_t *store, apr_po
  * Create a new account at the ACME server. The
  * new account is the one used by the acme instance afterwards, on success.
  */
-apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                 const char *agreement);
+apr_status_t md_acme_acct_register(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
+                                     const char *agreement);
 
 apr_status_t md_acme_acct_save(struct md_store_t *store, apr_pool_t *p, md_acme_t *acme,  
-                               struct md_acme_acct_t *acct, struct md_pkey_t *acct_key);
+                                 struct md_acme_acct_t *acct, struct md_pkey_t *acct_key);
                                
 apr_status_t md_acme_save(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
 
@@ -119,5 +119,9 @@ apr_status_t md_acme_acct_save_staged(md_acme_t *acme, struct md_store_t *store,
  * Delete the current account at the ACME server and remove it from store. 
  */
 apr_status_t md_acme_delete_acct(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
+
+apr_status_t md_acme_acct_load(struct md_acme_acct_t **pacct, struct md_pkey_t **ppkey,
+                               struct md_store_t *store, md_store_group_t group, 
+                               const char *name, apr_pool_t *p);
 
 #endif /* md_acme_acct_h */

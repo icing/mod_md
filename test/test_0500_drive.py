@@ -625,7 +625,6 @@ class TestDrive :
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert md['ca']['agreement'] == TestEnv.ACME_TOS
         assert "url" in md['cert']
 
         # check private key, validate certificate

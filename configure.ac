@@ -161,14 +161,19 @@ AC_PATH_PROG([PKGCONFIG], [pkg-config])
 ACME_DEF_URL=https://acme-v01.api.letsencrypt.org/directory
 AC_SUBST(ACME_DEF_URL)
 
+ACME_DEFv2_URL=https://acme-v02.api.letsencrypt.org/directory
+AC_SUBST(ACME_DEFv2_URL)
+
 if test "x$request_boulder" = "xdef"; then
     BOULDER_URL=http://localhost:4000/directory
+    BOULDERv2_URL=http://localhost:4001/directory
 elif test "x${request_boulder##http}" = "x${request_boulder}"; then
     BOULDER_URL="http://${request_boulder}/directory"
 else
     BOULDER_URL="$request_boulder"
 fi
 AC_SUBST(BOULDER_URL)
+AC_SUBST(BOULDERv2_URL)
 
 # the path where boulder is installed
 if test "x$request_boulder_dir" = "xdef"; then

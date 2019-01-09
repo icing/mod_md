@@ -162,7 +162,8 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
         /* hmm, in case we know the protocol, some checks could be done */
     }
 
-    if ((MD_UPD_AGREEMENT & fields) && md->ca_agreement) { /* setting to empty is ok */
+    if ((MD_UPD_AGREEMENT & fields) && md->ca_agreement
+        && strcmp("accepted", md->ca_agreement)) { /* setting to empty is ok */
         rv = md_util_abs_uri_check(p, md->ca_agreement, &err);
         if (err) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 

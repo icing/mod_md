@@ -275,6 +275,7 @@ static apr_status_t acct_find(md_acme_acct_t **pacct, md_pkey_t **ppkey,
 typedef struct {
     md_acme_t *acme;
     apr_pool_t *p;
+    const char *agreement;
 } acct_ctx_t;
 
 static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
@@ -285,8 +286,8 @@ static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
     jpayload = md_json_create(req->p);
     md_json_sets("new-reg", jpayload, MD_KEY_RESOURCE, NULL);
     md_json_setsa(ctx->acme->acct->contacts, jpayload, MD_KEY_CONTACT, NULL);
-    if (ctx->acme->acct->agreement) {
-        md_json_sets(ctx->acme->acct->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
+    if (ctx->agreement) {
+        md_json_sets(ctx->agreement, jpayload, MD_KEY_AGREEMENT, NULL);
     }
     
     return md_acme_req_body_init(req, jpayload);
@@ -307,17 +308,11 @@ static apr_status_t acct_upd(md_acme_t *acme, apr_pool_t *p,
         }
         acct->url = apr_pstrdup(ctx->p, location);
     }
-    if (!acct->tos_required) {
-        acct->tos_required = md_link_find_relation(hdrs, ctx->p, "terms-of-service");
-        if (acct->tos_required) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
-                          "server requires agreement to <%s>", acct->tos_required);
-        }
-    }
     
     apr_array_clear(acct->contacts);
     md_json_getsa(acct->contacts, body, MD_KEY_CONTACT, NULL);
     acct->registration = md_json_clone(ctx->p, body);
+    acct->agreement = md_json_dups(acme->p, acct->registration, MD_KEY_AGREEMENT, NULL);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "updated acct %s", acct->url);
     return rv;
@@ -331,16 +326,28 @@ static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,
     const char *err = NULL, *uri;
     md_pkey_spec_t spec;
     int i;
+    acct_ctx_t ctx;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "create new account");
     
-    if (agreement) {
-        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, agreement, &err))) {
+    ctx.acme = acme;
+    ctx.p = p;
+    /* The agreement URL is submitted when the ACME server announces Terms-of-Service
+     * in its directory meta data. The magic value "accepted" will always use the
+     * advertised URL. */
+    ctx.agreement = NULL;
+    if (acme->ca_agreement && agreement) {
+        ctx.agreement = !strcmp("accepted", agreement)? acme->ca_agreement : agreement;
+    }
+    
+    if (ctx.agreement) {
+        if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, ctx.agreement, &err))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
-                          "invalid agreement uri (%s): %s", err, agreement);
+                          "invalid agreement uri (%s): %s", err, ctx.agreement);
             goto out;
         }
     }
+    
     for (i = 0; i < contacts->nelts; ++i) {
         uri = APR_ARRAY_IDX(contacts, i, const char *);
         if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, uri, &err))) {
@@ -355,15 +362,9 @@ static apr_status_t acct_register(md_acme_t *acme, apr_pool_t *p,
     
     if (APR_SUCCESS == (rv = md_pkey_gen(&pkey, acme->p, &spec))
         && APR_SUCCESS == (rv = acct_make(&acme->acct,  p, acme->url, NULL, contacts))) {
-        acct_ctx_t ctx;
 
         acme->acct_key = pkey;
-        if (agreement) {
-            acme->acct->agreement = agreement;
-        }
-
-        ctx.acme = acme;
-        ctx.p = p;
+        
         rv = md_acme_POST(acme, acme->api.v1.new_reg, on_init_acct_new, acct_upd, NULL, &ctx);
         if (APR_SUCCESS == rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, 
@@ -398,10 +399,10 @@ static apr_status_t acct_valid(md_acme_t *acme, apr_pool_t *p, const apr_table_t
     md_acme_acct_t *acct = acme->acct;
     apr_status_t rv = APR_SUCCESS;
     const char *body_str;
-    const char *tos_required;
     
     (void)p;
     (void)baton;
+    (void)hdrs;
     apr_array_clear(acct->contacts);
     md_json_getsa(acct->contacts, body, MD_KEY_CONTACT, NULL);
     acct->registration = md_json_clone(acme->p, body);
@@ -410,17 +411,11 @@ static apr_status_t acct_valid(md_acme_t *acme, apr_pool_t *p, const apr_table_t
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, "validate acct %s: %s", 
                   acct->url, body_str ? body_str : "<failed to serialize!>");
     
-    acct->agreement = md_json_gets(acct->registration, MD_KEY_AGREEMENT, NULL);
-    tos_required = md_link_find_relation(hdrs, acme->p, "terms-of-service");
+    acct->agreement = md_json_dups(acme->p, acct->registration, MD_KEY_AGREEMENT, NULL);
     
-    if (tos_required) {
-        if (!acct->agreement || strcmp(tos_required, acct->agreement)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, 
-                          "needs to agree to terms-of-service '%s', "
-                          "has already agreed to '%s'", 
-                          tos_required, acct->agreement);
-        }
-        acct->tos_required = tos_required;
+    if (!acct->agreement && acme->ca_agreement) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, 
+                      "needs to agree to terms-of-service '%s'", acme->ca_agreement);
     }
     
     return rv;
@@ -502,11 +497,6 @@ const char *md_acme_get_acct_id(md_acme_t *acme)
     return acme->acct? acme->acct->id : NULL;
 }
 
-const char *md_acme_get_agreement(md_acme_t *acme)
-{
-    return acme->acct? acme->acct->agreement : NULL;
-}
-
 apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store, apr_pool_t *p)
 {
     md_acme_acct_t *acct;
@@ -533,7 +523,7 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store, apr_pool_t *p
     return APR_ENOENT;
 }
 
-apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
+apr_status_t md_acme_acct_register(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
                                  const char *agreement)
 {
     return acct_register(acme, p, contacts, agreement);
@@ -615,21 +605,13 @@ apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *agreement
     acct_ctx_t ctx;
     
     acme->acct->agreement = agreement;
+    if (!strcmp("accepted", agreement) && acme->ca_agreement) {
+        acme->acct->agreement = acme->ca_agreement;
+    }
+    
     ctx.acme = acme;
     ctx.p = p;
     return md_acme_POST(acme, acme->acct->url, on_init_agree_tos, acct_upd, NULL, &ctx);
-}
-
-static int agreement_required(md_acme_acct_t *acct)
-{
-    /* We used to really check if the account agreement and the one
-     * indicated as valid are the very same:
-     * return (!acct->agreement 
-     *       || (acct->tos_required && strcmp(acct->tos_required, acct->agreement)));
-     * However, LE is happy if the account has agreed to a ToS in the past and
-     * does not required a renewed acceptance.
-     */
-     return !acct->agreement; 
 }
 
 apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, 
@@ -637,32 +619,17 @@ apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p,
 {
     apr_status_t rv = APR_SUCCESS;
     
-    /* Check if (correct) Terms-of-Service for account were accepted */
+    /* We used to really check if the account agreement and the one indicated in meta
+     * are the very same. However, LE is happy if the account has agreed to a ToS in 
+     * the past and does not require a renewed acceptance.
+     */
     *prequired = NULL;
-    if (agreement_required(acme->acct)) {
-        const char *tos = acme->acct->tos_required;
-        if (!tos) {
-            if (APR_SUCCESS != (rv = md_acme_validate_acct(acme))) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, 
-                              "validate for account %s", acme->acct->id); 
-                return rv;
-            }
-            tos = acme->acct->tos_required; 
-            if (!tos) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, acme->p, "unknown terms-of-service "
-                              "required after validation of account %s", acme->acct->id); 
-                return APR_EGENERAL;
-            }
-        }
-        
-        if (acme->acct->agreement && !strcmp(tos, acme->acct->agreement)) {
-            rv = md_acme_agree(acme, p, tos);
-        }
-        else if (agreement && !strcmp(tos, agreement)) {
-            rv = md_acme_agree(acme, p, tos);
+    if (!acme->acct->agreement && acme->ca_agreement) {
+        if (agreement) {
+            rv = md_acme_agree(acme, p, acme->ca_agreement);
         }
         else {
-            *prequired = apr_pstrdup(p, tos);
+            *prequired = acme->ca_agreement;
             rv = APR_INCOMPLETE;
         }
     }

@@ -803,7 +803,7 @@ const command_rec md_cmds[] = {
     AP_INIT_TAKE1(     MD_CMD_CA, md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issuing the certificates"),
     AP_INIT_TAKE1(     MD_CMD_CAAGREEMENT, md_config_set_agreement, NULL, RSRC_CONF, 
-                  "URL of CA Terms-of-Service agreement you accept"),
+                  "either 'accepted' or the URL of CA Terms-of-Service agreement you accept"),
     AP_INIT_TAKE_ARGV( MD_CMD_CACHALLENGES, md_config_set_cha_tyes, NULL, RSRC_CONF, 
                       "A list of challenge types to be used."),
     AP_INIT_TAKE1(     MD_CMD_CAPROTO, md_config_set_ca_proto, NULL, RSRC_CONF, 
