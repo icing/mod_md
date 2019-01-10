@@ -126,6 +126,12 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 
 apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int archive);
 
+/**
+ * Delete the account from the local store.
+ */
+apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_id);
+
+
 /**************************************************************************************************/
 /* protocol drivers */
 

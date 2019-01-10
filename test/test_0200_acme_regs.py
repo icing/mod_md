@@ -134,7 +134,6 @@ class TestAcmeAcc :
         # read account data from store
         # TODO: create a "a2md list accounts" command for this
         jout = TestEnv.run([ "cat", TestEnv.path_account(acct) ])['jout']
-        assert jout['id'] == acct
         assert jout['registration']['contact'] == contact
 
     def _prepare_account(self, contact):

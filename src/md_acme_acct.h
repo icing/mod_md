@@ -55,25 +55,23 @@ struct md_acme_acct_t {
 
 #define MD_ACME_ACCT_STAGED     "staged"
 
-apr_status_t md_acme_acct_load(struct md_acme_acct_t **pacct, struct md_pkey_t **ppkey,
-                               struct md_store_t *store, md_store_group_t group, 
-                               const char *name, apr_pool_t *p);
-
-/** 
- * Specify the account to use by name in local store. On success, the account
- * the "current" one used by the acme instance.
+/**
+ * Convert an ACME account form/to JSON.
  */
-apr_status_t md_acme_use_acct(md_acme_t *acme, struct md_store_t *store, 
-                              apr_pool_t *p, const char *acct_id);
-
-apr_status_t md_acme_use_acct_staged(md_acme_t *acme, struct md_store_t *store, 
-                                     md_t *md, apr_pool_t *p);
+struct md_json_t *md_acme_acct_to_json(md_acme_acct_t *acct, apr_pool_t *p);
+apr_status_t md_acme_acct_from_json(md_acme_acct_t **pacct, struct md_json_t *json, apr_pool_t *p);
 
 /**
- * Get the local name of the account currently used by the acme instance.
- * Will be NULL if no account has been setup successfully.
+ * Update the account from the ACME server.
+ * - Will update acme->acct structure from server on success
+ * - Will return error status when request failed or account is not known.
  */
-const char *md_acme_get_acct_id(md_acme_t *acme);
+apr_status_t md_acme_acct_update(md_acme_t *acme);
+
+/**
+ * Update the account and persist changes in the store, if given (and not NULL).
+ */
+apr_status_t md_acme_acct_validate(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
 
 /**
  * Agree to the given Terms-of-Service url for the current account.
@@ -115,7 +113,8 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, apr_pool_t *p, apr_array_hea
                                      const char *agreement);
 
 apr_status_t md_acme_acct_save(struct md_store_t *store, apr_pool_t *p, md_acme_t *acme,  
-                                 struct md_acme_acct_t *acct, struct md_pkey_t *acct_key);
+                               const char **pid, struct md_acme_acct_t *acct, 
+                               struct md_pkey_t *acct_key);
                                
 apr_status_t md_acme_save(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
 
@@ -123,9 +122,9 @@ apr_status_t md_acme_acct_save_staged(md_acme_t *acme, struct md_store_t *store,
                                       md_t *md, apr_pool_t *p);
 
 /**
- * Delete the current account at the ACME server and remove it from store. 
+ * Deactivate the current account at the ACME server. 
  */
-apr_status_t md_acme_delete_acct(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
+apr_status_t md_acme_acct_deactivate(md_acme_t *acme, apr_pool_t *p);
 
 apr_status_t md_acme_acct_load(struct md_acme_acct_t **pacct, struct md_pkey_t **ppkey,
                                struct md_store_t *store, md_store_group_t group, 

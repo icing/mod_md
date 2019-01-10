@@ -90,10 +90,11 @@ struct md_acme_t {
     const char *user_agent;
     const char *proxy_url;
     
-    struct md_acme_acct_t *acct;
-    struct md_pkey_t *acct_key;
+    const char *acct_id;            /* local storage id account was loaded from or NULL */
+    struct md_acme_acct_t *acct;    /* account at ACME server to use for requests */
+    struct md_pkey_t *acct_key;     /* private RSA key belonging to account */
     
-    int version;                   /* as detected from the server */
+    int version;                    /* as detected from the server */
     union {
         struct {
             const char *new_authz;
@@ -157,8 +158,11 @@ apr_status_t md_acme_POST_new_account(md_acme_t *acme,
                                       md_acme_req_res_cb *on_res,
                                       void *baton);
 
-#define MD_ACME_ACCT_STAGED     "staged"
-
+/**
+ * Get the local name of the account currently used by the acme instance.
+ * Will be NULL if no account has been setup successfully.
+ */
+const char *md_acme_acct_id_get(md_acme_t *acme);
 const char *md_acme_acct_url_get(md_acme_t *acme);
 
 /** 
@@ -175,7 +179,7 @@ apr_status_t md_acme_use_acct_staged(md_acme_t *acme, struct md_store_t *store,
  * Get the local name of the account currently used by the acme instance.
  * Will be NULL if no account has been setup successfully.
  */
-const char *md_acme_get_acct_id(md_acme_t *acme);
+const char *md_acme_acct_id_get(md_acme_t *acme);
 
 /**
  * Agree to the given Terms-of-Service url for the current account.
@@ -204,8 +208,8 @@ apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p,
 apr_status_t md_acme_find_acct(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
 
 /**
- * Create a new account at the ACME server. The
- * new account is the one used by the acme instance afterwards, on success.
+ * Create a new account at the ACME server and save it in ACCOUNT group of the store. 
+ * The new account is the one used by the acme instance afterwards, on success.
  */
 apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
                                  const char *agreement);
@@ -214,18 +218,10 @@ apr_status_t md_acme_save_acct(struct md_store_t *store, apr_pool_t *p, md_acme_
                                
 apr_status_t md_acme_save(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
 
-apr_status_t md_acme_acct_save_staged(md_acme_t *acme, struct md_store_t *store, 
-                                      md_t *md, apr_pool_t *p);
-
 /**
- * Delete the current account at the ACME server and remove it from store. 
+ * Deactivate the current account at the ACME server.. 
  */
-apr_status_t md_acme_delete_acct(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
-
-/**
- * Delete the account from the local store without contacting the ACME server.
- */
-apr_status_t md_acme_unstore_acct(struct md_store_t *store, apr_pool_t *p, const char *acct_id);
+apr_status_t md_acme_acct_deactivate(md_acme_t *acme, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* request handling */

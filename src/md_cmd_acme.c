@@ -54,7 +54,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 
     if (APR_SUCCESS == (rv = md_acme_create_acct(ctx->acme, ctx->p, contacts, ctx->tos))) {
         md_acme_save_acct(ctx->store, ctx->p, ctx->acme); 
-        fprintf(stdout, "registered: %s\n", md_acme_get_acct_id(ctx->acme));
+        fprintf(stdout, "registered: %s\n", md_acme_acct_id_get(ctx->acme));
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "register new account");
@@ -170,9 +170,10 @@ static apr_status_t acme_delreg(md_cmd_ctx *ctx, const char *name, apr_pool_t *p
     
     if (ctx->acme) {
         if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name))) {
-            rv = md_acme_delete_acct(ctx->acme, ctx->store, ctx->p);
+            rv = md_acme_acct_deactivate(ctx->acme, ctx->p);
             if (rv == APR_SUCCESS) {
                 fprintf(stdout, "deleted: %s\n", name);
+                rv = md_acme_save_acct(ctx->store, ctx->p, ctx->acme); 
             }
             else {
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "delete account");
@@ -186,7 +187,7 @@ static apr_status_t acme_delreg(md_cmd_ctx *ctx, const char *name, apr_pool_t *p
         }
     }
     else if (ctx->store) {
-        rv = md_acme_unstore_acct(ctx->store, ctx->p, name);
+        rv = md_reg_delete_acct(ctx->reg, ctx->p, name);
     }
     else {
         rv = APR_EGENERAL;
@@ -210,7 +211,7 @@ static apr_status_t cmd_acme_delreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 }
 
 static md_cmd_t AcmeDelregCmd = {
-    "delreg", MD_CTX_STORE, 
+    "delreg", MD_CTX_STORE|MD_CTX_REG, 
     NULL, cmd_acme_delreg, MD_NoOptions, NULL,
     "delreg account",
     "delete an existing ACME account",

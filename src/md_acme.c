@@ -480,9 +480,55 @@ apr_status_t md_acme_get_json(struct md_json_t **pjson, md_acme_t *acme,
 /**************************************************************************************************/
 /* Generic ACME operations */
 
+const char *md_acme_acct_id_get(md_acme_t *acme)
+{
+    return acme->acct_id;
+}
+
 const char *md_acme_acct_url_get(md_acme_t *acme)
 {
     return acme->acct? acme->acct->url : NULL;
+}
+
+apr_status_t md_acme_use_acct(md_acme_t *acme, md_store_t *store,
+                              apr_pool_t *p, const char *acct_id)
+{
+    md_acme_acct_t *acct;
+    md_pkey_t *pkey;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey, 
+                                               store, MD_SG_ACCOUNTS, acct_id, acme->p))) {
+        if (acct->ca_url && !strcmp(acct->ca_url, acme->url)) {
+            acme->acct_id = apr_pstrdup(p, acct_id);
+            acme->acct = acct;
+            acme->acct_key = pkey;
+            rv = md_acme_acct_validate(acme, store, p);
+        }
+        else {
+            /* account is from a nother server or, more likely, from another
+             * protocol endpoint on the same server */
+            rv = APR_ENOENT;
+        }
+    }
+    return rv;
+}
+
+apr_status_t md_acme_use_acct_staged(md_acme_t *acme, struct md_store_t *store, 
+                                     md_t *md, apr_pool_t *p)
+{
+    md_acme_acct_t *acct;
+    md_pkey_t *pkey;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey, 
+                                               store, MD_SG_STAGING, md->name, acme->p))) {
+        acme->acct_id = NULL;
+        acme->acct = acct;
+        acme->acct_key = pkey;
+        rv = md_acme_acct_validate(acme, NULL, p);
+    }
+    return rv;
 }
 
 apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
@@ -493,7 +539,7 @@ apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_heade
 
 apr_status_t md_acme_save_acct(md_store_t *store, apr_pool_t *p, md_acme_t *acme)
 {
-    return md_acme_acct_save(store, p, acme, acme->acct, acme->acct_key);
+    return md_acme_acct_save(store, p, acme, &acme->acct_id, acme->acct, acme->acct_key);
 }
 
 static apr_status_t acmev1_POST_new_account(md_acme_t *acme, 

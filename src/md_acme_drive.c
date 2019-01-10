@@ -107,7 +107,7 @@ static apr_status_t ad_set_acct(md_proto_driver_t *d)
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
                       d->proto->protocol);
         if (APR_SUCCESS == md_acme_find_acct(ad->acme, d->store, d->p)) {
-            md->ca_account = md_acme_get_acct_id(ad->acme);
+            md->ca_account = md_acme_acct_id_get(ad->acme);
             update = 1;
         }
     }
@@ -989,13 +989,14 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     
     if (acct) {
         md_acme_t *acme;
+        const char *id = NULL;
         
         if (APR_SUCCESS != (rv = md_acme_create(&acme, p, md->ca_url, proxy_url))
-            || APR_SUCCESS != (rv = md_acme_acct_save(store, p, acme, acct, acct_key))) {
+            || APR_SUCCESS != (rv = md_acme_acct_save(store, p, acme, &id, acct, acct_key))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error saving acct", name);
             return rv;
         }
-        md->ca_account = acct->id;
+        md->ca_account = id;
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: saved ACME account %s", 
                       name, acct->id);
     }

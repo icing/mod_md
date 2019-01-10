@@ -567,6 +567,17 @@ apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p,
     return md_util_pool_vdo(p_md_update, reg, p, name, md, fields, NULL);
 }
 
+apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_id) 
+{
+    apr_status_t rv = APR_SUCCESS;
+    
+    rv = md_store_remove(reg->store, MD_SG_ACCOUNTS, acct_id, MD_FN_ACCOUNT, p, 1);
+    if (APR_SUCCESS == rv) {
+        md_store_remove(reg->store, MD_SG_ACCOUNTS, acct_id, MD_FN_ACCT_KEY, p, 1);
+    }
+    return rv;
+}
+
 /**************************************************************************************************/
 /* certificate related */
 
