@@ -480,6 +480,13 @@ apr_status_t md_acme_get_json(struct md_json_t **pjson, md_acme_t *acme,
 /**************************************************************************************************/
 /* Generic ACME operations */
 
+void md_acme_clear_acct(md_acme_t *acme)
+{
+    acme->acct_id = NULL;
+    acme->acct = NULL;
+    acme->acct_key = NULL;
+}
+
 const char *md_acme_acct_id_get(md_acme_t *acme)
 {
     return acme->acct_id;
@@ -514,30 +521,7 @@ apr_status_t md_acme_use_acct(md_acme_t *acme, md_store_t *store,
     return rv;
 }
 
-apr_status_t md_acme_use_acct_staged(md_acme_t *acme, struct md_store_t *store, 
-                                     md_t *md, apr_pool_t *p)
-{
-    md_acme_acct_t *acct;
-    md_pkey_t *pkey;
-    apr_status_t rv;
-    
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey, 
-                                               store, MD_SG_STAGING, md->name, acme->p))) {
-        acme->acct_id = NULL;
-        acme->acct = acct;
-        acme->acct_key = pkey;
-        rv = md_acme_acct_validate(acme, NULL, p);
-    }
-    return rv;
-}
-
-apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                 const char *agreement)
-{
-    return md_acme_acct_register(acme, p, contacts, agreement);
-}
-
-apr_status_t md_acme_save_acct(md_store_t *store, apr_pool_t *p, md_acme_t *acme)
+apr_status_t md_acme_save_acct(md_acme_t *acme, apr_pool_t *p, md_store_t *store)
 {
     return md_acme_acct_save(store, p, acme, &acme->acct_id, acme->acct, acme->acct_key);
 }

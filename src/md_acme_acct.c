@@ -163,22 +163,6 @@ out:
     return rv;
 }
 
-apr_status_t md_acme_acct_save_staged(md_acme_t *acme, md_store_t *store, md_t *md, apr_pool_t *p)
-{
-    md_acme_acct_t *acct = acme->acct;
-    md_json_t *jacct;
-    apr_status_t rv;
-    
-    jacct = md_acme_acct_to_json(acct, p);
-    
-    rv = md_store_save(store, p, MD_SG_STAGING, md->name, MD_FN_ACCOUNT, MD_SV_JSON, jacct, 0);
-    if (APR_SUCCESS == rv) {
-        rv = md_store_save(store, p, MD_SG_STAGING, md->name, MD_FN_ACCT_KEY, 
-                           MD_SV_PKEY, acme->acct_key, 0);
-    }
-    return rv;
-}
-
 apr_status_t md_acme_acct_save(md_store_t *store, apr_pool_t *p, md_acme_t *acme, 
                                const char **pid, md_acme_acct_t *acct, md_pkey_t *acct_key)
 {
@@ -203,11 +187,6 @@ apr_status_t md_acme_acct_save(md_store_t *store, apr_pool_t *p, md_acme_t *acme
         rv = md_store_save(store, p, MD_SG_ACCOUNTS, id, MD_FN_ACCT_KEY, MD_SV_PKEY, acct_key, 0);
     }
     return rv;
-}
-
-apr_status_t md_acme_save(md_acme_t *acme, md_store_t *store, apr_pool_t *p)
-{
-    return md_acme_acct_save(store, p, acme, &acme->acct_id, acme->acct, acme->acct_key); 
 }
 
 apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, md_pkey_t **ppkey,
@@ -316,7 +295,7 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store, apr_pool_t *p
         acme->acct_id = id;
         acme->acct = acct;
         acme->acct_key = pkey;
-        rv = md_acme_acct_validate(acme, store, p);
+        rv = md_acme_acct_validate(acme, NULL, p);
         
         if (APR_SUCCESS == rv) {
             return rv;
@@ -413,7 +392,7 @@ apr_status_t md_acme_acct_validate(md_acme_t *acme, md_store_t *store, apr_pool_
             if (MD_ACME_ACCT_ST_VALID == acme->acct->status) {
                 acme->acct->status = MD_ACME_ACCT_ST_UNKNOWN;
                 if (store) {
-                    md_acme_save(acme, store, p);
+                    md_acme_acct_save(store, p, acme, &acme->acct_id, acme->acct, acme->acct_key); 
                 }
             }
             acme->acct = NULL;

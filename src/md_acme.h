@@ -152,6 +152,11 @@ apr_status_t md_acme_setup(md_acme_t *acme);
 /**************************************************************************************************/
 /* account handling */
 
+/**
+ * Clear any existing account data from acme instance.
+ */
+void md_acme_clear_acct(md_acme_t *acme);
+
 apr_status_t md_acme_POST_new_account(md_acme_t *acme, 
                                       md_acme_req_init_cb *on_init,
                                       md_acme_req_json_cb *on_json,
@@ -171,9 +176,6 @@ const char *md_acme_acct_url_get(md_acme_t *acme);
  */
 apr_status_t md_acme_use_acct(md_acme_t *acme, struct md_store_t *store, 
                               apr_pool_t *p, const char *acct_id);
-
-apr_status_t md_acme_use_acct_staged(md_acme_t *acme, struct md_store_t *store, 
-                                     md_t *md, apr_pool_t *p);
 
 /**
  * Get the local name of the account currently used by the acme instance.
@@ -201,23 +203,8 @@ apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *tos);
 apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, 
                                      const char *agreement, const char **prequired);
 
-/** 
- * Find an existing account in the local store. On APR_SUCCESS, the acme
- * instance will have a current, validated account to use.
- */ 
-apr_status_t md_acme_find_acct(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
-
-/**
- * Create a new account at the ACME server and save it in ACCOUNT group of the store. 
- * The new account is the one used by the acme instance afterwards, on success.
- */
-apr_status_t md_acme_create_acct(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                 const char *agreement);
-
-apr_status_t md_acme_save_acct(struct md_store_t *store, apr_pool_t *p, md_acme_t *acme);
+apr_status_t md_acme_save_acct(md_acme_t *acme, apr_pool_t *p, struct md_store_t *store);
                                
-apr_status_t md_acme_save(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
-
 /**
  * Deactivate the current account at the ACME server.. 
  */

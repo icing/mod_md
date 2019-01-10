@@ -52,8 +52,8 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
-    if (APR_SUCCESS == (rv = md_acme_create_acct(ctx->acme, ctx->p, contacts, ctx->tos))) {
-        md_acme_save_acct(ctx->store, ctx->p, ctx->acme); 
+    if (APR_SUCCESS == (rv = md_acme_acct_register(ctx->acme, ctx->p, contacts, ctx->tos))) {
+        md_acme_save_acct(ctx->acme, ctx->p, ctx->store); 
         fprintf(stdout, "registered: %s\n", md_acme_acct_id_get(ctx->acme));
     }
     else {
@@ -84,7 +84,7 @@ static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name,
         }
         rv = md_acme_agree(ctx->acme, ctx->p, tos);
         if (rv == APR_SUCCESS) {
-            rv = md_acme_save_acct(ctx->store, ctx->p, ctx->acme); 
+            rv = md_acme_save_acct(ctx->acme, ctx->p, ctx->store); 
             fprintf(stdout, "agreed terms-of-service: %s\n", md_acme_acct_url_get(ctx->acme));
         }
         else {
@@ -173,7 +173,7 @@ static apr_status_t acme_delreg(md_cmd_ctx *ctx, const char *name, apr_pool_t *p
             rv = md_acme_acct_deactivate(ctx->acme, ctx->p);
             if (rv == APR_SUCCESS) {
                 fprintf(stdout, "deleted: %s\n", name);
-                rv = md_acme_save_acct(ctx->store, ctx->p, ctx->acme); 
+                rv = md_acme_save_acct(ctx->acme, ctx->p, ctx->store); 
             }
             else {
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "delete account");

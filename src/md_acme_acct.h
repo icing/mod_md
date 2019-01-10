@@ -116,11 +116,6 @@ apr_status_t md_acme_acct_save(struct md_store_t *store, apr_pool_t *p, md_acme_
                                const char **pid, struct md_acme_acct_t *acct, 
                                struct md_pkey_t *acct_key);
                                
-apr_status_t md_acme_save(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
-
-apr_status_t md_acme_acct_save_staged(md_acme_t *acme, struct md_store_t *store, 
-                                      md_t *md, apr_pool_t *p);
-
 /**
  * Deactivate the current account at the ACME server. 
  */
