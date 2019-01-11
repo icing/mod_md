@@ -42,7 +42,7 @@ struct md_acme_acct_t {
     apr_array_header_t *contacts;   /* list of contact uris, e.g. mailto:xxx */
     const char *tos_required;       /* terms of service asked for by CA */
     const char *agreement;          /* terms of service agreed to by user */
-    
+    const char *orders;             /* URL where certificate orders are found (ACMEv2) */
     struct md_json_t *registration; /* data from server registration */
 };
 

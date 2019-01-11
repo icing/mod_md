@@ -225,10 +225,10 @@ static apr_status_t acme_newauthz(md_cmd_ctx *ctx, const char *domain)
     apr_status_t rv;
     md_acme_authz_t *authz;
 
-    rv = md_acme_authz_register(&authz, ctx->acme, ctx->store, domain, ctx->p); 
+    rv = md_acme_authz_register(&authz, ctx->acme, domain, ctx->p); 
     
     if (rv == APR_SUCCESS) {
-        fprintf(stdout, "authz: %s %s\n", domain, authz->location);
+        fprintf(stdout, "authz: %s %s\n", domain, authz->url);
     }
     else {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "register new authz");

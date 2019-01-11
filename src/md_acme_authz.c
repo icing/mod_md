@@ -46,64 +46,6 @@ md_acme_authz_t *md_acme_authz_create(apr_pool_t *p)
     return authz;
 }
 
-md_acme_authz_set_t *md_acme_authz_set_create(apr_pool_t *p)
-{
-    md_acme_authz_set_t *authz_set;
-    
-    authz_set = apr_pcalloc(p, sizeof(*authz_set));
-    authz_set->authzs = apr_array_make(p, 5, sizeof(md_acme_authz_t *));
-    
-    return authz_set;
-}
-
-md_acme_authz_t *md_acme_authz_set_get(md_acme_authz_set_t *set, const char *domain)
-{
-    md_acme_authz_t *authz;
-    int i;
-    
-    assert(domain);
-    for (i = 0; i < set->authzs->nelts; ++i) {
-        authz = APR_ARRAY_IDX(set->authzs, i, md_acme_authz_t *);
-        if (!apr_strnatcasecmp(domain, authz->domain)) {
-            return authz;
-        }
-    }
-    return NULL;
-}
-
-apr_status_t md_acme_authz_set_add(md_acme_authz_set_t *set, md_acme_authz_t *authz)
-{
-    md_acme_authz_t *existing;
-    
-    assert(authz->domain);
-    if (NULL != (existing = md_acme_authz_set_get(set, authz->domain))) {
-        return APR_EINVAL;
-    }
-    APR_ARRAY_PUSH(set->authzs, md_acme_authz_t*) = authz;
-    return APR_SUCCESS;
-}
-
-apr_status_t md_acme_authz_set_remove(md_acme_authz_set_t *set, const char *domain)
-{
-    md_acme_authz_t *authz;
-    int i;
-    
-    assert(domain);
-    for (i = 0; i < set->authzs->nelts; ++i) {
-        authz = APR_ARRAY_IDX(set->authzs, i, md_acme_authz_t *);
-        if (!apr_strnatcasecmp(domain, authz->domain)) {
-            int n = i + 1;
-            if (n < set->authzs->nelts) {
-                void **elems = (void **)set->authzs->elts;
-                memmove(elems + i, elems + n, (size_t)(set->authzs->nelts - n) * sizeof(*elems));
-            }
-            --set->authzs->nelts;
-            return APR_SUCCESS;
-        }
-    }
-    return APR_ENOENT;
-}
-
 /**************************************************************************************************/
 /* Register a new authorization */
 
@@ -158,7 +100,7 @@ static apr_status_t authz_created(md_acme_t *acme, apr_pool_t *p, const apr_tabl
     if (location) {
         ctx->authz = md_acme_authz_create(ctx->p);
         ctx->authz->domain = apr_pstrdup(ctx->p, ctx->domain);
-        ctx->authz->location = apr_pstrdup(ctx->p, location);
+        ctx->authz->url = apr_pstrdup(ctx->p, location);
         ctx->authz->resource = md_json_clone(ctx->p, body);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ctx->p, "authz_new at %s", location);
     }
@@ -170,12 +112,11 @@ static apr_status_t authz_created(md_acme_t *acme, apr_pool_t *p, const apr_tabl
 }
 
 apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *acme, 
-                                    md_store_t *store, const char *domain, apr_pool_t *p)
+                                    const char *domain, apr_pool_t *p)
 {
     apr_status_t rv;
     authz_req_ctx ctx;
     
-    (void)store;
     authz_req_ctx_init(&ctx, acme, domain, NULL, p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "create new authz");
@@ -188,8 +129,21 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
 /**************************************************************************************************/
 /* Update an existing authorization */
 
-apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, 
-                                  md_store_t *store, apr_pool_t *p)
+apr_status_t md_acme_authz_retrieve(md_acme_t *acme, apr_pool_t *p, const char *url, 
+                                    md_acme_authz_t **pauthz)
+{
+    md_acme_authz_t *authz;
+    apr_status_t rv;
+    
+    authz = apr_pcalloc(p, sizeof(*authz));
+    authz->url = apr_pstrdup(p, url);
+    rv = md_acme_authz_update(authz, acme, p);
+    
+    *pauthz = (APR_SUCCESS == rv)? authz : NULL;
+    return rv;
+}
+
+apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_pool_t *p)
 {
     md_json_t *json;
     const char *s, *err;
@@ -197,18 +151,17 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
     apr_status_t rv;
     MD_CHK_VARS;
     
-    (void)store;
     assert(acme);
     assert(acme->http);
     assert(authz);
-    assert(authz->location);
+    assert(authz->url);
 
     authz->state = MD_ACME_AUTHZ_S_UNKNOWN;
     json = NULL;
     err = "unable to parse response";
     log_level = MD_LOG_ERR;
     
-    if (MD_OK(md_acme_get_json(&json, acme, authz->location, p))
+    if (MD_OK(md_acme_get_json(&json, acme, authz->url, p))
         && (s = md_json_gets(json, MD_KEY_IDENTIFIER, MD_KEY_TYPE, NULL))
         && !strcmp(s, "dns")
         && (s = md_json_gets(json, MD_KEY_IDENTIFIER, MD_KEY_VALUE, NULL))
@@ -239,7 +192,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme,
     
     if (md_log_is_level(p, log_level)) {
         md_log_perror(MD_LOG_MARK, log_level, rv, p, "ACME server authz: %s for %s at %s. "
-                      "Exact response was: %s", err? err : "", authz->domain, authz->location,
+                      "Exact response was: %s", err? err : "", authz->domain, authz->url,
                       json? md_json_writep(json, p, MD_JSON_FMT_COMPACT) : "not available");
     }
     
@@ -284,7 +237,7 @@ static apr_status_t authz_http_set(md_acme_t *acme, apr_pool_t *p, const apr_tab
     (void)p;
     (void)hdrs;
     (void)body;
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "updated authz %s", ctx->authz->location);
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "updated authz %s", ctx->authz->url);
     return APR_SUCCESS;
 }
 
@@ -512,7 +465,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                       authz->domain, 
                       apr_array_pstrcat(p, fctx.offered, ' '),
                       apr_array_pstrcat(p, challenges, ' '),
-                      authz->location);
+                      authz->url);
         return rv;
     }
     
@@ -556,7 +509,7 @@ static apr_status_t authz_del(md_acme_t *acme, apr_pool_t *p, const apr_table_t 
     (void)p;
     (void)body;
     (void)hdrs;
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "deleted authz %s", ctx->authz->location);
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "deleted authz %s", ctx->authz->url);
     acme->acct = NULL;
     return APR_SUCCESS;
 }
@@ -571,8 +524,8 @@ apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme,
     ctx.authz = authz;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "delete authz for %s from %s", 
-                  authz->domain, authz->location);
-    return md_acme_POST(acme, authz->location, on_init_authz_del, authz_del, NULL, &ctx);
+                  authz->domain, authz->url);
+    return md_acme_POST(acme, authz->url, on_init_authz_del, authz_del, NULL, &ctx);
 }
 
 /**************************************************************************************************/
@@ -583,7 +536,7 @@ md_json_t *md_acme_authz_to_json(md_acme_authz_t *a, apr_pool_t *p)
     md_json_t *json = md_json_create(p);
     if (json) {
         md_json_sets(a->domain, json, MD_KEY_DOMAIN, NULL);
-        md_json_sets(a->location, json, MD_KEY_LOCATION, NULL);
+        md_json_sets(a->url, json, MD_KEY_LOCATION, NULL);
         md_json_sets(a->dir, json, MD_KEY_DIR, NULL);
         md_json_setl(a->state, json, MD_KEY_STATE, NULL);
         return json;
@@ -596,7 +549,7 @@ md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p)
     md_acme_authz_t *authz = md_acme_authz_create(p);
     if (authz) {
         authz->domain = md_json_dups(p, json, MD_KEY_DOMAIN, NULL);            
-        authz->location = md_json_dups(p, json, MD_KEY_LOCATION, NULL);            
+        authz->url = md_json_dups(p, json, MD_KEY_LOCATION, NULL);            
         authz->dir = md_json_dups(p, json, MD_KEY_DIR, NULL);            
         authz->state = (md_acme_authz_state_t)md_json_getl(json, MD_KEY_STATE, NULL);            
         return authz;
@@ -604,120 +557,4 @@ md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p)
     return NULL;
 }
 
-/**************************************************************************************************/
-/* authz_set conversion */
-
-#define MD_KEY_ACCOUNT          "account"
-#define MD_KEY_AUTHZS           "authorizations"
-
-static apr_status_t authz_to_json(void *value, md_json_t *json, apr_pool_t *p, void *baton)
-{
-    (void)baton;
-    return md_json_setj(md_acme_authz_to_json(value, p), json, NULL);
-}
-
-static apr_status_t authz_from_json(void **pvalue, md_json_t *json, apr_pool_t *p, void *baton)
-{
-    (void)baton;
-    *pvalue = md_acme_authz_from_json(json, p);
-    return (*pvalue)? APR_SUCCESS : APR_EINVAL;
-}
-
-md_json_t *md_acme_authz_set_to_json(md_acme_authz_set_t *set, apr_pool_t *p)
-{
-    md_json_t *json = md_json_create(p);
-    if (json) {
-        md_json_seta(set->authzs, authz_to_json, NULL, json, MD_KEY_AUTHZS, NULL);
-        return json;
-    }
-    return NULL;
-}
-
-md_acme_authz_set_t *md_acme_authz_set_from_json(md_json_t *json, apr_pool_t *p)
-{
-    md_acme_authz_set_t *set = md_acme_authz_set_create(p);
-    if (set) {
-        md_json_geta(set->authzs, authz_from_json, NULL, json, MD_KEY_AUTHZS, NULL);
-        return set;
-    }
-    return NULL;
-}
-
-/**************************************************************************************************/
-/* persistence */
-
-apr_status_t md_acme_authz_set_load(struct md_store_t *store, md_store_group_t group, 
-                                    const char *md_name, md_acme_authz_set_t **pauthz_set, 
-                                    apr_pool_t *p)
-{
-    apr_status_t rv;
-    md_json_t *json;
-    md_acme_authz_set_t *authz_set;
-    
-    rv = md_store_load_json(store, group, md_name, MD_FN_AUTHZ, &json, p);
-    if (APR_SUCCESS == rv) {
-        authz_set = md_acme_authz_set_from_json(json, p);
-    }
-    *pauthz_set = (APR_SUCCESS == rv)? authz_set : NULL;
-    return rv;  
-}
-
-static apr_status_t p_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_store_t *store = baton;
-    md_json_t *json;
-    md_store_group_t group;
-    md_acme_authz_set_t *set;
-    const char *md_name;
-    int create;
- 
-    (void)p;   
-    group = (md_store_group_t)va_arg(ap, int);
-    md_name = va_arg(ap, const char *);
-    set = va_arg(ap, md_acme_authz_set_t *);
-    create = va_arg(ap, int);
-
-    json = md_acme_authz_set_to_json(set, ptemp);
-    assert(json);
-    return md_store_save_json(store, ptemp, group, md_name, MD_FN_AUTHZ, json, create);
-}
-
-apr_status_t md_acme_authz_set_save(struct md_store_t *store, apr_pool_t *p,
-                                    md_store_group_t group, const char *md_name, 
-                                    md_acme_authz_set_t *authz_set, int create)
-{
-    return md_util_pool_vdo(p_save, store, p, group, md_name, authz_set, create, NULL);
-}
-
-static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
-{
-    md_store_t *store = baton;
-    md_acme_authz_set_t *authz_set;
-    const md_acme_authz_t *authz;
-    md_store_group_t group;
-    const char *md_name;
-    int i;
-
-    group = (md_store_group_t)va_arg(ap, int);
-    md_name = va_arg(ap, const char *);
-
-    if (APR_SUCCESS == md_acme_authz_set_load(store, group, md_name, &authz_set, p)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "authz_set loaded for %s", md_name);
-        for (i = 0; i < authz_set->authzs->nelts; ++i) {
-            authz = APR_ARRAY_IDX(authz_set->authzs, i, const md_acme_authz_t*);
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "authz check %s", authz->domain);
-            if (authz->dir) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "authz purge %s", authz->dir);
-                md_store_purge(store, p, MD_SG_CHALLENGES, authz->dir);
-            }
-        }
-    }
-    return md_store_remove(store, group, md_name, MD_FN_AUTHZ, ptemp, 1);
-}
-
-apr_status_t md_acme_authz_set_purge(md_store_t *store, md_store_group_t group,
-                                     apr_pool_t *p, const char *md_name)
-{
-    return md_util_pool_vdo(p_purge, store, p, group, md_name, NULL);
-}
 

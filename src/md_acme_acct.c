@@ -59,12 +59,24 @@ static apr_status_t acct_make(md_acme_acct_t **pacct, apr_pool_t *p,
 
 static const char *mk_acct_id(apr_pool_t *p, md_acme_t *acme, int i)
 {
-    return apr_psprintf(p, "ACME-%s-%04d", acme->sname, i);
+    int major = MD_ACME_VERSION_MAJOR(acme->version); 
+    switch (major) {
+        case 1:
+            return apr_psprintf(p, "ACME-%s-%04d", acme->sname, i);
+        default:
+            return apr_psprintf(p, "ACMEv%d-%s-%04d", major, acme->sname, i);
+    }
 }
 
 static const char *mk_acct_pattern(apr_pool_t *p, md_acme_t *acme)
 {
-    return apr_psprintf(p, "ACME-%s-*", acme->sname);
+    int major = MD_ACME_VERSION_MAJOR(acme->version); 
+    switch (major) {
+        case 1:
+            return apr_psprintf(p, "ACME-%s-*", acme->sname);
+        default:
+            return apr_psprintf(p, "ACMEv%d-%s-*", major, acme->sname);
+    }
 }
  
 /**************************************************************************************************/
@@ -116,6 +128,9 @@ md_json_t *md_acme_acct_to_json(md_acme_acct_t *acct, apr_pool_t *p)
     if (acct->agreement) {
         md_json_sets(acct->agreement, jacct, MD_KEY_AGREEMENT, NULL);
     }
+    if (acct->orders) {
+        md_json_sets(acct->orders, jacct, MD_KEY_ORDERS, NULL);
+    }
     
     return jacct;
 }
@@ -156,6 +171,7 @@ apr_status_t md_acme_acct_from_json(md_acme_acct_t **pacct, md_json_t *json, apr
         acct->status = status;
         acct->url = url;
         acct->agreement = md_json_gets(json, "terms-of-service", NULL);
+        acct->orders = md_json_gets(json, MD_KEY_ORDERS, NULL);
     }
 
 out:
@@ -363,6 +379,9 @@ static apr_status_t acct_upd(md_acme_t *acme, apr_pool_t *p,
     }
     if (md_json_has_key(body, MD_KEY_AGREEMENT, NULL)) {
         acct->agreement = md_json_dups(acme->p, body, MD_KEY_AGREEMENT, NULL);
+    }
+    if (md_json_has_key(body, MD_KEY_ORDERS, NULL)) {
+        acct->orders = md_json_dups(acme->p, body, MD_KEY_ORDERS, NULL);
     }
     acct->registration = md_json_clone(ctx->p, body);
     

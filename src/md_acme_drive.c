@@ -36,6 +36,7 @@
 #include "md_acme.h"
 #include "md_acme_acct.h"
 #include "md_acme_authz.h"
+#include "md_acme_order.h"
 
 #include "md_acme_drive.h"
 #include "md_acmev1_drive.h"
@@ -127,6 +128,22 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d)
         if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
                           "no contact information for md %s", md->name);            
+            rv = APR_EINVAL;
+            goto out;
+        }
+        
+        /* ACMEv1 allowed registration of accounts without accepted Terms-of-Service.
+         * ACMEv2 requires it. Fail early in this case with a meaningful error message.
+         */ 
+        if (!md->ca_agreement && MD_ACME_VERSION_MAJOR(ad->acme->version) > 1) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
+                          "%s: the CA requires you to accept the terms-of-service "
+                          "as specified in <%s>. "
+                          "Please read the document that you find at that URL and, "
+                          "if you agree to the conditions, configure "
+                          "\"MDCertificateAgreement accepted\" "
+                          "in your Apache. Then (graceful) restart the server to activate.", 
+                          md->name, ad->acme->ca_agreement);
             rv = APR_EINVAL;
             goto out;
         }
@@ -699,7 +716,7 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     }
 
     /* Remove any authz information we have here or in MD_SG_CHALLENGES */
-    md_acme_authz_set_purge(store, MD_SG_STAGING, p, name);
+    md_acme_order_purge(store, MD_SG_STAGING, p, name);
 
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                   "%s: staged data load, purging tmp space", name);

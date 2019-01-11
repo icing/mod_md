@@ -30,6 +30,7 @@ A2LIB_OBJECTS = \
     md_acme_acct.c \
     md_acme_authz.c \
     md_acme_drive.c \
+    md_acme_order.c \
     md_acmev1_drive.c \
     md_acmev2_drive.c \
     md_core.c \
@@ -49,6 +50,7 @@ A2LIB_HFILES = \
     md_acme_acct.h \
     md_acme_authz.h \
     md_acme_drive.h \
+    md_acme_order.h \
     md_acmev1_drive.h \
     md_acmev2_drive.h \
     md_curl.h \

@@ -143,6 +143,9 @@
 		B2C1BDFD21E77146002EF7B4 /* md_acmev1_drive.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acmev1_drive.h; sourceTree = "<group>"; };
 		B2C1BDFE21E77146002EF7B4 /* md_acmev1_drive.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acmev1_drive.c; sourceTree = "<group>"; };
 		B2C1BDFF21E77296002EF7B4 /* md_acme_drive.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_drive.h; sourceTree = "<group>"; };
+		B2C1BE0021E78DCD002EF7B4 /* test_0502_acmev2_drive.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0502_acmev2_drive.py; sourceTree = "<group>"; };
+		B2C1BE0121E8951D002EF7B4 /* md_acme_order.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_order.h; sourceTree = "<group>"; };
+		B2C1BE0221E8951D002EF7B4 /* md_acme_order.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_order.c; sourceTree = "<group>"; };
 		B2CE87C51F8E28EA000629B2 /* notify.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = notify.py; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -356,6 +359,7 @@
 				B2B81EA81F0E35B000E35CA3 /* test_0300_conf_validate.py */,
 				B2B81EA91F0E35B000E35CA3 /* test_0310_conf_store.py */,
 				B255730D1EE956B000E0B132 /* test_0500_drive.py */,
+				B2C1BE0021E78DCD002EF7B4 /* test_0502_acmev2_drive.py */,
 				75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */,
 				B2B81ED71F17BF3200E35CA3 /* test_0700_auto.py */,
 				B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */,
@@ -392,6 +396,8 @@
 				B2B330081F39E1D300579179 /* md_acme_authz.h */,
 				B2B330091F39E1D300579179 /* md_acme_drive.c */,
 				B2C1BDFF21E77296002EF7B4 /* md_acme_drive.h */,
+				B2C1BE0221E8951D002EF7B4 /* md_acme_order.c */,
+				B2C1BE0121E8951D002EF7B4 /* md_acme_order.h */,
 				B2B3300A1F39E1D300579179 /* md_acme.c */,
 				B2B3300B1F39E1D400579179 /* md_acme.h */,
 				B2C1BDFE21E77146002EF7B4 /* md_acmev1_drive.c */,

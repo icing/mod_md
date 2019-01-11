@@ -16,10 +16,11 @@
 #ifndef md_acme_drive_h
 #define md_acme_drive_h
 
-struct md_proto_driver_t;
+struct md_acme_order_t;
 
 typedef struct md_acme_driver_t {
     md_proto_driver_t *driver;
+    void *sub_driver;
     
     const char *phase;
     int complete;
@@ -36,7 +37,7 @@ typedef struct md_acme_driver_t {
     const md_creds_t *ncreds;
     
     apr_array_header_t *ca_challenges;
-    md_acme_authz_set_t *authz_set;
+    struct md_acme_order_t *order;
     apr_interval_time_t authz_monitor_timeout;
     
     const char *csr_der_64;
