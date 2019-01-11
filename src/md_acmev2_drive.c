@@ -36,48 +36,11 @@
 #include "md_acme.h"
 #include "md_acme_acct.h"
 #include "md_acme_authz.h"
+#include "md_acme_order.h"
 
 #include "md_acme_drive.h"
 #include "md_acmev2_drive.h"
 
-#define MD_FN_ORDER             "order.json"
-
-/**************************************************************************************************/
-/* store presistence */
-
-static apr_status_t order_load(md_acmev2_order_t **porder, md_store_t *store, apr_pool_t *p, const char *name)
-{
-    md_json_t *json;
-    md_acmev2_order_t *order;
-    apr_status_t rv;
-    
-    *porder = NULL;
-    rv = md_store_load_json(store, MD_SG_STAGING, name, MD_FN_ORDER, &json, p);
-    if (APR_SUCCESS == rv) {
-        order = apr_pcalloc(p, sizeof(*order));
-        order->url = md_json_gets(json, MD_KEY_URL, NULL);
-        order->json = NULL;
-        *porder = order;
-    }
-    return rv;
-} 
-
-static apr_status_t order_save(md_acmev2_order_t *order, md_store_t *store, apr_pool_t *p, const char *name)
-{
-    md_json_t *json;
-    
-    assert(order);
-    assert(order->url);
-    
-    json = md_json_create(p);
-    md_json_sets(order->url, json, MD_KEY_URL, NULL);
-    return md_store_save_json(store, p, MD_SG_STAGING, name, MD_FN_ORDER, json, 0);
-} 
-
-static apr_status_t order_delete(md_store_t *store, apr_pool_t *p, const char *name)
-{
-    return md_store_remove(store, MD_SG_STAGING, name, MD_FN_ORDER, p, 1);
-} 
 
 /**************************************************************************************************/
 /* ACMEv2 order requests */
@@ -85,7 +48,7 @@ static apr_status_t order_delete(md_store_t *store, apr_pool_t *p, const char *n
 typedef struct {
     apr_pool_t *p;
     const md_t *md;
-    md_acmev2_order_t *order;
+    md_acme_order_t *order;
 } order_ctx_t;
 
 static apr_status_t identifier_to_json(void *value, md_json_t *json, apr_pool_t *p, void *baton)
@@ -121,7 +84,7 @@ static apr_status_t on_order_upd(md_acme_t *acme, apr_pool_t *p, const apr_table
     (void)p;
     if (!ctx->order) {
         if (location) {
-            ctx->order = apr_pcalloc(ctx->p, sizeof(md_acmev2_order_t));
+            ctx->order = md_acme_order_create(ctx->p);
             ctx->order->url = apr_pstrdup(ctx->p, location);
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ctx->p, "new order at %s", location);
         }
@@ -136,7 +99,7 @@ out:
     return rv;
 }
 
-static apr_status_t order_register(md_acmev2_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
+static apr_status_t order_register(md_acme_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
                                    const md_t *md)
 {
     order_ctx_t ctx;
@@ -151,7 +114,7 @@ static apr_status_t order_register(md_acmev2_order_t **porder, md_acme_t *acme, 
     return rv;
 }
 
-static apr_status_t order_update(md_acmev2_order_t *order, md_acme_t *acme, apr_pool_t *p)
+static apr_status_t order_update(md_acme_order_t *order, md_acme_t *acme, apr_pool_t *p)
 {
     order_ctx_t ctx;
     
@@ -162,110 +125,48 @@ static apr_status_t order_update(md_acmev2_order_t *order, md_acme_t *acme, apr_
     return md_acme_GET(acme, order->url, NULL, on_order_upd, NULL, &ctx);
 }
 
-typedef struct {
-    md_proto_driver_t *d;
-    md_acme_driver_t *ad;
-    md_acmev2_order_t *order;
-    apr_status_t rv;
-} auth_ctx_t;
+/**************************************************************************************************/
+/* order setup */
 
-static int start_auth(void *baton, size_t index, md_json_t *json)
+/**
+ * Either we have an order stored in the STAGING area, or we need to create a 
+ * new one at the ACME server.
+ */
+static apr_status_t ad_setup_order(md_proto_driver_t *d)
 {
-    auth_ctx_t *ctx = baton;
-    const char *url = md_json_gets(json, NULL);
-    md_json_t *jauth;
-    const char *status;
-    int proceed = 1;
+    md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
+    md_t *md = ad->md;
     
-    /* An authorization resource is for a single domain name. Initially, it has
-     * status "pending" and a list of challenges. Each challenge initially has
-     * status "pending" as well.
-     * We need to select the challenge that we can answer (not all may be possible)
-     * and which we like best (configuration order) and accept that challenge.
-     * 
-     * Accepting a challenge will trigger the ACME server to hunt for the answer to
-     * the challenge. That might be a particular resource on this server or a DNS record, so
-     * we need to set that up before accpeting it.
-     * 
-     * After we tell the ACME server which challenge we accpeted, it will place the
-     * challenge and the auth resource into status "processing". Hunting for the challenge
-     * answer might take some time and the ACME server is not obliged to do that right away.
-     *
-     * If the proper answer is found by the ACME server, the challenge and the auth resource
-     * will have status "valid". To detect that we need to poll the resource at regular intervals.
-     *
-     * If the challenge answer was wrong or the challenge timed out before an answer was received,
-     * the challenge and the auth resource will have status "invalid". We need to
-     * give up on this auth, and therefore on the order it was for. 
+    assert(ad->md);
+    assert(ad->acme);
+
+    ad->phase = "setup order";
+    
+    /* For each domain in MD: AUTHZ setup
+     * if an AUTHZ resource is known, check if it is still valid
+     * if known AUTHZ resource is not valid, remove, goto 4.1.1
+     * if no AUTHZ available, create a new one for the domain, store it
      */
-    if (APR_SUCCESS != (rv = md_acme_get_json(&jauth, ctx->ad->acme, url, ctx->d->p))) goto out;
-    status = md_json_gets(jauth, MD_KEY_STATUS, NULL);
-    if (!strcmp("pending", status)) {
-        /* start the challenge that we want to use */
-        
+    rv = md_acme_order_load(d->store, MD_SG_STAGING, md->name, &ad->order, d->p);
+    if (!ad->order || APR_STATUS_IS_ENOENT(rv)) {
+        rv = APR_SUCCESS;
+    }
+    else if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading order", md->name);
+        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name);
         rv = APR_EAGAIN;
+        goto out;
     }
-    else if (!strcmp("processing", status)) {
-        rv = APR_SUCCESS;
-    }
-    else if (!strcmp("valid", status)) {
-        rv = APR_SUCCESS;
-    }
-    else if (!strcmp("invalid", status)) {
-        rv = APR_EINVAL;
-        proceed = 0;
-    }
-    else {
-        rv = APR_EGENERAL;
-        proceed = 0;
+    
+    if (!ad->order) {
+        /* No Order to be found, register a new one */
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: (ACMEv2) register order", d->md->name);
+        if (APR_SUCCESS != (rv = order_register(&ad->order, ad->acme, d->p, d->md))) goto out;
+        if (APR_SUCCESS != (rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, d->md->name, ad->order, 0))) goto out;
     }
     
 out:
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ctx->d->p, 
-                      "%s: (ACMEv2) process %d. auth: %s", ctx->d->md->name, (int)index, url);
-    ctx->rv = rv;
-    return proceed;
-}
-
-static apr_status_t order_process(md_acmev2_order_t *order, md_acme_driver_t *ad, md_proto_driver_t *d)
-{
-    apr_status_t rv = APR_EGENERAL;
-    const char *status = md_json_gets(order->json, MD_KEY_STATUS, NULL);
-    
-    (void)ad;
-    (void)d;
-    if (!strcmp("pending", status)) {
-        auth_ctx_t ctx;
-
-        /* The ACMEv2 server offers a "authorization" resource for each domain name we
-         * placed in our order. Ininitally, all these are in state "pending". We need
-         * to bring them all to status "valid" for the order to succeed. */
-        ctx.d = d;
-        ctx.ad = ad;
-        ctx.order = order;
-        ctx.rv = APR_SUCCESS;
-        md_json_itera(start_auth, &ctx, order->json, "authorizations", NULL);
-        rv = ctx.rv;
-    }
-    else if (!strcmp("ready", status)) {
-        rv = APR_ENOTIMPL;
-    }
-    else if (!strcmp("processing", status)) {
-        rv = APR_ENOTIMPL;
-    }
-    else if (!strcmp("valid", status)) {
-        rv = APR_ENOTIMPL;
-    }
-    else if (!strcmp("invalid", status)) {
-        rv = APR_ENOTIMPL;
-    }
-    else if (!strcmp("complete", status)) {
-        rv = APR_ENOTIMPL;
-    }
-    else {
-        rv = APR_EGENERAL;
-    }
     return rv;
 }
 
@@ -274,13 +175,7 @@ static apr_status_t order_process(md_acmev2_order_t *order, md_acme_driver_t *ad
 
 apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
 {
-    md_acmev2_driver_t *sad = ad->sub_driver;
     apr_status_t rv = APR_SUCCESS;
-    
-    if (!sad) {
-        sad = apr_pcalloc(d->p, sizeof(*sad));
-        ad->sub_driver = sad;
-    }
     
     ad->phase = "get certificate";
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: (ACMEv2) need certificate", d->md->name);
@@ -316,57 +211,53 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
          *   * INVALID and otherwise: fail renewal, delete local order
          */
 
-        if (!sad->order) {
-            /* Have we save an order in STAGING? */
-            if (APR_SUCCESS == (rv = order_load(&sad->order, d->store, d->p, d->md->name))) {
-            }
-            else if (APR_STATUS_IS_ENOENT(rv)) {
-                sad->order = NULL;
-            }
-            else if (APR_SUCCESS != rv) {
-                goto out;
-            }
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: (ACMEv1) setup new authorization", d->md->name);
+        if (APR_SUCCESS != (rv = ad_setup_order(d))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
+                          ad->md->name);
+            goto out;
         }
         
-        if (!sad->order) {
-            /* No Order to be found, register a new one */
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                          "%s: (ACMEv2) setup new order", d->md->name);
-            if (APR_SUCCESS != (rv = order_register(&sad->order, ad->acme, d->p, d->md))) goto out;
-            if (APR_SUCCESS != (rv = order_save(sad->order, d->store, d->p, d->md->name))) goto out;
-        }
-
-        rv = order_update(sad->order, ad->acme, d->p);
+        rv = order_update(ad->order, ad->acme, d->p);
         if (APR_STATUS_IS_ENOENT(rv)) {
-            sad->order = NULL;
-            order_delete(d->store, d->p, d->md->name);
+            ad->order = NULL;
+            md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
         }
         else if (APR_SUCCESS != rv) {
             goto out;
         }
 
-        if (APR_SUCCESS != (rv = order_process(sad->order, ad, d))) goto out;
-
-        /*
-        if (APR_SUCCESS != (rv = ad_setup_authz(d))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: setup order", d->md->name);
+        if (APR_SUCCESS != (rv = ad_setup_order(d))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
                           ad->md->name);
             goto out;
         }
+
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv2) setup new challenges", d->md->name);
-        if (APR_SUCCESS != (rv = ad_start_challenges(d))) {
+                      "%s: setup new challenges", d->md->name);
+        ad->phase = "start challenges";
+        if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
+                                                                ad->ca_challenges,
+                                                                d->store, d->md, d->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
                           ad->md->name);
             goto out;
         }
+        
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv2) monitoring challenge status", d->md->name);
-        if (APR_SUCCESS != (rv = ad_monitor_challenges(d))) {
+                      "%s: monitoring challenge status", d->md->name);
+        ad->phase = "monitor challenges";
+        if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
+                                                              ad->authz_monitor_timeout, d->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
                           ad->md->name);
             goto out;
         }
+        
+        /*
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                       "%s: (ACMEv2) creating certificate request", d->md->name);
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d))) {

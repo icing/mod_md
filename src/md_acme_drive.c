@@ -716,7 +716,7 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     }
 
     /* Remove any authz information we have here or in MD_SG_CHALLENGES */
-    md_acme_order_purge(store, MD_SG_STAGING, p, name);
+    md_acme_order_purge(store, p, MD_SG_STAGING, name);
 
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                   "%s: staged data load, purging tmp space", name);

@@ -162,12 +162,9 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_p
     log_level = MD_LOG_ERR;
     
     if (MD_OK(md_acme_get_json(&json, acme, authz->url, p))
-        && (s = md_json_gets(json, MD_KEY_IDENTIFIER, MD_KEY_TYPE, NULL))
-        && !strcmp(s, "dns")
-        && (s = md_json_gets(json, MD_KEY_IDENTIFIER, MD_KEY_VALUE, NULL))
-        && !strcmp(s, authz->domain)
         && (s = md_json_gets(json, MD_KEY_STATUS, NULL))) {
-        
+            
+        authz->domain = md_json_gets(json, MD_KEY_IDENTIFIER, MD_KEY_VALUE, NULL); 
         authz->resource = json;
         if (!strcmp(s, "pending")) {
             authz->state = MD_ACME_AUTHZ_S_PENDING;

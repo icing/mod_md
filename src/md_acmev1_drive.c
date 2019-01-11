@@ -55,7 +55,9 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
     md_t *md = ad->md;
+    const char *url;
     md_acme_authz_t *authz;
+    apr_array_header_t *domains_covered;
     int i;
     int changed = 0;
     
@@ -76,44 +78,47 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     }
     else if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading authz data", md->name);
-        md_acme_order_purge(d->store, MD_SG_STAGING, d->p, md->name);
+        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name);
         return APR_EAGAIN;
     }
     
-    /* Remove anything we no longer need */
-    for (i = 0; i < ad->order->authzs->nelts;) {
-        authz = APR_ARRAY_IDX(ad->order->authzs, i, md_acme_authz_t*);
-        if (!md_contains(md, authz->domain, 0)) {
-            md_acme_order_remove(ad->order, authz->domain);
+    /* Retrieve all known authz from ACME server and check status etc. */
+    domains_covered = apr_array_make(d->p, 5, sizeof(const char *));
+    
+    for (i = 0; i < ad->order->authz_urls->nelts;) {
+        url = APR_ARRAY_IDX(ad->order->authz_urls, i, const char*);
+        rv = md_acme_authz_retrieve(ad->acme, d->p, url, &authz);
+        if (APR_SUCCESS == rv) {
+            if (!md_contains(md, authz->domain, 0)) {
+                md_acme_order_remove(ad->order, url);
+                changed = 1;
+                continue;
+            }
+        
+            APR_ARRAY_PUSH(domains_covered, const char *) = authz->domain;
+            ++i;
+        }
+        else if (APR_STATUS_IS_ENOENT(rv)) {
+            md_acme_order_remove(ad->order, url);
             changed = 1;
+            continue;
         }
         else {
-            ++i;
+            goto out;
         }
     }
     
-    /* Add anything we do not already have */
+    /* Do we have authz urls for all domains? */
     for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
         const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
-        authz = md_acme_order_get(ad->order, domain);
-        if (authz) {
-            /* check valid */
-            rv = md_acme_authz_update(authz, ad->acme, d->p);
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: updated authz for %s", 
-                          md->name, domain);
-            if (APR_SUCCESS != rv) {
-                md_acme_order_remove(ad->order, domain);
-                authz = NULL;
-                changed = 1;
-            }
-        }
-        if (!authz) {
+    
+        if (md_array_str_index(domains_covered, domain, 0, 0) < 0) {
             /* create new one */
             rv = md_acme_authz_register(&authz, ad->acme, domain, d->p);
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: created authz for %s", 
                           md->name, domain);
             if (APR_SUCCESS == rv) {
-                rv = md_acme_order_add(ad->order, authz);
+                rv = md_acme_order_add(ad->order, authz->url);
                 changed = 1;
             }
         }
@@ -125,120 +130,9 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: saved", md->name);
     }
     
+out:
     return rv;
 }
-
-/**
- * Pre-Req: all domains have a AUTHZ resources at the ACME server
- * For each domain in MD: 
- * - if AUTHZ resource is 'valid' -> continue
- * - if AUTHZ resource is 'pending':
- *   - find preferred challenge choice
- *   - calculate challenge data for httpd to find
- *   - POST challenge start to ACME server
- * For each domain in MD where AUTHZ is 'pending', until overall timeout: 
- *   - wait a certain time, check status again
- * If not all AUTHZ are valid, fail
- */
-static apr_status_t ad_start_challenges(md_proto_driver_t *d)
-{
-    md_acme_driver_t *ad = d->baton;
-    apr_status_t rv = APR_SUCCESS;
-    md_acme_authz_t *authz;
-    int i, changed = 0;
-    
-    assert(ad->md);
-    assert(ad->acme);
-    assert(ad->order);
-
-    ad->phase = "start challenges";
-
-    for (i = 0; i < ad->order->authzs->nelts && APR_SUCCESS == rv; ++i) {
-        authz = APR_ARRAY_IDX(ad->order->authzs, i, md_acme_authz_t*);
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s", 
-                      ad->md->name, authz->domain);
-        if (APR_SUCCESS != (rv = md_acme_authz_update(authz, ad->acme, d->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: check authz for %s",
-                          ad->md->name, authz->domain);
-            break;
-        }
-
-        switch (authz->state) {
-            case MD_ACME_AUTHZ_S_VALID:
-                break;
-                
-            case MD_ACME_AUTHZ_S_PENDING:
-                rv = md_acme_authz_respond(authz, ad->acme, d->store, ad->ca_challenges, 
-                                           d->md->pkey_spec, d->p);
-                changed = 1;
-                break;
-                
-            default:
-                rv = APR_EINVAL;
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                              "%s: unexpected AUTHZ state %d at %s", 
-                              authz->domain, authz->state, authz->url);
-                break;
-        }
-    }
-    
-    if (APR_SUCCESS == rv && changed) {
-        rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, ad->md->name, ad->order, 0);
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: saved", ad->md->name);
-    }
-    return rv;
-}
-
-static apr_status_t check_challenges(void *baton, int attempt)
-{
-    md_proto_driver_t *d = baton;
-    md_acme_driver_t *ad = d->baton;
-    md_acme_authz_t *authz;
-    apr_status_t rv = APR_SUCCESS;
-    int i;
-    
-    for (i = 0; i < ad->order->authzs->nelts && APR_SUCCESS == rv; ++i) {
-        authz = APR_ARRAY_IDX(ad->order->authzs, i, md_acme_authz_t*);
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: check AUTHZ for %s(%d. attempt)", 
-                      ad->md->name, authz->domain, attempt);
-        if (APR_SUCCESS == (rv = md_acme_authz_update(authz, ad->acme, d->p))) {
-            switch (authz->state) {
-                case MD_ACME_AUTHZ_S_VALID:
-                    break;
-                case MD_ACME_AUTHZ_S_PENDING:
-                    rv = APR_EAGAIN;
-                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                                  "%s: status pending at %s", authz->domain, authz->url);
-                    break;
-                default:
-                    rv = APR_EINVAL;
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                                  "%s: unexpected AUTHZ state %d at %s", 
-                                  authz->domain, authz->state, authz->url);
-                    break;
-            }
-        }
-    }
-    return rv;
-}
-
-static apr_status_t ad_monitor_challenges(md_proto_driver_t *d)
-{
-    md_acme_driver_t *ad = d->baton;
-    apr_status_t rv;
-    
-    assert(ad->md);
-    assert(ad->acme);
-    assert(ad->order);
-
-    ad->phase = "monitor challenges";
-    rv = md_util_try(check_challenges, d, 0, ad->authz_monitor_timeout, 0, 0, 1);
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, d->p, 
-                  "%s: checked all domain authorizations", ad->md->name);
-    return rv;
-}
-
 
 apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
 {
@@ -296,35 +190,43 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
     
     if (APR_SUCCESS == rv && !ad->cert) {
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv1) setup new authorization", d->md->name);
+                      "%s: setup new authorization", d->md->name);
         if (APR_SUCCESS != (rv = ad_setup_order(d))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
                           ad->md->name);
             goto out;
         }
+        
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv1) setup new challenges", d->md->name);
-        if (APR_SUCCESS != (rv = ad_start_challenges(d))) {
+                      "%s: setup new challenges", d->md->name);
+        ad->phase = "start challenges";
+        if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
+                                                                ad->ca_challenges,
+                                                                d->store, d->md, d->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
                           ad->md->name);
             goto out;
         }
+        
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv1) monitoring challenge status", d->md->name);
-        if (APR_SUCCESS != (rv = ad_monitor_challenges(d))) {
+                      "%s: monitoring challenge status", d->md->name);
+        ad->phase = "monitor challenges";
+        if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
+                                                              ad->authz_monitor_timeout, d->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
                           ad->md->name);
             goto out;
         }
+        
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv1) creating certificate request", d->md->name);
+                      "%s: creating certificate request", d->md->name);
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
                           ad->md->name);
             goto out;
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv1) received certificate", d->md->name);
+                      "%s: received certificate", d->md->name);
     }
 out:    
     return rv;

@@ -19,15 +19,6 @@
 struct md_json_t;
 struct md_proto_driver_t;
 
-typedef struct md_acmev2_order_t {
-    const char *url;
-    struct md_json_t *json;
-} md_acmev2_order_t;
-
-typedef struct md_acmev2_driver_t {
-    md_acmev2_order_t *order;
-} md_acmev2_driver_t;
-
 apr_status_t md_acmev2_drive_renew(struct md_acme_driver_t *ad, struct md_proto_driver_t *d);
 
 #endif /* md_acmev2_drive_h */

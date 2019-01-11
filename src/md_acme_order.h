@@ -21,19 +21,24 @@ struct md_json_t;
 typedef struct md_acme_order_t md_acme_order_t;
 
 struct md_acme_order_t {
+    apr_pool_t *p;
     const char *url;
     struct md_json_t *json;
-    struct apr_array_header_t *authzs;
+    struct apr_array_header_t *authz_urls;
+    struct apr_array_header_t *challenge_dirs;
 };
 
-/**************************************************************************************************/
-/* set of authz data for a managed domain */
+#define MD_FN_ORDER             "order.json"
 
+/**************************************************************************************************/
 
 md_acme_order_t *md_acme_order_create(apr_pool_t *p);
-md_acme_authz_t *md_acme_order_get(md_acme_order_t *set, const char *domain);
-apr_status_t md_acme_order_add(md_acme_order_t *set, md_acme_authz_t *authz);
-apr_status_t md_acme_order_remove(md_acme_order_t *set, const char *domain);
+
+apr_status_t md_acme_order_add(md_acme_order_t *order, const char *authz_url);
+apr_status_t md_acme_order_remove(md_acme_order_t *order, const char *authz_url);
+
+apr_status_t md_acme_order_add_challenge_dir(md_acme_order_t *order, const char *dir);
+
 
 struct md_json_t *md_acme_order_to_json(md_acme_order_t *set, apr_pool_t *p);
 md_acme_order_t *md_acme_order_from_json(struct md_json_t *json, apr_pool_t *p);
@@ -45,8 +50,16 @@ apr_status_t md_acme_order_save(struct md_store_t *store, apr_pool_t *p,
                                     md_store_group_t group, const char *md_name, 
                                     md_acme_order_t *authz_set, int create);
 
-apr_status_t md_acme_order_purge(struct md_store_t *store, md_store_group_t group,
-                                     apr_pool_t *p, const char *md_name);
+apr_status_t md_acme_order_purge(struct md_store_t *store, apr_pool_t *p, 
+                                 md_store_group_t group, const char *md_name);
 
+
+apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *acme, 
+                                            apr_array_header_t *challenge_types,
+                                            md_store_t *store, const md_t *md, apr_pool_t *p);
+
+apr_status_t md_acme_order_monitor_authzs(md_acme_order_t *order, md_acme_t *acme, 
+                                          const md_t *md, apr_interval_time_t timeout, 
+                                          apr_pool_t *p);
 
 #endif /* md_acme_order_h */
