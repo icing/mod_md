@@ -223,7 +223,7 @@ static apr_status_t acmev1_req_init(md_acme_req_t *req, md_json_t *jpayload)
 
     payload_len = strlen(payload);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
-                  "acct payload(len=%" APR_SIZE_T_FMT "): %s", payload_len, payload);
+                  "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload_len, payload);
     return md_jws_sign(&req->req_json, req->p, payload, payload_len,
                        req->prot_hdrs, req->acme->acct_key, NULL);
 }
@@ -244,7 +244,7 @@ static apr_status_t acmev2_req_init(md_acme_req_t *req, md_json_t *jpayload)
 
     payload_len = strlen(payload);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
-                  "acct payload(len=%" APR_SIZE_T_FMT "): %s", payload_len, payload);
+                  "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload_len, payload);
     return md_jws_sign(&req->req_json, req->p, payload, payload_len,
                        req->prot_hdrs, req->acme->acct_key, req->acme->acct->url);
 }
@@ -331,6 +331,8 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
 
     assert(acme->url);
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->p, 
+                  "sending req: %s %s", req->method, req->url);
     if (strcmp("GET", req->method) && strcmp("HEAD", req->method)) {
         if (acme->version == MD_ACME_VERSION_UNKNOWN) {
             if (APR_SUCCESS != (rv = md_acme_setup(acme))) {

@@ -20,12 +20,23 @@ struct md_json_t;
 
 typedef struct md_acme_order_t md_acme_order_t;
 
+typedef enum {
+    MD_ACME_ORDER_ST_PENDING,
+    MD_ACME_ORDER_ST_READY,
+    MD_ACME_ORDER_ST_PROCESSING,
+    MD_ACME_ORDER_ST_VALID,
+    MD_ACME_ORDER_ST_INVALID,
+} md_acme_order_st;
+
 struct md_acme_order_t {
     apr_pool_t *p;
     const char *url;
-    struct md_json_t *json;
+    md_acme_order_st status;
     struct apr_array_header_t *authz_urls;
     struct apr_array_header_t *challenge_dirs;
+    struct md_json_t *json;
+    const char *finalize;
+    const char *certificate;
 };
 
 #define MD_FN_ORDER             "order.json"
@@ -61,5 +72,22 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
 apr_status_t md_acme_order_monitor_authzs(md_acme_order_t *order, md_acme_t *acme, 
                                           const md_t *md, apr_interval_time_t timeout, 
                                           apr_pool_t *p);
+
+/* ACMEv2 only ************************************************************************************/
+
+apr_status_t md_acme_order_register(md_acme_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
+                                    const md_t *md);
+
+apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, apr_pool_t *p);
+
+apr_status_t md_acme_order_await_ready(md_acme_order_t *order, md_acme_t *acme, 
+                                       const md_t *md, apr_interval_time_t timeout, 
+                                       apr_pool_t *p);
+apr_status_t md_acme_order_await_valid(md_acme_order_t *order, md_acme_t *acme, 
+                                       const md_t *md, apr_interval_time_t timeout, 
+                                       apr_pool_t *p);
+
+apr_status_t md_acme_order_finalize(md_acme_order_t *order, md_acme_t *acme, 
+                                    const md_t *md, apr_pool_t *p);
 
 #endif /* md_acme_order_h */

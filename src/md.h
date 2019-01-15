@@ -103,7 +103,6 @@ struct md_t {
     md_state_t state;               /* state of this MD */
     apr_time_t valid_from;          /* When the credentials start to be valid. 0 if unknown */
     apr_time_t expires;             /* When the credentials expire. 0 if unknown */
-    const char *cert_url;           /* url where cert has been created, remember during drive */ 
     
     const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
     const char *defn_name;          /* config file this MD was defined */
@@ -112,10 +111,12 @@ struct md_t {
 
 #define MD_KEY_ACCOUNT          "account"
 #define MD_KEY_AGREEMENT        "agreement"
+#define MD_KEY_AUTHORIZATIONS   "authorizations"
 #define MD_KEY_BITS             "bits"
 #define MD_KEY_CA               "ca"
 #define MD_KEY_CA_URL           "ca-url"
 #define MD_KEY_CERT             "cert"
+#define MD_KEY_CERTIFICATE      "certificate"
 #define MD_KEY_CHALLENGES       "challenges"
 #define MD_KEY_CONTACT          "contact"
 #define MD_KEY_CONTACTS         "contacts"
@@ -128,6 +129,7 @@ struct md_t {
 #define MD_KEY_DRIVE_MODE       "drive-mode"
 #define MD_KEY_ERRORS           "errors"
 #define MD_KEY_EXPIRES          "expires"
+#define MD_KEY_FINALIZE         "finalize"
 #define MD_KEY_HTTP             "http"
 #define MD_KEY_HTTPS            "https"
 #define MD_KEY_ID               "id"

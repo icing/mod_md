@@ -220,7 +220,7 @@ static apr_status_t get_cert(void *baton, int attempt)
     md_acme_driver_t *ad = d->baton;
     
     (void)attempt;
-    return md_acme_GET(ad->acme, ad->md->cert_url, NULL, NULL, on_got_cert, d);
+    return md_acme_GET(ad->acme, ad->order->certificate, NULL, NULL, on_got_cert, d);
 }
 
 apr_status_t md_acme_drive_cert_poll(md_proto_driver_t *d, int only_once)
@@ -230,7 +230,8 @@ apr_status_t md_acme_drive_cert_poll(md_proto_driver_t *d, int only_once)
     
     assert(ad->md);
     assert(ad->acme);
-    assert(ad->md->cert_url);
+    assert(ad->order);
+    assert(ad->order->certificate);
     
     ad->phase = "poll certificate";
     if (only_once) {
@@ -240,12 +241,12 @@ apr_status_t md_acme_drive_cert_poll(md_proto_driver_t *d, int only_once)
         rv = md_util_try(get_cert, d, 1, ad->cert_poll_timeout, 0, 0, 1);
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "poll for cert at %s", ad->md->cert_url);
+    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "poll for cert at %s", ad->order->certificate);
     return rv;
 }
 
 /**************************************************************************************************/
-/* cert setup */
+/* order finalization */
 
 static apr_status_t on_init_csr_req(md_acme_req_t *req, void *baton)
 {
@@ -254,7 +255,9 @@ static apr_status_t on_init_csr_req(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->p);
-    md_json_sets("new-cert", jpayload, MD_KEY_RESOURCE, NULL);
+    if (MD_ACME_VERSION_MAJOR(req->acme->version) == 1) {
+        md_json_sets("new-cert", jpayload, MD_KEY_RESOURCE, NULL);
+    }
     md_json_sets(ad->csr_der_64, jpayload, MD_KEY_CSR, NULL);
     
     return md_acme_req_body_init(req, jpayload);
@@ -264,18 +267,21 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
 {
     md_proto_driver_t *d = baton;
     md_acme_driver_t *ad = d->baton;
+    const char *location;
     apr_status_t rv = APR_SUCCESS;
     
     (void)acme;
-    ad->md->cert_url = apr_table_get(res->headers, "location");
-    if (!ad->md->cert_url) {
+    location = apr_table_get(res->headers, "location");
+    if (!location) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
                       "cert created without giving its location header");
         return APR_EINVAL;
     }
-    if (APR_SUCCESS != (rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0))) {
+    ad->order->certificate = apr_pstrdup(d->p, location);
+    if (APR_SUCCESS != (rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, 
+                                                ad->md->name, ad->order, 0))) { 
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
-                      "%s: saving cert url %s", ad->md->name, ad->md->cert_url);
+                      "%s: saving cert url %s", ad->md->name, location);
         return rv;
     }
     
@@ -290,8 +296,10 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
     }
     else if (APR_STATUS_IS_ENOENT(rv)) {
         rv = APR_SUCCESS;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                      "cert not in response, need to poll %s", ad->md->cert_url);
+        if (location) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                          "cert not in response, need to poll %s", location);
+        }
     }
     
     return rv;
@@ -325,23 +333,26 @@ apr_status_t md_acme_drive_setup_certificate(md_proto_driver_t *d)
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate privkey", ad->md->name);
     }
+    if (APR_SUCCESS != rv) goto out;
+    
+    ad->phase = "setup csr";
+    rv = md_cert_req_create(&ad->csr_der_64, ad->md, privkey, d->p);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR", ad->md->name);
+    if (APR_SUCCESS != rv) goto out;
 
-    if (APR_SUCCESS == rv) {
-        ad->phase = "setup csr";
-        rv = md_cert_req_create(&ad->csr_der_64, ad->md, privkey, d->p);
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR", ad->md->name);
+    ad->phase = "submit csr";
+    switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
+        case 1:
+            rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, d);
+            break;
+        default:
+            assert(ad->order->finalize);
+            rv = md_acme_POST(ad->acme, ad->order->finalize, on_init_csr_req, NULL, csr_req, d);
+            break;
     }
+    if (APR_SUCCESS != rv) goto out;
 
-    if (APR_SUCCESS == rv) {
-        ad->phase = "submit csr";
-        rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, d);
-    }
-
-    if (APR_SUCCESS == rv) {
-        if (!ad->cert) {
-            rv = md_acme_drive_cert_poll(d, 0);
-        }
-    }
+out:
     return rv;
 }
 
@@ -418,7 +429,7 @@ static apr_status_t ad_chain_install(md_proto_driver_t *d)
         }
         if (!ad->next_up_link) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                "server reports no link header 'up' for certificate at %s", ad->md->cert_url);
+                "server reports no link header 'up' for certificate");
             return APR_EINVAL;
         }
     }
@@ -546,6 +557,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
         }
         rv = APR_SUCCESS;
         ad->md = NULL;
+        ad->order = NULL;
     }
     
     if (ad->md && ad->md->state == MD_S_MISSING) {
@@ -583,7 +595,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: setup staging", d->md->name);
             md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
             ad->md = md_copy(d->p, d->md);
-            ad->md->cert_url = NULL; /* do not retrieve the old cert */
+            ad->order = NULL;
             rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: save staged md", 
                           ad->md->name);

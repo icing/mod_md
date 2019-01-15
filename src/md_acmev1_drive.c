@@ -177,14 +177,14 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
     
     /* If we know a cert's location, try to get it. Previous download might
      * have failed. If server 404 it, we clear our memory of it. */
-    if (APR_SUCCESS == rv && ad->md->cert_url) {
+    if (APR_SUCCESS == rv && ad->order && ad->order->certificate) {
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                       "%s: (ACMEv1) polling certificate", d->md->name);
         rv = md_acme_drive_cert_poll(d, 1);
         if (APR_STATUS_IS_ENOENT(rv)) {
-            /* Server reports to know nothing about it. */
-            ad->md->cert_url = NULL;
-            rv = md_reg_update(d->reg, d->p, ad->md->name, ad->md, MD_UPD_CERT_URL);
+            /* Server reports to know nothing about it. Do we need to clear the order
+               and start over? */
+            rv = APR_SUCCESS;
         }
     }
     
@@ -219,14 +219,21 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
         }
         
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: creating certificate request", d->md->name);
+                      "%s: fianlizing order", d->md->name);
+        ad->phase = "finalize order";
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
                           ad->md->name);
             goto out;
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: received certificate", d->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: certificate setup", d->md->name);
+                      
+        if (!ad->cert) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: retrieving certificate", 
+                          ad->md->name);
+            rv = md_acme_drive_cert_poll(d, 0);
+        }
+
     }
 out:    
     return rv;

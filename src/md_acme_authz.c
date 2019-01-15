@@ -206,7 +206,12 @@ static md_acme_authz_cha_t *cha_from_json(apr_pool_t *p, size_t index, md_json_t
     cha = apr_pcalloc(p, sizeof(*cha));
     cha->index = index;
     cha->type = md_json_dups(p, json, MD_KEY_TYPE, NULL);
-    cha->uri = md_json_dups(p, json, MD_KEY_URI, NULL);
+    if (md_json_has_key(json, MD_KEY_URL, NULL)) { /* ACMEv2 */
+        cha->uri = md_json_dups(p, json, MD_KEY_URL, NULL);
+    }
+    else {                                         /* ACMEv1 */
+        cha->uri = md_json_dups(p, json, MD_KEY_URI, NULL);
+    }
     cha->token = md_json_dups(p, json, MD_KEY_TOKEN, NULL);
     cha->key_authz = md_json_dups(p, json, MD_KEY_KEYAUTHZ, NULL);
 
@@ -220,7 +225,9 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
 
     jpayload = md_json_create(req->p);
     md_json_sets("challenge", jpayload, MD_KEY_RESOURCE, NULL);
-    md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);
+    if (ctx->challenge->key_authz) {
+        md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);
+    }
     
     return md_acme_req_body_init(req, jpayload);
 } 

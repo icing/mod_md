@@ -272,7 +272,6 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         if (src->ca_account) md->ca_account = apr_pstrdup(p, src->ca_account);
         if (src->ca_agreement) md->ca_agreement = apr_pstrdup(p, src->ca_agreement);
         if (src->defn_name) md->defn_name = apr_pstrdup(p, src->defn_name);
-        if (src->cert_url) md->cert_url = apr_pstrdup(p, src->cert_url);
         md->defn_line_number = src->defn_line_number;
         if (src->ca_challenges) {
             md->ca_challenges = md_array_str_clone(p, src->ca_challenges);
@@ -320,9 +319,6 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
         md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md_json_sets(md->ca_agreement, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
-        if (md->cert_url) {
-            md_json_sets(md->cert_url, json, MD_KEY_CERT, MD_KEY_URL, NULL);
-        }
         if (md->pkey_spec) {
             md_json_setj(md_pkey_spec_to_json(md->pkey_spec, p), json, MD_KEY_PKEY, NULL);
         }
@@ -379,7 +375,6 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->ca_proto = md_json_dups(p, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
         md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md->ca_agreement = md_json_dups(p, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
-        md->cert_url = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_URL, NULL);
         if (md_json_has_key(json, MD_KEY_PKEY, MD_KEY_TYPE, NULL)) {
             md->pkey_spec = md_pkey_spec_from_json(md_json_getj(json, MD_KEY_PKEY, NULL), p);
         }

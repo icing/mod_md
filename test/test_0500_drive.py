@@ -625,7 +625,6 @@ class TestDrive :
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert "url" in md['cert']
 
         # check private key, validate certificate
         # TODO: find storage-independent way to read local certificate
@@ -648,9 +647,6 @@ class TestDrive :
         notAfter = cert.get_not_after()
         assert notBefore < datetime.now(notBefore.tzinfo)
         assert notAfter > datetime.now(notAfter.tzinfo)
-        # compare cert with resource on server
-        server_cert = CertUtil( md['cert']['url'] )
-        assert cert.get_serial() == server_cert.get_serial()
 
     RE_MSG_OPENSSL_BAD_DECRYPT = re.compile('.*\'bad decrypt\'.*')
 
@@ -663,9 +659,3 @@ class TestDrive :
         acc = md['ca']['account']
         CertUtil.validate_privkey(TestEnv.path_account_key( acc ), lambda *args: encryptKey )
 
-	# sei: also deactivated, does not work under *NIX
-        # check: negative test with wrong key - pyOpenSSL loads without error, if the file is unencrypted
-        #encryptKey = base64.urlsafe_b64decode( str("dJRvw9dkigC1dmVekPaN08DWaXfQ24IL17wUSWq2C_U5FBzSGOb6oQO-_yTGzPC4") )
-        #with pytest.raises(Exception) as ex:
-        #    CertUtil.validate_privkey(TestEnv.path_account_key( acc ), encryptKey)
-        #assert TestDrive.RE_MSG_OPENSSL_BAD_DECRYPT.match( str(ex.value) )

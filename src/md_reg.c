@@ -517,10 +517,6 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update agreement: %s", name);
         nmd->ca_agreement = updates->ca_agreement;
     }
-    if (MD_UPD_CERT_URL & fields) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update cert url: %s", name);
-        nmd->cert_url = updates->cert_url;
-    }
     if (MD_UPD_DRIVE_MODE & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update drive-mode: %s", name);
         nmd->drive_mode = updates->drive_mode;

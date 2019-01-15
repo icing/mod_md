@@ -615,7 +615,6 @@ class TestAuto:
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert "url" in md['cert']
         assert os.path.isfile( TestEnv.path_domain_privkey(name) )
         assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
 

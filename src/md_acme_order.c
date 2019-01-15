@@ -55,8 +55,45 @@ md_acme_order_t *md_acme_order_create(apr_pool_t *p)
 /**************************************************************************************************/
 /* order conversion */
 
-#define MD_KEY_AUTHZS           "authorizations"
 #define MD_KEY_CHALLENGE_DIRS   "challenge-dirs"
+
+static md_acme_order_st order_st_from_str(const char *s) 
+{
+    if (s) {
+        if (!strcmp("valid", s)) {
+            return MD_ACME_ORDER_ST_VALID;
+        }
+        else if (!strcmp("invalid", s)) {
+            return MD_ACME_ORDER_ST_INVALID;
+        }
+        else if (!strcmp("ready", s)) {
+            return MD_ACME_ORDER_ST_READY;
+        }
+        else if (!strcmp("pending", s)) {
+            return MD_ACME_ORDER_ST_PENDING;
+        }
+        else if (!strcmp("processing", s)) {
+            return MD_ACME_ORDER_ST_PROCESSING;
+        }
+    }
+    return MD_ACME_ORDER_ST_PENDING;
+}
+
+static const char *order_st_to_str(md_acme_order_st status) 
+{
+    switch (status) {
+        case MD_ACME_ORDER_ST_PENDING:
+            return "pending";
+        case MD_ACME_ORDER_ST_READY:
+            return "ready";
+        case MD_ACME_ORDER_ST_PROCESSING:
+            return "processing";
+        case MD_ACME_ORDER_ST_VALID:
+            return "valid";
+        case MD_ACME_ORDER_ST_INVALID:
+            return "invalid";
+    }
+}
 
 md_json_t *md_acme_order_to_json(md_acme_order_t *order, apr_pool_t *p)
 {
@@ -65,18 +102,43 @@ md_json_t *md_acme_order_to_json(md_acme_order_t *order, apr_pool_t *p)
     if (order->url) {
         md_json_sets(order->url, json, MD_KEY_URL, NULL);
     }
-    md_json_setsa(order->authz_urls, json, MD_KEY_AUTHZS, NULL);
+    md_json_sets(order_st_to_str(order->status), json, MD_KEY_STATUS, NULL);
+    md_json_setsa(order->authz_urls, json, MD_KEY_AUTHORIZATIONS, NULL);
     md_json_setsa(order->challenge_dirs, json, MD_KEY_CHALLENGE_DIRS, NULL);
+    if (order->finalize) {
+        md_json_sets(order->finalize, json, MD_KEY_FINALIZE, NULL);
+    }
+    if (order->certificate) {
+        md_json_sets(order->certificate, json, MD_KEY_CERTIFICATE, NULL);
+    }
     return json;
+}
+
+static void order_update_from_json(md_acme_order_t *order, md_json_t *json, apr_pool_t *p)
+{
+    if (!order->url && md_json_has_key(json, MD_KEY_URL, NULL)) {
+        order->url = md_json_dups(p, json, MD_KEY_URL, NULL);
+    }
+    order->status = order_st_from_str(md_json_gets(json, MD_KEY_STATUS, NULL));
+    if (md_json_has_key(json, MD_KEY_AUTHORIZATIONS, NULL)) {
+        md_json_dupsa(order->authz_urls, p, json, MD_KEY_AUTHORIZATIONS, NULL);
+    }
+    if (md_json_has_key(json, MD_KEY_CHALLENGE_DIRS, NULL)) {
+        md_json_dupsa(order->challenge_dirs, p, json, MD_KEY_CHALLENGE_DIRS, NULL);
+    }
+    if (md_json_has_key(json, MD_KEY_FINALIZE, NULL)) {
+        order->finalize = md_json_dups(p, json, MD_KEY_FINALIZE, NULL);
+    }
+    if (md_json_has_key(json, MD_KEY_CERTIFICATE, NULL)) {
+        order->certificate = md_json_dups(p, json, MD_KEY_CERTIFICATE, NULL);
+    }
 }
 
 md_acme_order_t *md_acme_order_from_json(md_json_t *json, apr_pool_t *p)
 {
     md_acme_order_t *order = md_acme_order_create(p);
 
-    order->url = md_json_gets(json, MD_KEY_URL, NULL);
-    md_json_getsa(order->authz_urls, json, MD_KEY_AUTHZS, NULL);
-    md_json_getsa(order->challenge_dirs, json, MD_KEY_CHALLENGE_DIRS, NULL);
+    order_update_from_json(order, json, p);
     return order;
 }
 
@@ -185,7 +247,7 @@ apr_status_t md_acme_order_purge(md_store_t *store, apr_pool_t *p, md_store_grou
 }
 
 /**************************************************************************************************/
-/* processing */
+/* ACMEv2 order requests */
 
 typedef struct {
     apr_pool_t *p;
@@ -193,6 +255,167 @@ typedef struct {
     md_acme_t *acme;
     const md_t *md;
 } order_ctx_t;
+
+#define ORDER_CTX_INIT(ctx, p, o, a, m) \
+    (ctx)->p = (p); (ctx)->order = (o); (ctx)->acme = (a); (ctx)->md = (m);
+
+static apr_status_t identifier_to_json(void *value, md_json_t *json, apr_pool_t *p, void *baton)
+{
+    md_json_t *jid;
+    
+    (void)baton;
+    jid = md_json_create(p);
+    md_json_sets("dns", jid, "type", NULL);
+    md_json_sets(value, jid, "value", NULL);
+    return md_json_setj(jid, json, NULL);
+}
+
+static apr_status_t on_init_order_register(md_acme_req_t *req, void *baton)
+{
+    order_ctx_t *ctx = baton;
+    md_json_t *jpayload;
+
+    jpayload = md_json_create(req->p);
+    md_json_seta(ctx->md->domains, identifier_to_json, NULL, jpayload, "identifiers", NULL);
+
+    return md_acme_req_body_init(req, jpayload);
+} 
+
+static apr_status_t on_order_upd(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs, 
+                                 md_json_t *body, void *baton)
+{
+    order_ctx_t *ctx = baton;
+    const char *location = apr_table_get(hdrs, "location");
+    apr_status_t rv = APR_SUCCESS;
+    
+    (void)acme;
+    (void)p;
+    if (!ctx->order) {
+        if (location) {
+            ctx->order = md_acme_order_create(ctx->p);
+            ctx->order->url = apr_pstrdup(ctx->p, location);
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ctx->p, "new order at %s", location);
+        }
+        else {
+            rv = APR_EINVAL;
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ctx->p, "new order, no location header");
+            goto out;
+        }
+    }
+    order_update_from_json(ctx->order, body, ctx->p);
+out:
+    return rv;
+}
+
+apr_status_t md_acme_order_register(md_acme_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
+                                    const md_t *md)
+{
+    order_ctx_t ctx;
+    apr_status_t rv;
+    
+    assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
+    ORDER_CTX_INIT(&ctx, p, NULL, acme, md);
+    rv = md_acme_POST(acme, acme->api.v2.new_order, on_init_order_register, on_order_upd, NULL, &ctx);
+    *porder = (APR_SUCCESS == rv)? ctx.order : NULL;
+    return rv;
+}
+
+apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, apr_pool_t *p)
+{
+    order_ctx_t ctx;
+    
+    assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
+    ORDER_CTX_INIT(&ctx, p, order, acme, NULL);
+    return md_acme_GET(acme, order->url, NULL, on_order_upd, NULL, &ctx);
+}
+
+static apr_status_t await_ready(void *baton, int attempt)
+{
+    order_ctx_t *ctx = baton;
+    apr_status_t rv = APR_SUCCESS;
+    
+    (void)attempt;
+    if (APR_SUCCESS != (rv = md_acme_order_update(ctx->order, ctx->acme, ctx->p))) goto out;
+    switch (ctx->order->status) {
+        case MD_ACME_ORDER_ST_READY:
+        case MD_ACME_ORDER_ST_PROCESSING:
+        case MD_ACME_ORDER_ST_VALID:
+            break;
+        case MD_ACME_ORDER_ST_PENDING:
+            rv = APR_EAGAIN;
+            break;
+        default:
+            rv = APR_EINVAL;
+            break;
+    }
+out:    
+    return rv;
+}
+
+apr_status_t md_acme_order_await_ready(md_acme_order_t *order, md_acme_t *acme, 
+                                       const md_t *md, apr_interval_time_t timeout, 
+                                       apr_pool_t *p)
+{
+    order_ctx_t ctx;
+    apr_status_t rv;
+    
+    assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
+    ORDER_CTX_INIT(&ctx, p, order, acme, md);
+    rv = md_util_try(await_ready, &ctx, 0, timeout, 0, 0, 1);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: checked order ready", md->name);
+    return rv;
+}
+
+static apr_status_t await_valid(void *baton, int attempt)
+{
+    order_ctx_t *ctx = baton;
+    apr_status_t rv = APR_SUCCESS;
+
+    (void)attempt;
+    if (APR_SUCCESS != (rv = md_acme_order_update(ctx->order, ctx->acme, ctx->p))) goto out;
+    switch (ctx->order->status) {
+        case MD_ACME_ORDER_ST_VALID:
+            break;
+        case MD_ACME_ORDER_ST_PROCESSING:
+            rv = APR_EAGAIN;
+            break;
+        default:
+            rv = APR_EINVAL;
+            break;
+    }
+out:    
+    return rv;
+}
+
+apr_status_t md_acme_order_await_valid(md_acme_order_t *order, md_acme_t *acme, 
+                                       const md_t *md, apr_interval_time_t timeout, 
+                                       apr_pool_t *p)
+{
+    order_ctx_t ctx;
+    apr_status_t rv;
+    
+    assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
+    ORDER_CTX_INIT(&ctx, p, order, acme, md);
+    rv = md_util_try(await_valid, &ctx, 0, timeout, 0, 0, 1);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: checked order valid", md->name);
+    return rv;
+}
+
+apr_status_t md_acme_order_finalize(md_acme_order_t *order, md_acme_t *acme, 
+                                    const md_t *md, apr_pool_t *p)
+{
+    order_ctx_t ctx;
+    apr_status_t rv;
+    
+    assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
+    ORDER_CTX_INIT(&ctx, p, order, acme, md);
+    rv = APR_ENOTIMPL;
+    
+    return rv;
+}
+
+/**************************************************************************************************/
+/* processing */
 
 apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *acme, 
                                             apr_array_header_t *challenge_types,
@@ -277,14 +500,10 @@ apr_status_t md_acme_order_monitor_authzs(md_acme_order_t *order, md_acme_t *acm
     order_ctx_t ctx;
     apr_status_t rv;
     
-    ctx.p = p;
-    ctx.order = order;
-    ctx.acme = acme;
-    ctx.md = md;
+    ORDER_CTX_INIT(&ctx, p, order, acme, md);
     rv = md_util_try(check_challenges, &ctx, 0, timeout, 0, 0, 1);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, "%s: checked authorizations", md->name);
     return rv;
 }
-
 

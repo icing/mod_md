@@ -646,7 +646,6 @@ class TestDrive :
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert "url" in md['cert']
 
         # check private key, validate certificate
         # TODO: find storage-independent way to read local certificate
@@ -669,9 +668,7 @@ class TestDrive :
         notAfter = cert.get_not_after()
         assert notBefore < datetime.now(notBefore.tzinfo)
         assert notAfter > datetime.now(notAfter.tzinfo)
-        # compare cert with resource on server
-        server_cert = CertUtil( md['cert']['url'] )
-        assert cert.get_serial() == server_cert.get_serial()
+
 
     RE_MSG_OPENSSL_BAD_DECRYPT = re.compile('.*\'bad decrypt\'.*')
 

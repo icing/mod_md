@@ -42,88 +42,6 @@
 #include "md_acmev2_drive.h"
 
 
-/**************************************************************************************************/
-/* ACMEv2 order requests */
-
-typedef struct {
-    apr_pool_t *p;
-    const md_t *md;
-    md_acme_order_t *order;
-} order_ctx_t;
-
-static apr_status_t identifier_to_json(void *value, md_json_t *json, apr_pool_t *p, void *baton)
-{
-    md_json_t *jid;
-    
-    (void)baton;
-    jid = md_json_create(p);
-    md_json_sets("dns", jid, "type", NULL);
-    md_json_sets(value, jid, "value", NULL);
-    return md_json_setj(jid, json, NULL);
-}
-
-static apr_status_t on_init_order_register(md_acme_req_t *req, void *baton)
-{
-    order_ctx_t *ctx = baton;
-    md_json_t *jpayload;
-
-    jpayload = md_json_create(req->p);
-    md_json_seta(ctx->md->domains, identifier_to_json, NULL, jpayload, "identifiers", NULL);
-
-    return md_acme_req_body_init(req, jpayload);
-} 
-
-static apr_status_t on_order_upd(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs, 
-                                 md_json_t *body, void *baton)
-{
-    order_ctx_t *ctx = baton;
-    const char *location = apr_table_get(hdrs, "location");
-    apr_status_t rv = APR_SUCCESS;
-    
-    (void)acme;
-    (void)p;
-    if (!ctx->order) {
-        if (location) {
-            ctx->order = md_acme_order_create(ctx->p);
-            ctx->order->url = apr_pstrdup(ctx->p, location);
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ctx->p, "new order at %s", location);
-        }
-        else {
-            rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ctx->p, "new order, no location header");
-            goto out;
-        }
-    }
-    ctx->order->json = md_json_clone(ctx->p, body);
-out:
-    return rv;
-}
-
-static apr_status_t order_register(md_acme_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
-                                   const md_t *md)
-{
-    order_ctx_t ctx;
-    apr_status_t rv;
-    
-    ctx.p = p;
-    ctx.md = md;
-    ctx.order = NULL;
-    
-    rv = md_acme_POST(acme, acme->api.v2.new_order, on_init_order_register, on_order_upd, NULL, &ctx);
-    *porder = (APR_SUCCESS == rv)? ctx.order : NULL;
-    return rv;
-}
-
-static apr_status_t order_update(md_acme_order_t *order, md_acme_t *acme, apr_pool_t *p)
-{
-    order_ctx_t ctx;
-    
-    ctx.p = p;
-    ctx.md = NULL;
-    ctx.order = order;
-    
-    return md_acme_GET(acme, order->url, NULL, on_order_upd, NULL, &ctx);
-}
 
 /**************************************************************************************************/
 /* order setup */
@@ -162,7 +80,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     if (!ad->order) {
         /* No Order to be found, register a new one */
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: (ACMEv2) register order", d->md->name);
-        if (APR_SUCCESS != (rv = order_register(&ad->order, ad->acme, d->p, d->md))) goto out;
+        if (APR_SUCCESS != (rv = md_acme_order_register(&ad->order, ad->acme, d->p, d->md))) goto out;
         if (APR_SUCCESS != (rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, d->md->name, ad->order, 0))) goto out;
     }
     
@@ -183,19 +101,6 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
     /* Chose (or create) and ACME account to use */
     if (APR_SUCCESS != (rv = md_acme_drive_set_acct(d))) goto out;
 
-    /* If we know a cert's location, try to get it. Previous download might
-     * have failed. If server 404 it, we clear our memory of it. */
-    if (ad->md->cert_url) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv2) polling certificate", d->md->name);
-        rv = md_acme_drive_cert_poll(d, 1);
-        if (APR_STATUS_IS_ENOENT(rv)) {
-            /* Server reports to know nothing about it. */
-            ad->md->cert_url = NULL;
-            rv = md_reg_update(d->reg, d->p, ad->md->name, ad->md, MD_UPD_CERT_URL);
-        }
-    }
-    
     if (APR_SUCCESS == rv && !ad->cert) {
         
         /* ACMEv2 strategy:
@@ -219,7 +124,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
             goto out;
         }
         
-        rv = order_update(ad->order, ad->acme, d->p);
+        rv = md_acme_order_update(ad->order, ad->acme, d->p);
         if (APR_STATUS_IS_ENOENT(rv)) {
             ad->order = NULL;
             md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
@@ -257,7 +162,34 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
             goto out;
         }
         
-        /*
+        if (APR_SUCCESS != (rv = md_acme_order_await_ready(ad->order, ad->acme, d->md, 
+                                                           ad->authz_monitor_timeout, d->p))) goto out; 
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
+                      "%s: order status: %d", d->md->name, ad->order->status); 
+
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                      "%s: fianlizing order", d->md->name);
+        ad->phase = "finalize order";
+        if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: finalize order", ad->md->name);
+            goto out;
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: finalized order", d->md->name);
+        
+        if (APR_SUCCESS != (rv = md_acme_order_await_valid(ad->order, ad->acme, d->md, 
+                                                           ad->authz_monitor_timeout, d->p))) goto out;
+        if (!ad->order->certificate) {
+            rv = APR_EINVAL;
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, d->p, 
+                          "%s: order valid, but certifiate url is missing", d->md->name); 
+            goto out;
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
+                      "%s: order status: %d, certificate at %s", d->md->name, 
+                      ad->order->status, ad->order->certificate); 
+        
+        rv = APR_ENOTIMPL;
+            /*
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                       "%s: (ACMEv2) creating certificate request", d->md->name);
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d))) {
@@ -267,7 +199,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                       "%s: (ACMEv2) received certificate", d->md->name);
-        */
+                      */
     }
 out:    
     return rv;
