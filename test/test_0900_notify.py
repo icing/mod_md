@@ -72,7 +72,7 @@ class TestAuto:
 
         # restart, and retrieve cert
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         # this command should have failed and logged an error
         assert (1, 0) == TestEnv.apache_err_total()
 
@@ -93,7 +93,7 @@ class TestAuto:
 
         # restart, and retrieve cert
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         # this command should have failed and logged an error
         assert (0, 0) == TestEnv.apache_err_total()
         nlines = open(nlog).readlines()
@@ -117,7 +117,7 @@ class TestAuto:
 
         # restart, and retrieve cert
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         # this command should have failed and logged an error
         assert (0, 0) == TestEnv.apache_err_total()
         nlines = open(nlog).readlines()

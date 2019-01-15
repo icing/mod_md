@@ -310,6 +310,10 @@ class TestEnv:
         return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'fallback-cert.pem')
 
     @classmethod
+    def path_job( cls, domain ) :
+        return os.path.join( TestEnv.STORE_DIR, 'staging', domain, 'job.json' )
+
+    @classmethod
     def replace_store( cls, src):
         shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=False)
         shutil.copytree(src, TestEnv.STORE_DIR)
@@ -484,7 +488,7 @@ class TestEnv:
         return result['stdout']
 
     @classmethod
-    def await_completion(cls, names, timeout):
+    def await_completion(cls, names, timeout=60):
         try_until = time.time() + timeout
         while len(names) > 0:
             if time.time() >= try_until:
@@ -506,6 +510,47 @@ class TestEnv:
 
             if len(names) != 0:
                 time.sleep(0.5)
+        return True
+
+    @classmethod
+    def await_renew_state(cls, names, timeout=60):
+        try_until = time.time() + timeout
+        while len(names) > 0:
+            if time.time() >= try_until:
+                return False
+            allChanged = True
+            for name in names:
+                # check status in md.json
+                md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
+                if 'renew' in md and md['renew'] == True:
+                    names.remove(name)
+
+            if len(names) != 0:
+                time.sleep(0.1)
+        return True
+
+    @classmethod
+    def await_error(cls, names, timeout=60):
+        try_until = time.time() + timeout
+        while len(names) > 0:
+            if time.time() >= try_until:
+                return False
+            allChanged = True
+            for name in names:
+                # check status in md.json
+                md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
+                if md['state'] == TestEnv.MD_S_ERROR:
+                    names.remove(name)
+                else:
+                    path_job = TestEnv.path_job( name )
+                    if os.path.isfile( path_job ):
+                        with open( path_job ) as f:
+                            job = json.load(f)
+                        if job['errors'] > 0:
+                            names.remove(name)
+
+            if len(names) != 0:
+                time.sleep(0.1)
         return True
 
     @classmethod

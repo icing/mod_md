@@ -81,7 +81,7 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
 
-        assert TestEnv.await_completion([ domain ], 30)
+        assert TestEnv.await_completion([ domain ] )
         self._check_md_cert( dns_list )
         cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert domain in cert.get_san_list()
@@ -116,7 +116,7 @@ class TestAuto:
         self._check_md_names( domainA, dnsListA )
         self._check_md_names( domainB, dnsListB )
         # await drive completion
-        assert TestEnv.await_completion( [ domainA, domainB ], 30 )
+        assert TestEnv.await_completion( [ domainA, domainB ] )
         self._check_md_cert(dnsListA)
         self._check_md_cert(dnsListB)
 
@@ -155,7 +155,7 @@ class TestAuto:
         # restart (-> drive), check that MD was synched and completes
         assert TestEnv.apache_restart() == 0
         self._check_md_names( domain, dns_list )
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         self._check_md_cert( dns_list )
 
         # check: SSL is running OK
@@ -192,7 +192,7 @@ class TestAuto:
         # restart (-> drive), check that MD was synched and completes
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         self._check_md_cert(dns_list)
         
         # check SSL running OK
@@ -223,7 +223,7 @@ class TestAuto:
         # restart, check that md is in store
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert not TestEnv.await_completion( [ domain ], 2 )
+        assert TestEnv.await_renew_state( [ domain ] )
         
         # check: that request to domains give 503 Service Unavailable
         cert1 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
@@ -311,7 +311,7 @@ class TestAuto:
 
         # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
 
@@ -334,7 +334,7 @@ class TestAuto:
 
         # restart (-> drive), check that md+cert is in store, TLS is up
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
         # fetch cert from server
@@ -348,7 +348,7 @@ class TestAuto:
         time.sleep(1)
         assert TestEnv.a2md([ "list", domain])['jout']['output'][0]['renew'] == True
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
 
         # fetch cert from server -> self-signed still active, activation of new ACME is delayed
         cert4 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
@@ -357,7 +357,7 @@ class TestAuto:
 
         # restart -> new ACME cert becomes active
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         cert5 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert cert5.get_serial() != cert3.get_serial()
 
@@ -379,7 +379,7 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert not TestEnv.await_completion( [ domain ], 10 )
+        assert TestEnv.await_error( [ domain ] )
 
         # now the same with a 80 mapped to a supported port 
         conf = HttpdConf( TestAuto.TMP_CONF )
@@ -392,7 +392,7 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert TestEnv.await_completion( [ domain ], 10 )
+        assert TestEnv.await_completion( [ domain ] )
 
     def test_7011(self):
         domain = self.test_domain
@@ -409,7 +409,7 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert not TestEnv.await_completion( [ domain ], 10 )
+        assert TestEnv.await_error( [ domain ] )
 
         # now the same with a 80 mapped to a supported port 
         conf = HttpdConf( TestAuto.TMP_CONF )
@@ -422,7 +422,7 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert TestEnv.await_completion( [ domain ], 10 )
+        assert TestEnv.await_completion( [ domain ] )
 
     #-----------------------------------------------------------------------------------------------
     # test case: one MD with several dns names. sign up. remove the *first* name
@@ -451,7 +451,7 @@ class TestAuto:
         # restart (-> drive), check that MD was synched and completes
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, dns_list )
-        assert TestEnv.await_completion( [ nameX ], 30 )
+        assert TestEnv.await_completion( [ nameX ] )
         self._check_md_cert( dns_list )
 
         # check: SSL is running OK
@@ -476,7 +476,7 @@ class TestAuto:
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, new_list )
-        assert TestEnv.await_completion( [ nameX ], 30 )
+        assert TestEnv.await_completion( [ nameX ] )
 
         certA2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
         assert nameA in certA2.get_san_list()
@@ -510,7 +510,7 @@ class TestAuto:
         # restart (-> drive), check that MD was synched and completes
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, dns_list )
-        assert TestEnv.await_completion( [ nameX ], 30 )
+        assert TestEnv.await_completion( [ nameX ] )
         self._check_md_cert( dns_list )
 
         # check: SSL is running OK
@@ -535,7 +535,7 @@ class TestAuto:
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, new_list )
-        assert TestEnv.await_completion( [ nameX ], 30 )
+        assert TestEnv.await_completion( [ nameX ] )
 
         certA2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
         assert nameA in certA2.get_san_list()
@@ -568,7 +568,7 @@ class TestAuto:
         assert TestEnv.apache_restart() == 0
         self._check_md_names( name1, [ name1 ] )
         self._check_md_names( name2, [ name2 ] )
-        assert TestEnv.await_completion( [ name1 ], 30 )
+        assert TestEnv.await_completion( [ name1 ] )
         self._check_md_cert( [ name2 ] )
 
         # check: SSL is running OK
@@ -589,7 +589,7 @@ class TestAuto:
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( name1, [ name1, name2 ] )
-        assert TestEnv.await_completion( [ name1 ], 10 )
+        assert TestEnv.await_completion( [ name1 ] )
 
         cert1b = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, name1)
         assert name1 in cert1b.get_san_list()

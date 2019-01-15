@@ -66,7 +66,7 @@ class TestAuto:
 
         # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
@@ -88,7 +88,7 @@ class TestAuto:
 
         # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
@@ -110,7 +110,7 @@ class TestAuto:
         conf.install()
 
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
@@ -125,7 +125,7 @@ class TestAuto:
         conf.install()
 
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
@@ -140,7 +140,7 @@ class TestAuto:
         conf.install()
 
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
@@ -162,7 +162,7 @@ class TestAuto:
 
         # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ], 30 )
+        assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
