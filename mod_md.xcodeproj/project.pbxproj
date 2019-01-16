@@ -146,6 +146,8 @@
 		B2C1BE0021E78DCD002EF7B4 /* test_0502_acmev2_drive.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0502_acmev2_drive.py; sourceTree = "<group>"; };
 		B2C1BE0121E8951D002EF7B4 /* md_acme_order.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acme_order.h; sourceTree = "<group>"; };
 		B2C1BE0221E8951D002EF7B4 /* md_acme_order.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_order.c; sourceTree = "<group>"; };
+		B2C1BE0321EF7158002EF7B4 /* test_0602_roundtrip.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0602_roundtrip.py; sourceTree = "<group>"; };
+		B2C1BE0421EF75BE002EF7B4 /* test_0702_auto.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0702_auto.py; sourceTree = "<group>"; };
 		B2CE87C51F8E28EA000629B2 /* notify.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = notify.py; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -361,7 +363,9 @@
 				B255730D1EE956B000E0B132 /* test_0500_drive.py */,
 				B2C1BE0021E78DCD002EF7B4 /* test_0502_acmev2_drive.py */,
 				75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */,
+				B2C1BE0321EF7158002EF7B4 /* test_0602_roundtrip.py */,
 				B2B81ED71F17BF3200E35CA3 /* test_0700_auto.py */,
+				B2C1BE0421EF75BE002EF7B4 /* test_0702_auto.py */,
 				B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */,
 				B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */,
 				B255730C1EE6D11200E0B132 /* test_base.py */,

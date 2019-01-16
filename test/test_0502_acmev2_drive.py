@@ -1,4 +1,4 @@
-# test driving the ACME protocol
+# test driving the ACMEv2 protocol
 
 import base64
 import json

@@ -128,7 +128,7 @@ static apr_status_t rename_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     (void)ftype;
     if (   MD_OK(md_util_path_merge(&from, ptemp, dir, name, NULL))
         && MD_OK(md_util_path_merge(&to, ptemp, dir, MD_FN_PRIVKEY, NULL))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "renaming %s/%s to %s", 
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, p, "renaming %s/%s to %s", 
                       dir, name, MD_FN_PRIVKEY);
         return apr_file_rename(from, to, ptemp);
     }
@@ -624,7 +624,7 @@ static apr_status_t pfs_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     
     if (   MD_OK(md_util_path_merge(&dir, ptemp, s_fs->base, groupname, name, NULL))
         && MD_OK(md_util_path_merge(&fpath, ptemp, dir, aspect, NULL))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "start remove of md %s/%s/%s", 
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "start remove of md %s/%s/%s", 
                       groupname, name, aspect);
 
         if (!MD_OK(apr_stat(&info, dir, APR_FINFO_TYPE, ptemp))) {
@@ -685,7 +685,7 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
         /* Remove all files in dir, there should be no sub-dirs */
         rv = md_util_rm_recursive(dir, ptemp, 1);
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "purge %s/%s (%s)", groupname, name, dir);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, "purge %s/%s (%s)", groupname, name, dir);
     return APR_SUCCESS;
 }
 
@@ -802,7 +802,7 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
             narch_dir = apr_psprintf(ptemp, "%s.%d", arch_dir, n);
             rv = md_util_is_dir(narch_dir, ptemp);
             if (APR_STATUS_IS_ENOENT(rv)) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "using archive dir: %s", 
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ptemp, "using archive dir: %s", 
                               narch_dir);
                 break;
             }
@@ -817,7 +817,7 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
         while (n < 1000) {
             narch_dir = apr_psprintf(ptemp, "%s.%d", arch_dir, n);
             if (MD_OK(apr_dir_make(narch_dir, MD_FPROT_D_UONLY, ptemp))) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "using archive dir: %s", 
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ptemp, "using archive dir: %s", 
                               narch_dir);
                 break;
             }

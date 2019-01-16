@@ -1,4 +1,4 @@
-# test auto runs against ACMEv1
+# test auto runs against ACMEv2
 
 import json
 import os
@@ -18,18 +18,16 @@ from test_base import CertUtil
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
+    TestEnv.initv2()
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
     TestEnv.install_test_conf();
     assert TestEnv.apache_start() == 0
-    
 
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
     assert TestEnv.apache_stop() == 0
-
 
 class TestAuto:
 
@@ -51,8 +49,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # create a MD not used in any virtual host, auto drive should NOT pick it up
     # 
-    def test_700_001(self):
-        domain = "test700-001-" + TestAuto.dns_uniq
+    def test_702_001(self):
+        domain = "test702-001-" + TestAuto.dns_uniq
 
         # generate config with one MD
         dns_list = [ domain, "www." + domain ]
@@ -91,8 +89,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: same as test_7001, but with two parallel managed domains
     #
-    def test_700_002(self):
-        domain = "test700-002-" + TestAuto.dns_uniq
+    def test_702_002(self):
+        domain = "test702-002-" + TestAuto.dns_uniq
         domainA = "a-" + domain
         domainB = "b-" + domain
         
@@ -127,8 +125,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: one MD, that covers two vhosts
     #
-    def test_700_003(self):
-        domain = "test700-003-" + TestAuto.dns_uniq
+    def test_702_003(self):
+        domain = "test702-003-" + TestAuto.dns_uniq
         nameA = "test-a." + domain
         nameB = "test-b." + domain
         dns_list = [ domain, nameA, nameB ]
@@ -173,8 +171,8 @@ class TestAuto:
         ("tls-sni-01"), 
         ("http-01")
     ])
-    def test_700_004(self, challengeType):
-        domain = "test700-004-" + TestAuto.dns_uniq
+    def test_702_004(self, challengeType):
+        domain = "test702-004-" + TestAuto.dns_uniq
         dns_list = [ domain, "www." + domain ]
 
         # generate 1 MD and 1 vhost
@@ -199,8 +197,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive_mode manual, check that server starts, but requests to domain are 503'd
     #
-    def test_700_005(self):
-        domain = "test700-005-" + TestAuto.dns_uniq
+    def test_702_005(self):
+        domain = "test702-005-" + TestAuto.dns_uniq
         nameA = "test-a." + domain
         dns_list = [ domain, nameA ]
 
@@ -235,8 +233,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive MD with only invalid challenges, domains should stay 503'd
     #
-    def test_700_006(self):
-        domain = "test700-006-" + TestAuto.dns_uniq
+    def test_702_006(self):
+        domain = "test702-006-" + TestAuto.dns_uniq
         nameA = "test-a." + domain
         dns_list = [ domain, nameA ]
 
@@ -272,8 +270,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # Specify a non-working http proxy
     #
-    def test_700_008(self):
-        domain = "test700-008-" + TestAuto.dns_uniq
+    def test_702_008(self):
+        domain = "test702-008-" + TestAuto.dns_uniq
         dns_list = [ domain ]
 
         conf = HttpdConf( TestAuto.TMP_CONF )
@@ -295,8 +293,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # Specify a valid http proxy
     #
-    def test_700_008a(self):
-        domain = "test700-008a-" + TestAuto.dns_uniq
+    def test_702_008a(self):
+        domain = "test702-008a-" + TestAuto.dns_uniq
         dns_list = [ domain ]
 
         conf = HttpdConf( TestAuto.TMP_CONF )
@@ -316,8 +314,8 @@ class TestAuto:
     # Force cert renewal due to critical remaining valid duration
     # Assert that new cert activation is delayed
     # 
-    def test_700_009(self):
-        domain = "test700-009-" + TestAuto.dns_uniq
+    def test_702_009(self):
+        domain = "test702-009-" + TestAuto.dns_uniq
         dns_list = [ domain ]
 
         # prepare md
@@ -350,7 +348,7 @@ class TestAuto:
         # fetch cert from server -> self-signed still active, activation of new ACME is delayed
         cert4 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert cert4.get_serial() == cert3.get_serial()
-        time.sleep( 5 ) # these timed waits make trouble sometimes...
+        time.sleep( 6 ) # these timed waits make trouble sometimes...
 
         # restart -> new ACME cert becomes active
         assert TestEnv.apache_restart() == 0
@@ -361,8 +359,8 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive with an unsupported challenge due to port availability 
     #
-    def test_700_010(self):
-        domain = "test700-010-" + TestAuto.dns_uniq
+    def test_702_010(self):
+        domain = "test702-010-" + TestAuto.dns_uniq
         dns_list = [ domain, "www." + domain ]
 
         # generate 1 MD and 1 vhost, map port 80 onto itself where the server does not listen
@@ -391,8 +389,8 @@ class TestAuto:
         self._check_md_names(domain, dns_list)
         assert TestEnv.await_completion( [ domain ] )
 
-    def test_700_011(self):
-        domain = "test700-011-" + TestAuto.dns_uniq
+    def test_702_011(self):
+        domain = "test702-011-" + TestAuto.dns_uniq
         dns_list = [ domain, "www." + domain ]
 
         # generate 1 MD and 1 vhost, map port 80 onto itself where the server does not listen
@@ -426,8 +424,8 @@ class TestAuto:
     # in the MD. restart. should find and keep the existing MD.
     # See: https://github.com/icing/mod_md/issues/68
     #
-    def test_700_030(self):
-        domain = "test700-030-" + TestAuto.dns_uniq
+    def test_702_030(self):
+        domain = "test702-030-" + TestAuto.dns_uniq
         nameX = "test-x." + domain
         nameA = "test-a." + domain
         nameB = "test-b." + domain
@@ -484,8 +482,8 @@ class TestAuto:
     # restart. should find and keep the existing MD and renew for additional name.
     # See: https://github.com/icing/mod_md/issues/68
     #
-    def test_700_031(self):
-        domain = "test700-031-" + TestAuto.dns_uniq
+    def test_702_031(self):
+        domain = "test702-031-" + TestAuto.dns_uniq
         nameX = "test-x." + domain
         nameA = "test-a." + domain
         nameB = "test-b." + domain
@@ -542,8 +540,8 @@ class TestAuto:
     # test case: create two MDs, move them into one
     # see: <https://bz.apache.org/bugzilla/show_bug.cgi?id=62572>
     #
-    def test_700_032(self):
-        domain = "test700-032-" + TestAuto.dns_uniq
+    def test_702_032(self):
+        domain = "test702-032-" + TestAuto.dns_uniq
         name1 = "server1." + domain
         name2 = "server2." + TestAuto.dns_uniq # need a separate TLD to avoid rate limites
 
@@ -614,4 +612,5 @@ class TestAuto:
         assert md['state'] == TestEnv.MD_S_COMPLETE
         assert os.path.isfile( TestEnv.path_domain_privkey(name) )
         assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
+
 
