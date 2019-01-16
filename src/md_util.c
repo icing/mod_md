@@ -69,6 +69,11 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /**************************************************************************************************/
 /* string related */
 
+int md_array_is_empty(const struct apr_array_header_t *array)
+{
+    return (array == NULL) || (array->nelts == 0);
+}
+
 char *md_util_str_tolower(char *s)
 {
     char *orig = s;

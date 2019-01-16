@@ -152,7 +152,7 @@ static apr_status_t mk_pubcert(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
         && MD_IS_ERR(md_chain_fload(&pubcert, ptemp, fpubcert), ENOENT)
         && MD_OK(md_util_path_merge(&fname, ptemp, dir, name, NULL))
         && MD_OK(md_cert_fload(&cert, ptemp, fname))
-        && MD_OK(md_util_path_merge(&fname, ptemp, dir, MD_FN_CHAIN, NULL))) {
+        && MD_OK(md_util_path_merge(&fname, ptemp, dir, "chain.pem", NULL))) {
         
         rv = md_chain_fload(&chain, ptemp, fname);
         if (APR_STATUS_IS_ENOENT(rv)) {

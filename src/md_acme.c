@@ -366,11 +366,11 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     if (rv == APR_SUCCESS) {
         if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p, 
-                          "req: POST %s, body:\n%s", req->url, body);
+                          "req: %s %s, body:\n%s", req->method, req->url, body);
         }
         else {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->p, 
-                          "req: POST %s", req->url);
+                          "req: %s %s", req->method, req->url);
         }
         
         if (!strcmp("GET", req->method)) {

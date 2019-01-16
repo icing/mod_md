@@ -28,8 +28,7 @@ typedef struct md_acme_driver_t {
     md_pkey_t *privkey;              /* the new private key */
     apr_array_header_t *pubcert;     /* the new certificate + chain certs */
     
-    md_cert_t *cert;                 /* the new certificate */
-    apr_array_header_t *chain;       /* the chain certificates */
+    apr_array_header_t *certs;       /* the certifiacte chain, starting with the new one */
     const char *next_up_link;        /* where the next chain cert is */
     
     md_acme_t *acme;

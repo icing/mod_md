@@ -138,14 +138,6 @@ apr_status_t md_pkey_load(md_store_t *store, md_store_group_t group,
                           const char *name, struct md_pkey_t **ppkey, apr_pool_t *p);
 apr_status_t md_pkey_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
                           const char *name, struct md_pkey_t *pkey, int create);
-apr_status_t md_cert_load(md_store_t *store, md_store_group_t group, 
-                          const char *name, struct md_cert_t **pcert, apr_pool_t *p);
-apr_status_t md_cert_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
-                          const char *name, struct md_cert_t *cert, int create);
-apr_status_t md_chain_load(md_store_t *store, md_store_group_t group, 
-                           const char *name, struct apr_array_header_t **pchain, apr_pool_t *p);
-apr_status_t md_chain_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
-                           const char *name, struct apr_array_header_t *chain, int create);
 
 apr_status_t md_pubcert_load(md_store_t *store, md_store_group_t group, const char *name, 
                              struct apr_array_header_t **ppubcert, apr_pool_t *p);

@@ -1,3 +1,4 @@
+  * test_500 drive tests now working as test_502 for ACMEv2
   * More test cases regarding ACMEv2 account handling.
   * Removed "id" field from ACME accounts as redundant. Internal cleanup of account handling.
   * Integrated recent changes from Apache subversion.

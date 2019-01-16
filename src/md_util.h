@@ -36,6 +36,11 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /* string related */
 char *md_util_str_tolower(char *s);
 
+/**
+ * Return != 0 iff array is either NULL or empty 
+ */ 
+int md_array_is_empty(const struct apr_array_header_t *array);
+
 int md_array_str_index(const struct apr_array_header_t *array, const char *s, 
                        int start, int case_sensitive);
 

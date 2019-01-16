@@ -83,7 +83,6 @@ class TestDrive :
 
     # --------- driving OK ---------
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_100(self):
         # test case: md with one domain
         domain = "test502-100-" + TestDrive.dns_uniq
@@ -92,7 +91,7 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # drive
         prevMd = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        assert TestEnv.a2md( [ "-vvvv", "drive", "-c", "http-01", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-v", "drive", "-c", "http-01", name ] )['rv'] == 0
         self._check_md_cert([ name ])
         self._check_account_key( name )
 
@@ -121,7 +120,6 @@ class TestDrive :
         assert result['http_status'] == 200
         assert result['http_headers']['Content-Length'] == '14'
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_101(self):
         # test case: md with 2 domains
         domain = "test502-101-" + TestDrive.dns_uniq
@@ -132,25 +130,8 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", "-c", "http-01", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
-    @pytest.mark.skipif(True, reason="not implemented")
-    def test_502_102(self):
-        # test case: md with one domain, local TOS agreement and ACME account
-        # setup: create md
-        domain = "test502-102-" + TestDrive.dns_uniq
-        name = "www." + domain
-        self._prepare_md([ name ])
-        assert TestEnv.apache_start() == 0
-        # setup: create account on server
-        run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
-        assert run['rv'] == 0
-        acct = re.match("registered: (.*)$", run["stdout"]).group(1)
-        # setup: link md to account
-        assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
-        # drive
-        assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+    # test_502_102 removed, as accounts without ToS are not allowed in ACMEv2
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_103(self):
         # test case: md with one domain, ACME account and TOS agreement on server
         # setup: create md
@@ -160,51 +141,17 @@ class TestDrive :
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + domain ])['rv'] == 0
         assert TestEnv.apache_start() == 0
         # setup: create account on server
-        run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
+        run = TestEnv.a2md( ["-t", "accepted", "acme", "newreg", "admin@" + domain], raw=True )
         assert run['rv'] == 0
         acct = re.match("registered: (.*)$", run["stdout"]).group(1)
-        # setup: send TOS agreement to server
-        assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
         # setup: link md to account
         assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    @pytest.mark.skipif(True, reason="not implemented")
-    def test_502_104(self):
-        # test case: md with one domain, TOS agreement, ACME account and authz challenge
-        # setup: create md
-        domain = "test502-104-" + TestDrive.dns_uniq
-        name = "www." + domain
-        self._prepare_md([ name ])
-        assert TestEnv.apache_start() == 0
-        # setup: create account on server
-        run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
-        assert run['rv'] == 0
-        acct = re.match("registered: (.*)$", run["stdout"]).group(1)
-        # setup: send TOS agreement to server
-        assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 0
-        # setup: link md to account
-        assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
-        # setup: create authz resource, write it into store
-        run = TestEnv.a2md( ["-vv", "acme", "authz", acct, name], raw=True )
-        assert run['rv'] == 0
-        authz_url = re.match("authz: " + name + " (.*)$", run["stdout"]).group(1)
-        # TODO: find storage-independent way to modify local authz data
-        TestEnv.authz_save(name, json.dumps({
-            "account": acct,
-            "authorizations": [{
-                "domain": name,
-                "location": authz_url,
-                "state": 0
-            }]
-            }, indent=2))
-        # drive
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+    # test_502_104 removed, order are created differently in ACMEv2
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_105(self):
         # test case: md with one domain, local TOS agreement and ACME account that is deleted (!) on server
         # setup: create md
@@ -213,7 +160,7 @@ class TestDrive :
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
         # setup: create account on server
-        run = TestEnv.a2md( ["acme", "newreg", "test@" + domain], raw=True )
+        run = TestEnv.a2md( ["-t", "accepted", "acme", "newreg", "test@" + domain], raw=True )
         assert run['rv'] == 0
         acct = re.match("registered: (.*)$", run["stdout"]).group(1)
         # setup: link md to account
@@ -226,7 +173,6 @@ class TestDrive :
         assert run['rv'] == 0
         self._check_md_cert([ name ])
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_106(self):
         # test case: drive using HTTPS only challenge
         domain = "test502-106-" + TestDrive.dns_uniq
@@ -237,7 +183,6 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_107(self):
         # test case: drive again on COMPLETE md, then drive --force
         # setup: prepare md in store
@@ -267,7 +212,6 @@ class TestDrive :
         cert = CertUtil(TestEnv.path_domain_pubcert( name, archiveVersion=2 ))
         assert cert.get_serial() == orig_cert.get_serial()
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_108(self):
         # test case: drive via HTTP proxy
         domain = "test502-108-" + TestDrive.dns_uniq
@@ -284,7 +228,6 @@ class TestDrive :
         assert TestEnv.a2md( [ "-p", "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT), "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_109(self):
         # test case: redirect on SSL-only domain
         # setup: prepare config
@@ -343,7 +286,6 @@ class TestDrive :
         r = TestEnv.get_meta(name, "/name.txt", useHTTPS=True)
         assert r['http_headers']['Strict-Transport-Security'] == 'max-age=15768000'
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_110(self):
         # test case: SSL-only domain, override headers generated by mod_md 
         # setup: prepare config
@@ -385,7 +327,6 @@ class TestDrive :
         assert r['http_status'] == 301                          # FAIL: mod_alias generates Location header instead of mod_md
         assert r['http_headers']['Location'] == expLocation
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_111(self):
         # test case: vhost with parallel HTTP/HTTPS, check mod_alias redirects
         # setup: prepare config
@@ -426,7 +367,6 @@ class TestDrive :
         assert r['http_status'] == 303
         assert r['http_headers']['Location'] == expLocation
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_120(self):
         # test case: NP dereference reported by Daniel Caminada <daniel.caminada@ergon.ch>
         domain = "test502-120-" + TestDrive.dns_uniq
@@ -448,7 +388,6 @@ class TestDrive :
 
     # --------- critical state change -> drive again ---------
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_200(self):
         # test case: add dns name on existing valid md
         # setup: create md in store
@@ -468,7 +407,6 @@ class TestDrive :
         new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert old_cert.get_serial() != new_cert.get_serial()
 
-    @pytest.mark.skipif(True, reason="not implemented")
     @pytest.mark.parametrize("renewWindow,testDataList", [
         ("14d", [
             { "valid": { "notBefore": -5,   "notAfter": 180 }, "renew" : False }, 
@@ -510,7 +448,6 @@ class TestDrive :
             assert md["renew"] == tc["renew"], \
                 "Expected renew == {} indicator in {}, test case {}".format(tc["renew"], md, tc)
 
-    @pytest.mark.skipif(True, reason="not implemented")
     @pytest.mark.parametrize("keyType,keyParams,expKeyLength", [
         ( "RSA", [ 2048 ], 2048 ),
         ( "RSA", [ 3072 ], 3072),
@@ -538,39 +475,10 @@ class TestDrive :
         cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert cert.get_key_length() == expKeyLength
 
-    @pytest.mark.skipif(True, reason="not implemented")
-    def test_502_203(self):
-        # test case: reproduce issue with initially wrong agreement URL
-        domain = "test502-203-" + TestDrive.dns_uniq
-        name = "www." + domain
-        # setup: prepare md with invalid TOS url
-        conf = HttpdConf( TestDrive.TMP_CONF, acmeTos=TestEnv.ACME_TOS2 )
-        conf.add_admin( "admin@" + domain )
-        conf.add_drive_mode( "manual" )
-        conf.add_md( [name] )
-        conf.install()
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
-        # drive it -> fail after account registration
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 1
-
-        # adjust config: replace TOS url with correct one
-        conf = HttpdConf( TestDrive.TMP_CONF )
-        conf.add_admin( "admin@" + domain )
-        conf.add_drive_mode( "manual" )
-        conf.add_md( [name] )
-        conf.install()
-        time.sleep(1)
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
-        # drive it -> runs OK
-        assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
-
+    # test_502_203 removed, as ToS agreement is not really checked in ACMEv2
 
     # --------- non-critical state change -> keep data ---------
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_300(self):
         # test case: remove one domain name from existing valid md
         # setup: create md in store
@@ -589,7 +497,6 @@ class TestDrive :
         new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
         assert old_cert.get_serial() == new_cert.get_serial()
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_301(self):
         # test case: change contact info on existing valid md
         # setup: create md in store
@@ -610,7 +517,6 @@ class TestDrive :
 
     # --------- network problems ---------
 
-    @pytest.mark.skipif(True, reason="not implemented")
     def test_502_400(self):
         # test case: server not reachable
         domain = "test502-400" + TestDrive.dns_uniq

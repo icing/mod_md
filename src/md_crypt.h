@@ -100,8 +100,22 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname);
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
                            const char *fname, apr_fileperms_t perms);
 
+/**
+ * Read a x509 certificate from a http response.
+ * Will return APR_ENOENT if content-type is not recognized (currently
+ * only "application/pkix-cert" is supported).
+ */
 apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *pool, 
                                const struct md_http_response_t *res);
+
+/**
+ * Read one or even a chain of certificates from a http response.
+ * Will return APR_ENOENT if content-type is not recognized (currently
+ * supports only "application/pem-certificate-chain" and "application/pkix-cert").
+ * @param chain    must be non-NULL, retrieved certificates will be added.
+ */
+apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
+                                     apr_pool_t *pool, const struct md_http_response_t *res);
 
 md_cert_state_t md_cert_state_get(md_cert_t *cert);
 int md_cert_is_valid_now(const md_cert_t *cert);

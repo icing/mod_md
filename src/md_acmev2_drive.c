@@ -101,7 +101,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
     /* Chose (or create) and ACME account to use */
     if (APR_SUCCESS != (rv = md_acme_drive_set_acct(d))) goto out;
 
-    if (APR_SUCCESS == rv && !ad->cert) {
+    if (APR_SUCCESS == rv && md_array_is_empty(ad->certs)) {
         
         /* ACMEv2 strategy:
          * 1. load an md_acme_order_t from STAGING, if present
@@ -187,19 +187,6 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
                       "%s: order status: %d, certificate at %s", d->md->name, 
                       ad->order->status, ad->order->certificate); 
-        
-        rv = APR_ENOTIMPL;
-            /*
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv2) creating certificate request", d->md->name);
-        if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
-                          ad->md->name);
-            goto out;
-        }
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv2) received certificate", d->md->name);
-                      */
     }
 out:    
     return rv;

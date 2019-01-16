@@ -167,7 +167,6 @@ struct md_t {
 #define MD_FN_PRIVKEY           "privkey.pem"
 #define MD_FN_PUBCERT           "pubcert.pem"
 #define MD_FN_CERT              "cert.pem"
-#define MD_FN_CHAIN             "chain.pem"
 #define MD_FN_HTTPD_JSON        "httpd.json"
 
 #define MD_FN_FALLBACK_PKEY     "fallback-privkey.pem"

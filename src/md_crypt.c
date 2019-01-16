@@ -911,38 +911,123 @@ apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t
     return rv;
 }
 
+static int md_cert_read_pem(BIO *bf, apr_pool_t *p, md_cert_t **pcert)
+{
+    md_cert_t *cert;
+    X509 *x509;
+    apr_status_t rv;
+    
+    ERR_clear_error();
+    x509 = PEM_read_bio_X509(bf, NULL, NULL, NULL);
+    if (x509 == NULL) {
+        rv = APR_ENOENT;
+        goto out;
+    }
+    cert = make_cert(p, x509);
+    rv = APR_SUCCESS;
+    
+out:
+    *pcert = (APR_SUCCESS == rv)? cert : NULL;
+    return rv;
+}
+
 apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p, 
                                const md_http_response_t *res)
 {
     const char *ct;
     apr_off_t data_len;
+    char *der;
     apr_size_t der_len;
+    md_cert_t *cert = NULL;
     apr_status_t rv;
     
     ct = apr_table_get(res->headers, "Content-Type");
-    if (!res->body || !ct  || strcmp("application/pkix-cert", ct)) {
-        return APR_ENOENT;
+    if (!res->body || !ct || strcmp("application/pkix-cert", ct)) {
+        rv = APR_ENOENT;
+        goto out;
     }
     
     if (APR_SUCCESS == (rv = apr_brigade_length(res->body, 1, &data_len))) {
-        char *der;
         if (data_len > 1024*1024) { /* certs usually are <2k each */
             return APR_EINVAL;
         }
-        if (APR_SUCCESS == (rv = apr_brigade_pflatten(res->body, &der, &der_len, p))) {
+        if (APR_SUCCESS == (rv = apr_brigade_pflatten(res->body, &der, &der_len, res->req->pool))) {
             const unsigned char *bf = (const unsigned char*)der;
             X509 *x509;
             
             if (NULL == (x509 = d2i_X509(NULL, &bf, (long)der_len))) {
                 rv = APR_EINVAL;
+                goto out;
             }
             else {
-                *pcert = make_cert(p, x509);
+                cert = make_cert(p, x509);
+                rv = APR_SUCCESS;
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "cert parsed");
+            }
+        }
+    }
+out:
+    *pcert = (APR_SUCCESS == rv)? cert : NULL;
+    return rv;
+}
+
+apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
+                                     apr_pool_t *p, const struct md_http_response_t *res)
+{
+    const char *ct;
+    apr_off_t blen;
+    apr_size_t data_len;
+    char *data;
+    BIO *bf = NULL;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS != (rv = apr_brigade_length(res->body, 1, &blen))) goto out;
+    if (blen > 1024*1024) { /* certs usually are <2k each */
+        rv = APR_EINVAL;
+        goto out;
+    }
+    
+    data_len = (apr_size_t)blen;
+    ct = apr_table_get(res->headers, "Content-Type");
+    if (!res->body || !ct) {
+        rv = APR_ENOENT;
+        goto out;
+    }
+    else if (!strcmp("application/pem-certificate-chain", ct)) {
+        if (APR_SUCCESS == (rv = apr_brigade_pflatten(res->body, &data, &data_len, res->req->pool))) {
+            int added = 0;
+            md_cert_t *cert;
+            
+            if (NULL == (bf = BIO_new_mem_buf(data, (int)data_len))) {
+                rv = APR_ENOMEM;
+                goto out;
+            }
+            
+            while (APR_SUCCESS == (rv = md_cert_read_pem(bf, p, &cert))) {
+                APR_ARRAY_PUSH(chain, md_cert_t *) = cert;
+                added = 1;
+            }
+            if (APR_ENOENT == rv && added) {
                 rv = APR_SUCCESS;
             }
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "cert parsed");
     }
+    else if (!strcmp("application/pkix-cert", ct)) {
+        md_cert_t *cert;
+        
+        rv = md_cert_read_http(&cert, p, res);
+        if (APR_SUCCESS == rv) {
+            APR_ARRAY_PUSH(chain, md_cert_t *) = cert;
+        }
+    }
+    else {
+        /* unrecongized content type */
+        rv = APR_ENOENT;
+        goto out;
+    }
+out:
+    if (bf) BIO_free(bf);
     return rv;
 }
 
