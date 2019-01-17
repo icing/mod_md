@@ -591,6 +591,35 @@ class TestAuto:
         assert name2 in cert1b.get_san_list()
         assert cert1.get_serial() != cert1b.get_serial()
 
+    #-----------------------------------------------------------------------------------------------
+    # test case: test "tls-alpn-01" challenge handling
+    #
+    def test_702_040(self):
+        domain = "test702-040-" + TestAuto.dns_uniq
+        dns_list = [ domain, "www." + domain ]
+
+        # generate 1 MD and 1 vhost
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_line( "LogLevel core:debug" )
+        conf.add_line( "LogLevel ssl:debug" )
+        conf.add_line( "Protocols http/1.1 acme-tls/1" )
+        conf.add_drive_mode( "auto" )
+        conf.add_ca_challenges( [ "tls-alpn-01" ] )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
+        conf.install()
+
+        # restart (-> drive), check that MD was synched and completes
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names(domain, dns_list)
+        assert TestEnv.await_completion( [ domain ], timeout=5 )
+        self._check_md_cert(dns_list)
+        
+        # check SSL running OK
+        cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
+        assert domain in cert.get_san_list()
+
     # --------- _utils_ ---------
 
     def _write_res_file(self, docRoot, name, content):

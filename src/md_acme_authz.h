@@ -31,6 +31,7 @@ typedef struct md_acme_challenge_t md_acme_challenge_t;
 
 #define MD_AUTHZ_TYPE_HTTP01        "http-01"
 #define MD_AUTHZ_TYPE_TLSSNI01      "tls-sni-01"
+#define MD_AUTHZ_TYPE_TLSALPN01     "tls-alpn-01"
 
 typedef enum {
     MD_ACME_AUTHZ_S_UNKNOWN,
@@ -53,6 +54,8 @@ struct md_acme_authz_t {
 #define MD_FN_HTTP01            "acme-http-01.txt"
 #define MD_FN_TLSSNI01_CERT     "acme-tls-sni-01.cert.pem"
 #define MD_FN_TLSSNI01_PKEY     "acme-tls-sni-01.key.pem"
+#define MD_FN_TLSALPN01_CERT    "acme-tls-alpn-01.cert.pem"
+#define MD_FN_TLSALPN01_PKEY    "acme-tls-alpn-01.key.pem"
 
 
 md_acme_authz_t *md_acme_authz_create(apr_pool_t *p);

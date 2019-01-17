@@ -552,6 +552,61 @@ static void init_ssl(void)
 }
 
 /**************************************************************************************************/
+/* connection context */
+
+typedef struct {
+    const char *protocol;
+} md_conn_ctx;
+
+static const char *md_protocol_get(const conn_rec *c)
+{
+    md_conn_ctx *ctx;
+
+    ctx = (md_conn_ctx*)ap_get_module_config(c->conn_config, &md_module);
+    return ctx? ctx->protocol : NULL;
+}
+
+/**************************************************************************************************/
+/* ALPN handling */
+
+#define PROTO_ACME_TLS_1        "acme-tls/1"
+
+static int md_protocol_propose(conn_rec *c, request_rec *r,
+                               server_rec *s,
+                               const apr_array_header_t *offers,
+                               apr_array_header_t *proposals)
+{
+    (void)s;
+    if (!r && offers && opt_ssl_is_https && opt_ssl_is_https(c) 
+        && ap_array_str_contains(offers, PROTO_ACME_TLS_1)) {
+        ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
+                      "proposing protocol '%s'", PROTO_ACME_TLS_1);
+        APR_ARRAY_PUSH(proposals, const char*) = PROTO_ACME_TLS_1;
+        return OK;
+    }
+    return DECLINED;
+}
+
+static int md_protocol_switch(conn_rec *c, request_rec *r, server_rec *s,
+                              const char *protocol)
+{
+    md_conn_ctx *ctx;
+    
+    (void)s;
+    if (!r && opt_ssl_is_https && opt_ssl_is_https(c) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
+        ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
+                      "switching protocol '%s'", PROTO_ACME_TLS_1);
+        ctx = apr_pcalloc(c->pool, sizeof(*ctx));
+        ctx->protocol = PROTO_ACME_TLS_1;
+        ap_set_module_config(c->conn_config, &md_module, ctx);
+
+        c->keepalive = AP_CONN_CLOSE;
+        return OK;
+    }
+    return DECLINED;
+}
+
+/**************************************************************************************************/
 /* watchdog based impl. */
 
 #define MD_WATCHDOG_NAME   "_md_"
@@ -1094,6 +1149,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075)
                      "no mds to auto drive, no watchdog needed");
     }
+    
 out:
     return rv;
 }
@@ -1257,38 +1313,56 @@ static int md_is_challenge(conn_rec *c, const char *servername,
 {
     md_srv_conf_t *sc;
     apr_size_t slen, sufflen = sizeof(MD_TLSSNI01_DNS_SUFFIX) - 1;
+    const char *protocol, *cha_type, *cert_name, *pkey_name;
     apr_status_t rv;
 
+    if (!servername) goto out;
+                  
+    cha_type = NULL;
     slen = strlen(servername);
-    if (slen <= sufflen 
-        || apr_strnatcasecmp(MD_TLSSNI01_DNS_SUFFIX, servername + slen - sufflen)) {
-        return 0;
+    if (slen > sufflen 
+        && !apr_strnatcasecmp(MD_TLSSNI01_DNS_SUFFIX, servername + slen - sufflen)) {
+        /* server name ends with the tls-sni-01 challenge suffix, answer if
+         * we have prepared a certificate in store under this name */
+        cha_type = "tls-sni-01";
+        cert_name = MD_FN_TLSSNI01_CERT;
+        pkey_name = MD_FN_TLSSNI01_PKEY;
+    }
+    else if ((protocol = md_protocol_get(c)) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
+        cha_type = "tls-alpn-01";
+        cert_name = MD_FN_TLSALPN01_CERT;
+        pkey_name = MD_FN_TLSALPN01_PKEY;
     }
     
-    sc = md_config_get(c->base_server);
-    if (sc && sc->mc->reg) {
-        md_store_t *store = md_reg_store_get(sc->mc->reg);
-        md_cert_t *mdcert;
-        md_pkey_t *mdpkey;
-        
-        rv = md_store_load(store, MD_SG_CHALLENGES, servername, 
-                           MD_FN_TLSSNI01_CERT, MD_SV_CERT, (void**)&mdcert, c->pool);
-        if (APR_SUCCESS == rv && (*pcert = md_cert_get_X509(mdcert))) {
-            rv = md_store_load(store, MD_SG_CHALLENGES, servername, 
-                               MD_FN_TLSSNI01_PKEY, MD_SV_PKEY, (void**)&mdpkey, c->pool);
-            if (APR_SUCCESS == rv && (*pkey = md_pkey_get_EVP_PKEY(mdpkey))) {
-                ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(10078)
-                              "%s: is a tls-sni-01 challenge host", servername);
-                return 1;
+    if (cha_type) {
+        sc = md_config_get(c->base_server);
+        if (sc && sc->mc->reg) {
+            md_store_t *store = md_reg_store_get(sc->mc->reg);
+            md_cert_t *mdcert;
+            md_pkey_t *mdpkey;
+            
+            ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c, "%s: load certs/keys %s/%s",
+                          servername, cert_name, pkey_name);
+            rv = md_store_load(store, MD_SG_CHALLENGES, servername, cert_name, 
+                               MD_SV_CERT, (void**)&mdcert, c->pool);
+            if (APR_SUCCESS == rv && (*pcert = md_cert_get_X509(mdcert))) {
+                rv = md_store_load(store, MD_SG_CHALLENGES, servername, pkey_name, 
+                                   MD_SV_PKEY, (void**)&mdpkey, c->pool);
+                if (APR_SUCCESS == rv && (*pkey = md_pkey_get_EVP_PKEY(mdpkey))) {
+                    ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(10078)
+                                  "%s: is a %s challenge host", servername, cha_type);
+                    return 1;
+                }
+                ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO(10079)
+                              "%s: challenge data not complete, key unavailable", servername);
             }
-            ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO(10079)
-                          "%s: challenge data not complete, key unavailable", servername);
-        }
-        else {
-            ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO(10080)
-                          "%s: unknown TLS SNI challenge host", servername);
+            else {
+                ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO(10080)
+                              "%s: unknown %s challenge host", servername, cha_type);
+            }
         }
     }
+out:
     *pcert = NULL;
     *pkey = NULL;
     return 0;
@@ -1451,6 +1525,10 @@ static void md_hooks(apr_pool_t *pool)
     /* answer challenges *very* early, before any configured authentication may strike */
     ap_hook_post_read_request(md_require_https_maybe, NULL, NULL, APR_HOOK_FIRST);
     ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
+
+    ap_hook_protocol_propose(md_protocol_propose, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_protocol_switch(md_protocol_switch, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_protocol_get(md_protocol_get, NULL, NULL, APR_HOOK_MIDDLE);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);

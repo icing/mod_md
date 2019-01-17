@@ -224,7 +224,9 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->p);
-    md_json_sets("challenge", jpayload, MD_KEY_RESOURCE, NULL);
+    if (MD_ACME_VERSION_MAJOR(req->acme->version) <= 1) {
+        md_json_sets("challenge", jpayload, MD_KEY_RESOURCE, NULL);
+    }
     if (ctx->challenge->key_authz) {
         md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);
     }
@@ -309,6 +311,79 @@ out:
     return rv;
 }
 
+static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
+                                          md_acme_t *acme, md_store_t *store, 
+                                          md_pkey_spec_t *key_spec, apr_pool_t *p)
+{
+    md_cert_t *cha_cert;
+    md_pkey_t *cha_key;
+    const char *acme_id, *token;
+    apr_status_t rv;
+    int notify_server;
+    MD_CHK_VARS;
+    
+    if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
+        goto out;
+    }
+    rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_CERT,
+                       MD_SV_CERT, (void**)&cha_cert, p);
+    if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, authz->domain)) 
+        || APR_STATUS_IS_ENOENT(rv)) {
+        
+        if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
+            goto out;
+        }
+        
+        if (APR_SUCCESS != (rv = md_pkey_gen(&cha_key, p, key_spec))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 challenge key",
+                          authz->domain);
+            goto out;
+        }
+
+        /* Create a "tls-alpn-01" certificate for the domain we want to authenticate.
+         * The server will need to answer a TLS connection with SNI == authz->domain
+         * and ALPN procotol "acme-tls/1" with this certificate.
+         */
+        rv = md_crypt_sha256_digest_hex(&token, p, cha->key_authz, strlen(cha->key_authz));
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 cert",
+                          authz->domain);
+            goto out;
+        }
+        
+        acme_id = apr_psprintf(p, "critical,DER:04:20:%s", token);
+        if (!MD_OK(md_cert_make_tls_alpn_01(&cha_cert, authz->domain, acme_id, cha_key, 
+                                            apr_time_from_sec(7 * MD_SECS_PER_DAY), p))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 cert",
+                          authz->domain);
+            goto out;
+        }
+        
+        if (MD_OK(md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_PKEY,
+                                MD_SV_PKEY, (void*)cha_key, 0))) {
+            rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_CERT,
+                               MD_SV_CERT, (void*)cha_cert, 0);
+        }
+        authz->dir = authz->domain;
+        notify_server = 1;
+    }
+    
+    if (APR_SUCCESS == rv && notify_server) {
+        authz_req_ctx ctx;
+
+        /* challenge is setup or was changed from previous data, tell ACME server
+         * so it may (re)try verification */        
+        authz_req_ctx_init(&ctx, acme, NULL, authz, p);
+        ctx.challenge = cha;
+        rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
+    }
+out:    
+    return rv;
+}
+
+/**
+ * Create the "tls-sni-01" domain name for the challenge.
+ */
 static apr_status_t setup_cha_dns(const char **pdns, md_acme_authz_cha_t *cha, apr_pool_t *p)
 {
     const char *dhex;
@@ -402,6 +477,7 @@ typedef struct {
 
 static const cha_type CHA_TYPES[] = {
     { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup },
+    { MD_AUTHZ_TYPE_TLSALPN01,  cha_tls_alpn_01_setup },
     { MD_AUTHZ_TYPE_TLSSNI01,   cha_tls_sni_01_setup },
 };
 static const apr_size_t CHA_TYPES_LEN = (sizeof(CHA_TYPES)/sizeof(CHA_TYPES[0]));

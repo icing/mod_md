@@ -1,3 +1,4 @@
+  * first successful tls-alpn-01 test
   * test_700 auto tests now working as test_702 for ACMEv2
   * test_600 roundtrip tests now working as test_602 for ACMEv2
   * test_500 drive tests now working as test_502 for ACMEv2

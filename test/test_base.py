@@ -602,6 +602,9 @@ class HttpdConf(object):
     def _add_line(self, line):
         open(self.path, "a").write(line + "\n")
 
+    def add_line(self, line):
+        self._add_line(line)
+
     def add_drive_mode(self, mode):
         self._add_line("  MDDriveMode %s\n" % mode)
 

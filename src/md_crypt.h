@@ -142,8 +142,20 @@ apr_status_t md_chain_fappend(struct apr_array_header_t *certs,
 apr_status_t md_cert_req_create(const char **pcsr_der_64, const struct md_t *md, 
                                 md_pkey_t *pkey, apr_pool_t *p);
 
+/**
+ * Create a self-signed cerftificate with the given cn, key and list
+ * of alternate domain names.
+ */
 apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn, 
                                struct apr_array_header_t *domains, md_pkey_t *pkey,
                                apr_interval_time_t valid_for, apr_pool_t *p);
+   
+/**
+ * Create a certificate for answering "tls-alpn-01" ACME challenges 
+ * (see <https://tools.ietf.org/html/draft-ietf-acme-tls-alpn-01>).
+ */
+apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain, 
+                                      const char *acme_id, md_pkey_t *pkey, 
+                                      apr_interval_time_t valid_for, apr_pool_t *p);
 
 #endif /* md_crypt_h */

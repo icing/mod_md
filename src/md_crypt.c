@@ -1149,18 +1149,22 @@ static apr_status_t add_ext(X509 *x, int nid, const char *value, apr_pool_t *p)
     X509V3_CTX ctx;
     apr_status_t rv;
 
+    ERR_clear_error();
     X509V3_set_ctx_nodb(&ctx);
     X509V3_set_ctx(&ctx, x, x, NULL, NULL, 0);
     if (NULL == (ext = X509V3_EXT_conf_nid(NULL, &ctx, nid, (char*)value))) {
+        unsigned long err =  ERR_get_error();
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "add_ext, create, nid=%d value='%s' "
+                      "(lib=%d, reason=%d)", nid, value, ERR_GET_LIB(err), ERR_GET_REASON(err)); 
         return APR_EGENERAL;
     }
     
     ERR_clear_error();
     rv = X509_add_ext(x, ext, -1)? APR_SUCCESS : APR_EINVAL;
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "add_ext nid=%dd value='%s'", 
-                      nid, value); 
-        
+        unsigned long err =  ERR_get_error();
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "add_ext, add, nid=%d value='%s' "
+                      "(lib=%d, reason=%d)", nid, value, ERR_GET_LIB(err), ERR_GET_REASON(err)); 
     }
     X509_EXTENSION_free(ext);
     return rv;
@@ -1311,20 +1315,16 @@ out:
     return rv;
 }
 
-apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn, 
-                               apr_array_header_t *domains, md_pkey_t *pkey,
-                               apr_interval_time_t valid_for, apr_pool_t *p)
+static apr_status_t mk_x509(X509 **px, md_pkey_t *pkey, const char *cn,
+                            apr_interval_time_t valid_for, apr_pool_t *p)
 {
-    X509 *x;
+    X509 *x = NULL;
     X509_NAME *n = NULL;
-    md_cert_t *cert = NULL;
-    apr_status_t rv;
-    int days;
     BIGNUM *big_rnd = NULL;
     ASN1_INTEGER *asn1_rnd = NULL;
     unsigned char rnd[20];
-    
-    assert(domains);
+    int days;
+    apr_status_t rv;
     
     if (NULL == (x = X509_new()) 
         || NULL == (n = X509_NAME_new())) {
@@ -1332,24 +1332,22 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: openssl alloc X509 things", cn);
         goto out; 
     }
-    
+
     if (APR_SUCCESS != (rv = md_rand_bytes(rnd, sizeof(rnd), p))
         || !(big_rnd = BN_bin2bn(rnd, sizeof(rnd), NULL))
         || !(asn1_rnd = BN_to_ASN1_INTEGER(big_rnd, NULL))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: setup random serial", cn);
         rv = APR_EGENERAL; goto out;
     }
-     
-    if (1 != X509_set_version(x, 2L)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: setting x.509v3", cn);
-        rv = APR_EGENERAL; goto out;
-    }
-
     if (!X509_set_serialNumber(x, asn1_rnd)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: set serial number", cn);
         rv = APR_EGENERAL; goto out;
     }
-    /* set common name and issue */
+    if (1 != X509_set_version(x, 2L)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: setting x.509v3", cn);
+        rv = APR_EGENERAL; goto out;
+    }
+    /* set common name and issuer */
     if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, (const unsigned char*)cn, -1, -1, 0)
         || !X509_set_subject_name(x, n)
         || !X509_set_issuer_name(x, n)) {
@@ -1361,23 +1359,45 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set basic constraints ext", cn);
         goto out;
     }
-    /* add the domain as alt name */
-    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_names(domains, p), p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", cn);
-        goto out;
-    }
     /* add our key */
     if (!X509_set_pubkey(x, pkey->pkey)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in x509", cn);
         rv = APR_EGENERAL; goto out;
     }
-    
+    /* validity */
     days = (int)((apr_time_sec(valid_for) + MD_SECS_PER_DAY - 1)/ MD_SECS_PER_DAY);
     if (!X509_set_notBefore(x, ASN1_TIME_set(NULL, time(NULL)))) {
         rv = APR_EGENERAL; goto out;
     }
     if (!X509_set_notAfter(x, ASN1_TIME_adj(NULL, time(NULL), days, 0))) {
         rv = APR_EGENERAL; goto out;
+    }
+
+out:
+    *px = (APR_SUCCESS == rv)? x : NULL;
+    if (APR_SUCCESS != rv && x) X509_free(x);
+    if (big_rnd) BN_free(big_rnd);
+    if (asn1_rnd) ASN1_INTEGER_free(asn1_rnd);
+    if (n) X509_NAME_free(n);
+    return rv;
+}
+
+apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn, 
+                               apr_array_header_t *domains, md_pkey_t *pkey,
+                               apr_interval_time_t valid_for, apr_pool_t *p)
+{
+    X509 *x;
+    md_cert_t *cert = NULL;
+    apr_status_t rv;
+    
+    assert(domains);
+
+    if (APR_SUCCESS != (rv = mk_x509(&x, pkey, cn, valid_for, p))) goto out;
+    
+    /* add the domain as alt name */
+    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_names(domains, p), p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", cn);
+        goto out;
     }
 
     /* sign with same key */
@@ -1390,19 +1410,61 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
     rv = APR_SUCCESS;
     
 out:
+    *pcert = (APR_SUCCESS == rv)? cert : NULL;
+    if (!cert && x) X509_free(x);
+    return rv;
+}
+
+#define MD_OID_ACME_VALIDATION_NUM          "1.3.6.1.5.5.7.1.31"
+#define MD_OID_ACME_VALIDATION_SNAME        "pe-acmeIdentifier"
+#define MD_OID_ACME_VALIDATION_LNAME        "ACME Identifier" 
+
+static int get_acme_validation_nid(void)
+{
+    int nid = OBJ_txt2nid(MD_OID_ACME_VALIDATION_NUM);
+    if (NID_undef == nid) {
+        nid = OBJ_create(MD_OID_ACME_VALIDATION_NUM, 
+                         MD_OID_ACME_VALIDATION_SNAME, MD_OID_ACME_VALIDATION_LNAME);
+    }
+    return nid;
+}
+
+apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain, 
+                                      const char *acme_id, md_pkey_t *pkey, 
+                                      apr_interval_time_t valid_for, apr_pool_t *p)
+{
+    X509 *x;
+    md_cert_t *cert = NULL;
+    const char *alts;
+    apr_status_t rv;
+
+    if (APR_SUCCESS != (rv = mk_x509(&x, pkey, domain, valid_for, p))) goto out;
+    
+    /* add the domain as alt name */
+    alts = apr_psprintf(p, "DNS:%s", domain);
+    if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alts, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", domain);
+        goto out;
+    }
+
+    if (APR_SUCCESS != (rv = add_ext(x, get_acme_validation_nid(), acme_id, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pe-acmeIdentifier", domain);
+        goto out;
+    }
+
+    /* sign with same key */
+    if (!X509_sign(x, pkey->pkey, EVP_sha256())) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign x509", domain);
+        rv = APR_EGENERAL; goto out;
+    }
+
+    cert = make_cert(p, x);
+    rv = APR_SUCCESS;
+    
+out:
     if (!cert && x) {
         X509_free(x);
-    }
-    if (n) {
-        X509_NAME_free(n);
-    }
-    if (big_rnd) {
-        BN_free(big_rnd);
-    }
-    if (asn1_rnd) {
-        ASN1_INTEGER_free(asn1_rnd);
     }
     *pcert = (APR_SUCCESS == rv)? cert : NULL;
     return rv;
 }
-
