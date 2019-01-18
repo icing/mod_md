@@ -550,6 +550,10 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update must-staple: %s", name);
         nmd->must_staple = updates->must_staple;
     }
+    if (MD_UPD_PROTO & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update proto: %s", name);
+        nmd->can_acme_tls_1 = updates->can_acme_tls_1;
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
         rv = state_init(reg, ptemp, nmd, 0);
@@ -831,6 +835,10 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 if (MD_VAL_UPDATE(md, smd, must_staple)) {
                     smd->must_staple = md->must_staple;
                     fields |= MD_UPD_MUST_STAPLE;
+                }
+                if (MD_VAL_UPDATE(md, smd, can_acme_tls_1)) {
+                    smd->can_acme_tls_1 = md->can_acme_tls_1;
+                    fields |= MD_UPD_PROTO;
                 }
                 
                 if (fields) {

@@ -98,6 +98,7 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
 #define MD_UPD_REQUIRE_HTTPS 0x0800
 #define MD_UPD_TRANSITIVE    0x1000
 #define MD_UPD_MUST_STAPLE   0x2000
+#define MD_UPD_PROTO         0x4000
 #define MD_UPD_ALL           0x7FFFFFFF
 
 /**

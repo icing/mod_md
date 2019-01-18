@@ -232,15 +232,19 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
                 }
                 
                 /* If this server_rec is only for http: requests. Defined
-                 * alias names to not matter for this MD.
+                 * alias names do not matter for this MD.
                  * (see gh issue https://github.com/icing/mod_md/issues/57)
                  * Otherwise, if server has name or an alias not covered,
                  * it is by default auto-added (config transitive).
                  * If mode is "manual", a generated certificate will not match
                  * all necessary names. */
-                if ((!mc->local_80 || !uses_port_only(s, mc->local_80))
-                    && APR_SUCCESS != (rv = md_covers_server(md, s, p))) {
-                    return rv;
+                if (!mc->local_80 || !uses_port_only(s, mc->local_80)) {
+                    if (APR_SUCCESS != (rv = md_covers_server(md, s, p))) {
+                        return rv;
+                    }
+                    if (ap_is_allowed_protocol(NULL, NULL, s, PROTO_ACME_TLS_1)) {
+                        md->can_acme_tls_1 = 1;
+                    }
                 }
 
                 sc->assigned = md;
@@ -568,8 +572,6 @@ static const char *md_protocol_get(const conn_rec *c)
 
 /**************************************************************************************************/
 /* ALPN handling */
-
-#define PROTO_ACME_TLS_1        "acme-tls/1"
 
 static int md_protocol_propose(conn_rec *c, request_rec *r,
                                server_rec *s,

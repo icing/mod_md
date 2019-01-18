@@ -488,7 +488,8 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad;
     apr_status_t rv = APR_SUCCESS;
-
+    int configured_count;
+    
     ad = apr_pcalloc(d->p, sizeof(*ad));
     
     d->baton = ad;
@@ -513,8 +514,10 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         /* free to chose. Add all we support and see what we get offered */
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_HTTP01;
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_TLSSNI01;
+        APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_TLSALPN01;
     }
     
+    configured_count = ad->ca_challenges->nelts;
     if (!d->can_http && !d->can_https) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: the server seems neither "
                       "reachable via http (port 80) nor https (port 443). The ACME protocol "
@@ -528,13 +531,21 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     }
     if (!d->can_https) {
         ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSSNI01, 0);
+        ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
+    }
+    if (!d->md->can_acme_tls_1) {
+        ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
     }
 
     if (apr_is_empty_array(ad->ca_challenges)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: specific CA challenge methods "
-                      "have been configured, but the server is unable to use any of those. "
-                      "For 'http-01' it needs to be reachable on port 80, for 'tls-sni-01'"
-                      " port 443 is needed.", d->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: from the %d CA challenge methods "
+                      "configured for this domain, none are suitable. There are preconditions "
+                      "that must be met, for example: "
+                      "'http-01' needs a server reachable on port 80, 'tls-sni-01'"
+                      " needs port 443. ACMEv2 CAs, which may offer 'tls-alpn-01', also "
+                      " require port 443%s. Please consult the documentation for details.", 
+                      d->md->name, configured_count, (d->md->can_acme_tls_1? "" :
+                      " and the protocol 'acme-tls/1' allowed on this server"));
         return APR_EGENERAL;
     }
     else if (ad->ca_challenges->nelts == 1 

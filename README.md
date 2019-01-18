@@ -7,6 +7,29 @@ This repository contains `mod_md`, a module for Apache httpd that adds support f
 
 This code here is to help people review and comment and test early versions. Issues you can raise here, general discussion is probably best at the httpd dev mailing list. The module is, in Apache terms, **experimental**, meaning features might change based on feedback by the community. It is however a complete implementation of the ACMEv1 protocol and used in production in many locations.
 
+## NEWS: Experimental! Again!
+
+The current releases, v1.99.x, contain new support for the ACMEv2 protocol and can *NOT* be considered
+as stable as the previous releases. Please help me test this, but do expect things to go ***pling*** now and then.
+
+For now, the ACMEv2 endpoint of  Let's Encrypt is not enabled by default. In order to do so, add
+
+```
+MDCertificateAuthority https://acme-staging-v02.api.letsencrypt.org/directory
+
+# The 'real' ACMEv2. For now, better test with staging first.
+# MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
+```
+to your configuration.
+
+For the new ```tls-alpn-01``` challenge method to work, you ***need a patched*** mod_ssl. The patches for trunk and 2.4.x versions of the Apache httpd are available in the ```patches``` directory. When you have that, you also need to extend the protocols you allow on your server:
+
+```
+Protocols h2 http/1.1 acme-tls/1
+```
+The last one, ```acme-tls/1```, is the new one that needs adding. You do not need ```h2```.
+
+
 ## Documentation
 
 Look [on the wiki](https://github.com/icing/mod_md/wiki) for directions on how to use ```mod_md```.

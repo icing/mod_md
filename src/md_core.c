@@ -276,6 +276,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         if (src->ca_challenges) {
             md->ca_challenges = md_array_str_clone(p, src->ca_challenges);
         }
+        md->can_acme_tls_1 = src->can_acme_tls_1;
     }    
     return md;   
 }
@@ -358,6 +359,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
                 break;
         }
         md_json_setb(md->must_staple > 0, json, MD_KEY_MUST_STAPLE, NULL);
+        md_json_setb(md->can_acme_tls_1 > 0, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         return json;
     }
     return NULL;
@@ -415,6 +417,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             md->require_https = MD_REQUIRE_PERMANENT;
         }
         md->must_staple = (int)md_json_getb(json, MD_KEY_MUST_STAPLE, NULL);
+        md->can_acme_tls_1 = (int)md_json_getb(json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         
         return md;
     }

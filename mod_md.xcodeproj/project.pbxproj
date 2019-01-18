@@ -148,6 +148,7 @@
 		B2C1BE0221E8951D002EF7B4 /* md_acme_order.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acme_order.c; sourceTree = "<group>"; };
 		B2C1BE0321EF7158002EF7B4 /* test_0602_roundtrip.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0602_roundtrip.py; sourceTree = "<group>"; };
 		B2C1BE0421EF75BE002EF7B4 /* test_0702_auto.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0702_auto.py; sourceTree = "<group>"; };
+		B2C1BE0521F219DA002EF7B4 /* mod_ssl_md2-trunk.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "mod_ssl_md2-trunk.diff"; sourceTree = "<group>"; };
 		B2CE87C51F8E28EA000629B2 /* notify.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = notify.py; sourceTree = "<group>"; };
 		B2D309A01EBA229F007BECC8 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = SOURCE_ROOT; };
 		B2D309A11EBA229F007BECC8 /* ChangeLog */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChangeLog; sourceTree = SOURCE_ROOT; };
@@ -181,7 +182,6 @@
 		B2FC60741F597352005B7D9E /* test_016c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016c.conf; sourceTree = "<group>"; };
 		B2FC60751F597352005B7D9E /* test_016d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016d.conf; sourceTree = "<group>"; };
 		B2FC60761F59894A005B7D9E /* TODO.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = SOURCE_ROOT; };
-		B2FC607F1F682781005B7D9E /* mod_ssl_md-2.4.x-v5.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "mod_ssl_md-2.4.x-v5.diff"; sourceTree = "<group>"; };
 		B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0800_stapling.py; sourceTree = "<group>"; };
 		B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0900_notify.py; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -558,7 +558,7 @@
 		B2FC60771F5D95DD005B7D9E /* patches */ = {
 			isa = PBXGroup;
 			children = (
-				B2FC607F1F682781005B7D9E /* mod_ssl_md-2.4.x-v5.diff */,
+				B2C1BE0521F219DA002EF7B4 /* mod_ssl_md2-trunk.diff */,
 			);
 			path = patches;
 			sourceTree = SOURCE_ROOT;

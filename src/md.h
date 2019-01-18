@@ -37,6 +37,8 @@ struct md_pkey_spec_t;
 #define MD_HSTS_HEADER             "Strict-Transport-Security"
 #define MD_HSTS_MAX_AGE_DEFAULT    15768000
 
+#define PROTO_ACME_TLS_1        "acme-tls/1"
+
 typedef enum {
     MD_S_UNKNOWN,                   /* MD has not been analysed yet */
     MD_S_INCOMPLETE,                /* MD is missing necessary information, cannot go live */
@@ -103,13 +105,16 @@ struct md_t {
     md_state_t state;               /* state of this MD */
     apr_time_t valid_from;          /* When the credentials start to be valid. 0 if unknown */
     apr_time_t expires;             /* When the credentials expire. 0 if unknown */
+    int can_acme_tls_1;             /* MD has at least one vhost which allows ALPN protocol "acme-tls/1" */
     
     const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
+    
 };
 
 #define MD_KEY_ACCOUNT          "account"
+#define MD_KEY_ACME_TLS_1       "acme-tls/1"
 #define MD_KEY_AGREEMENT        "agreement"
 #define MD_KEY_AUTHORIZATIONS   "authorizations"
 #define MD_KEY_BITS             "bits"
