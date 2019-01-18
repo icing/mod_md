@@ -1,3 +1,6 @@
+v1.99.0
+----------------------------------------------------------------------------------------------------
+  * EXPERIMENTAL, EARLY support for the ACMEv2 protocol. Not enabled by default, see README.md.
   * mod_md checks for each domain if the 'Protocols' directive allows the 'acme-tls/1' protocol.
     Only then is the challenge method 'tls-alpn-01' enabled for a MD.
   * first successful tls-alpn-01 test
