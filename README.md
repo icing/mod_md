@@ -12,15 +12,6 @@ This code here is to help people review and comment and test early versions. Iss
 The current releases, v1.99.x, contain new support for the ACMEv2 protocol and can *NOT* be considered
 as stable as the previous releases. Please help me test this, but do expect things to go ***pling*** now and then.
 
-For now, the ACMEv2 endpoint of  Let's Encrypt is not enabled by default. In order to do so, add
-
-```
-MDCertificateAuthority https://acme-staging-v02.api.letsencrypt.org/directory
-
-# The 'real' ACMEv2. For now, better test with staging first.
-# MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
-```
-to your configuration.
 
 For the new ```tls-alpn-01``` challenge method to work, you ***need a patched*** mod_ssl. The patches for trunk and 2.4.x versions of the Apache httpd are available in the ```patches``` directory. When you have that, you also need to extend the protocols you allow on your server:
 
@@ -32,7 +23,56 @@ The last one, ```acme-tls/1```, is the new one that needs adding. You do not nee
 
 ## Documentation
 
-Look [on the wiki](https://github.com/icing/mod_md/wiki) for directions on how to use ```mod_md```.
+For Versions before v1.1.x and earlier, look [on the wiki](https://github.com/icing/mod_md/wiki) for directions on how to use ```mod_md```.
+
+For Versions 1.99.x here are a summary of the changes which will be merged into the wiki once this version becomes stable:
+
+### Base Setup in 1.99.x
+
+  * For now, the ACMEv2 endpoint of  Let's Encrypt is not enabled by default. If you want to test it on your server, you need to explicitly set:
+  * 
+```
+MDCertificateAuthority https://acme-staging-v02.api.letsencrypt.org/directory
+```
+  This is the "staging" end point for testing. The certificates it hands out will not be accepted by browsers. But it's a good test.
+
+  * If the ACMEv2 staging endpoint works for you, you can enable the *real* end point:
+  * 
+```
+MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
+```
+to your configuration. ```mod_md``` will in version 2.0 do that as the new default. This means, when you do not set this URL explicitly somewhere, your next certificates will come from the ACMEv2 endpoint of Let's Encrypt.
+
+  * Changing the ```MDCertificateAuthority``` configuration will ***not*** invalidate the certificates you have. It only affects certificate renewal when it is time.
+
+### Challenges in v1.99.x
+
+*Challenges* are the method how Let's Encrypt (LE) verfifies that the domain is controlled by you. Only if you (or your Apache server) answers such a challenge correctly, LE will sign a new ceritficate.
+
+ACMEv1 and ACMEv2 have different challenge methods they allow:
+
+  * ```http-01```: the server needs to answer a special ```http:``` request correctly. Supported on ACME v1+v2, your Apache server needs to be reachable on port 80.
+  * ```dns-01```: the DNS server for your domain needs to contain a special record. Supported on ACME v1+v2, but not supported by Apache (yet).
+  * ```tls-sni-01```: the Apache server needs to answer a ```https:``` connection in a certain way. Supported initialy on ACME v1, but disabled for security reasons.
+  * ```tls-alpn-01```: the Apache server needs to answer a ```https:``` connection in a certain way. Supported on ACME v2, server needs to be reachable on port 443.
+ 
+To summarize: with ```mod_md``` version 1.x you needed port 80 to be open to get LE certificates. With version 2.x you can continue to do that. But you can also configure the new challenge method and no longer need port 80. See below how this works.
+
+#### Challenge Type ```tls-alpn-01```
+
+This ACME v2 challenge type is designed to fix the weaknesses of the former ```tls-sni-01``` challenge type. For that, amongst other changes, it opens a TLS connection to you Apache for the protocol named 'acme-tls/1'. 
+
+This protocol string is send in the application layer protocol names (ALPN) extensions of SSL.
+No server that is not prepared for ACME challenges will ever answer that protocol. That makes it harder for cheaters so somehow fake the challenge answer.
+
+The protocols that your Apache server allows are configured with the ```Protocols``` directive. It has as default ```http/1.1```, but if you already run the HTTP/2 protocol, you will  have added ```h2``` already. Now, for your server to answer the new ACMEv2 challenges, you would then add it simply:
+
+```
+Protocols h2 http/1.1 acme-tls/1
+```
+```mod_md``` will see that and use the new challenge type. 
+
+***HOWEVER*** (there is always a catch, is there not?): for now, you 'll also need a patched ```mod_ssl```to make this work. The patch is included here, but patching and compiling ```mod_ssl``` might not be everyone's cup of tea. If you do *not* have a patched mod_ssl, you can still run the new mod_md, but do not enable the ```tls-alpn-01``` challenge protocol.
 
 ## Status
 
