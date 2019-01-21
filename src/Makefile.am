@@ -73,7 +73,8 @@ libmd_la_SOURCES = $(A2LIB_HFILES) $(A2LIB_OBJECTS)
 #---------------------------------------------------------------------------------------------------
 
 mod_md_la_CPPFLAGS = -g -I../src -std=c99 -D_GNU_SOURCE -Werror @WERROR_CFLAGS@
-mod_md_la_LDFLAGS  = -module -L../src -lmd -ljansson -lcurl -lssl -lcrypto
+mod_md_la_LDFLAGS  = -module -L../src -lmd -ljansson -lcurl -lssl -lcrypto -export-symbols-regex md_module
+
 
 OBJECTS = \
     mod_md_config.c \

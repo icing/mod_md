@@ -1,7 +1,10 @@
+v1.99.1
+----------------------------------------------------------------------------------------------------
  * adding test cases for migrating MDs from ACMEv1 to ACMEv2
  * adding test case for checks that missing "acme-tls/1" protocol config is detected
  * removing version number for local ACME account storage again (added in v1.99.0). An account
    is only suitable for an ACME server if it matches the directory url exactly.
+ * export symbols in the module are restricted to reduce size a bit
 
 v1.99.0
 ----------------------------------------------------------------------------------------------------

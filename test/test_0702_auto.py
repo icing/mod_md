@@ -612,7 +612,7 @@ class TestAuto:
         # restart (-> drive), check that MD was synched and completes
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert TestEnv.await_completion( [ domain ], timeout=5 )
+        assert TestEnv.await_completion( [ domain ] )
         self._check_md_cert(dns_list)
         
         # check SSL running OK
