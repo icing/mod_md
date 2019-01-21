@@ -26,20 +26,18 @@ class TestEnv:
 
     @classmethod
     def _init_base( cls ) :
+        cls.ACME_URL = None
+        cls.STORE_DIR = None
+
         cls.config = SafeConfigParser()
         cls.config.read('test.ini')
         cls.PREFIX = cls.config.get('global', 'prefix')
 
         cls.GEN_DIR   = cls.config.get('global', 'gen_dir')
 
-        cls.ACME_URL_DEFAULT  = cls.config.get(cls.acme_section, 'url_default')
-        cls.ACME_URL  = cls.config.get(cls.acme_section, 'url')
-        cls.ACME_TOS  = cls.config.get(cls.acme_section, 'tos')
-        cls.ACME_TOS2 = cls.config.get(cls.acme_section, 'tos2')
-        cls.BOULDER_DIR = cls.config.get(cls.acme_section, 'boulder_dir')
         cls.WEBROOT   = cls.config.get('global', 'server_dir')
-        cls.TESTROOT   = os.path.join(cls.WEBROOT, '..', '..')
-
+        cls.TESTROOT  = os.path.join(cls.WEBROOT, '..', '..')
+        
         cls.APACHECTL = os.path.join(cls.PREFIX, 'bin', 'apachectl')
         cls.APXS = os.path.join(cls.PREFIX, 'bin', 'apxs')
         cls.ERROR_LOG = os.path.join(cls.WEBROOT, "logs", "error_log")
@@ -75,24 +73,36 @@ class TestEnv:
         cls.ACME_SERVER_OK = False
 
         cls.set_store_dir('md')
+        cls.set_acme('acmev1')
         cls.clear_store()
         cls.install_test_conf()
 
     @classmethod
+    def set_acme( cls, acme_section ) :
+        cls.ACME_URL_DEFAULT  = cls.config.get(acme_section, 'url_default')
+        cls.ACME_URL  = cls.config.get(acme_section, 'url')
+        cls.ACME_TOS  = cls.config.get(acme_section, 'tos')
+        cls.ACME_TOS2 = cls.config.get(acme_section, 'tos2')
+        cls.BOULDER_DIR = cls.config.get(acme_section, 'boulder_dir')
+        if cls.STORE_DIR:
+            cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
+            cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
+
+    @classmethod
     def init( cls ) :
-        cls.acme_section = 'acmev1'
         cls._init_base()
 
     @classmethod
     def initv2( cls ) :
-        cls.acme_section = 'acmev2'
         cls._init_base()
+        cls.set_acme('acmev2')
 
     @classmethod
     def set_store_dir( cls, dir ) :
         cls.STORE_DIR = os.path.join(cls.WEBROOT, dir)
-        cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
-        cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
+        if cls.ACME_URL:
+            cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
+            cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
 
     # --------- cmd execution ---------
 
@@ -741,6 +751,9 @@ class CertUtil(object):
 
         if self.cert is None:
             raise self.error
+
+    def get_issuer(self):
+        return self.cert.get_issuer()
 
     def get_serial(self):
         return self.cert.get_serial_number()

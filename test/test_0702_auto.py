@@ -593,7 +593,6 @@ class TestAuto:
 
     #-----------------------------------------------------------------------------------------------
     # test case: test "tls-alpn-01" challenge handling
-    #
     def test_702_040(self):
         domain = "test702-040-" + TestAuto.dns_uniq
         dns_list = [ domain, "www." + domain ]
@@ -620,6 +619,32 @@ class TestAuto:
         cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert domain in cert.get_san_list()
 
+    #-----------------------------------------------------------------------------------------------
+    # test case: test "tls-alpn-01" without enabling 'acme-tls/1' challenge protocol
+    def test_702_041(self):
+        domain = "test702-041-" + TestAuto.dns_uniq
+        dns_list = [ domain, "www." + domain ]
+
+        # generate 1 MD and 1 vhost
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_line( "LogLevel core:debug" )
+        conf.add_line( "LogLevel ssl:debug" )
+        conf.add_drive_mode( "auto" )
+        conf.add_ca_challenges( [ "tls-alpn-01" ] )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
+        conf.install()
+
+        # restart (-> drive), check that MD job shows errors 
+        # and that missing proto is detected
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names(domain, dns_list)
+        assert TestEnv.await_error( [ domain ] ) == True
+        md = self._get_md(domain)
+        assert False == md["proto"]["acme-tls/1"]
+        
+
     # --------- _utils_ ---------
 
     def _write_res_file(self, docRoot, name, content):
@@ -627,16 +652,17 @@ class TestAuto:
             os.makedirs(docRoot)
         open(os.path.join(docRoot, name), "w").write(content)
 
+    def _get_md(self, name):
+        return TestEnv.a2md([ "list", name ])['jout']['output'][0]
 
     def _check_md_names(self, name, dns_list):
-        md = TestEnv.a2md([ "-j", "list", name ])['jout']['output'][0]
+        md = self._get_md(name)
         assert md['name'] == name
         assert md['domains'] == dns_list
 
-
     def _check_md_cert(self, dns_list):
         name = dns_list[0]
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        md = self._get_md(name)
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
         assert os.path.isfile( TestEnv.path_domain_privkey(name) )
