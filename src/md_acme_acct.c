@@ -213,7 +213,7 @@ apr_status_t md_acme_acct_load(md_acme_acct_t **pacct, md_pkey_t **ppkey,
     if (APR_SUCCESS == rv) {
         rv = md_store_load(store, group, name, MD_FN_ACCT_KEY, MD_SV_PKEY, (void**)ppkey, p);
         if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "loading key: %s", name);
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "loading key: %s", name);
             goto out;
         }
     }
@@ -239,10 +239,11 @@ static int find_acct(void *baton, const char *name, const char *aspect,
 {
     find_ctx *ctx = baton;
     int disabled;
-    const char *ca_url, *id, *status;
+    const char *ca_url, *status;
     
     (void)aspect;
     (void)ptemp;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, "account candidate %s/%s", name, aspect); 
     if (MD_SV_JSON == vtype) {
         md_json_t *json = value;
         
@@ -254,7 +255,7 @@ static int find_acct(void *baton, const char *name, const char *aspect,
             && ca_url && !strcmp(ctx->acme->url, ca_url)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
                           "found account %s for %s: %s, status=%s, disabled=%d, ca-url=%s", 
-                          name, ctx->acme->url, id, status, disabled, ca_url);
+                          name, ctx->acme->url, aspect, status, disabled, ca_url);
             ctx->id = apr_pstrdup(ctx->p, name);
             return 0;
         }
@@ -263,7 +264,9 @@ static int find_acct(void *baton, const char *name, const char *aspect,
 }
 
 static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_t **ppkey, 
-                              md_store_t *store, md_acme_t *acme, apr_pool_t *p)
+                              md_store_t *store, md_store_group_t group,
+                              const char *name_pattern,  
+                              md_acme_t *acme, apr_pool_t *p)
 {
     apr_status_t rv;
     find_ctx ctx;
@@ -273,48 +276,120 @@ static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_
     ctx.id = NULL;
     *pid = NULL;
     
-    rv = md_store_iter(find_acct, &ctx, store, p, MD_SG_ACCOUNTS, mk_acct_pattern(p, acme),
-                       MD_FN_ACCOUNT, MD_SV_JSON);
+    rv = md_store_iter(find_acct, &ctx, store, p, group, name_pattern, MD_FN_ACCOUNT, MD_SV_JSON);
     if (ctx.id) {
         *pid = ctx.id;
-        rv = md_acme_acct_load(pacct, ppkey, store, MD_SG_ACCOUNTS, ctx.id, p);
+        rv = md_acme_acct_load(pacct, ppkey, store, group, ctx.id, p);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "loading account %s", ctx.id);
     }
     else {
         *pacct = NULL;
         rv = APR_ENOENT;
     }
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                  "acct_find %s", (*pacct)? (*pacct)->id : "NULL"); 
+                  "acct_find %s", (*pacct)? (*pacct)->url : "NULL"); 
     return rv;
 }
 
-apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store, apr_pool_t *p)
+static apr_status_t acct_find_and_verify(md_store_t *store, md_store_group_t group, 
+                                         const char *name_pattern, md_acme_t *acme, apr_pool_t *p)
 {
     md_acme_acct_t *acct;
     md_pkey_t *pkey;
     const char *id;
     apr_status_t rv;
-    
-    while (APR_SUCCESS == acct_find(&id, &acct, &pkey, store, acme, acme->p)) {
-        acme->acct_id = id;
+
+    if (APR_SUCCESS == (rv = acct_find(&id, &acct, &pkey, store, group, name_pattern, acme, p))) {
+        acme->acct_id = (MD_SG_STAGING == group)? NULL : id;
         acme->acct = acct;
         acme->acct_key = pkey;
         rv = md_acme_acct_validate(acme, NULL, p);
-        
-        if (APR_SUCCESS == rv) {
-            return rv;
-        }
-        else {
+    
+        if (APR_SUCCESS != rv) {
             acme->acct_id = NULL;
             acme->acct = NULL;
             acme->acct_key = NULL;
-            if (!APR_STATUS_IS_ENOENT(rv)) {
-                /* encountered error with server */
-                return rv;
+            if (APR_STATUS_IS_ENOENT(rv)) {
+                /* verification failed and account has been disabled.
+                   Indicate to caller that he may try again. */
+                rv = APR_EAGAIN;
             }
         }
     }
-    return APR_ENOENT;
+    return rv;
+}
+
+apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store)
+{
+    apr_status_t rv;
+    
+    while (APR_EAGAIN == (rv = acct_find_and_verify(store, MD_SG_ACCOUNTS, 
+                                                    mk_acct_pattern(acme->p, acme), 
+                                                    acme, acme->p))) {
+        /* nop */
+    }
+    
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        /* No suitable account found in MD_SG_ACCOUNTS. Maybe a new account
+         * can already be found in MD_SG_STAGING? */
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, 
+                      "no account found, looking in STAGING");
+        while (APR_EAGAIN == (rv = acct_find_and_verify(store, MD_SG_STAGING, "*", 
+                                                        acme, acme->p))) {
+            /* nop */
+        }
+    }
+    return rv;
+}
+
+typedef struct {
+    apr_pool_t *p;
+    const char *url;
+    const char *id;
+} load_ctx;
+
+static int id_by_url(void *baton, const char *name, const char *aspect,
+                     md_store_vtype_t vtype, void *value, apr_pool_t *ptemp)
+{
+    load_ctx *ctx = baton;
+    int disabled;
+    const char *acct_url, *id, *status;
+    
+    (void)aspect;
+    (void)ptemp;
+    if (MD_SV_JSON == vtype) {
+        md_json_t *json = value;
+        
+        status = md_json_gets(json, MD_KEY_STATUS, NULL);
+        disabled = md_json_getb(json, MD_KEY_DISABLED, NULL);
+        acct_url = md_json_gets(json, MD_KEY_URL, NULL);
+        
+        if ((!status || !strcmp("valid", status)) && !disabled 
+            && acct_url && !strcmp(ctx->url, acct_url)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
+                          "found account %s for url %s: %s, status=%s, disabled=%d", 
+                          name, ctx->url, id, status, disabled);
+            ctx->id = apr_pstrdup(ctx->p, name);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+apr_status_t md_acme_acct_id_for_url(const char **pid, md_store_t *store, 
+                                     md_store_group_t group, const char *url, apr_pool_t *p)
+{
+    apr_status_t rv;
+    load_ctx ctx;
+    
+    ctx.p = p;
+    ctx.url = url;
+    ctx.id = NULL;
+    
+    rv = md_store_iter(id_by_url, &ctx, store, p, group, "*", MD_FN_ACCOUNT, MD_SV_JSON);
+    *pid = (APR_SUCCESS == rv)? ctx.id : NULL;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "acct_id_by_url %s -> %s", url, *pid);
+    return rv;
 }
 
 /**************************************************************************************************/

@@ -100,6 +100,73 @@ class TestAuto:
         # should no longer the same cert
         assert cert1.get_serial() != cert3.get_serial()
 
+    #-----------------------------------------------------------------------------------------------
+    # create 2 MDs with ACMEv1, let them get a cert, change config to ACMEv2
+    # check that both work and that only a single ACME acct is created
+    # 
+    def test_710_002(self):
+        domain = "test710-002-" + TestAuto.dns_uniq
+
+        # use ACMEv1 initially
+        TestEnv.set_acme('acmev1')
+
+        domainA = "a-" + domain
+        domainB = "b-" + domain
+        
+        # generate config with two MDs
+        dnsListA = [ domainA, "www." + domainA ]
+        dnsListB = [ domainB, "www." + domainB ]
+
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_line( "MDMembers auto" )
+        conf.add_md( [ domainA ] )
+        conf.add_md( [ domainB ] )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domainA, aliasList=dnsListA[1:], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domainB, aliasList=dnsListB[1:], withSSL=True )
+        conf.install()
+
+        # restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( domainA, dnsListA )
+        self._check_md_names( domainB, dnsListB )
+        # await drive completion
+        assert TestEnv.await_completion( [ domainA, domainB ] )
+        self._check_md_cert(dnsListA)
+        self._check_md_cert(dnsListB)
+        self._check_md_cert( dnsListA )
+        cert1 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainA)
+        # should have a single account now
+        assert 1 == len(TestEnv.list_accounts())
+        
+        # use ACMEv2 now for everything
+        TestEnv.set_acme('acmev2')
+
+        # change the MDs so that we need a new cert
+        dnsListA = [ domainA, "www." + domainA, "another."  + domainA ]
+        dnsListB = [ domainB, "www." + domainB, "another."  + domainB ]
+
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_line( "MDMembers auto" )
+        conf.add_md( [ domainA ] )
+        conf.add_md( [ domainB ] )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domainA, aliasList=dnsListA[1:], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domainB, aliasList=dnsListB[1:], withSSL=True )
+        conf.install()
+
+        # restart, gets cert
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion([ domainA, domainB ] )
+        self._check_md_names( domainA, dnsListA )
+        self._check_md_names( domainB, dnsListB )
+        self._check_md_cert( dnsListA )
+        cert2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainA)
+        # should no longer the same cert
+        assert cert1.get_serial() != cert2.get_serial()
+        # should have a 2 accounts now
+        assert 2 == len(TestEnv.list_accounts())
+
 
     # --------- _utils_ ---------
 

@@ -327,6 +327,10 @@ class TestEnv:
     def replace_store( cls, src):
         shutil.rmtree(TestEnv.STORE_DIR, ignore_errors=False)
         shutil.copytree(src, TestEnv.STORE_DIR)
+
+    @classmethod
+    def list_accounts( cls ) :
+        return os.listdir( os.path.join( TestEnv.STORE_DIR, 'accounts' ) )
     
     # --------- control apache ---------
 

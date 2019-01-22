@@ -114,9 +114,11 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d)
         /* Find a local account for server, store at MD */ 
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
                       d->proto->protocol);
-        if (APR_SUCCESS == md_acme_find_acct(ad->acme, d->store, d->p)) {
+        if (APR_SUCCESS == (rv = md_acme_find_acct(ad->acme, d->store))) {
             md->ca_account = md_acme_acct_id_get(ad->acme);
             update_md = 1;
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: using account %s (id=%s)",
+                          d->proto->protocol, ad->acme->acct->url, md->ca_account);
         }
     }
     
@@ -781,15 +783,36 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     if (acct) {
         md_acme_t *acme;
         const char *id = md->ca_account;
+
+        /* We may have STAGED the same account several times. This happens when
+         * several MDs are renewed at once and need a new account. They will all store
+         * the new account in their own STAGING area. By checking for accounts with
+         * the same url, we save them all into a single one.
+         */
+        if (!id && acct->url) {
+            rv = md_acme_acct_id_for_url(&id, store, MD_SG_ACCOUNTS, acct->url, p);
+            if (APR_STATUS_IS_ENOENT(rv)) {
+                id = NULL;
+            }
+            else if (APR_SUCCESS != rv) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                              "%s: error looking up existing account by url", name);
+                return rv;
+            }
+        }
         
-        if (APR_SUCCESS != (rv = md_acme_create(&acme, p, md->ca_url, proxy_url))
-            || APR_SUCCESS != (rv = md_acme_acct_save(store, p, acme, &id, acct, acct_key))) {
+        if (APR_SUCCESS != (rv = md_acme_create(&acme, p, md->ca_url, proxy_url))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error creating acme", name);
+            return rv;
+        }
+        
+        if (APR_SUCCESS != (rv = md_acme_acct_save(store, p, acme, &id, acct, acct_key))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error saving acct", name);
             return rv;
         }
         md->ca_account = id;
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: saved ACME account %s", 
-                      name, acct->id);
+                      name, id);
     }
     
     if (APR_SUCCESS != (rv = md_save(store, p, load_group, md, 1))) {

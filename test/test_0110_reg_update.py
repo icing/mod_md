@@ -46,7 +46,7 @@ class TestRegUpdate :
     def test_110_000(self):
         # test case: update domains
         dns = [ "foo.de", "bar.de" ]
-        output1 = TestEnv.a2md([ "update", self.NAME1, "domains" ] + dns)['jout']['output']
+        output1 = TestEnv.a2md([ "-vvvv", "update", self.NAME1, "domains" ] + dns)['jout']['output']
         assert len(output1) == 1
         TestEnv.check_json_contains( output1[0],
             {

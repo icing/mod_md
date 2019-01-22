@@ -1,3 +1,8 @@
+v1.99.2
+----------------------------------------------------------------------------------------------------
+ * fixed bug where a new ACME account was created for each new ACME managed domain when the existing
+   accounts did not exist or were no longer valid/applicable.
+
 v1.99.1
 ----------------------------------------------------------------------------------------------------
  * adding test cases for migrating MDs from ACMEv1 to ACMEv2

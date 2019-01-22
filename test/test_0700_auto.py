@@ -123,6 +123,8 @@ class TestAuto:
         certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainB)
         assert dnsListB == certB.get_san_list()
 
+        # should have a single account now
+        assert 1 == len(TestEnv.list_accounts())
 
     #-----------------------------------------------------------------------------------------------
     # test case: one MD, that covers two vhosts

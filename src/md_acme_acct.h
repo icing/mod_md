@@ -103,7 +103,13 @@ const char *md_acme_get_agreement(md_acme_t *acme);
  * Find an existing account in the local store. On APR_SUCCESS, the acme
  * instance will have a current, validated account to use.
  */ 
-apr_status_t md_acme_find_acct(md_acme_t *acme, struct md_store_t *store, apr_pool_t *p);
+apr_status_t md_acme_find_acct(md_acme_t *acme, struct md_store_t *store);
+
+/**
+ * Find the account id for a given account url. 
+ */
+apr_status_t md_acme_acct_id_for_url(const char **pid, struct md_store_t *store, 
+                                     md_store_group_t group, const char *url, apr_pool_t *p);
 
 /**
  * Create a new account at the ACME server. The

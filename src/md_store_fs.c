@@ -706,6 +706,7 @@ typedef struct {
     const char *aspect;
     md_store_vtype_t vtype;
     md_store_inspect *inspect;
+    const char *dirname;
     void *baton;
 } inspect_ctx;
 
@@ -722,9 +723,29 @@ static apr_status_t insp(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting value at: %s/%s", dir, name);
     if (   MD_OK(md_util_path_merge(&fpath, ptemp, dir, name, NULL)) 
         && MD_OK(fs_fload(&value, ctx->s_fs, fpath, ctx->group, ctx->vtype, p, ptemp))
-        && !ctx->inspect(ctx->baton, name, ctx->aspect, ctx->vtype, value, ptemp)) {
+        && !ctx->inspect(ctx->baton, ctx->dirname, name, ctx->vtype, value, p)) {
         return APR_EOF;
     }
+    return rv;
+}
+
+static apr_status_t insp_dir(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                             const char *dir, const char *name, apr_filetype_e ftype)
+{
+    inspect_ctx *ctx = baton;
+    apr_status_t rv;
+    const char *fpath;
+    MD_CHK_VARS;
+ 
+    (void)ftype;
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting dir at: %s/%s", dir, name);
+    if (MD_OK(md_util_path_merge(&fpath, p, dir, name, NULL))) {
+        ctx->dirname = name;
+        rv = md_util_files_do(insp, ctx, p, fpath, ctx->aspect, NULL);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            rv = APR_SUCCESS;
+        }
+    } 
     return rv;
 }
 
@@ -745,7 +766,7 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
     ctx.baton = baton;
     groupname = md_store_group_name(group);
 
-    rv = md_util_files_do(insp, &ctx, p, ctx.s_fs->base, groupname, ctx.pattern, aspect, NULL);
+    rv = md_util_files_do(insp_dir, &ctx, p, ctx.s_fs->base, groupname, pattern, NULL);
     
     return rv;
 }
