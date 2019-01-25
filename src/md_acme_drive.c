@@ -705,6 +705,10 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
         d->stage_valid_from += delay_activation;
     }
 
+    /* As last step, cleanup any order we created so that challenge data
+     * may be removed asap. */
+    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
+
 out:    
     return rv;
 }

@@ -343,6 +343,7 @@ class TestAuto:
         time.sleep(1)
         assert TestEnv.a2md([ "list", domain])['jout']['output'][0]['renew'] == True
         assert TestEnv.apache_restart() == 0
+        time.sleep(1)
         assert TestEnv.await_completion( [ domain ] )
 
         # fetch cert from server -> self-signed still active, activation of new ACME is delayed

@@ -1,3 +1,10 @@
+v1.99.3
+----------------------------------------------------------------------------------------------------
+ * OpenSSL initialization disabled in the module. Leaving that to mod_ssl/APR.
+ * mod_ssl trunk patch is now empty, changes have been committed into Apache trunk.
+ * ACME order/challenge cleanup now runs immediately after a successful renewal and does
+   not wait for a server restart. 
+
 v1.99.2
 ----------------------------------------------------------------------------------------------------
  * fixed bug where a new ACME account was created for each new ACME managed domain when the existing

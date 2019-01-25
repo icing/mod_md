@@ -418,7 +418,7 @@ int main(int argc, const char *const *argv)
     }
     
     md_http_use_implementation(md_curl_get_impl(p));
-    md_acme_init(p, BASE_VERSION);
+    md_acme_init(p, BASE_VERSION, 1);
     md_cmd_ctx_init(&ctx, p, argc, argv);
     
     rv = cmd_process(&ctx, &MainCmd);

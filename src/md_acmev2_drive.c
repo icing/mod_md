@@ -126,6 +126,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
         
         rv = md_acme_order_update(ad->order, ad->acme, d->p);
         if (APR_STATUS_IS_ENOENT(rv)) {
+            /* order is no longer known at the ACME server */
             ad->order = NULL;
             md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
         }

@@ -1512,7 +1512,8 @@ static void md_hooks(apr_pool_t *pool)
 {
     static const char *const mod_ssl[] = { "mod_ssl.c", NULL};
 
-    md_acme_init(pool, AP_SERVER_BASEVERSION);
+    /* Leave the ssl initialization to mod_ssl or friends. */
+    md_acme_init(pool, AP_SERVER_BASEVERSION, 0);
         
     ap_log_perror(APLOG_MARK, APLOG_TRACE1, 0, pool, "installing hooks");
     

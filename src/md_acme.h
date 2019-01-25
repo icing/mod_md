@@ -127,7 +127,7 @@ struct md_acme_t {
 /**
  * Global init, call once at start up.
  */
-apr_status_t md_acme_init(apr_pool_t *pool, const char *base_version);
+apr_status_t md_acme_init(apr_pool_t *pool, const char *base_version, int init_ssl);
 
 /**
  * Create a new ACME server instance. If path is not NULL, will use that directory

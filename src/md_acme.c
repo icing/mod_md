@@ -37,7 +37,7 @@
 #include "md_acme_acct.h"
 
 
-static const char *base_product;
+static const char *base_product= "-";
 
 typedef struct acme_problem_status_t acme_problem_status_t;
 
@@ -152,10 +152,10 @@ static apr_status_t acmev2_new_nonce(md_acme_t *acme)
 }
 
 
-apr_status_t md_acme_init(apr_pool_t *p, const char *base)
+apr_status_t md_acme_init(apr_pool_t *p, const char *base,  int init_ssl)
 {
     base_product = base;
-    return md_crypt_init(p);
+    return init_ssl? md_crypt_init(p) : APR_SUCCESS;
 }
 
 static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t *res)
