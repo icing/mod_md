@@ -1,3 +1,5 @@
+ * configure now checks the libcurl version to be at least 7.50, as does the Apache configure.
+
 v1.99.3
 ----------------------------------------------------------------------------------------------------
  * OpenSSL initialization disabled in the module. Leaving that to mod_ssl/APR.
