@@ -1,3 +1,6 @@
+v1.99.4
+----------------------------------------------------------------------------------------------------
+ * tls-alpn-01 challenge method, when available, is now preferred.
  * configure now checks the libcurl version to be at least 7.50, as does the Apache configure.
 
 v1.99.3

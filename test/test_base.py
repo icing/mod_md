@@ -687,7 +687,7 @@ class CertUtil(object):
     # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
 
     @classmethod
-    def create_self_signed_cert( cls, nameList, validDays ):
+    def create_self_signed_cert( cls, nameList, validDays, serial=1000 ):
         name = nameList[0]
         certFilePath = TestEnv.path_domain_pubcert(name)
         keyFilePath = TestEnv.path_domain_privkey(name)
@@ -707,7 +707,7 @@ class CertUtil(object):
         cert.get_subject().L = "Muenster"
         cert.get_subject().O = "greenbytes GmbH"
         cert.get_subject().CN = name
-        cert.set_serial_number(1000)
+        cert.set_serial_number(serial)
         cert.gmtime_adj_notBefore( validDays["notBefore"] * SEC_PER_DAY)
         cert.gmtime_adj_notAfter( validDays["notAfter"] * SEC_PER_DAY)
         cert.set_issuer(cert.get_subject())
