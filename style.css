@@ -1,0 +1,40 @@
+body {
+    color: #666666;
+    font-family: "helvetica", arial, sans-serif;
+    font-size: 12pt;
+    line-height: 150%;
+}
+
+h1, h2, h3, h4, a {
+    color: #5F7EB4;
+}
+h1, h2, h3, h4 {
+    font-weight: normal;
+}
+
+div.header {
+    margin: 1em 0 1em;
+}
+div.header p {
+    font-size: 10pt;
+}
+div.content {
+    margin: 0 auto;
+    max-width: 50em;
+    padding: .5em 1em;
+}
+
+div.footer p {
+    font-size: 8pt;
+}
+
+div.code {
+    white-space: pre;
+    margin: 0;
+    padding: .5em;
+    font-family: monospace;
+    font-size: 10pt;
+    background: #f0f0f0;
+    border-radius: .5em;
+    line-height: 120%;
+}

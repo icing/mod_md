@@ -476,8 +476,8 @@ typedef struct {
 } cha_type;
 
 static const cha_type CHA_TYPES[] = {
-    { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup },
     { MD_AUTHZ_TYPE_TLSALPN01,  cha_tls_alpn_01_setup },
+    { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup },
     { MD_AUTHZ_TYPE_TLSSNI01,   cha_tls_sni_01_setup },
 };
 static const apr_size_t CHA_TYPES_LEN = (sizeof(CHA_TYPES)/sizeof(CHA_TYPES[0]));

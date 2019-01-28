@@ -1,0 +1,167 @@
+<html>
+    <head>
+        <title>ACMEv2 Support in Apache</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+    
+        <div class="content">
+            <div class="header">
+                <h1>ACMEv2 Support in Apache</h1>
+                <p>ACME is the name of the protocol that your Apache server speaks with
+                 <a href="https://letsencrypt.org">Let's Encrypt</a>. I discuss what is
+                 new in version 2 and how <a href="https://github.com/icing/mod_md/"><code>mod_md</code></a> 
+                 will support it for you.</p>
+            </div>
+            <div class="center">
+                <h3>ACME Versions</h3>
+                <p>
+                    ACME (or <em>automated certificate management environment</em>) is the name of the
+                    protocol that clients talk to Let's Encrypt (LE). They started to design and
+                    implement this initially as vital part of their mission for themselves. This
+                    was then named version 1, or ACMEv1.
+                </p>
+                <p>
+                    Very early on, they also pushed ACME for standardization in the IETF and
+                    the results of that are now known as 
+                    <a href="https://github.com/ietf-wg-acme/acme/">ACMEv2</a>.
+                </p>
+                <p>
+                    The main differences between these two protocol versions are:
+                    <ul>
+                        <li>
+                            Interoperable Standard: ACMEv2 is implemented by more Certificate
+                            Authorities (CAs) than Let's Encrypt, giving users more options on how
+                            and where they want to secure their web sites with.
+                        </li>
+                        <li>
+                            ACMEv1 is frozen. All future innovation will happen in version 2
+                            based services. LE will keep the v1 endpoint around
+                            for some time, but otherwise not touch it.
+                        </li>
+                        <li>
+                            The LE ACMEv2 endpoint offers the new <code>tls-alpn-01</code> challenge
+                            method. This allows to obtain certificates by only using port 443 which
+                            allows sites to close the port 80 for good - should they want to. 
+                        </li>
+                    </ul>
+                    
+                </p>
+
+                <h3>mod_md and ACMEv2</h3>
+                <p>
+                    As a rule of thumb: the 1.x versions of the module talk ACMEv1 to Let's Encrypt. 
+                    The 2.x version will in addition also talk ACMEv2.
+                </p>
+                <p>
+                    Initially, using ACMEv2 in Apache will require an opt-in by you:
+                </p>
+                <div class="code">
+MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
+                </div>
+                <p>
+                    Without this, the first 2.x versions of mod_md will continue to use the
+                    ACMEv1 endpoint at <code>https://acme-v01.api.letsencrypt.org/directory</code>.
+                </p>
+                <p>
+                    With enough positive feedback from users, some future 2.x version will switch
+                    the default. If you are uncomfortable with this, you can configure the ACMEv1
+                    endpoint <em>explicitly already today</em>, so future version of mod_md will
+                    not surprise you.
+                </p>
+                <p>
+                    However, the automatic switch is in my opinion a service for the net, once we
+                    can establish the quality of its implementation. 
+                </p>
+
+                <h3>Enabling <code>tls-alpn-01</code></h3>
+                <p>
+                    For this ACME challenge to work, you need not only a new mod_md, but also
+                    a patched <code>mod_ssl</code> module. For the Apache development trunk, this
+                    changes has already been applied, but there is not 2.4.x release with the 
+                    change out - yet.
+                </p>
+                <p>
+                    If patching and compiling mod_ssl yourself is not your cup of tea, then you'll
+                    need to wait for someone to make it available to you. Maybe a PPA will come that
+                    you are willing to install.
+                </p>
+                <p>
+                    Assuming you managed to get a patched mod_ssl, you will need to enable an
+                    additional protocol in your server:
+                </p>
+                <div class="code">
+Protocols h2 http/1.1 acme-tls/1
+                </div>
+                <p>
+                    That last one, <code>acme-tls/1</code>, is the new protocol. This is how an ACMEv2
+                    server, such as LE, will contact <em>your</em> server. If your server is
+                    not configured to accept this protocol, it will deny the connection attempt
+                    from LE and the ACMEv2 challenge fails. That means you will not get a 
+                    certificate.
+                </p>
+                <p>
+                    If you allow it with the configuration above, mod_md will detect this and
+                    use the <code>tls-alpn-01</code> challenge method, when offered by the ACME
+                    server.
+                </p>
+                <p>
+                    From version 1.99.4 on, the <code>tls-alpn-01</code> challenge is the most
+                    preferred one and will be selected over any other (You can configure your
+                    own preference, but this is the default).
+                </p>
+                <p>
+                    When this works for you, your server will no longer need port 80 to obtain
+                    new certificates.
+                </p>
+
+                <h3>Testing <code>ACMEv2</code></h3>
+                <p>
+                    If you want to test ACMEv2 on your server with minimal impact to your running
+                    domains, I describe a setup for a limited trial.
+                </p>
+                <p>
+                    Choose a domain that you own but do not use for anything. That can be a subdomain
+                    of one you *do* use. Let's say you have <code>something.net</code>, when you
+                    could take <code>acmev2-trial.something.net</code> for this test.
+                </p>
+                <p>
+                    Then point a DNS record for this domain to your server and add a virtual host
+                    with this <code>ServerName</code> for port 443 (and maybe also one for port
+                    80 if you leave the <code>tls-alpn-01</code> configuration out of this).
+                </p>
+                <p>
+                    Then configure mod_md for this domain:
+                </p>
+                <div class="code">
+&lt;MDomainSet acmev2-trial.something.net>
+  # the staging ACMEv2 endpoint
+  MDCertificateAuthority https://acme-staging-v02.api.letsencrypt.org/directory
+&lt;/MDomainSet>
+                </div>
+                <p>
+                    Restart the server and Apache will use ACMEv2 for <em>only this one</em> 
+                    domain and leave the rest as before. This <em>staging</em> endpoint will
+                    not give you certificates that your browser likes - but they will be certificates
+                    from Let's Encrypt. LE calls <em>staging</em> their test environment that
+                    everyone  can use from the outside.
+                </p>
+                <p>
+                    When everything is working with staging, you can change the URL to the real
+                    one, <code>https://acme-v02.api.letsencrypt.org/directory</code>, and get
+                    valid certificates.
+                </p>
+
+                <h3>Summary</h3>
+                <p>
+                    I hope you'll be happy with the changes and continuing improvements of
+                    Let's Encrypt support in your Apache Web Server. Feedback appreciated.
+                </p>
+            </div>
+            <div class="footer">
+                <p>Stefan Eissing, greenbytes GmbH, (c) 2019</p>
+            </div>
+        </div>
+        
+    </body>
+</html>
