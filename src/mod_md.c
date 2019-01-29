@@ -164,7 +164,7 @@ static int matches_port_somewhere(server_rec *s, int port)
     return 0;
 }
 
-static int uses_port_only(server_rec *s, int port)
+static int uses_port(server_rec *s, int port)
 {
     server_addr_rec *sa;
     int match = 0;
@@ -179,6 +179,58 @@ static int uses_port_only(server_rec *s, int port)
         }
     }
     return match;
+}
+
+static server_rec *get_https_server(const char *domain, server_rec *base_server)
+{
+    md_srv_conf_t *sc;
+    md_mod_conf_t *mc;
+    server_rec *s;
+    request_rec r;
+
+    sc = md_config_get(base_server);
+    mc = sc->mc;
+    memset(&r, 0, sizeof(r));
+    
+    for (s = base_server; s && (mc->local_443 > 0); s = s->next) {
+        if (!mc->manage_base_server && s == base_server) {
+            /* we shall not assign ourselves to the base server */
+            continue;
+        }
+        r.server = s;
+        if (ap_matches_request_vhost(&r, domain, s->port) && uses_port(s, mc->local_443)) {
+            return s;
+        }
+    }
+    return NULL;
+}
+
+static int supports_acme_tls_1(md_t *md, server_rec *base_server)
+{
+    server_rec *s;
+    int i;
+    const char *domain;
+    
+    /* We return 1 only if all domains have support for protocol acme-tls/1 
+     * FIXME: we could allow this for a subset only, but then we need to either
+     * remember this individually or move the detection to the tls-alpn-01 startup
+     * function that may then fail dynamically. Hmm... 
+     */
+    for (i = 0; i < md->domains->nelts; ++i) {
+        domain = APR_ARRAY_IDX(md->domains, i, const char*);
+        if (NULL == (s = get_https_server(domain, base_server))) {
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                         "%s: no https server_rec found for %s", md->name, domain);
+            return 0;
+        }
+        if (!ap_is_allowed_protocol(NULL, NULL, s, PROTO_ACME_TLS_1)) {
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
+                         "%s: https server_rec for %s does not have protocol %s enabled", 
+                         md->name, domain, PROTO_ACME_TLS_1);
+            return 0;
+        }
+    }
+    return 1;
 }
 
 static apr_status_t assign_to_servers(md_t *md, server_rec *base_server, 
@@ -238,12 +290,9 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
                  * it is by default auto-added (config transitive).
                  * If mode is "manual", a generated certificate will not match
                  * all necessary names. */
-                if (!mc->local_80 || !uses_port_only(s, mc->local_80)) {
+                if (!mc->local_80 || !uses_port(s, mc->local_80)) {
                     if (APR_SUCCESS != (rv = md_covers_server(md, s, p))) {
                         return rv;
-                    }
-                    if (ap_is_allowed_protocol(NULL, NULL, s, PROTO_ACME_TLS_1)) {
-                        md->can_acme_tls_1 = 1;
                     }
                 }
 
@@ -260,6 +309,8 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
     next_server:
         continue;
     }
+
+    md->can_acme_tls_1 = supports_acme_tls_1(md, base_server);
 
     if (APR_SUCCESS == rv) {
         if (apr_is_empty_array(servers)) {
@@ -320,6 +371,7 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
                                  md->name, mc->local_443);
                 }
             }
+            
         }
         
     }

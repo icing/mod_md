@@ -537,7 +537,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
      *   from useing wildcard domains when dns is not available. etc.
      * - if there was an overlap, but no setup was successfull, report that. We
      *   will retry this, maybe the failure is temporary (e.g. command to setup DNS
-     *   could not reach the DNS server)
+     
      */
     rv = APR_ENOTIMPL;
     for (i = 0; i < challenges->nelts && !fctx.accepted; ++i) {

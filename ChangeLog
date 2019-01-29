@@ -2,6 +2,12 @@
    configured/supported ones and ran that. When it failed, the whole authorization
    failed until the retry kicked in. Now, on a failed challenge startup, we look for the
    next possible challenge type and try that.
+   This allows for challenge types that are configured and maybe supported in general,
+   but do not work for all domains. E.g. when we add DNS challenge support, that type
+   may only work for a subset of the domains. 
+   Instead of putting the burden on the user to configured the MDomains individually 
+   correct, the DNS challenge setup can just return APR_ENOTIMPL and another challenge 
+   type is used (if available).
  * configure updated to better work with non-standard curl library locations.
 
 v1.99.4
