@@ -353,7 +353,7 @@ static int id_by_url(void *baton, const char *name, const char *aspect,
 {
     load_ctx *ctx = baton;
     int disabled;
-    const char *acct_url, *id, *status;
+    const char *acct_url, *status;
     
     (void)aspect;
     (void)ptemp;
@@ -368,7 +368,7 @@ static int id_by_url(void *baton, const char *name, const char *aspect,
             && acct_url && !strcmp(ctx->url, acct_url)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
                           "found account %s for url %s: %s, status=%s, disabled=%d", 
-                          name, ctx->url, id, status, disabled);
+                          name, ctx->url, aspect, status, disabled);
             ctx->id = apr_pstrdup(ctx->p, name);
             return 0;
         }
