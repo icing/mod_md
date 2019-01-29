@@ -279,7 +279,7 @@ AC_SUBST(CURL_BIN)
 AC_CHECK_HEADERS([curl/curl.h])
 
 CFLAGS=`$curl_config --cflags`" $CFLAGS"
-LIBS=`$curl_config --libs`" $LIBS"
+LDFLAGS=`$curl_config --libs`" $LDFLAGS"
 
 AC_MSG_CHECKING([for curl version >= 7.50])
 AC_TRY_COMPILE([#include <curl/curlver.h>],[
