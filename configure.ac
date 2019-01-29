@@ -271,13 +271,17 @@ fi
 
 if test x"$curl_config" = "xcurl-config"; then
     CURL_BIN="curl"
+    CURL_CFLAGS="$CFLAGS"
 else
     CURL_BIN=$( dirname $curl_config)/curl
+    CURL_CFLAGS=$($curl_config --cflags)
 fi
 AC_SUBST(CURL_BIN)
 
 AC_CHECK_HEADERS([curl/curl.h])
 
+old_CFLAGS="$CFLAGS"
+CFLAGS="$CURL_CFLAGS"
 AC_MSG_CHECKING([for curl version >= 7.50])
 AC_TRY_COMPILE([#include <curl/curlver.h>],[
 #if !defined(LIBCURL_VERSION_MAJOR)
@@ -292,6 +296,7 @@ AC_TRY_COMPILE([#include <curl/curlver.h>],[
       [AC_MSG_RESULT(OK)
        curl_version_ok=yes],
       [AC_MSG_RESULT(FAILED)])
+CFLAGS="$old_CFLAGS"
 
 if test x"$curl_version_ok" = "x"; then
     AC_MSG_ERROR([curl from $curl_config must be at least version 7.50.])
