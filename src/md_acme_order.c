@@ -92,6 +92,8 @@ static const char *order_st_to_str(md_acme_order_st status)
             return "valid";
         case MD_ACME_ORDER_ST_INVALID:
             return "invalid";
+        default:
+            return "invalid";
     }
 }
 
