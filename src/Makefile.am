@@ -23,7 +23,7 @@ lib_LTLIBRARIES    = libmd.la mod_md.la
 #---------------------------------------------------------------------------------------------------
 
 libmd_la_CPPFLAGS = -fPIC -g -std=c99 -D_GNU_SOURCE -Werror @WERROR_CFLAGS@
-libmd_la_LDFLAGS  = @LDFLAGS@ -static -ljansson -lcurl -lssl -lcrypto
+libmd_la_LDFLAGS  = @LDFLAGS@ -static -ljansson -lssl -lcrypto
 
 A2LIB_OBJECTS = \
     md_acme.c \
