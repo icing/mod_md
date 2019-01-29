@@ -341,18 +341,15 @@ class TestAuto:
         assert cert1.get_serial() == cert2.get_serial()
 
         # create self-signed cert, with critical remaining valid duration -> drive again
-        CertUtil.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 9  })
+        CertUtil.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 2  }, serial=7009)
         cert3 = CertUtil( TestEnv.path_domain_pubcert(domain) )
-        assert cert3.get_serial() == 1000
+        assert cert3.get_serial() == 7009
         time.sleep(1)
         assert TestEnv.a2md([ "list", domain])['jout']['output'][0]['renew'] == True
+
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
-
-        # fetch cert from server -> self-signed still active, activation of new ACME is delayed
-        cert4 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
-        assert cert4.get_serial() == cert3.get_serial()
-        time.sleep( 5 ) # these timed waits make trouble sometimes...
+        time.sleep(3)
 
         # restart -> new ACME cert becomes active
         assert TestEnv.apache_restart() == 0

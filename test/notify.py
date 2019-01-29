@@ -8,6 +8,7 @@ def main(argv):
         f1 = open(argv[1], 'w+')
         f1.write('%s' % (argv))
         f1.close()
+        sys.stderr.write("done, all fine.\n")
         sys.exit(0)
     else:
         sys.stderr.write("%s without arguments" % (argv[0]))

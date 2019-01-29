@@ -528,13 +528,42 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
     fctx.p = p;
     fctx.accepted = NULL;
     
-    /* Look in the order challenge types are defined */
+    /* Look in the order challenge types are defined:
+     * - if they are offered by the CA, try to set it up
+     * - if setup was successful, we are done and the CA will evaluate us
+     * - if setup failed, continue to look for another supported challenge type
+     * - if there is no overlap in types, tell the user that she has to configure
+     *   either more types (dns, tls-alpn-01), make ports available or refrain
+     *   from useing wildcard domains when dns is not available. etc.
+     * - if there was an overlap, but no setup was successfull, report that. We
+     *   will retry this, maybe the failure is temporary (e.g. command to setup DNS
+     *   could not reach the DNS server)
+     */
+    rv = APR_ENOTIMPL;
     for (i = 0; i < challenges->nelts && !fctx.accepted; ++i) {
         fctx.type = APR_ARRAY_IDX(challenges, i, const char *);
         md_json_itera(find_type, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
+
+        if (fctx.accepted) {
+            for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
+                if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
+                    rv = CHA_TYPES[i].start(fctx.accepted, authz, acme, store, key_spec, p);
+                    if (APR_SUCCESS == rv) {
+                        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+                                      "%s: set up challenge '%s'", 
+                                      authz->domain, fctx.accepted->type);
+                        goto out;
+                    }
+                    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+                                  "%s: error setting up challenge '%s', looking for other option",
+                                  authz->domain, fctx.accepted->type);
+                }
+            }
+        }
     }
     
-    if (!fctx.accepted) {
+out:
+    if (!fctx.accepted || APR_ENOTIMPL == rv) {
         rv = APR_EINVAL;
         fctx.offered = apr_array_make(p, 5, sizeof(const char*));
         md_json_itera(collect_offered, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
@@ -548,17 +577,11 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                       authz->url);
         return rv;
     }
-    
-    for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
-        if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
-            return CHA_TYPES[i].start(fctx.accepted, authz, acme, store, key_spec, p);
-        }
+    else if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                      "%s: none of the offered challenges could be set up successfully",
+                      authz->domain);
     }
-    
-    rv = APR_ENOTIMPL;
-    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                  "%s: no implementation found for challenge '%s'",
-                  authz->domain, fctx.accepted->type);
     return rv;
 }
 
