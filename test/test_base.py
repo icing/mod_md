@@ -93,6 +93,10 @@ class TestEnv:
         cls._init_base()
 
     @classmethod
+    def initv1( cls ) :
+        cls._init_base()
+
+    @classmethod
     def initv2( cls ) :
         cls._init_base()
         cls.set_acme('acmev2')

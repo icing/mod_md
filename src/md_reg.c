@@ -114,7 +114,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
         
         for (i = 0; i < md->domains->nelts; ++i) {
             domain = APR_ARRAY_IDX(md->domains, i, const char *);
-            if (!md_util_is_dns_name(p, domain, 1)) {
+            if (!md_util_is_dns_name(p, domain, 1) && !md_util_is_dns_wildcard(p, domain)) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p, 
                               "md %s with invalid domain name: %s", md->name, domain);
                 return APR_EINVAL;

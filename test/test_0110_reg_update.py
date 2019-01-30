@@ -67,7 +67,7 @@ class TestRegUpdate :
         assert TestEnv.a2md(["update", self.NAME1, "domains"])['rv'] == 1
 
     @pytest.mark.parametrize("invalidDNS", [
-        ("tld"), ("white sp.ace"), ("*.wildcard.com"), ("k\xc3ller.idn.com")
+        ("tld"), ("white sp.ace"), ("invalid.*.wildcard.com"), ("k\xc3ller.idn.com")
     ])
     def test_110_002(self, invalidDNS):
         # test case: update domains with invalid DNS
@@ -103,6 +103,13 @@ class TestRegUpdate :
         # test case: update non-existing managed domain
         assert TestEnv.a2md([ "update", "test-foo.com", "domains", "test-foo.com" ])['rv'] == 1
 
+    @pytest.mark.parametrize("wildDNS", [
+        ("*.wildcard.com")
+    ])
+    def test_110_008(self, wildDNS):
+        # test case: update domains with DNS wildcard
+        assert TestEnv.a2md(["update", self.NAME1, "domains", wildDNS])['rv'] == 0
+    
     # --------- update ca ---------
 
     def test_110_100(self):

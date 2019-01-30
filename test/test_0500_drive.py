@@ -129,22 +129,23 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", "-c", "http-01", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
-    def test_500_102(self):
-        # test case: md with one domain, local TOS agreement and ACME account
-        # setup: create md
-        domain = "test500-102-" + TestDrive.dns_uniq
-        name = "www." + domain
-        self._prepare_md([ name ])
-        assert TestEnv.apache_start() == 0
-        # setup: create account on server
-        run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
-        assert run['rv'] == 0
-        acct = re.match("registered: (.*)$", run["stdout"]).group(1)
-        # setup: link md to account
-        assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
-        # drive
-        assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+    # disabled as tls-sni-01 is no longer supported
+    #def test_500_102(self):
+    #    # test case: md with one domain, local TOS agreement and ACME account
+    #    # setup: create md
+    #    domain = "test500-102-" + TestDrive.dns_uniq
+    #    name = "www." + domain
+    #    self._prepare_md([ name ])
+    #    assert TestEnv.apache_start() == 0
+    #    # setup: create account on server
+    #    run = TestEnv.a2md( ["acme", "newreg", "admin@" + domain], raw=True )
+    #    assert run['rv'] == 0
+    #    acct = re.match("registered: (.*)$", run["stdout"]).group(1)
+    #    # setup: link md to account
+    #    assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
+    #    # drive
+    #    assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
+    #    self._check_md_cert([ name ])
 
     def test_500_103(self):
         # test case: md with one domain, ACME account and TOS agreement on server
@@ -219,15 +220,16 @@ class TestDrive :
         assert run['rv'] == 0
         self._check_md_cert([ name ])
 
-    def test_500_106(self):
-        # test case: drive using HTTPS only challenge
-        domain = "test500-106-" + TestDrive.dns_uniq
-        name = "www." + domain
-        self._prepare_md([ name, "test." + domain ])
-        assert TestEnv.apache_start() == 0
-        # drive
-        assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
-        self._check_md_cert([ name, "test." + domain ])
+    # disabled as tls-sni-01 is no longer supported
+    #def test_500_106(self):
+    #    # test case: drive using HTTPS only challenge
+    #    domain = "test500-106-" + TestDrive.dns_uniq
+    #    name = "www." + domain
+    #    self._prepare_md([ name, "test." + domain ])
+    #    assert TestEnv.apache_start() == 0
+    #    # drive
+    #    assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
+    #    self._check_md_cert([ name, "test." + domain ])
 
     def test_500_107(self):
         # test case: drive again on COMPLETE md, then drive --force

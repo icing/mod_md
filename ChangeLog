@@ -1,3 +1,4 @@
+ * Challenge type 'tls-sni-01' removed as it has been disabled by Let's Encrypt.
  * When the ACME server threw its challenges at us, we selected the first among the 
    configured/supported ones and ran that. When it failed, the whole authorization
    failed until the retry kicked in. Now, on a failed challenge startup, we look for the

@@ -66,7 +66,20 @@ apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *ar
 /**************************************************************************************************/
 /* dns name check */
 
-int md_util_is_dns_name(apr_pool_t *p, const char *hostname, int need_fqdn);
+/**
+ * Is a host/domain name using allowed characters. Not a wildcard.
+ * @param domain     name to check
+ * @param need_fqdn  iff != 0, check that domain contains '.'
+ * @return != 0 iff domain looks like  a non-wildcard, legal DNS domain name.
+ */
+int md_util_is_dns_name(apr_pool_t *p, const char *domain, int need_fqdn);
+
+/**
+ * Check if the given domain is a valid wildcard DNS name, e.g. *.example.org
+ * @param domain    name to check
+ * @return != 0 iff domain is a DNS wildcard.
+ */
+int md_util_is_dns_wildcard(apr_pool_t *p, const char *domain);
 
 /**************************************************************************************************/
 /* file system related */

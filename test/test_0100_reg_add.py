@@ -117,7 +117,7 @@ class TestRegAdd :
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
     @pytest.mark.parametrize("invalidDNS", [
-        ("tld"), ("white sp.ace"), ("*.wildcard.com"), ("k\xc3ller.idn.com")
+        ("tld"), ("white sp.ace"), ("invalid.*.wildcard.com"), ("k\xc3ller.idn.com")
     ])
     def test_100_005(self, invalidDNS):
         # test case: add with invalid DNS
@@ -178,3 +178,10 @@ class TestRegAdd :
         assert len(jout['output']) == 1
         md = jout['output'][0]
         assert md['domains'] == dns
+
+    @pytest.mark.parametrize("wildDNS", [
+        ("*.wildcard.com")
+    ])
+    def test_100_012(self, wildDNS):
+        # test case: add DNS wildcard
+        assert TestEnv.a2md(["add", wildDNS])['rv'] == 0

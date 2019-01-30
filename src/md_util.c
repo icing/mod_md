@@ -642,6 +642,12 @@ int md_util_is_dns_name(apr_pool_t *p, const char *hostname, int need_fqdn)
     return 1; /* empty string not allowed */
 }
 
+int md_util_is_dns_wildcard(apr_pool_t *p, const char *domain)
+{
+    if (domain[0] != '*' || domain[1] != '.') return 0;
+    return md_util_is_dns_name(p, domain+2, 1);
+}
+
 const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme)
 {
     const char *cp = s;

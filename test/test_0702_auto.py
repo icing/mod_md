@@ -167,8 +167,9 @@ class TestAuto:
     #-----------------------------------------------------------------------------------------------
     # test case: drive with using single challenge type explicitly
     #
-    @pytest.mark.parametrize("challengeType", [ 
-        ("tls-sni-01"), 
+    @pytest.mark.parametrize("challengeType", [
+        # tls-sni-01 is no longer supported
+        #("tls-sni-01"), 
         ("http-01")
     ])
     def test_702_004(self, challengeType):
@@ -403,18 +404,19 @@ class TestAuto:
         self._check_md_names(domain, dns_list)
         assert TestEnv.await_error( [ domain ] )
 
-        # now the same with a 80 mapped to a supported port 
-        conf = HttpdConf( TestAuto.TMP_CONF )
-        conf.add_admin( "admin@" + domain )
-        conf.add_drive_mode( "auto" )
-        conf.add_ca_challenges( [ "tls-sni-01" ] )
-        conf._add_line("MDPortMap 443:%s" % TestEnv.HTTPS_PORT)
-        conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
-        conf.install()
-        assert TestEnv.apache_restart() == 0
-        self._check_md_names(domain, dns_list)
-        assert TestEnv.await_completion( [ domain ] )
+        # disabled since tls-sni-01 is no longer supported
+        ## now the same with a 80 mapped to a supported port 
+        #conf = HttpdConf( TestAuto.TMP_CONF )
+        #conf.add_admin( "admin@" + domain )
+        #conf.add_drive_mode( "auto" )
+        #conf.add_ca_challenges( [ "tls-sni-01" ] )
+        #conf._add_line("MDPortMap 443:%s" % TestEnv.HTTPS_PORT)
+        #conf.add_md( dns_list )
+        #conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
+        #conf.install()
+        #assert TestEnv.apache_restart() == 0
+        #self._check_md_names(domain, dns_list)
+        #assert TestEnv.await_completion( [ domain ] )
 
     #-----------------------------------------------------------------------------------------------
     # test case: one MD with several dns names. sign up. remove the *first* name

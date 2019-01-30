@@ -381,104 +381,22 @@ out:
     return rv;
 }
 
-/**
- * Create the "tls-sni-01" domain name for the challenge.
- */
-static apr_status_t setup_cha_dns(const char **pdns, md_acme_authz_cha_t *cha, apr_pool_t *p)
-{
-    const char *dhex;
-    char *dns;
-    apr_size_t dhex_len;
-    apr_status_t rv;
-    
-    rv = md_crypt_sha256_digest_hex(&dhex, p, cha->key_authz, strlen(cha->key_authz));
-    if (APR_SUCCESS == rv) {
-        dhex = md_util_str_tolower((char*)dhex);
-        dhex_len = strlen(dhex); 
-        assert(dhex_len > 32);
-        dns = apr_pcalloc(p, dhex_len + 1 + sizeof(MD_TLSSNI01_DNS_SUFFIX));
-        strncpy(dns, dhex, 32);
-        dns[32] = '.';
-        strncpy(dns+33, dhex+32, dhex_len-32);
-        memcpy(dns+(dhex_len+1), MD_TLSSNI01_DNS_SUFFIX, sizeof(MD_TLSSNI01_DNS_SUFFIX));
-    }
-    *pdns = (APR_SUCCESS == rv)? dns : NULL;
-    return rv;
-}
-
-static apr_status_t cha_tls_sni_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                         md_acme_t *acme, md_store_t *store, 
-                                         md_pkey_spec_t *key_spec, apr_pool_t *p)
-{
-    md_cert_t *cha_cert;
-    md_pkey_t *cha_key;
-    const char *cha_dns;
-    apr_status_t rv;
-    int notify_server;
-    apr_array_header_t *domains;
-    MD_CHK_VARS;
-    
-    if (   !MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))
-        || !MD_OK(setup_cha_dns(&cha_dns, cha, p))) {
-        goto out;
-    }
-
-    rv = md_store_load(store, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_CERT,
-                       MD_SV_CERT, (void**)&cha_cert, p);
-    if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, cha_dns)) 
-        || APR_STATUS_IS_ENOENT(rv)) {
-        
-        if (APR_SUCCESS != (rv = md_pkey_gen(&cha_key, p, key_spec))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-sni-01 challenge key",
-                          authz->domain);
-            goto out;
-        }
-
-        /* setup a certificate containing the challenge dns */
-        domains = apr_array_make(p, 5, sizeof(const char*));
-        APR_ARRAY_PUSH(domains, const char*) = cha_dns;
-        if (!MD_OK(md_cert_self_sign(&cha_cert, authz->domain, domains, cha_key, 
-                                     apr_time_from_sec(7 * MD_SECS_PER_DAY), p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: setup self signed cert for %s",
-                          authz->domain, cha_dns);
-            goto out;
-        }
-        
-        if (MD_OK(md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_PKEY,
-                                MD_SV_PKEY, (void*)cha_key, 0))) {
-            rv = md_store_save(store, p, MD_SG_CHALLENGES, cha_dns, MD_FN_TLSSNI01_CERT,
-                               MD_SV_CERT, (void*)cha_cert, 0);
-        }
-        authz->dir = cha_dns;
-        notify_server = 1;
-    }
-    
-    if (APR_SUCCESS == rv && notify_server) {
-        authz_req_ctx ctx;
-
-        /* challenge is setup or was changed from previous data, tell ACME server
-         * so it may (re)try verification */        
-        authz_req_ctx_init(&ctx, acme, NULL, authz, p);
-        ctx.challenge = cha;
-        rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
-    }
-out:    
-    return rv;
-}
-
-typedef apr_status_t cha_starter(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                                 md_acme_t *acme, md_store_t *store, 
-                                 md_pkey_spec_t *key_spec, apr_pool_t *p);
+typedef apr_status_t cha_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
+                               md_acme_t *acme, md_store_t *store, 
+                               md_pkey_spec_t *key_spec, apr_pool_t *p);
+typedef apr_status_t cha_teardown(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
+                               md_acme_t *acme, md_store_t *store, 
+                               md_pkey_spec_t *key_spec, apr_pool_t *p);
                                  
 typedef struct {
     const char *name;
-    cha_starter *start;
+    cha_setup *setup;
+    cha_teardown *teardown;
 } cha_type;
 
 static const cha_type CHA_TYPES[] = {
-    { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup },
-    { MD_AUTHZ_TYPE_TLSALPN01,  cha_tls_alpn_01_setup },
-    { MD_AUTHZ_TYPE_TLSSNI01,   cha_tls_sni_01_setup },
+    { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup, NULL },
+    { MD_AUTHZ_TYPE_TLSALPN01,  cha_tls_alpn_01_setup, NULL },
 };
 static const apr_size_t CHA_TYPES_LEN = (sizeof(CHA_TYPES)/sizeof(CHA_TYPES[0]));
 
@@ -547,7 +465,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
         if (fctx.accepted) {
             for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
                 if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
-                    rv = CHA_TYPES[i].start(fctx.accepted, authz, acme, store, key_spec, p);
+                    rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_spec, p);
                     if (APR_SUCCESS == rv) {
                         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
                                       "%s: set up challenge '%s'", 

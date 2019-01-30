@@ -515,7 +515,6 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     else {
         /* free to chose. Add all we support and see what we get offered */
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_HTTP01;
-        APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_TLSSNI01;
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_TLSALPN01;
     }
     
@@ -532,7 +531,6 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_HTTP01, 0);
     }
     if (!d->can_https) {
-        ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSSNI01, 0);
         ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
     }
     if (!d->md->can_acme_tls_1) {
@@ -553,9 +551,10 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     else if (ad->ca_challenges->nelts == 1 
         && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSSNI01, 0, 0) >= 0) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, d->p, "%s: only challenge type '%s' "
-                      "is available. This method of obtaining certificates will be "
-                      "discontinued by Let's Encrypt and other CAs from early 2019 on, "
-                      "if it is not already disabled for you.", 
+                      "is available. This method of obtaining certificates was "
+                      "discontinued by Let's Encrypt and other CAs from early 2019 on. You "
+                      "need to allow other challenge methods to obtain certificates. Please "
+                      "have a look at the documentation on how to configure your server.", 
                       d->md->name, MD_AUTHZ_TYPE_TLSSNI01);
     } 
     
