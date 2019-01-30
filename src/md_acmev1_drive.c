@@ -78,7 +78,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     }
     else if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading authz data", md->name);
-        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name);
+        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name, d->env);
         return APR_EAGAIN;
     }
     
@@ -189,7 +189,7 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
         ad->phase = "start challenges";
         if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
                                                                 ad->ca_challenges,
-                                                                d->store, d->md, d->p))) {
+                                                                d->store, d->md, d->env, d->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
                           ad->md->name);
             goto out;

@@ -277,7 +277,8 @@ static apr_status_t setup_key_authz(md_acme_authz_cha_t *cha, md_acme_authz_t *a
 
 static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                       md_acme_t *acme, md_store_t *store, 
-                                      md_pkey_spec_t *key_spec, apr_pool_t *p)
+                                      md_pkey_spec_t *key_spec,  apr_table_t *env, 
+                                      apr_pool_t *p)
 {
     const char *data;
     apr_status_t rv;
@@ -285,6 +286,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     MD_CHK_VARS;
     
     (void)key_spec;
+    (void)env;
     if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
         goto out;
     }
@@ -312,7 +314,8 @@ out:
 
 static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                           md_acme_t *acme, md_store_t *store, 
-                                          md_pkey_spec_t *key_spec, apr_pool_t *p)
+                                          md_pkey_spec_t *key_spec,  apr_table_t *env, 
+                                          apr_pool_t *p)
 {
     md_cert_t *cha_cert;
     md_pkey_t *cha_key;
@@ -321,6 +324,7 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
     int notify_server;
     MD_CHK_VARS;
     
+    (void)env;
     if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
         goto out;
     }
@@ -377,7 +381,7 @@ out:
 
 static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                      md_acme_t *acme, md_store_t *store, 
-                                     md_pkey_spec_t *key_spec, apr_pool_t *p)
+                                     md_pkey_spec_t *key_spec, apr_table_t *env, apr_pool_t *p)
 {
     const char *token;
     const char * const *argv;
@@ -390,9 +394,11 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     (void)store;
     (void)key_spec;
     
-    dns01_cmd = NULL;
+    dns01_cmd = apr_table_get(env, MD_KEY_CMD_DNS01);
     if (!dns01_cmd) {
         rv = APR_ENOTIMPL;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: dns-01 command not set", 
+                      authz->domain);
         goto out;
     }
     
@@ -400,19 +406,26 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
         goto out;
     }
     
-    rv = md_crypt_sha256_digest_hex(&token, p, cha->key_authz, strlen(cha->key_authz));
+    rv = md_crypt_sha256_digest64(&token, p, cha->key_authz, strlen(cha->key_authz));
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create dns-01 token",
                       authz->domain);
         goto out;
     }
 
-    cmdline = apr_psprintf(p, "%s setup %s", dns01_cmd, authz->domain); 
+    cmdline = apr_psprintf(p, "%s setup %s %s", dns01_cmd, authz->domain, token); 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
+                  "%s: dns-01 setup command: %s", authz->domain, cmdline);
     apr_tokenize_to_argv(cmdline, (char***)&argv, p);
-    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, &exit_code)) || exit_code) {
+    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, &exit_code))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                      "%s: dns-01 setup command failed (exit code=%d)",
-                      authz->domain, exit_code);
+                      "%s: dns-01 setup command failed to execute", authz->domain);
+        goto out;
+    }
+    if (exit_code) {
+        rv = APR_EGENERAL;
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+                      "%s: dns-01 setup command returns %d", authz->domain, exit_code);
         goto out;
     }
     
@@ -426,7 +439,8 @@ out:
     return rv;
 }
 
-static apr_status_t cha_dns_01_teardown(md_store_t *store, const char *domain, apr_pool_t *p)
+static apr_status_t cha_dns_01_teardown(md_store_t *store, const char *domain, 
+                                        apr_table_t *env, apr_pool_t *p)
 {
     const char * const *argv;
     const char *cmdline, *dns01_cmd;
@@ -435,9 +449,10 @@ static apr_status_t cha_dns_01_teardown(md_store_t *store, const char *domain, a
     
     (void)store;
     
-    dns01_cmd = NULL;
+    dns01_cmd = apr_table_get(env, MD_KEY_CMD_DNS01);
     if (!dns01_cmd) {
         rv = APR_ENOTIMPL;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: dns-01 command not set", domain);
         goto out;
     }
     
@@ -452,15 +467,19 @@ out:
     return rv;
 }
 
-static apr_status_t cha_teardown_dir(md_store_t *store, const char *domain, apr_pool_t *p)
+static apr_status_t cha_teardown_dir(md_store_t *store, const char *domain, 
+                                     apr_table_t *env, apr_pool_t *p)
 {
+    (void)env;
     return md_store_purge(store, p, MD_SG_CHALLENGES, domain);
 }
 
 typedef apr_status_t cha_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                md_acme_t *acme, md_store_t *store, 
-                               md_pkey_spec_t *key_spec, apr_pool_t *p);
-typedef apr_status_t cha_teardown(md_store_t *store, const char *domain, apr_pool_t *p);
+                               md_pkey_spec_t *key_spec, apr_table_t *env, apr_pool_t *p);
+                               
+typedef apr_status_t cha_teardown(md_store_t *store, const char *domain, 
+                                  apr_table_t *env, apr_pool_t *p);
                                  
 typedef struct {
     const char *name;
@@ -507,8 +526,8 @@ static apr_status_t find_type(void *baton, size_t index, md_json_t *json)
 }
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
-                                   apr_array_header_t *challenges, md_pkey_spec_t *key_spec, 
-                                   apr_pool_t *p, const char **psetup_token)
+                                   apr_array_header_t *challenges, md_pkey_spec_t *key_spec,
+                                   apr_table_t *env, apr_pool_t *p, const char **psetup_token)
 {
     apr_status_t rv;
     int i;
@@ -542,7 +561,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
         if (fctx.accepted) {
             for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
                 if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
-                    rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_spec, p);
+                    rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_spec, env, p);
                     if (APR_SUCCESS == rv) {
                         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
                                       "%s: set up challenge '%s'", 
@@ -583,7 +602,7 @@ out:
 }
 
 apr_status_t md_acme_authz_teardown(struct md_store_t *store, 
-                                    const char *token, apr_pool_t *p)
+                                    const char *token, apr_table_t *env, apr_pool_t *p)
 {
     char *cha_type, *domain;
     int i;
@@ -595,7 +614,7 @@ apr_status_t md_acme_authz_teardown(struct md_store_t *store,
         for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
             if (!apr_strnatcasecmp(CHA_TYPES[i].name, cha_type)) {
                 if (CHA_TYPES[i].teardown) {
-                    return CHA_TYPES[i].teardown(store, domain, p);
+                    return CHA_TYPES[i].teardown(store, domain, env, p);
                 }
                 break;
             }

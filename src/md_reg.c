@@ -871,7 +871,8 @@ apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int a
 
 static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_t *proto, 
                                       md_reg_t *reg, const md_t *md, 
-                                      const char *challenge, int reset, apr_pool_t *p) 
+                                      const char *challenge, apr_table_t *env, 
+                                      int reset, apr_pool_t *p) 
 {
     apr_status_t rv = APR_SUCCESS;
 
@@ -887,6 +888,7 @@ static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_
     driver->store = md_reg_store_get(reg);
     driver->proxy_url = reg->proxy_url;
     driver->md = md;
+    driver->env = env? apr_table_copy(p, env) : apr_table_make(p, 10);
     driver->reset = reset;
 
     return rv;
@@ -901,17 +903,19 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     md_proto_driver_t *driver;
     const char *challenge;
     apr_time_t *pvalid_from;
+    apr_table_t *env;
     apr_status_t rv;
     
     (void)p;
     proto = va_arg(ap, const md_proto_t *);
     md = va_arg(ap, const md_t *);
     challenge = va_arg(ap, const char *);
+    env = va_arg(ap, apr_table_t *);
     reset = va_arg(ap, int); 
     pvalid_from = va_arg(ap, apr_time_t*);
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
-    rv = init_proto_driver(driver, proto, reg, md, challenge, reset, ptemp);
+    rv = init_proto_driver(driver, proto, reg, md, challenge, env, reset, ptemp);
     if (APR_SUCCESS == rv && 
         APR_SUCCESS == (rv = proto->init(driver))) {
         
@@ -927,7 +931,7 @@ static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
 }
 
 apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge, 
-                          int reset, apr_time_t *pvalid_from, apr_pool_t *p)
+                          apr_table_t *env, int reset, apr_time_t *pvalid_from, apr_pool_t *p)
 {
     const md_proto_t *proto;
     
@@ -945,7 +949,7 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge,
         return APR_EINVAL;
     }
     
-    return md_util_pool_vdo(run_stage, reg, p, proto, md, challenge, reset, pvalid_from, NULL);
+    return md_util_pool_vdo(run_stage, reg, p, proto, md, challenge, env, reset, pvalid_from, NULL);
 }
 
 static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -955,6 +959,7 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     const md_proto_t *proto;
     const md_t *md, *nmd;
     md_proto_driver_t *driver;
+    apr_table_t *env;
     apr_status_t rv;
     
     /* For the MD of given name,  check if something is in the STAGING area.
@@ -964,6 +969,7 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
      * - 
      */
     name = va_arg(ap, const char *);
+    env =  va_arg(ap, apr_table_t *);
     
     if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, name, NULL, ptemp))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, ptemp, "%s: nothing staged", name);
@@ -990,7 +996,7 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     }
     
     driver = apr_pcalloc(ptemp, sizeof(*driver));
-    init_proto_driver(driver, proto, reg, md, NULL, 0, ptemp);
+    init_proto_driver(driver, proto, reg, md, NULL, env, 0, ptemp);
 
     if (APR_SUCCESS == (rv = proto->init(driver))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);
@@ -1019,8 +1025,8 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     return rv;
 }
 
-apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p)
+apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_table_t *env, apr_pool_t *p)
 {
-    return md_util_pool_vdo(run_load, reg, p, name, NULL);
+    return md_util_pool_vdo(run_load, reg, p, name, env, NULL);
 }
 

@@ -54,7 +54,7 @@ typedef struct {
     apr_array_header_t *unused_names;  /* post config, names of all MDs not assigned to a vhost */
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
-    const char *cmd_dns01;             /* Command for challenge type 'dns-01' */
+    struct apr_table_t *env;           /* environment for operation */
 } md_mod_conf_t;
 
 typedef struct md_srv_conf_t {

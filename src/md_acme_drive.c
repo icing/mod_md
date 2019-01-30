@@ -706,7 +706,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
 
     /* As last step, cleanup any order we created so that challenge data
      * may be removed asap. */
-    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
+    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
 
 out:    
     return rv;
@@ -730,8 +730,8 @@ static apr_status_t acme_driver_stage(md_proto_driver_t *d)
 /**************************************************************************************************/
 /* ACME preload */
 
-static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group, 
-                                 const char *name, const char *proxy_url, apr_pool_t *p) 
+static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_group, 
+                                 const char *name) 
 {
     apr_status_t rv;
     md_pkey_t *privkey, *acct_key;
@@ -739,7 +739,7 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     apr_array_header_t *pubcert;
     struct md_acme_acct_t *acct;
 
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: preload start", name);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: preload start", name);
     /* Load data from MD_SG_STAGING and save it into "load_group".
      * This serves several purposes:
      *  1. It's a format check on the input data. 
@@ -748,21 +748,21 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
      *  4. Once "load_group" is complete an ok, we can swap/archive groups with a rename
      *  5. Reading/Writing the data will apply/remove any group specific data encryption.
      */
-    if (APR_SUCCESS != (rv = md_load(store, MD_SG_STAGING, name, &md, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading md json", name);
+    if (APR_SUCCESS != (rv = md_load(d->store, MD_SG_STAGING, name, &md, d->p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading md json", name);
         return rv;
     }
-    if (APR_SUCCESS != (rv = md_pkey_load(store, MD_SG_STAGING, name, &privkey, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading staging private key", name);
+    if (APR_SUCCESS != (rv = md_pkey_load(d->store, MD_SG_STAGING, name, &privkey, d->p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading staging private key", name);
         return rv;
     }
-    if (APR_SUCCESS != (rv = md_pubcert_load(store, MD_SG_STAGING, name, &pubcert, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: loading pubcert", name);
+    if (APR_SUCCESS != (rv = md_pubcert_load(d->store, MD_SG_STAGING, name, &pubcert, d->p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading pubcert", name);
         return rv;
     }
 
     /* See if staging holds a new or modified account data */
-    rv = md_acme_acct_load(&acct, &acct_key, store, MD_SG_STAGING, name, p);
+    rv = md_acme_acct_load(&acct, &acct_key, d->store, MD_SG_STAGING, name, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
         acct = NULL;
         acct_key = NULL;
@@ -773,13 +773,13 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
     }
 
     /* Remove any authz information we have here or in MD_SG_CHALLENGES */
-    md_acme_order_purge(store, p, MD_SG_STAGING, name);
+    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, name, d->env);
 
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
                   "%s: staged data load, purging tmp space", name);
-    rv = md_store_purge(store, p, load_group, name);
+    rv = md_store_purge(d->store, d->p, load_group, name);
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error purging preload storage", name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: error purging preload storage", name);
         return rv;
     }
     
@@ -793,41 +793,41 @@ static apr_status_t acme_preload(md_store_t *store, md_store_group_t load_group,
          * the same url, we save them all into a single one.
          */
         if (!id && acct->url) {
-            rv = md_acme_acct_id_for_url(&id, store, MD_SG_ACCOUNTS, acct->url, p);
+            rv = md_acme_acct_id_for_url(&id, d->store, MD_SG_ACCOUNTS, acct->url, d->p);
             if (APR_STATUS_IS_ENOENT(rv)) {
                 id = NULL;
             }
             else if (APR_SUCCESS != rv) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
                               "%s: error looking up existing account by url", name);
                 return rv;
             }
         }
         
-        if (APR_SUCCESS != (rv = md_acme_create(&acme, p, md->ca_url, proxy_url))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error creating acme", name);
+        if (APR_SUCCESS != (rv = md_acme_create(&acme, d->p, md->ca_url, d->proxy_url))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: error creating acme", name);
             return rv;
         }
         
-        if (APR_SUCCESS != (rv = md_acme_acct_save(store, p, acme, &id, acct, acct_key))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: error saving acct", name);
+        if (APR_SUCCESS != (rv = md_acme_acct_save(d->store, d->p, acme, &id, acct, acct_key))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: error saving acct", name);
             return rv;
         }
         md->ca_account = id;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: saved ACME account %s", 
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: saved ACME account %s", 
                       name, id);
     }
     
-    if (APR_SUCCESS != (rv = md_save(store, p, load_group, md, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving md json", name);
+    if (APR_SUCCESS != (rv = md_save(d->store, d->p, load_group, md, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: saving md json", name);
         return rv;
     }
-    if (APR_SUCCESS != (rv = md_pubcert_save(store, p, load_group, name, pubcert, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving cert chain", name);
+    if (APR_SUCCESS != (rv = md_pubcert_save(d->store, d->p, load_group, name, pubcert, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: saving cert chain", name);
         return rv;
     }
-    if (APR_SUCCESS != (rv = md_pkey_save(store, p, load_group, name, privkey, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: saving private key", name);
+    if (APR_SUCCESS != (rv = md_pkey_save(d->store, d->p, load_group, name, privkey, 1))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: saving private key", name);
         return rv;
     }
     
@@ -840,7 +840,7 @@ static apr_status_t acme_driver_preload(md_proto_driver_t *d, md_store_group_t g
     apr_status_t rv;
 
     ad->phase = "ACME preload";
-    if (APR_SUCCESS == (rv = acme_preload(d->store, group, d->md->name, d->proxy_url, d->p))) {
+    if (APR_SUCCESS == (rv = acme_preload(d, group, d->md->name))) {
         ad->phase = "preload done";
     }
         

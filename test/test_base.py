@@ -653,6 +653,9 @@ class HttpdConf(object):
     def add_notify_cmd(self, cmd):
         self._add_line("  MDNotifyCmd %s\n" % cmd)
 
+    def add_dns01_cmd(self, cmd):
+        self._add_line("  MDChallengeDns01 %s\n" % cmd)
+
     def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
         self.start_vhost(port, name, aliasList, docRoot, withSSL, certPath, keyPath)

@@ -226,10 +226,12 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
     md_acme_order_t *order;
     md_store_group_t group;
     const char *md_name, *setup_token;
+    apr_table_t *env;
     int i;
 
     group = (md_store_group_t)va_arg(ap, int);
     md_name = va_arg(ap, const char *);
+    env = va_arg(ap, apr_table_t *);
 
     if (APR_SUCCESS == md_acme_order_load(store, group, md_name, &order, p)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "order loaded for %s", md_name);
@@ -238,7 +240,7 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
             if (setup_token) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                               "order teardown setup %s", setup_token);
-                md_acme_authz_teardown(store, setup_token, p);
+                md_acme_authz_teardown(store, setup_token, env, p);
             }
         }
     }
@@ -246,9 +248,9 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
 }
 
 apr_status_t md_acme_order_purge(md_store_t *store, apr_pool_t *p, md_store_group_t group,
-                                 const char *md_name)
+                                 const char *md_name, apr_table_t *env)
 {
-    return md_util_pool_vdo(p_purge, store, p, group, md_name, NULL);
+    return md_util_pool_vdo(p_purge, store, p, group, md_name, env, NULL);
 }
 
 /**************************************************************************************************/
@@ -424,7 +426,8 @@ apr_status_t md_acme_order_finalize(md_acme_order_t *order, md_acme_t *acme,
 
 apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *acme, 
                                             apr_array_header_t *challenge_types,
-                                            md_store_t *store, const md_t *md, apr_pool_t *p)
+                                            md_store_t *store, const md_t *md, 
+                                            apr_table_t *env, apr_pool_t *p)
 {
     apr_status_t rv = APR_SUCCESS;
     md_acme_authz_t *authz;
@@ -447,7 +450,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
                 
             case MD_ACME_AUTHZ_S_PENDING:
                 rv = md_acme_authz_respond(authz, acme, store, challenge_types, 
-                                           md->pkey_spec, p, &setup_token);
+                                           md->pkey_spec, env, p, &setup_token);
                 if (APR_SUCCESS != rv) {
                     goto out;
                 }

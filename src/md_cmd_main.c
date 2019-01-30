@@ -90,6 +90,7 @@ static apr_status_t md_cmd_ctx_init(md_cmd_ctx *ctx, apr_pool_t *p,
     ctx->p = p;
     ctx->argc = argc;
     ctx->argv = argv;
+    ctx->env = apr_table_make(p, 5);
     ctx->options = apr_table_make(p, 5);
     
     return ctx->options? APR_SUCCESS : APR_ENOMEM;

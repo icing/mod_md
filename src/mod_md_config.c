@@ -52,7 +52,7 @@
 #define MD_CMD_REQUIREHTTPS   "MDRequireHttps"
 #define MD_CMD_STOREDIR       "MDStoreDir"
 
-#define MD_CMD_DNS01CMD       "MDDns01Cmd"
+#define MD_CMD_DNS01CMD       "MDChallengeDns01"
 
 #define DEF_VAL     (-1)
 
@@ -115,6 +115,7 @@ static md_mod_conf_t *md_mod_conf_get(apr_pool_t *pool, int create)
         memcpy(mod_md_config, &defmc, sizeof(*mod_md_config));
         mod_md_config->mds = apr_array_make(pool, 5, sizeof(const md_t *));
         mod_md_config->unused_names = apr_array_make(pool, 5, sizeof(const md_t *));
+        mod_md_config->env = apr_table_make(pool, 10);
         
         apr_pool_cleanup_register(pool, NULL, cleanup_mod_config, apr_pool_cleanup_null);
     }
@@ -795,7 +796,7 @@ static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const 
     if (err) {
         return err;
     }
-    sc->mc->cmd_dns01 = arg;
+    apr_table_set(sc->mc->env, MD_KEY_CMD_DNS01, arg);
     (void)mconfig;
     return NULL;
 }

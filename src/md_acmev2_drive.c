@@ -72,7 +72,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     }
     else if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading order", md->name);
-        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name);
+        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name, d->env);
         rv = APR_EAGAIN;
         goto out;
     }
@@ -128,7 +128,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
         if (APR_STATUS_IS_ENOENT(rv)) {
             /* order is no longer known at the ACME server */
             ad->order = NULL;
-            md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
+            md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
         }
         else if (APR_SUCCESS != rv) {
             goto out;
@@ -147,7 +147,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
         ad->phase = "start challenges";
         if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
                                                                 ad->ca_challenges,
-                                                                d->store, d->md, d->p))) {
+                                                                d->store, d->md, d->env, d->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
                           ad->md->name);
             goto out;

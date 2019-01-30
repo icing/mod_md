@@ -152,7 +152,7 @@ struct md_proto_driver_t {
     int reset;
     apr_time_t stage_valid_from;
     const char *proxy_url;
-    const char *dns01_cmd;
+    struct apr_table_t *env;
 };
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver);
@@ -172,8 +172,8 @@ struct md_proto_t {
  * without interfering with any existing credentials.
  */
 apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, 
-                          const char *challenge, int reset, 
-                          apr_time_t *pvalid_from, apr_pool_t *p);
+                          const char *challenge, struct apr_table_t *env,
+                          int reset, apr_time_t *pvalid_from, apr_pool_t *p);
 
 /**
  * Load a staged set of new credentials for the managed domain. This will archive
@@ -181,6 +181,7 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md,
  * If staging is incomplete or missing, the load will fail and all credentials remain
  * as they are.
  */
-apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p);
+apr_status_t md_reg_load(md_reg_t *reg, const char *name, struct apr_table_t *env, 
+                         apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */

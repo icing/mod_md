@@ -41,6 +41,7 @@ class TestAuto:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
+        TestEnv.initv2()
         TestEnv.apache_err_reset();
         TestEnv.clear_store()
         TestEnv.install_test_conf();
@@ -93,17 +94,68 @@ class TestAuto:
 
 
     #-----------------------------------------------------------------------------------------------
-    # test case: a wildcard certificate with ACMEv2, only dns-01 configured 
+    # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command path 
     #
-    @pytest.mark.skipif(True, reason="not implemented yet")
     def test_720_002(self):
         domain = "test720-002-" + TestAuto.dns_uniq
         
+        dns01cmd = ("%s/dns01-not-found.py" % TestEnv.TESTROOT)
+
         # generate config with DNS wildcard
         dnsList = [ domain, "*." + domain ]
         conf = HttpdConf( TestAuto.TMP_CONF )
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_ca_challenges( [ "dns-01" ] )
+        conf.add_dns01_cmd( dns01cmd )
+        conf.add_md( dnsList )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
+        conf.install()
+
+        # restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( domain, dnsList )
+        # await drive completion
+        assert TestEnv.await_error( [ domain ] )
+
+    #-----------------------------------------------------------------------------------------------
+    # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command option 
+    #
+    def test_720_003(self):
+        domain = "test720-003-" + TestAuto.dns_uniq
+        
+        dns01cmd = ("%s/dns01.py fail" % TestEnv.TESTROOT)
+
+        # generate config with DNS wildcard
+        dnsList = [ domain, "*." + domain ]
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_ca_challenges( [ "dns-01" ] )
+        conf.add_dns01_cmd( dns01cmd )
+        conf.add_md( dnsList )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
+        conf.install()
+
+        # restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( domain, dnsList )
+        # await drive completion
+        assert TestEnv.await_error( [ domain ] )
+
+    #-----------------------------------------------------------------------------------------------
+    # test case: a wildcard certificate with ACMEv2, only dns-01 configured 
+    #
+    @pytest.mark.skipif(False, reason="not implemented yet")
+    def test_720_004(self):
+        domain = "test720-004-" + TestAuto.dns_uniq
+        
+        dns01cmd = ("%s/dns01.py" % TestEnv.TESTROOT)
+
+        # generate config with DNS wildcard
+        dnsList = [ domain, "*." + domain ]
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_ca_challenges( [ "dns-01" ] )
+        conf.add_dns01_cmd( dns01cmd )
         conf.add_md( dnsList )
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
         conf.install()
@@ -113,11 +165,11 @@ class TestAuto:
         self._check_md_names( domain, dnsList )
         # await drive completion
         assert TestEnv.await_completion( [ domain ] )
-        self._check_md_cert(dnsList)
+        self._check_md_cert( dnsList )
 
         # check: SSL is running OK
         certA = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
-        assert dnsList == certA.get_san_list()
+        assert [ dnsList[1], dnsList[0] ] == certA.get_san_list()
 
         # should have a single account now
         assert 1 == len(TestEnv.list_accounts())

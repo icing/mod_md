@@ -798,7 +798,7 @@ static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10052) 
                          "md(%s): state=%d, driving", job->md->name, job->md->state);
                          
-            rv = md_reg_stage(wd->reg, job->md, NULL, 0, &valid_from, ptemp);
+            rv = md_reg_stage(wd->reg, job->md, NULL, wd->mc->env, 0, &valid_from, ptemp);
             
             if (APR_SUCCESS == rv) {
                 job->renewed = 1;
@@ -1070,7 +1070,7 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
 }
  
 static void load_stage_sets(apr_array_header_t *names, apr_pool_t *p, 
-                            md_reg_t *reg, server_rec *s)
+                            md_reg_t *reg, server_rec *s, apr_table_t *env)
 {
     const char *name; 
     apr_status_t rv;
@@ -1078,7 +1078,7 @@ static void load_stage_sets(apr_array_header_t *names, apr_pool_t *p,
     
     for (i = 0; i < names->nelts; ++i) {
         name = APR_ARRAY_IDX(names, i, const char*);
-        if (APR_SUCCESS == (rv = md_reg_load(reg, name, p))) {
+        if (APR_SUCCESS == (rv = md_reg_load(reg, name, env, p))) {
             ap_log_error( APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(10068) 
                          "%s: staged set activated", name);
         }
@@ -1195,7 +1195,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "%d out of %d mds are configured for auto-drive", 
                      drive_names->nelts, mc->mds->nelts);
     
-        load_stage_sets(drive_names, p, reg, s);
+        load_stage_sets(drive_names, p, reg, s, mc->env);
         md_http_use_implementation(md_curl_get_impl(p));
         rv = start_watchdog(drive_names, p, reg, s, mc);
     }

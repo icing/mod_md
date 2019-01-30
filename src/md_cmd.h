@@ -35,6 +35,7 @@ struct md_cmd_ctx {
     
     const char *base_dir;
     const char *ca_url;
+    struct apr_table_t *env;
     
     struct md_store_t *store;
     struct md_reg_t *reg;

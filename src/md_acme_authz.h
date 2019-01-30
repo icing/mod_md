@@ -18,6 +18,7 @@
 #define mod_md_md_acme_authz_h
 
 struct apr_array_header_t;
+struct apr_table_t;
 struct md_acme_t;
 struct md_acme_acct_t;
 struct md_json_t;
@@ -70,11 +71,11 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, struct md_acme_t *acme, 
                                    struct md_store_t *store, apr_array_header_t *challenges, 
-                                   struct md_pkey_spec_t *key_spec, apr_pool_t *p,
-                                   const char **setup_token);
+                                   struct md_pkey_spec_t *key_spec, struct apr_table_t *env,  
+                                   apr_pool_t *p, const char **setup_token);
 
-apr_status_t md_acme_authz_teardown(struct md_store_t *store, 
-                                    const char *setup_token, apr_pool_t *p);
+apr_status_t md_acme_authz_teardown(struct md_store_t *store, const char *setup_token, 
+                                    struct apr_table_t *env, apr_pool_t *p);
 
 apr_status_t md_acme_authz_del(md_acme_authz_t *authz, struct md_acme_t *acme, 
                                struct md_store_t *store, apr_pool_t *p);
