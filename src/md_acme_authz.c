@@ -294,7 +294,6 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     if ((APR_SUCCESS == rv && strcmp(cha->key_authz, data)) || APR_STATUS_IS_ENOENT(rv)) {
         rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_HTTP01,
                            MD_SV_TEXT, (void*)cha->key_authz, 0);
-        authz->dir = authz->domain;
         notify_server = 1;
     }
     
@@ -330,10 +329,6 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
     if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, authz->domain)) 
         || APR_STATUS_IS_ENOENT(rv)) {
         
-        if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
-            goto out;
-        }
-        
         if (APR_SUCCESS != (rv = md_pkey_gen(&cha_key, p, key_spec))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 challenge key",
                           authz->domain);
@@ -364,7 +359,6 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
             rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_CERT,
                                MD_SV_CERT, (void*)cha_cert, 0);
         }
-        authz->dir = authz->domain;
         notify_server = 1;
     }
     
@@ -381,12 +375,92 @@ out:
     return rv;
 }
 
+static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
+                                     md_acme_t *acme, md_store_t *store, 
+                                     md_pkey_spec_t *key_spec, apr_pool_t *p)
+{
+    const char *token;
+    const char * const *argv;
+    const char *cmdline, *dns01_cmd;
+    apr_status_t rv;
+    int exit_code, notify_server;
+    authz_req_ctx ctx;
+    MD_CHK_VARS;
+    
+    (void)store;
+    (void)key_spec;
+    
+    dns01_cmd = NULL;
+    if (!dns01_cmd) {
+        rv = APR_ENOTIMPL;
+        goto out;
+    }
+    
+    if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
+        goto out;
+    }
+    
+    rv = md_crypt_sha256_digest_hex(&token, p, cha->key_authz, strlen(cha->key_authz));
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create dns-01 token",
+                      authz->domain);
+        goto out;
+    }
+
+    cmdline = apr_psprintf(p, "%s setup %s", dns01_cmd, authz->domain); 
+    apr_tokenize_to_argv(cmdline, (char***)&argv, p);
+    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, &exit_code)) || exit_code) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                      "%s: dns-01 setup command failed (exit code=%d)",
+                      authz->domain, exit_code);
+        goto out;
+    }
+    
+    /* challenge is setup, tell ACME server so it may (re)try verification */        
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: dns-01 setup succeeded", authz->domain);
+    authz_req_ctx_init(&ctx, acme, NULL, authz, p);
+    ctx.challenge = cha;
+    rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
+    
+out:    
+    return rv;
+}
+
+static apr_status_t cha_dns_01_teardown(md_store_t *store, const char *domain, apr_pool_t *p)
+{
+    const char * const *argv;
+    const char *cmdline, *dns01_cmd;
+    apr_status_t rv;
+    int exit_code;
+    
+    (void)store;
+    
+    dns01_cmd = NULL;
+    if (!dns01_cmd) {
+        rv = APR_ENOTIMPL;
+        goto out;
+    }
+    
+    cmdline = apr_psprintf(p, "%s teardown %s", dns01_cmd, domain); 
+    apr_tokenize_to_argv(cmdline, (char***)&argv, p);
+    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, &exit_code)) || exit_code) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
+                      "%s: dns-01 teardown command failed (exit code=%d)",
+                      domain, exit_code);
+    }
+out:    
+    return rv;
+}
+
+static apr_status_t cha_teardown_dir(md_store_t *store, const char *domain, apr_pool_t *p)
+{
+    return md_store_purge(store, p, MD_SG_CHALLENGES, domain);
+}
+
 typedef apr_status_t cha_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                md_acme_t *acme, md_store_t *store, 
                                md_pkey_spec_t *key_spec, apr_pool_t *p);
-typedef apr_status_t cha_teardown(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
-                               md_acme_t *acme, md_store_t *store, 
-                               md_pkey_spec_t *key_spec, apr_pool_t *p);
+typedef apr_status_t cha_teardown(md_store_t *store, const char *domain, apr_pool_t *p);
                                  
 typedef struct {
     const char *name;
@@ -395,8 +469,9 @@ typedef struct {
 } cha_type;
 
 static const cha_type CHA_TYPES[] = {
-    { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup, NULL },
-    { MD_AUTHZ_TYPE_TLSALPN01,  cha_tls_alpn_01_setup, NULL },
+    { MD_AUTHZ_TYPE_HTTP01,     cha_http_01_setup,      cha_teardown_dir },
+    { MD_AUTHZ_TYPE_TLSALPN01,  cha_tls_alpn_01_setup,  cha_teardown_dir },
+    { MD_AUTHZ_TYPE_DNS01,      cha_dns_01_setup,       cha_dns_01_teardown },
 };
 static const apr_size_t CHA_TYPES_LEN = (sizeof(CHA_TYPES)/sizeof(CHA_TYPES[0]));
 
@@ -432,12 +507,13 @@ static apr_status_t find_type(void *baton, size_t index, md_json_t *json)
 }
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
-                                   apr_array_header_t *challenges, 
-                                   md_pkey_spec_t *key_spec, apr_pool_t *p)
+                                   apr_array_header_t *challenges, md_pkey_spec_t *key_spec, 
+                                   apr_pool_t *p, const char **psetup_token)
 {
     apr_status_t rv;
     int i;
     cha_find_ctx fctx;
+    const char *cha_setup;
     
     assert(acme);
     assert(authz);
@@ -458,6 +534,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
      
      */
     rv = APR_ENOTIMPL;
+    cha_setup = NULL;
     for (i = 0; i < challenges->nelts && !fctx.accepted; ++i) {
         fctx.type = APR_ARRAY_IDX(challenges, i, const char *);
         md_json_itera(find_type, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
@@ -470,6 +547,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
                                       "%s: set up challenge '%s'", 
                                       authz->domain, fctx.accepted->type);
+                        cha_setup = CHA_TYPES[i].name; 
                         goto out;
                     }
                     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
@@ -481,6 +559,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
     }
     
 out:
+    *psetup_token = (APR_SUCCESS == rv)? apr_psprintf(p, "%s:%s", cha_setup, authz->domain) : NULL;
     if (!fctx.accepted || APR_ENOTIMPL == rv) {
         rv = APR_EINVAL;
         fctx.offered = apr_array_make(p, 5, sizeof(const char*));
@@ -501,6 +580,28 @@ out:
                       authz->domain);
     }
     return rv;
+}
+
+apr_status_t md_acme_authz_teardown(struct md_store_t *store, 
+                                    const char *token, apr_pool_t *p)
+{
+    char *cha_type, *domain;
+    int i;
+    
+    if (strchr(token, ':')) {
+        cha_type = apr_pstrdup(p, token);
+        domain = strchr(cha_type, ':');
+        *domain = '\0'; domain++;
+        for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
+            if (!apr_strnatcasecmp(CHA_TYPES[i].name, cha_type)) {
+                if (CHA_TYPES[i].teardown) {
+                    return CHA_TYPES[i].teardown(store, domain, p);
+                }
+                break;
+            }
+        }
+    }
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/
@@ -548,34 +649,4 @@ apr_status_t md_acme_authz_del(md_acme_authz_t *authz, md_acme_t *acme,
                   authz->domain, authz->url);
     return md_acme_POST(acme, authz->url, on_init_authz_del, authz_del, NULL, &ctx);
 }
-
-/**************************************************************************************************/
-/* authz conversion */
-
-md_json_t *md_acme_authz_to_json(md_acme_authz_t *a, apr_pool_t *p)
-{
-    md_json_t *json = md_json_create(p);
-    if (json) {
-        md_json_sets(a->domain, json, MD_KEY_DOMAIN, NULL);
-        md_json_sets(a->url, json, MD_KEY_LOCATION, NULL);
-        md_json_sets(a->dir, json, MD_KEY_DIR, NULL);
-        md_json_setl(a->state, json, MD_KEY_STATE, NULL);
-        return json;
-    }
-    return NULL;
-}
-
-md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p)
-{
-    md_acme_authz_t *authz = md_acme_authz_create(p);
-    if (authz) {
-        authz->domain = md_json_dups(p, json, MD_KEY_DOMAIN, NULL);            
-        authz->url = md_json_dups(p, json, MD_KEY_LOCATION, NULL);            
-        authz->dir = md_json_dups(p, json, MD_KEY_DIR, NULL);            
-        authz->state = (md_acme_authz_state_t)md_json_getl(json, MD_KEY_STATE, NULL);            
-        return authz;
-    }
-    return NULL;
-}
-
 

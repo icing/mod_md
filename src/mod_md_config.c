@@ -52,6 +52,8 @@
 #define MD_CMD_REQUIREHTTPS   "MDRequireHttps"
 #define MD_CMD_STOREDIR       "MDStoreDir"
 
+#define MD_CMD_DNS01CMD       "MDDns01Cmd"
+
 #define DEF_VAL     (-1)
 
 /* Default settings for the global conf */
@@ -66,6 +68,7 @@ static md_mod_conf_t defmc = {
     0,
     0,
     MD_HSTS_MAX_AGE_DEFAULT,
+    NULL,
     NULL,
     NULL,
     NULL,
@@ -784,19 +787,17 @@ static const char *md_config_set_notify_cmd(cmd_parms *cmd, void *mconfig, const
     return NULL;
 }
 
-static const char *md_config_set_names_old(cmd_parms *cmd, void *dc, 
-                                           int argc, char *const argv[])
+static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const char *arg)
 {
-    ap_log_error( APLOG_MARK, APLOG_WARNING, 0, cmd->server,  
-                 "mod_md: directive 'ManagedDomain' is deprecated, replace with 'MDomain'.");
-    return md_config_set_names(cmd, dc, argc, argv);
-}
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
 
-static const char *md_config_sec_start_old(cmd_parms *cmd, void *mconfig, const char *arg)
-{
-    ap_log_error( APLOG_MARK, APLOG_WARNING, 0, cmd->server,  
-                 "mod_md: directive '<ManagedDomain' is deprecated, replace with '<MDomainSet'.");
-    return md_config_sec_start(cmd, mconfig, arg);
+    if (err) {
+        return err;
+    }
+    sc->mc->cmd_dns01 = arg;
+    (void)mconfig;
+    return NULL;
 }
 
 const command_rec md_cmds[] = {
@@ -842,12 +843,9 @@ const command_rec md_cmds[] = {
     AP_INIT_TAKE1(     MD_CMD_BASE_SERVER, md_config_set_base_server, NULL, RSRC_CONF, 
                   "allow managing of base server outside virtual hosts."),
 
-/* This will disappear soon */
-    AP_INIT_TAKE_ARGV( MD_CMD_OLD_MD, md_config_set_names_old, NULL, RSRC_CONF, 
-                      "Deprecated, replace with 'MDomain'."),
-    AP_INIT_RAW_ARGS(  MD_CMD_MD_OLD_SECTION, md_config_sec_start_old, NULL, RSRC_CONF, 
-                     "Deprecated, replace with '<MDomainSet'."),
-/* */
+    AP_INIT_RAW_ARGS(MD_CMD_DNS01CMD, md_config_set_dns01_cmd, NULL, RSRC_CONF, 
+                  "set the command for setup/teardown of dns-01 challenges"),
+
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

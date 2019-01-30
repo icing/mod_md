@@ -152,6 +152,7 @@ struct md_proto_driver_t {
     int reset;
     apr_time_t stage_valid_from;
     const char *proxy_url;
+    const char *dns01_cmd;
 };
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver);

@@ -47,7 +47,7 @@ md_acme_order_t *md_acme_order_create(apr_pool_t *p)
     order = apr_pcalloc(p, sizeof(*order));
     order->p = p;
     order->authz_urls = apr_array_make(p, 5, sizeof(const char *));
-    order->challenge_dirs = apr_array_make(p, 5, sizeof(const char *));
+    order->challenge_setups = apr_array_make(p, 5, sizeof(const char *));
     
     return order;
 }
@@ -55,7 +55,7 @@ md_acme_order_t *md_acme_order_create(apr_pool_t *p)
 /**************************************************************************************************/
 /* order conversion */
 
-#define MD_KEY_CHALLENGE_DIRS   "challenge-dirs"
+#define MD_KEY_CHALLENGE_SETUPS   "challenge-setups"
 
 static md_acme_order_st order_st_from_str(const char *s) 
 {
@@ -106,7 +106,7 @@ md_json_t *md_acme_order_to_json(md_acme_order_t *order, apr_pool_t *p)
     }
     md_json_sets(order_st_to_str(order->status), json, MD_KEY_STATUS, NULL);
     md_json_setsa(order->authz_urls, json, MD_KEY_AUTHORIZATIONS, NULL);
-    md_json_setsa(order->challenge_dirs, json, MD_KEY_CHALLENGE_DIRS, NULL);
+    md_json_setsa(order->challenge_setups, json, MD_KEY_CHALLENGE_SETUPS, NULL);
     if (order->finalize) {
         md_json_sets(order->finalize, json, MD_KEY_FINALIZE, NULL);
     }
@@ -125,8 +125,8 @@ static void order_update_from_json(md_acme_order_t *order, md_json_t *json, apr_
     if (md_json_has_key(json, MD_KEY_AUTHORIZATIONS, NULL)) {
         md_json_dupsa(order->authz_urls, p, json, MD_KEY_AUTHORIZATIONS, NULL);
     }
-    if (md_json_has_key(json, MD_KEY_CHALLENGE_DIRS, NULL)) {
-        md_json_dupsa(order->challenge_dirs, p, json, MD_KEY_CHALLENGE_DIRS, NULL);
+    if (md_json_has_key(json, MD_KEY_CHALLENGE_SETUPS, NULL)) {
+        md_json_dupsa(order->challenge_setups, p, json, MD_KEY_CHALLENGE_SETUPS, NULL);
     }
     if (md_json_has_key(json, MD_KEY_FINALIZE, NULL)) {
         order->finalize = md_json_dups(p, json, MD_KEY_FINALIZE, NULL);
@@ -166,10 +166,10 @@ apr_status_t md_acme_order_remove(md_acme_order_t *order, const char *authz_url)
     return APR_ENOENT;
 }
 
-apr_status_t md_acme_order_add_challenge_dir(md_acme_order_t *order, const char *dir)
+static apr_status_t add_setup_token(md_acme_order_t *order, const char *token)
 {
-    if (dir && (md_array_str_index(order->challenge_dirs, dir, 0, 1) < 0)) {
-        APR_ARRAY_PUSH(order->challenge_dirs, const char*) = apr_pstrdup(order->p, dir);
+    if (md_array_str_index(order->challenge_setups, token, 0, 1) < 0) {
+        APR_ARRAY_PUSH(order->challenge_setups, const char*) = apr_pstrdup(order->p, token);
     }
     return APR_SUCCESS;
 }
@@ -225,7 +225,7 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
     md_store_t *store = baton;
     md_acme_order_t *order;
     md_store_group_t group;
-    const char *md_name, *dir;
+    const char *md_name, *setup_token;
     int i;
 
     group = (md_store_group_t)va_arg(ap, int);
@@ -233,10 +233,13 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
 
     if (APR_SUCCESS == md_acme_order_load(store, group, md_name, &order, p)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "order loaded for %s", md_name);
-        for (i = 0; i < order->challenge_dirs->nelts; ++i) {
-            dir = APR_ARRAY_IDX(order->challenge_dirs, i, const char*);
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "order purge challenge at %s", dir);
-            md_store_purge(store, p, MD_SG_CHALLENGES, dir);
+        for (i = 0; i < order->challenge_setups->nelts; ++i) {
+            setup_token = APR_ARRAY_IDX(order->challenge_setups, i, const char*);
+            if (setup_token) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
+                              "order teardown setup %s", setup_token);
+                md_acme_authz_teardown(store, setup_token, p);
+            }
         }
     }
     return md_store_remove(store, group, md_name, MD_FN_ORDER, ptemp, 1);
@@ -425,7 +428,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
 {
     apr_status_t rv = APR_SUCCESS;
     md_acme_authz_t *authz;
-    const char *url;
+    const char *url, *setup_token;
     int i;
     
     for (i = 0; i < order->authz_urls->nelts; ++i) {
@@ -443,11 +446,12 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
                 break;
                 
             case MD_ACME_AUTHZ_S_PENDING:
-                rv = md_acme_authz_respond(authz, acme, store, challenge_types, md->pkey_spec, p);
+                rv = md_acme_authz_respond(authz, acme, store, challenge_types, 
+                                           md->pkey_spec, p, &setup_token);
                 if (APR_SUCCESS != rv) {
                     goto out;
                 }
-                md_acme_order_add_challenge_dir(order, authz->dir);
+                add_setup_token(order, setup_token);
                 md_acme_order_save(store, p, MD_SG_STAGING, md->name, order, 0);
                 break;
                 

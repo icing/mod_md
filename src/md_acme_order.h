@@ -33,7 +33,7 @@ struct md_acme_order_t {
     const char *url;
     md_acme_order_st status;
     struct apr_array_header_t *authz_urls;
-    struct apr_array_header_t *challenge_dirs;
+    struct apr_array_header_t *challenge_setups;
     struct md_json_t *json;
     const char *finalize;
     const char *certificate;
@@ -47,9 +47,6 @@ md_acme_order_t *md_acme_order_create(apr_pool_t *p);
 
 apr_status_t md_acme_order_add(md_acme_order_t *order, const char *authz_url);
 apr_status_t md_acme_order_remove(md_acme_order_t *order, const char *authz_url);
-
-apr_status_t md_acme_order_add_challenge_dir(md_acme_order_t *order, const char *dir);
-
 
 struct md_json_t *md_acme_order_to_json(md_acme_order_t *set, apr_pool_t *p);
 md_acme_order_t *md_acme_order_from_json(struct md_json_t *json, apr_pool_t *p);
