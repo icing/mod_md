@@ -7,11 +7,12 @@ This repository contains `mod_md`, a module for Apache httpd that adds support f
 
 This code here is to help people review and comment and test early versions. Issues you can raise here, general discussion is probably best at the httpd dev mailing list. The module is, in Apache terms, **experimental**, meaning features might change based on feedback by the community. It is however a complete implementation of the ACMEv1 protocol and used in production in many locations.
 
-## NEWS: Experimental! Again!
+## NEWS: Experimental! Again! Wildcards!
 
 The current releases, v1.99.x, contain new support for the ACMEv2 protocol and can *NOT* be considered
 as stable as the previous releases. Please help me test this, but do expect things to go ***pling*** now and then.
 
+From v1.99.5 onwards mod_md supports ***wildcard certificates***. See the section below about details.
 
 For the new ```tls-alpn-01``` challenge method to work, you ***need a patched*** mod_ssl. The patches for trunk and 2.4.x versions of the Apache httpd are available in the ```patches``` directory. When you have that, you also need to extend the protocols you allow on your server:
 
@@ -19,7 +20,6 @@ For the new ```tls-alpn-01``` challenge method to work, you ***need a patched***
 Protocols h2 http/1.1 acme-tls/1
 ```
 The last one, ```acme-tls/1```, is the new one that needs adding. You do not need ```h2```.
-
 
 ## Documentation
 
@@ -73,6 +73,43 @@ Protocols h2 http/1.1 acme-tls/1
 ```mod_md``` will see that and use the new challenge type. 
 
 ***HOWEVER*** (there is always a catch, is there not?): for now, you 'll also need a patched ```mod_ssl```to make this work. The patch is included here, but patching and compiling ```mod_ssl``` might not be everyone's cup of tea. If you do *not* have a patched mod_ssl, you can still run the new mod_md, but do not enable the ```tls-alpn-01``` challenge protocol.
+
+### Wildcard Certificates in v1.99.x
+
+Since v1.99.5 you can request wildcard certificates, e.g. ```*.mod_md.org```. These can be combined with other names for Managed Domains, just as before:
+
+```
+ MDomain mod_md.org *.mod_md.org www.mod_md.org
+```
+
+***HOWEVER***, Let's Encrypt will hand out certificates with a wildcard domain ***only*** on its ACMEv2 service and ***only*** when verified via the ```dns-01``` challenge method.
+
+```dns-01``` means that Let's Encrypt (or another ACME CA) checks a DNS record for your domain *at the DNS server that handles your domain*. Read: Apache cannot answer such queries and there is no standardized interface to manipulate a DNS server, so the details of how to do this are very much up to you.
+
+So, how does this work in general? ```mod_md``` has a new configuration directive:
+
+```
+MDChallengeDns01 <exectute-command>    
+# example:
+# MDChallengeDns01 /usr/sbin/dns01-handler
+```
+
+If you configure such a command, it will get called by ```mod_md``` with one of the two options:
+
+```
+# setup the answer to a dns-01 challenge, a TXT DNS record for 
+# _acme-challenge.<domain> with the given challenge.
+> dns01-handler setup <domain> <challenge-base64>
+
+# clear a challenge answer
+> dns01-handler teardown <domain>
+```
+
+This command needs then to talk to the DNS server you use. How it does this work, I have no idea! Upon success, it needs to return 0. All other return codes are considered as failure and the signup for the certificate will either try another challenge method (if available) or fail.
+
+One more detail: the command will, on most installations, not be executed as ```root``` but was ```www-data```. Plan that into your security/authentication model.
+
+So, no ready-made solution here. Sorry! But! There are many possible scenarios on how to set this up and I am sure that Linux distribution will think of nice ways to integrate this into their server setups.
 
 ## Status
 

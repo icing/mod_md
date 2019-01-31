@@ -1,3 +1,8 @@
+v1.99.5
+----------------------------------------------------------------------------------------------------
+ * Enhanced checks for wildcard domain names in certificate coverage.
+ * ACME authorizations and certificate requests only done for minimal set of domain names,
+   e.g. domain covered by a wildcard are left out. LE CA requires this.
  * First successful wildcard certificate signup in test suite
  * Old and long deprecated configuration directives "ManagedDomain(s)" removed.
  * Challenge type 'tls-sni-01' removed as it has been disabled by Let's Encrypt.

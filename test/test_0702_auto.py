@@ -346,7 +346,7 @@ class TestAuto:
 
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
-        time.sleep(3)
+        time.sleep(5)
         
         # restart -> new ACME cert becomes active
         assert TestEnv.apache_restart() == 0

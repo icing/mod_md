@@ -260,11 +260,12 @@ typedef struct {
     apr_pool_t *p;
     md_acme_order_t *order;
     md_acme_t *acme;
-    const md_t *md;
+    const char *name;
+    apr_array_header_t *domains;
 } order_ctx_t;
 
-#define ORDER_CTX_INIT(ctx, p, o, a, m) \
-    (ctx)->p = (p); (ctx)->order = (o); (ctx)->acme = (a); (ctx)->md = (m);
+#define ORDER_CTX_INIT(ctx, p, o, a, n, d) \
+    (ctx)->p = (p); (ctx)->order = (o); (ctx)->acme = (a); (ctx)->name = (n); (ctx)->domains = d
 
 static apr_status_t identifier_to_json(void *value, md_json_t *json, apr_pool_t *p, void *baton)
 {
@@ -283,7 +284,7 @@ static apr_status_t on_init_order_register(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->p);
-    md_json_seta(ctx->md->domains, identifier_to_json, NULL, jpayload, "identifiers", NULL);
+    md_json_seta(ctx->domains, identifier_to_json, NULL, jpayload, "identifiers", NULL);
 
     return md_acme_req_body_init(req, jpayload);
 } 
@@ -315,13 +316,13 @@ out:
 }
 
 apr_status_t md_acme_order_register(md_acme_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
-                                    const md_t *md)
+                                    const char *name, apr_array_header_t *domains)
 {
     order_ctx_t ctx;
     apr_status_t rv;
     
     assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
-    ORDER_CTX_INIT(&ctx, p, NULL, acme, md);
+    ORDER_CTX_INIT(&ctx, p, NULL, acme, name, domains);
     rv = md_acme_POST(acme, acme->api.v2.new_order, on_init_order_register, on_order_upd, NULL, &ctx);
     *porder = (APR_SUCCESS == rv)? ctx.order : NULL;
     return rv;
@@ -332,7 +333,7 @@ apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, apr_p
     order_ctx_t ctx;
     
     assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
-    ORDER_CTX_INIT(&ctx, p, order, acme, NULL);
+    ORDER_CTX_INIT(&ctx, p, order, acme, NULL, NULL);
     return md_acme_GET(acme, order->url, NULL, on_order_upd, NULL, &ctx);
 }
 
@@ -367,7 +368,7 @@ apr_status_t md_acme_order_await_ready(md_acme_order_t *order, md_acme_t *acme,
     apr_status_t rv;
     
     assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
-    ORDER_CTX_INIT(&ctx, p, order, acme, md);
+    ORDER_CTX_INIT(&ctx, p, order, acme, md->name, NULL);
     rv = md_util_try(await_ready, &ctx, 0, timeout, 0, 0, 1);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: checked order ready", md->name);
     return rv;
@@ -402,7 +403,7 @@ apr_status_t md_acme_order_await_valid(md_acme_order_t *order, md_acme_t *acme,
     apr_status_t rv;
     
     assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
-    ORDER_CTX_INIT(&ctx, p, order, acme, md);
+    ORDER_CTX_INIT(&ctx, p, order, acme, md->name, NULL);
     rv = md_util_try(await_valid, &ctx, 0, timeout, 0, 0, 1);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: checked order valid", md->name);
     return rv;
@@ -415,7 +416,7 @@ apr_status_t md_acme_order_finalize(md_acme_order_t *order, md_acme_t *acme,
     apr_status_t rv;
     
     assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
-    ORDER_CTX_INIT(&ctx, p, order, acme, md);
+    ORDER_CTX_INIT(&ctx, p, order, acme, md->name, NULL);
     rv = APR_ENOTIMPL;
     
     return rv;
@@ -480,7 +481,7 @@ static apr_status_t check_challenges(void *baton, int attempt)
     for (i = 0; i < ctx->order->authz_urls->nelts && APR_SUCCESS == rv; ++i) {
         url = APR_ARRAY_IDX(ctx->order->authz_urls, i, const char*);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ctx->p, "%s: check AUTHZ at %s(%d. attempt)", 
-                      ctx->md->name, url, attempt);
+                      ctx->name, url, attempt);
         if (APR_SUCCESS == (rv = md_acme_authz_retrieve(ctx->acme, ctx->p, url, &authz))) {
             switch (authz->state) {
                 case MD_ACME_AUTHZ_S_VALID:
@@ -509,7 +510,7 @@ apr_status_t md_acme_order_monitor_authzs(md_acme_order_t *order, md_acme_t *acm
     order_ctx_t ctx;
     apr_status_t rv;
     
-    ORDER_CTX_INIT(&ctx, p, order, acme, md);
+    ORDER_CTX_INIT(&ctx, p, order, acme, md->name, NULL);
     rv = md_util_try(check_challenges, &ctx, 0, timeout, 0, 0, 1);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, "%s: checked authorizations", md->name);

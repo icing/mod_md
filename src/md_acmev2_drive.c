@@ -80,8 +80,10 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     if (!ad->order) {
         /* No Order to be found, register a new one */
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: (ACMEv2) register order", d->md->name);
-        if (APR_SUCCESS != (rv = md_acme_order_register(&ad->order, ad->acme, d->p, d->md))) goto out;
-        if (APR_SUCCESS != (rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, d->md->name, ad->order, 0))) goto out;
+        rv = md_acme_order_register(&ad->order, ad->acme, d->p, d->md->name, ad->domains);
+        if (APR_SUCCESS !=rv) goto out;
+        rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, d->md->name, ad->order, 0);
+        if (APR_SUCCESS != rv) goto out;
     }
     
 out:

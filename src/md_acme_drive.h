@@ -16,6 +16,7 @@
 #ifndef md_acme_drive_h
 #define md_acme_drive_h
 
+struct apr_array_header_t;
 struct md_acme_order_t;
 
 typedef struct md_acme_driver_t {
@@ -33,6 +34,7 @@ typedef struct md_acme_driver_t {
     
     md_acme_t *acme;
     md_t *md;
+    struct apr_array_header_t *domains;
     const md_creds_t *ncreds;
     
     apr_array_header_t *ca_challenges;

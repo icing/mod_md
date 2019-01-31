@@ -760,7 +760,7 @@ int md_cert_covers_md(md_cert_t *cert, const md_t *md)
                       cert->alt_names->nelts); 
         for (i = 0; i < md->domains->nelts; ++i) {
             name = APR_ARRAY_IDX(md->domains, i, const char *);
-            if (md_array_str_index(cert->alt_names, name, 0, 0) < 0) {
+            if (!md_dns_domains_match(cert->alt_names, name)) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, cert->pool, 
                               "md domain %s not covered by cert", name);
                 return 0;
@@ -1209,31 +1209,29 @@ int md_cert_must_staple(md_cert_t *cert)
     return ((NID_undef != nid)) && X509_get_ext_by_NID(cert->x509, nid, -1) >= 0;
 }
 
-static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const md_t *md, apr_pool_t *p)
+static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const char *name, apr_pool_t *p)
 {
+    X509_EXTENSION *x;
+    int nid;
     
-    if (md->must_staple) {
-        X509_EXTENSION *x;
-        int nid;
-        
-        nid = get_must_staple_nid();
-        if (NID_undef == nid) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
-                          "%s: unable to get NID for v3 must-staple TLS feature", md->name);
-            return APR_ENOTIMPL;
-        }
-        x = X509V3_EXT_conf_nid(NULL, NULL, nid, (char*)"DER:30:03:02:01:05");
-        if (NULL == x) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
-                          "%s: unable to create x509 extension for must-staple", md->name);
-            return APR_EGENERAL;
-        }
-        sk_X509_EXTENSION_push(exts, x);
+    nid = get_must_staple_nid();
+    if (NID_undef == nid) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
+                      "%s: unable to get NID for v3 must-staple TLS feature", name);
+        return APR_ENOTIMPL;
     }
+    x = X509V3_EXT_conf_nid(NULL, NULL, nid, (char*)"DER:30:03:02:01:05");
+    if (NULL == x) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
+                      "%s: unable to create x509 extension for must-staple", name);
+        return APR_EGENERAL;
+    }
+    sk_X509_EXTENSION_push(exts, x);
     return APR_SUCCESS;
 }
 
-apr_status_t md_cert_req_create(const char **pcsr_der_64, const md_t *md, 
+apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
+                                apr_array_header_t *domains, int must_staple, 
                                 md_pkey_t *pkey, apr_pool_t *p)
 {
     const char *s, *csr_der, *csr_der_64 = NULL;
@@ -1244,58 +1242,58 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const md_t *md,
     apr_status_t rv;
     int csr_der_len;
     
-    assert(md->domains->nelts > 0);
+    assert(domains->nelts > 0);
     
     if (NULL == (csr = X509_REQ_new()) 
         || NULL == (exts = sk_X509_EXTENSION_new_null())
         || NULL == (n = X509_NAME_new())) {
         rv = APR_ENOMEM;
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: openssl alloc X509 things", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: openssl alloc X509 things", name);
         goto out; 
     }
 
     /* subject name == first domain */
-    domain = APR_ARRAY_IDX(md->domains, 0, const unsigned char *);
+    domain = APR_ARRAY_IDX(domains, 0, const unsigned char *);
     if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, domain, -1, -1, 0)
         || !X509_REQ_set_subject_name(csr, n)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: REQ name add entry", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: REQ name add entry", name);
         rv = APR_EGENERAL; goto out;
     }
     /* collect extensions, such as alt names and must staple */
-    if (APR_SUCCESS != (rv = sk_add_alt_names(exts, md->domains, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: collecting alt names", md->name);
+    if (APR_SUCCESS != (rv = sk_add_alt_names(exts, domains, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: collecting alt names", name);
         rv = APR_EGENERAL; goto out;
     }
-    if (APR_SUCCESS != (rv = add_must_staple(exts, md, p))) {
+    if (must_staple && APR_SUCCESS != (rv = add_must_staple(exts, name, p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: you requested that a certificate "
             "is created with the 'must-staple' extension, however the SSL library was "
             "unable to initialized that extension. Please file a bug report on which platform "
             "and with which library this happens. To continue before this problem is resolved, "
-            "configure 'MDMustStaple off' for your domains", md->name);
+            "configure 'MDMustStaple off' for your domains", name);
         rv = APR_EGENERAL; goto out;
     }
     /* add extensions to csr */
     if (sk_X509_EXTENSION_num(exts) > 0 && !X509_REQ_add_extensions(csr, exts)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: adding exts", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: adding exts", name);
         rv = APR_EGENERAL; goto out;
     }
     /* add our key */
     if (!X509_REQ_set_pubkey(csr, pkey->pkey)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in csr", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in csr", name);
         rv = APR_EGENERAL; goto out;
     }
     /* sign, der encode and base64url encode */
     if (!X509_REQ_sign(csr, pkey->pkey, EVP_sha256())) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign csr", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign csr", name);
         rv = APR_EGENERAL; goto out;
     }
     if ((csr_der_len = i2d_X509_REQ(csr, NULL)) < 0) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", name);
         rv = APR_EGENERAL; goto out;
     }
     s = csr_der = apr_pcalloc(p, (apr_size_t)csr_der_len + 1);
     if (i2d_X509_REQ(csr, (unsigned char**)&s) != csr_der_len) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", name);
         rv = APR_EGENERAL; goto out;
     }
     csr_der_64 = md_util_base64url_encode(csr_der, (apr_size_t)csr_der_len, p);

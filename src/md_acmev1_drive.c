@@ -89,7 +89,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
         url = APR_ARRAY_IDX(ad->order->authz_urls, i, const char*);
         rv = md_acme_authz_retrieve(ad->acme, d->p, url, &authz);
         if (APR_SUCCESS == rv) {
-            if (!md_contains(md, authz->domain, 0)) {
+            if (md_array_str_index(ad->domains, authz->domain, 0, 0) < 0) {
                 md_acme_order_remove(ad->order, url);
                 changed = 1;
                 continue;
@@ -109,8 +109,8 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     }
     
     /* Do we have authz urls for all domains? */
-    for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
-        const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
+    for (i = 0; i < ad->domains->nelts && APR_SUCCESS == rv; ++i) {
+        const char *domain = APR_ARRAY_IDX(ad->domains, i, const char *);
     
         if (md_array_str_index(domains_covered, domain, 0, 0) < 0) {
             /* create new one */

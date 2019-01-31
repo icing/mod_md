@@ -139,7 +139,8 @@ apr_status_t md_chain_fsave(struct apr_array_header_t *certs,
 apr_status_t md_chain_fappend(struct apr_array_header_t *certs, 
                               apr_pool_t *p, const char *fname);
 
-apr_status_t md_cert_req_create(const char **pcsr_der_64, const struct md_t *md, 
+apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
+                                apr_array_header_t *domains, int must_staple, 
                                 md_pkey_t *pkey, apr_pool_t *p);
 
 /**

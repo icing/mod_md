@@ -356,7 +356,8 @@ apr_status_t md_acme_drive_setup_certificate(md_proto_driver_t *d)
     if (APR_SUCCESS != rv) goto out;
     
     ad->phase = "setup csr";
-    rv = md_cert_req_create(&ad->csr_der_64, ad->md, privkey, d->p);
+    rv = md_cert_req_create(&ad->csr_der_64, ad->md->name, ad->domains, 
+                            ad->md->must_staple, privkey, d->p);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR", ad->md->name);
     if (APR_SUCCESS != rv) goto out;
 
@@ -650,7 +651,9 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
                       ad->md->name);
         if (APR_SUCCESS != rv) goto out;
     }
-    
+    if (!ad->domains) {
+        ad->domains = md_dns_make_minimal(d->p, ad->md->domains);
+    }
     if (md_array_is_empty(ad->certs)) {
         /* have we created this already? */
         md_pubcert_load(d->store, MD_SG_STAGING, ad->md->name, &ad->certs, d->p);

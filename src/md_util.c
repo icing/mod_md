@@ -601,7 +601,7 @@ apr_status_t md_util_ftree_remove(const char *path, apr_pool_t *p)
 
 /* DNS name checks ********************************************************************************/
 
-int md_util_is_dns_name(apr_pool_t *p, const char *hostname, int need_fqdn)
+int md_dns_is_name(apr_pool_t *p, const char *hostname, int need_fqdn)
 {
     char c, last = 0;
     const char *cp = hostname;
@@ -642,10 +642,71 @@ int md_util_is_dns_name(apr_pool_t *p, const char *hostname, int need_fqdn)
     return 1; /* empty string not allowed */
 }
 
-int md_util_is_dns_wildcard(apr_pool_t *p, const char *domain)
+int md_dns_is_wildcard(apr_pool_t *p, const char *domain)
 {
     if (domain[0] != '*' || domain[1] != '.') return 0;
-    return md_util_is_dns_name(p, domain+2, 1);
+    return md_dns_is_name(p, domain+2, 1);
+}
+
+int md_dns_matches(const char *pattern, const char *domain)
+{
+    const char *s;
+    
+    if (!apr_strnatcasecmp(pattern, domain)) return 1;
+    if (pattern[0] == '*' && pattern[1] == '.') {
+        s = strchr(domain, '.');
+        if (s && !apr_strnatcasecmp(pattern+1, s)) return 1;
+    }
+    return 0;
+}
+
+apr_array_header_t *md_dns_make_minimal(apr_pool_t *p, apr_array_header_t *domains)
+{
+    apr_array_header_t *minimal;
+    const char *domain, *pattern;
+    int i, j, duplicate;
+    
+    minimal = apr_array_make(p, domains->nelts, sizeof(const char *));
+    for (i = 0; i < domains->nelts; ++i) {
+        domain = APR_ARRAY_IDX(domains, i, const char*);
+        duplicate = 0;
+        /* is it matched in minimal already? */
+        for (j = 0; j < minimal->nelts; ++j) {
+            pattern = APR_ARRAY_IDX(minimal, j, const char*);
+            if (md_dns_matches(pattern, domain)) {
+                duplicate = 1;
+                break;
+            }
+        }
+        if (!duplicate) {
+            if (!md_dns_is_wildcard(p, domain)) {
+                /* plain name, will we see a wildcard that replaces it? */
+                for (j = i+1; j < domains->nelts; ++j) {
+                    pattern = APR_ARRAY_IDX(domains, j, const char*);
+                    if (md_dns_is_wildcard(p, pattern) && md_dns_matches(pattern, domain)) {
+                        duplicate = 1;
+                        break;
+                    }
+                }
+            }
+            if (!duplicate) {
+                APR_ARRAY_PUSH(minimal, const char *) = domain; 
+            }
+        }
+    }
+    return minimal;
+}
+
+int md_dns_domains_match(struct apr_array_header_t *domains, const char *name)
+{
+    const char *domain;
+    int i;
+    
+    for (i = 0; i < domains->nelts; ++i) {
+        domain = APR_ARRAY_IDX(domains, i, const char*);
+        if (md_dns_matches(domain, name)) return 1;
+    }
+    return 0;
 }
 
 const char *md_util_schemify(apr_pool_t *p, const char *s, const char *def_scheme)
@@ -681,7 +742,7 @@ static apr_status_t uri_check(apr_uri_t *uri_parsed, apr_pool_t *p,
             if (!uri_parsed->hostname) {
                 err = "missing hostname";
             }
-            else if (!md_util_is_dns_name(p, uri_parsed->hostname, 0)) {
+            else if (!md_dns_is_name(p, uri_parsed->hostname, 0)) {
                 err = "invalid hostname";
             }
             if (uri_parsed->port_str 

@@ -49,9 +49,15 @@ int md_array_str_eq(const struct apr_array_header_t *a1,
 
 struct apr_array_header_t *md_array_str_clone(apr_pool_t *p, struct apr_array_header_t *array);
 
+/**
+ * Create a new array with duplicates removed.
+ */
 struct apr_array_header_t *md_array_str_compact(apr_pool_t *p, struct apr_array_header_t *src,
                                                 int case_sensitive);
 
+/**
+ * Create a new array with all occurances of <exclude> removed.
+ */
 struct apr_array_header_t *md_array_str_remove(apr_pool_t *p, struct apr_array_header_t *src, 
                                                const char *exclude, int case_sensitive);
 
@@ -72,14 +78,35 @@ apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *ar
  * @param need_fqdn  iff != 0, check that domain contains '.'
  * @return != 0 iff domain looks like  a non-wildcard, legal DNS domain name.
  */
-int md_util_is_dns_name(apr_pool_t *p, const char *domain, int need_fqdn);
+int md_dns_is_name(apr_pool_t *p, const char *domain, int need_fqdn);
 
 /**
  * Check if the given domain is a valid wildcard DNS name, e.g. *.example.org
  * @param domain    name to check
  * @return != 0 iff domain is a DNS wildcard.
  */
-int md_util_is_dns_wildcard(apr_pool_t *p, const char *domain);
+int md_dns_is_wildcard(apr_pool_t *p, const char *domain);
+
+/**
+ * Determine iff pattern matches domain, including case-ignore and wildcard domains.
+ * It is assumed that both names follow dns syntax.
+ * @return != 0 iff pattern matches domain
+ */ 
+int md_dns_matches(const char *pattern, const char *domain);
+
+/**
+ * Create a new array with the minimal set out of the given domain names that match all
+ * of them. If none of the domains is a wildcard, only duplicates are removed.
+ * If domains contain a wildcard, any name matching the wildcard will be removed.
+ */
+struct apr_array_header_t *md_dns_make_minimal(apr_pool_t *p, 
+                                               struct apr_array_header_t *domains);
+
+/**
+ * Determine if the given domains cover the name, including wildcard matching.
+ * @return != 0 iff name is matched by list of domains
+ */
+int md_dns_domains_match(struct apr_array_header_t *domains, const char *name);
 
 /**************************************************************************************************/
 /* file system related */
