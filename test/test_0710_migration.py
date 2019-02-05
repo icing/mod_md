@@ -99,6 +99,8 @@ class TestAuto:
         cert3 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         # should no longer the same cert
         assert cert1.get_serial() != cert3.get_serial()
+        # should have a 2 accounts now
+        assert 2 == len(TestEnv.list_accounts())
 
     #-----------------------------------------------------------------------------------------------
     # create 2 MDs with ACMEv1, let them get a cert, change config to ACMEv2

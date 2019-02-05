@@ -115,8 +115,9 @@ apr_status_t md_acme_acct_id_for_url(const char **pid, struct md_store_t *store,
  * Create a new account at the ACME server. The
  * new account is the one used by the acme instance afterwards, on success.
  */
-apr_status_t md_acme_acct_register(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                     const char *agreement);
+apr_status_t md_acme_acct_register(md_acme_t *acme, struct md_store_t *store, 
+                                   apr_pool_t *p, apr_array_header_t *contacts, 
+                                   const char *agreement);
 
 apr_status_t md_acme_acct_save(struct md_store_t *store, apr_pool_t *p, md_acme_t *acme,  
                                const char **pid, struct md_acme_acct_t *acct, 

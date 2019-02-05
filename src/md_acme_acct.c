@@ -112,6 +112,7 @@ md_json_t *md_acme_acct_to_json(md_acme_acct_t *acct, apr_pool_t *p)
     }
     md_json_sets(acct->url, jacct, MD_KEY_URL, NULL);
     md_json_sets(acct->ca_url, jacct, MD_KEY_CA_URL, NULL);
+    md_json_setsa(acct->contacts, jacct, MD_KEY_CONTACT, NULL);
     md_json_setj(acct->registration, jacct, MD_KEY_REGISTRATION, NULL);
     if (acct->agreement) {
         md_json_sets(acct->agreement, jacct, MD_KEY_AGREEMENT, NULL);
@@ -153,7 +154,12 @@ apr_status_t md_acme_acct_from_json(md_acme_acct_t **pacct, md_json_t *json, apr
     }
     
     contacts = apr_array_make(p, 5, sizeof(const char *));
-    md_json_getsa(contacts, json, MD_KEY_REGISTRATION, MD_KEY_CONTACT, NULL);
+    if (md_json_has_key(json, MD_KEY_CONTACT, NULL)) {
+        md_json_getsa(contacts, json, MD_KEY_CONTACT, NULL);
+    }
+    else {
+        md_json_getsa(contacts, json, MD_KEY_REGISTRATION, MD_KEY_CONTACT, NULL);
+    }
     rv = acct_make(&acct, p, ca_url, contacts);
     if (APR_SUCCESS == rv) {
         acct->status = status;
@@ -231,6 +237,7 @@ out:
 typedef struct {
     apr_pool_t *p;
     md_acme_t *acme;
+    int url_match;
     const char *id;
 } find_ctx;
 
@@ -252,7 +259,7 @@ static int find_acct(void *baton, const char *name, const char *aspect,
         ca_url = md_json_gets(json, MD_KEY_CA_URL, NULL);
         
         if ((!status || !strcmp("valid", status)) && !disabled 
-            && ca_url && !strcmp(ctx->acme->url, ca_url)) {
+            && (!ctx->url_match || (ca_url && !strcmp(ctx->acme->url, ca_url)))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
                           "found account %s for %s: %s, status=%s, disabled=%d, ca-url=%s", 
                           name, ctx->acme->url, aspect, status, disabled, ca_url);
@@ -265,7 +272,7 @@ static int find_acct(void *baton, const char *name, const char *aspect,
 
 static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_t **ppkey, 
                               md_store_t *store, md_store_group_t group,
-                              const char *name_pattern,  
+                              const char *name_pattern, int url_match, 
                               md_acme_t *acme, apr_pool_t *p)
 {
     apr_status_t rv;
@@ -274,6 +281,7 @@ static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_
     ctx.p = p;
     ctx.acme = acme;
     ctx.id = NULL;
+    ctx.url_match = url_match;
     *pid = NULL;
     
     rv = md_store_iter(find_acct, &ctx, store, p, group, name_pattern, MD_FN_ACCOUNT, MD_SV_JSON);
@@ -299,7 +307,7 @@ static apr_status_t acct_find_and_verify(md_store_t *store, md_store_group_t gro
     const char *id;
     apr_status_t rv;
 
-    if (APR_SUCCESS == (rv = acct_find(&id, &acct, &pkey, store, group, name_pattern, acme, p))) {
+    if (APR_SUCCESS == (rv = acct_find(&id, &acct, &pkey, store, group, name_pattern, 1, acme, p))) {
         acme->acct_id = (MD_SG_STAGING == group)? NULL : id;
         acme->acct = acct;
         acme->acct_key = pkey;
@@ -514,8 +522,8 @@ static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
     return md_acme_req_body_init(req, jpayload);
 } 
 
-apr_status_t md_acme_acct_register(md_acme_t *acme, apr_pool_t *p, apr_array_header_t *contacts, 
-                                 const char *agreement)
+apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_t *p, 
+                                   apr_array_header_t *contacts, const char *agreement)
 {
     apr_status_t rv;
     md_pkey_t *pkey;
@@ -553,19 +561,50 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, apr_pool_t *p, apr_array_hea
         }
     }
     
-    spec.type = MD_PKEY_TYPE_RSA;
-    spec.params.rsa.bits = MD_ACME_ACCT_PKEY_BITS;
+    /* If there is no key selected yet, try to find an existing one for the same host. 
+     * Let's Encrypt identifies accounts by their key for their ACMEv1 and v2 services.
+     * Although the account appears on both services with different urls, it is 
+     * internally the same one.
+     * I think this is beneficial if someone migrates from ACMEv1 to v2 and not a leak
+     * of identifying information.
+     */
+    if (!acme->acct_key) {
+        find_ctx fctx;
     
-    if (APR_SUCCESS == (rv = md_pkey_gen(&pkey, acme->p, &spec))
-        && APR_SUCCESS == (rv = acct_make(&acme->acct,  p, acme->url, contacts))) {
-
-        acme->acct_key = pkey;
+        fctx.p = p;
+        fctx.acme = acme;
+        fctx.id = NULL;
+        fctx.url_match = 0;
         
-        rv = md_acme_POST_new_account(acme,  on_init_acct_new, acct_upd, NULL, &ctx);
-        if (APR_SUCCESS == rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, 
-                          "registered new account %s", acme->acct->url);
+        md_store_iter(find_acct, &fctx, store, p, MD_SG_ACCOUNTS, 
+                      mk_acct_pattern(p, acme), MD_FN_ACCOUNT, MD_SV_JSON);
+        if (fctx.id) {
+            rv = md_store_load(store, MD_SG_ACCOUNTS, fctx.id, MD_FN_ACCT_KEY, MD_SV_PKEY, 
+                               (void**)&acme->acct_key, p);
+            if (APR_SUCCESS == rv) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "reusing key from account %s", fctx.id);
+            }
+            else {
+                acme->acct_key = NULL;
+            }
         }
+    }
+    
+    /* If we still have no key, generate a new one */
+    if (!acme->acct_key) {
+        spec.type = MD_PKEY_TYPE_RSA;
+        spec.params.rsa.bits = MD_ACME_ACCT_PKEY_BITS;
+        
+        if (APR_SUCCESS != (rv = md_pkey_gen(&pkey, acme->p, &spec))) goto out;
+        acme->acct_key = pkey;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "created new account key");
+    }
+    
+    if (APR_SUCCESS != (rv = acct_make(&acme->acct,  p, acme->url, contacts))) goto out;
+    rv = md_acme_POST_new_account(acme,  on_init_acct_new, acct_upd, NULL, &ctx);
+    if (APR_SUCCESS == rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, 
+                      "registered new account %s", acme->acct->url);
     }
 
 out:    

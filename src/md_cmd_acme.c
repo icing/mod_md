@@ -52,7 +52,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
-    if (APR_SUCCESS == (rv = md_acme_acct_register(ctx->acme, ctx->p, contacts, ctx->tos))) {
+    if (APR_SUCCESS == (rv = md_acme_acct_register(ctx->acme, ctx->store, ctx->p, contacts, ctx->tos))) {
         md_acme_save_acct(ctx->acme, ctx->p, ctx->store); 
         fprintf(stdout, "registered: %s\n", md_acme_acct_id_get(ctx->acme));
     }

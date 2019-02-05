@@ -77,7 +77,4 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, struct md_acme_t *acm
 apr_status_t md_acme_authz_teardown(struct md_store_t *store, const char *setup_token, 
                                     struct apr_table_t *env, apr_pool_t *p);
 
-apr_status_t md_acme_authz_del(md_acme_authz_t *authz, struct md_acme_t *acme, 
-                               struct md_store_t *store, apr_pool_t *p);
-
 #endif /* md_acme_authz_h */

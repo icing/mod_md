@@ -150,7 +150,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d)
             goto out;
         }
     
-        rv = md_acme_acct_register(ad->acme, d->p, md->contacts, md->ca_agreement);
+        rv = md_acme_acct_register(ad->acme, d->store, d->p, md->contacts, md->ca_agreement);
         if (APR_SUCCESS == rv) {
             md->ca_account = NULL;
             update_md = 1;
