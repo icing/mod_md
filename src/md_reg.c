@@ -666,7 +666,7 @@ static apr_status_t read_store_mds(md_reg_t *reg, sync_ctx *ctx)
     
     apr_array_clear(ctx->store_mds);
     rv = md_store_md_iter(do_add_md, ctx, reg->store, ctx->p, MD_SG_DOMAINS, "*");
-    if (APR_STATUS_IS_ENOENT(rv)) {
+    if (APR_STATUS_IS_ENOENT(rv) || APR_STATUS_IS_EINVAL(rv)) {
         rv = APR_SUCCESS;
     }
     return rv;

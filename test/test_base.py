@@ -295,13 +295,17 @@ class TestEnv:
         return os.path.join(TestEnv.STORE_DIR, 'challenges')
 
     @classmethod
-    def path_domain( cls, domain, archiveVersion=0, staging=False ) :
+    def path_domain_dir( cls, domain, archiveVersion=0, staging=False ) :
         if archiveVersion == 0:
-            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'md.json' )
+            return os.path.join( TestEnv.STORE_DIR, 'domains', domain )
         elif staging == True:
-            return os.path.join( TestEnv.STORE_DIR, 'staging', domain, 'md.json' )
+            return os.path.join( TestEnv.STORE_DIR, 'staging', domain )
         else:
-            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'md.json' )
+            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion) )
+
+    @classmethod
+    def path_domain( cls, domain, archiveVersion=0, staging=False ) :
+        return os.path.join( cls.path_domain_dir( domain, archiveVersion, staging), 'md.json')
 
     @classmethod
     def path_domain_pubcert( cls, domain, archiveVersion=0, staging=False ) :
@@ -528,6 +532,7 @@ class TestEnv:
 
             if len(names) != 0:
                 time.sleep(0.5)
+        time.sleep(0.5)  # give server some time to store all changes
         return True
 
     @classmethod
@@ -698,6 +703,10 @@ class CertUtil(object):
         name = nameList[0]
         certFilePath = TestEnv.path_domain_pubcert(name)
         keyFilePath = TestEnv.path_domain_privkey(name)
+
+        ddir = TestEnv.path_domain_dir(name)
+        if not os.path.exists(ddir):
+            os.makedirs(ddir)
 
         # create a key pair
         if os.path.exists(keyFilePath):

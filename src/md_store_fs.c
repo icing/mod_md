@@ -717,15 +717,19 @@ static apr_status_t insp(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     apr_status_t rv;
     void *value;
     const char *fpath;
-    MD_CHK_VARS;
  
     (void)ftype;   
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting value at: %s/%s", dir, name);
-    if (   MD_OK(md_util_path_merge(&fpath, ptemp, dir, name, NULL)) 
-        && MD_OK(fs_fload(&value, ctx->s_fs, fpath, ctx->group, ctx->vtype, p, ptemp))
-        && !ctx->inspect(ctx->baton, ctx->dirname, name, ctx->vtype, value, p)) {
-        return APR_EOF;
-    }
+    if (APR_SUCCESS == (rv = md_util_path_merge(&fpath, ptemp, dir, name, NULL))) {
+        rv = fs_fload(&value, ctx->s_fs, fpath, ctx->group, ctx->vtype, p, ptemp);
+        if (APR_SUCCESS == rv 
+            && !ctx->inspect(ctx->baton, ctx->dirname, name, ctx->vtype, value, p)) {
+            return APR_EOF;
+        }
+        else if (APR_STATUS_IS_ENOENT(rv)) {
+            rv = APR_SUCCESS;
+        }
+    } 
     return rv;
 }
 

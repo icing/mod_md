@@ -1,3 +1,5 @@
+ * When a md.json file in the store cannot be parsed, it is ignore and overwritten during
+   initial synch at server start. 
  * When migrating from ACMEv1 to ACMEv2 on the same host, the account private key of an
    existing account is reused on registration. Let's Encrypt internally treats this as
    the same account, although it is exposed using different urls. This helps keeping
