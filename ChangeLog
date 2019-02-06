@@ -1,3 +1,5 @@
+ * When the server is not started by root, the module no longer tries to chown() the
+   staging and challenges directories as User and Group directives are ignored. Fixes #115.
  * When a md.json file in the store cannot be parsed, it is ignore and overwritten during
    initial synch at server start. 
  * When migrating from ACMEv1 to ACMEv2 on the same host, the account private key of an
