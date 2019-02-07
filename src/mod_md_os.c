@@ -67,7 +67,11 @@ apr_status_t md_try_chown(const char *fname, unsigned int uid, int gid, apr_pool
 
 apr_status_t md_make_worker_accessible(const char *fname, apr_pool_t *p)
 {
+#ifdef WIN32
+    return APR_ENOTIMPL;
+#else 
     return md_try_chown(fname, ap_unixd_config.user_id, -1, p);
+#endif
 }
 
 #ifdef WIN32

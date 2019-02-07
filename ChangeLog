@@ -1,3 +1,9 @@
+v1.99.7
+----------------------------------------------------------------------------------------------------
+ * Fix by @nono303 to fix the Windows build that was broken in the last release.
+
+v1.99.6
+----------------------------------------------------------------------------------------------------
  * When the server is not started by root, the module no longer tries to chown() the
    staging and challenges directories as User and Group directives are ignored. Fixes #115.
  * When a md.json file in the store cannot be parsed, it is ignore and overwritten during
