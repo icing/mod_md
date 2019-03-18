@@ -1,3 +1,5 @@
+ * Fix for #117, explicitly set file permissions to work around umask defaults.
+
 v1.99.7
 ----------------------------------------------------------------------------------------------------
  * Fix by @nono303 to fix the Windows build that was broken in the last release.
