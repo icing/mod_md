@@ -1,3 +1,11 @@
+v1.1.18
+----------------------------------------------------------------------------------------------------
+  *) Explicitly setting file permissions to break out of umasks. We want our
+     non-privilegded apache user to be able to read them. See github issue
+     <https://github.com/icing/mod_md/issues/117>.
+  *) Merged some default store dir change from trunk.
+  *) Merged unread var removal from trunk.
+  
 v1.1.17
 ----------------------------------------------------------------------------------------------------
   * fixed several coding bugs in detection of ACME challenge changes, e.g. when the local

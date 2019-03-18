@@ -587,7 +587,7 @@ class TestConf:
         TestEnv.set_store_dir("md-other")
         self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 1)
         TestEnv.clear_store()
-        TestEnv.set_store_dir("md")
+        TestEnv.set_store_dir_default()
 
     # --------- _utils_ ---------
 

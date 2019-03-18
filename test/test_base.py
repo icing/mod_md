@@ -74,7 +74,7 @@ class TestEnv:
         cls.ACME_SERVER_DOWN = False
         cls.ACME_SERVER_OK = False
 
-        cls.set_store_dir('md')
+        cls.set_store_dir_default()
         cls.clear_store()
         cls.install_test_conf()
 
@@ -83,6 +83,13 @@ class TestEnv:
         cls.STORE_DIR = os.path.join(cls.WEBROOT, dir)
         cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j" ])
         cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR ])
+
+    @classmethod
+    def set_store_dir_default( cls ) :
+        dir = "md"
+        if cls.httpd_is_at_least("2.5.0"):
+            dir = os.path.join("state", dir)
+        cls.set_store_dir(dir)
 
     # --------- cmd execution ---------
 
