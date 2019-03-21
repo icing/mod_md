@@ -1,3 +1,8 @@
+v1.1.19
+----------------------------------------------------------------------------------------------------
+  *) Another tackle at <https://github.com/icing/mod_md/issues/117>, explicitly setting
+     specified permissions on all files created in md store.
+
 v1.1.18
 ----------------------------------------------------------------------------------------------------
   *) Explicitly setting file permissions to break out of umasks. We want our
