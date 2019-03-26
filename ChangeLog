@@ -1,3 +1,6 @@
+  * Some cleanup of the recent changes, accomodating non-*nix platforms and intergrating
+    latest changes from Apache subversion.
+
 v1.1.19
 ----------------------------------------------------------------------------------------------------
   *) Another tackle at <https://github.com/icing/mod_md/issues/117>, explicitly setting

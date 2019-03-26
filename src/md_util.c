@@ -203,6 +203,9 @@ apr_status_t md_util_fcreatex(apr_file_t **pf, const char *fn,
          * created by apache. While this is a noble effort, we need the store files
          * to have the permissions as specified. */
         rv = apr_file_perms_set(fn, perms);
+        if (APR_STATUS_IS_ENOTIMPL(rv)) {
+            rv = APR_SUCCESS;
+        }
     }
     return rv;
 }
@@ -321,13 +324,6 @@ apr_status_t md_text_fcreatex(const char *fpath, apr_fileperms_t perms,
     if (APR_SUCCESS == rv) {
         rv = write_text((void*)text, f, p);
         apr_file_close(f);
-        /* See <https://github.com/icing/mod_md/issues/117>: when a umask
-         * is set, files need to be assigned permissions explicitly.
-         * Otherwise, as in the issues reported, it will break our access model. */
-        rv = apr_file_perms_set(fpath, perms);
-        if (APR_STATUS_IS_ENOTIMPL(rv)) {
-            rv = APR_SUCCESS;
-        }
     }
     return rv;
 }
