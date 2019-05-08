@@ -1,3 +1,6 @@
+v1.99.8
+----------------------------------------------------------------------------------------------------
+ * Merge of changes up to  1.1.19
  * Fix for #117, explicitly set file permissions to work around umask defaults.
 
 v1.99.7
