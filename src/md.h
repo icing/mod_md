@@ -274,6 +274,14 @@ md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
  */
 int md_should_renew(const md_t *md);
 
+
+#define LE_ACMEv1_PROD      "https://acme-v01.api.letsencrypt.org/directory"
+#define LE_ACMEv1_STAGING   "https://acme-staging.api.letsencrypt.org/directory"
+
+#define LE_ACMEv2_PROD      "https://acme-v02.api.letsencrypt.org/directory"  
+#define LE_ACMEv2_STAGING   "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+
 /**************************************************************************************************/
 /* domain credentials */
 

@@ -1,3 +1,7 @@
+v1.99.8
+----------------------------------------------------------------------------------------------------
+ * Added MD section to Apache's "server-status" page listing all managed domains and their
+   settings, renewal status and error count.
  * Fix for #117, explicitly set file permissions to work around umask defaults.
 
 v1.99.7

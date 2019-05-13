@@ -31,6 +31,8 @@
 #include <http_vhost.h>
 #include <ap_listen.h>
 
+#include "mod_status.h"
+
 #include "md.h"
 #include "md_curl.h"
 #include "md_crypt.h"
@@ -1549,6 +1551,200 @@ static int md_require_https_maybe(request_rec *r)
     return DECLINED;
 }
 
+/**************************************************************************************************/
+/* Status hook */
+
+typedef struct status_info status_info; 
+
+typedef const char *status_value_fn(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p);
+
+struct status_info {
+    const char *label;
+    const char *key;
+    status_value_fn *fn;
+};
+
+static const char *si_val_status(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    (void)p;
+    (void)md;
+    switch (md_json_getl(mdj, info->key, NULL)) {
+        default:
+            case MD_S_INCOMPLETE: return "incomplete";
+            case MD_S_COMPLETE: return "complete";
+            case MD_S_EXPIRED: return "expired";
+            case MD_S_ERROR: return "error";
+            case MD_S_MISSING: return "missing";
+            return "unknown";
+    }
+}
+
+static const char *si_val_drive_mode(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    (void)p;
+    (void)md;
+    switch (md_json_getl(mdj, info->key, NULL)) {
+        default:
+            case MD_DRIVE_MANUAL: return "manual";
+            case MD_DRIVE_ALWAYS: return "always";
+            return "auto";
+    }
+}
+
+static const char *si_val_yes_no(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    (void)p;
+    (void)md;
+    return (md_json_getl(mdj, info->key, NULL))? "yes" : "no";
+}
+
+static const char *si_val_expires(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    apr_time_t now = apr_time_now();
+    (void)p;
+    (void)mdj;
+    (void)info;
+    if (md->expires > 0) {
+        if (md->expires > now) {
+            return apr_psprintf(p, "in %s", md_print_duration(p, md->expires - now));
+        }
+        return apr_psprintf(p, "%s ago", md_print_duration(p, now - md->expires));
+    }
+    return "-";
+}
+
+static const char *si_val_valid_from(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    apr_time_t now = apr_time_now();
+    (void)p;
+    (void)mdj;
+    (void)info;
+    if (md->valid_from > 0) {
+        if (md->expires > now) {
+            return apr_psprintf(p, "in %s", md_print_duration(p, md->valid_from - now));
+        }
+        return apr_psprintf(p, "since %s", md_print_duration(p, now - md->valid_from));
+    }
+    return "-";
+}
+    
+static const char *si_val_ca(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    (void)p;
+    (void)mdj;
+    (void)info;
+    if (!md->ca_url) return "-";
+    if (!strcmp(LE_ACMEv2_PROD, md->ca_url)) return "letsencrypt(v2)";
+    if (!strcmp(LE_ACMEv1_PROD, md->ca_url)) return "letsencrypt(v1)";
+    if (!strcmp(LE_ACMEv2_STAGING, md->ca_url)) return "letsencrypt(Test, v2)";
+    if (!strcmp(LE_ACMEv1_STAGING, md->ca_url)) return "letsencrypt(Test, v1)";
+    return md->ca_url;
+}
+    
+const status_info status_infos[] = {
+    { "Name", MD_KEY_NAME, NULL },
+    { "Domains", MD_KEY_DOMAINS, NULL },
+    { "Status", MD_KEY_STATUS, si_val_status },
+    { "Valid", MD_KEY_VALID_FROM, si_val_valid_from },
+    { "Renew",  MD_KEY_RENEW, si_val_yes_no },
+    { "Processed",  MD_KEY_PROCESSED, si_val_yes_no },
+    { "Errors",  MD_KEY_ERRORS, NULL },
+    { "Expires", MD_KEY_EXPIRES, si_val_expires },
+    { "Renew-Window", MD_KEY_RENEW_WINDOW, NULL },
+    { "Drive-mode", MD_KEY_DRIVE_MODE, si_val_drive_mode },
+    { "Must-Staple", MD_KEY_MUST_STAPLE, si_val_yes_no },
+    { "Contacts", MD_KEY_CONTACTS, NULL },
+    { "CA", MD_KEY_CA, si_val_ca },
+};
+
+static const char *status_val(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    md_json_t *sj;
+    const char *s;
+
+    if (info->fn) {
+        s = info->fn(md, mdj, info, p);
+    }
+    else {
+        s = md_json_gets(mdj, info->key, NULL);
+        if (!s) {
+            sj = md_json_getj(mdj, info->key, NULL);
+            if (sj)  s = md_json_writep(sj, p, MD_JSON_FMT_COMPACT);
+            else if (!s && md_json_has_key(mdj, info->key, NULL))
+                s = apr_psprintf(p, "%ld", md_json_getl(mdj, info->key, NULL));
+            else
+                s = "-";
+        }
+    }
+    return s;
+}
+
+static apr_status_t md_status_print(const md_mod_conf_t *mc, md_t *md, request_rec *r)
+{
+    md_json_t *mdj;
+    md_job_t *job = NULL;
+    int i, errored, renew;
+    
+    mdj = md_to_json(md, r->pool);
+    if (APR_SUCCESS == md_reg_assess(mc->reg, md, &errored, &renew, r->pool)) {
+        md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
+    }
+    if (renew) {
+        job = apr_pcalloc(r->pool, sizeof(*job));
+        job->md = md;
+        if (APR_SUCCESS == load_job_props(mc->reg, job, r->pool)) {
+            md_json_setl(job->error_runs, mdj, MD_KEY_ERRORS, NULL);
+            md_json_setb(job->restart_processed, mdj, MD_KEY_PROCESSED, NULL);
+        }
+    }
+    
+    ap_rputs("<tr>", r);
+    for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+        ap_rputs("<td>", r);
+        ap_rputs(status_val(md, mdj, &status_infos[i], r->pool), r);
+        ap_rputs("</td>", r);
+    }
+    ap_rputs("</tr>", r);
+
+    return APR_SUCCESS;
+}
+
+static int md_status_hook(request_rec *r, int flags)
+{
+    const md_srv_conf_t *sc;
+    const md_mod_conf_t *mc;
+    md_t *md;
+    int i, html;
+    
+    sc = ap_get_module_config(r->server->module_config, &md_module);
+    if (!sc) return DECLINED;
+    mc = sc->mc;
+
+    html = !(flags & AP_STATUS_SHORT);
+        
+    if ((flags & AP_STATUS_SHORT) || mc->mds->nelts == 0) {
+        ap_rputs(apr_psprintf(r->pool, "%sMDomains: %d\n", 
+                              html? "<hr>\n" : "", mc->mds->nelts), r);
+        return OK;
+    }
+
+    ap_rputs("<hr>\n<h2>Managed Domains</h2>\n<table class='md_status'><thead><tr>\n", r);
+    for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+        ap_rputs("<th>", r);
+        ap_rputs(status_infos[i].label, r);
+        ap_rputs("</th>", r);
+    }
+    ap_rputs("</tr>\n</thead><tbody>", r);
+
+    for (i = 0; i < mc->mds->nelts; ++i) {
+        md = md_copy(r->pool, APR_ARRAY_IDX(mc->mds, i, const md_t *));
+        md_status_print(mc, md, r);
+    }
+    ap_rputs("</td></tr>\n</tbody>\n</table>\n", r);
+
+    return OK;
+}
+
 /* Runs once per created child process. Perform any process 
  * related initialization here.
  */
@@ -1584,6 +1780,8 @@ static void md_hooks(apr_pool_t *pool)
     ap_hook_protocol_propose(md_protocol_propose, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_protocol_switch(md_protocol_switch, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_protocol_get(md_protocol_get, NULL, NULL, APR_HOOK_MIDDLE);
+
+    APR_OPTIONAL_HOOK(ap, status_hook, md_status_hook, NULL, NULL, APR_HOOK_MIDDLE);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);
