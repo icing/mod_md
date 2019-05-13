@@ -108,10 +108,23 @@ class TestAuto:
 
         # restart, check that md is in store
         assert TestEnv.apache_restart() == 0
+
+        s = TestEnv.get_content(domainA, "/.well-known/httpd.apache.org/md/status")
+        staged = json.loads(s)
+        assert staged["status"] == 1
+        assert staged["renew"] == True
+        
         self._check_md_names( domainA, dnsListA )
         self._check_md_names( domainB, dnsListB )
+
         # await drive completion
         assert TestEnv.await_completion( [ domainA, domainB ] )
+
+        s = TestEnv.get_content(domainA, "/.well-known/httpd.apache.org/md/status")
+        staged = json.loads(s)
+        assert staged["status"] == 2
+        assert staged["renew"] == False
+
         self._check_md_cert(dnsListA)
         self._check_md_cert(dnsListB)
 

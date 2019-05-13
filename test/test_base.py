@@ -517,7 +517,7 @@ class TestEnv:
         return result['stdout']
 
     @classmethod
-    def await_completion(cls, names, timeout=60):
+    def await_completion_old(cls, names, timeout=60):
         try_until = time.time() + timeout
         while len(names) > 0:
             if time.time() >= try_until:
@@ -541,6 +541,34 @@ class TestEnv:
                 time.sleep(0.5)
         time.sleep(0.5)  # give server some time to store all changes
         return True
+
+    @classmethod
+    def await_completion(cls, names, timeout=60):
+        try_until = time.time() + timeout
+        while len(names) > 0:
+            if time.time() >= try_until:
+                return False
+            allChanged = True
+            for name in names:
+                # check status in md.json
+                s = TestEnv.get_content(name, "/.well-known/httpd.apache.org/md/status")
+                stat = json.loads(s)
+                if stat['status'] == TestEnv.MD_S_COMPLETE:
+                    if 'renew' in stat and stat['renew'] == True:
+                        # check staging area, if there's already a new cert waiting
+                        path_cert_staging = TestEnv.path_domain_pubcert( name, staging=True )
+                        if os.path.exists(path_cert_staging):
+                            # OK (completed in staging)
+                            names.remove(name)
+                    else:
+                        # OK (completed)
+                        names.remove(name)
+
+            if len(names) != 0:
+                time.sleep(0.5)
+        time.sleep(0.5)  # give server some time to store all changes
+        return True
+
 
     @classmethod
     def await_renew_state(cls, names, timeout=60):

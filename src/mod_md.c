@@ -1429,6 +1429,7 @@ out:
 
 #define WELL_KNOWN_PREFIX           "/.well-known/"
 #define ACME_CHALLENGE_PREFIX       WELL_KNOWN_PREFIX"acme-challenge/"
+#define MD_STATUS_RESOURCE          WELL_KNOWN_PREFIX"httpd.apache.org/md/status"
 
 static int md_http_challenge_pr(request_rec *r)
 {
@@ -1436,6 +1437,7 @@ static int md_http_challenge_pr(request_rec *r)
     const md_srv_conf_t *sc;
     const char *name, *data;
     md_reg_t *reg;
+    const md_t *md;
     int configured;
     apr_status_t rv;
     
@@ -1493,6 +1495,64 @@ static int md_http_challenge_pr(request_rec *r)
             }
         }
     }
+    if (r->parsed_uri.path 
+        && !strcmp(MD_STATUS_RESOURCE, r->parsed_uri.path)) {
+        md_store_t *store;
+        md_t *nmd;
+        apr_array_header_t *certs;
+        md_cert_t *cert;
+        md_json_t *resp;
+        char *ts;
+        const char *cert64;
+        int error, renew;
+        
+        /* We are looking for information about a staged certificate */
+        sc = ap_get_module_config(r->server->module_config, &md_module);
+        if (!sc || !sc->mc || !sc->mc->reg) goto leave;
+        md = md_get_by_domain(sc->mc->mds, r->hostname);
+        if (!md) goto leave;
+        nmd = md_reg_get(sc->mc->reg, md->name, r->pool);
+        if (!md) goto leave;
+        store = md_reg_store_get(sc->mc->reg);
+        if (!store) goto leave;
+
+        if (r->method_number != M_GET) {
+            return HTTP_NOT_IMPLEMENTED;
+        }
+            
+        if (APR_SUCCESS != md_reg_assess(sc->mc->reg, nmd, &error, &renew, r->pool)) { 
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        resp = md_json_create(r->pool);
+        md_json_setl(nmd->state, resp, MD_KEY_STATUS, NULL);
+        md_json_setb(renew, resp, MD_KEY_RENEW, NULL);
+        
+        certs = apr_array_make(r->pool, 5, sizeof(md_cert_t*));
+        rv = md_pubcert_load(store, MD_SG_STAGING, nmd->name, &certs, r->pool);
+        if (APR_SUCCESS == rv && certs->nelts > 0) {
+            cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);
+            
+            ts = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
+            apr_rfc822_date(ts, md->valid_from);
+            md_json_sets(ts, resp, MD_KEY_VALID_FROM, NULL);
+            apr_rfc822_date(ts, md->expires);
+            md_json_sets(ts, resp, MD_KEY_EXPIRES, NULL);
+            
+            if (APR_SUCCESS != md_cert_to_base64url(&cert64, cert, r->pool)) {
+                return HTTP_INTERNAL_SERVER_ERROR;
+            }
+            md_json_sets(cert64, resp, MD_KEY_CERT, NULL);
+        }    
+        
+        bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
+        md_json_writeb(resp, MD_JSON_FMT_INDENT, bb);
+        ap_pass_brigade(r->output_filters, bb);
+        apr_brigade_cleanup(bb);
+        
+        return DONE;
+    }
+leave:
     return DECLINED;
 }
 

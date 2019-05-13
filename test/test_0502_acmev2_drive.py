@@ -173,17 +173,6 @@ class TestDrive :
         assert run['rv'] == 0
         self._check_md_cert([ name ])
 
-    # disabled as tls-sni-01 is no longer supported
-    #def test_502_106(self):
-    #    # test case: drive using HTTPS only challenge
-    #    domain = "test502-106-" + TestDrive.dns_uniq
-    #    name = "www." + domain
-    #    self._prepare_md([ name, "test." + domain ])
-    #    assert TestEnv.apache_start() == 0
-    #    # drive
-    #    assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-sni-01", name ] )['rv'] == 0
-    #    self._check_md_cert([ name, "test." + domain ])
-
     def test_502_107(self):
         # test case: drive again on COMPLETE md, then drive --force
         # setup: prepare md in store
