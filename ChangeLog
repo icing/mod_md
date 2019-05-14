@@ -1,3 +1,5 @@
+v1.99.10
+----------------------------------------------------------------------------------------------------
  * MD status now initialized fully in global list. Fixes new status handler to assess
    things even when running in non-privileged setup where access to file system is no
    longer allowed.
