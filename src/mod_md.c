@@ -1021,7 +1021,7 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
     wd->jobs = apr_array_make(wd->p, 10, sizeof(md_job_t *));
     for (i = 0; i < names->nelts; ++i) {
         name = APR_ARRAY_IDX(names, i, const char *);
-        md = md_reg_get(wd->reg, name, wd->p);
+        md = md_get_by_name(mc->mds, name);
         if (md) {
             md_reg_assess(wd->reg, md, &errored, &renew, wd->p);
             if (errored) {
@@ -1101,9 +1101,11 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     md_mod_conf_t *mc;
     md_reg_t *reg;
     const md_t *md;
+    md_t *lmd;
     apr_array_header_t *drive_names;
     apr_status_t rv = APR_SUCCESS;
     int i, dry_run = 0;
+    apr_array_header_t *loaded_mds;
 
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
     if (data == NULL) {
@@ -1190,7 +1192,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     if (dry_run) {
         goto out;
     }
-    
+        
     /* If there are MDs to drive, start a watchdog to check on them regularly */
     if (drive_names->nelts > 0) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
@@ -1198,6 +1200,19 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      drive_names->nelts, mc->mds->nelts);
     
         load_stage_sets(drive_names, p, reg, s, mc->env);
+
+        /* We have synched our configuration mdomains with the store, load all
+         * again and have them fully initialized, including certificate status,
+         * expiry dates etc. Store that list into out central location for reference. */
+        loaded_mds = apr_array_make(p, mc->mds->nelts, sizeof(md_t *));
+        for (i = 0; i < mc->mds->nelts; ++i) {
+            md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
+            lmd = md_reg_get(reg, md->name, p);
+            if (!lmd) lmd = (md_t*)md;
+            APR_ARRAY_PUSH(loaded_mds, const md_t *) = lmd;
+        }
+        mc->mds = loaded_mds;
+
         md_http_use_implementation(md_curl_get_impl(p));
         rv = start_watchdog(drive_names, p, reg, s, mc);
     }
@@ -1425,27 +1440,34 @@ out:
 }
 
 /**************************************************************************************************/
-/* ACME challenge responses */
-
-#define WELL_KNOWN_PREFIX           "/.well-known/"
-#define ACME_CHALLENGE_PREFIX       WELL_KNOWN_PREFIX"acme-challenge/"
+/* Certificate status */
 
 #define APACHE_PREFIX               "/.httpd/"
 #define MD_STATUS_RESOURCE          APACHE_PREFIX"certificate-status"
 
-static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_pool_t *p)
+static apr_status_t json_add_cert_info(md_json_t *json, const md_t *md,
+                                       md_cert_t *cert, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
     const char *cert64;
     apr_status_t rv;
     
-    apr_rfc822_date(ts, md_cert_get_not_before(cert));
-    md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
-    apr_rfc822_date(ts, md_cert_get_not_after(cert));
-    md_json_sets(ts, json, MD_KEY_EXPIRES, NULL);
-    md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
-    if (APR_SUCCESS != (rv = md_cert_to_base64url(&cert64, cert, p))) goto leave;
-    md_json_sets(cert64, json, MD_KEY_CERT, NULL);
+    if (cert) {
+        apr_rfc822_date(ts, md_cert_get_not_before(cert));
+        md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
+        apr_rfc822_date(ts, md_cert_get_not_after(cert));
+        md_json_sets(ts, json, MD_KEY_EXPIRES, NULL);
+        md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
+        if (APR_SUCCESS != (rv = md_cert_to_base64url(&cert64, cert, p))) goto leave;
+        md_json_sets(cert64, json, MD_KEY_CERT, NULL);
+    }
+    else if (md) {
+        apr_rfc822_date(ts, md->valid_from);
+        md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
+        apr_rfc822_date(ts, md->expires);
+        md_json_sets(ts, json, MD_KEY_EXPIRES, NULL);
+        if (md->cert_serial) md_json_sets(md->cert_serial, json, MD_KEY_SERIAL, NULL);
+    }
 leave:
     return rv;
 }
@@ -1453,7 +1475,6 @@ leave:
 static int md_http_status(request_rec *r)
 {
     md_store_t *store;
-    md_t *nmd;
     apr_array_header_t *certs;
     md_cert_t *cert_active, *cert_staged;
     md_json_t *resp, *j;
@@ -1461,6 +1482,7 @@ static int md_http_status(request_rec *r)
     const md_srv_conf_t *sc;
     md_reg_t *reg;
     const md_t *md;
+    md_t *md_staged;
     apr_bucket_brigade *bb;
     apr_status_t rv;
     
@@ -1475,8 +1497,6 @@ static int md_http_status(request_rec *r)
     if (!sc || !sc->mc || !sc->mc->reg) return DECLINED;
     md = md_get_by_domain(sc->mc->mds, r->hostname);
     if (!md) return DECLINED;
-    nmd = md_reg_get(sc->mc->reg, md->name, r->pool);
-    if (!md) return DECLINED;
     store = md_reg_store_get(sc->mc->reg);
     if (!store) return DECLINED;
     
@@ -1486,42 +1506,34 @@ static int md_http_status(request_rec *r)
         return HTTP_NOT_IMPLEMENTED;
     }
     
-    if (APR_SUCCESS != md_reg_assess(sc->mc->reg, nmd, &error, &renew, r->pool)) { 
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
-                      "md(%s): error assession status", md->name);
-        return HTTP_INTERNAL_SERVER_ERROR;
-    }
-    
     resp = md_json_create(r->pool);
+    json_add_cert_info(resp, md, NULL, r->pool);
     
-    cert_active = NULL;
-    rv = md_pubcert_load(store, MD_SG_DOMAINS, nmd->name, &certs, r->pool);
-    if (APR_SUCCESS == rv && certs->nelts > 0) {
-        cert_active = APR_ARRAY_IDX(certs, 0, md_cert_t *);
-        json_add_cert_info(resp, cert_active, r->pool);
-    }
-    
-    if (renew) {
+    rv = md_load(store, MD_SG_STAGING, md->name, &md_staged, r->pool); 
+    if (APR_SUCCESS == rv) {
         j = md_json_create(r->pool);
         md_json_setj(j, resp, "staging", NULL);
         
         cert_staged = NULL;
-        rv = md_pubcert_load(store, MD_SG_STAGING, nmd->name, &certs, r->pool);
+        rv = md_pubcert_load(store, MD_SG_STAGING, md->name, &certs, r->pool);
         if (APR_SUCCESS == rv && certs->nelts > 0) {
             ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
                           "md(%s): adding staged certificate info", md->name);
             cert_staged = APR_ARRAY_IDX(certs, 0, md_cert_t *);
-            json_add_cert_info(j, cert_staged, r->pool);
+            json_add_cert_info(j, md_staged, cert_staged, r->pool);
         }
         else if (!APR_STATUS_IS_ENOENT(rv)) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
-                          "loading staged certificates for %s", nmd->name);
+                          "loading staged certificates for %s", md->name);
             return HTTP_INTERNAL_SERVER_ERROR;
         }
         else {
             ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
                           "md(%s): no staged certificate", md->name);
         }
+    }
+    else {
+        
     }
     
     apr_table_set(r->headers_out, "Content-Type", "application/json"); 
@@ -1533,6 +1545,12 @@ static int md_http_status(request_rec *r)
     
     return DONE;
 }
+
+/**************************************************************************************************/
+/* ACME challenge responses */
+
+#define WELL_KNOWN_PREFIX           "/.well-known/"
+#define ACME_CHALLENGE_PREFIX       WELL_KNOWN_PREFIX"acme-challenge/"
 
 static int md_http_challenge_pr(request_rec *r)
 {

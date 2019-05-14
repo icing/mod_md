@@ -185,6 +185,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
     const md_cert_t *cert;
     apr_time_t expires = 0, valid_from = 0;
     apr_status_t rv;
+    const char *serial = NULL;
     int i;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
@@ -200,6 +201,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
         else {
             valid_from = md_cert_get_not_before(creds->cert);
             expires = md_cert_get_not_after(creds->cert);
+            serial = md_cert_get_serial_number(creds->cert, p);
             if (md_cert_has_expired(creds->cert)) {
                 state = MD_S_EXPIRED;
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
@@ -260,6 +262,7 @@ out:
     md->state = state;
     md->valid_from = valid_from;
     md->expires = expires;
+    md->cert_serial = serial;
     if (save_changes && APR_SUCCESS == rv) {
         return md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
     }
