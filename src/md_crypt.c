@@ -715,6 +715,23 @@ void *md_cert_get_X509(struct md_cert_t *cert)
     return cert->x509;
 }
 
+const char *md_cert_get_serial_number(md_cert_t *cert, apr_pool_t *p)
+{
+    const char *s = "";
+    const ASN1_INTEGER *ai = X509_get_serialNumber(cert->x509);
+    if (ai) {
+        BIGNUM *bn; 
+        const char *hex;
+        
+        bn = ASN1_INTEGER_to_BN(ai, NULL);
+        hex = BN_bn2hex(bn);
+        s = apr_pstrdup(p, hex);
+        OPENSSL_free((void*)bn);
+        OPENSSL_free((void*)hex);
+    }
+    return s;
+}
+
 int md_cert_is_valid_now(const md_cert_t *cert)
 {
     return ((X509_cmp_current_time(X509_get_notBefore(cert->x509)) < 0)

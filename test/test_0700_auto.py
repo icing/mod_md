@@ -154,7 +154,7 @@ class TestAuto:
         # restart (-> drive), check that MD was synched and completes
         assert TestEnv.apache_restart() == 0
         self._check_md_names( domain, dns_list )
-        assert TestEnv.await_completion( [ domain ] )
+        assert TestEnv.await_completion( [ domain, nameA, nameB ] )
         self._check_md_cert( dns_list )
 
         # check: SSL is running OK
@@ -337,27 +337,23 @@ class TestAuto:
         assert TestEnv.await_completion( [ domain ] )
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
-        # fetch cert from server
-        cert2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
-        assert cert1.get_serial() == cert2.get_serial()
+        # compare with what md reports as status
+        stat = TestEnv.get_md_status(domain);
+        assert stat['serial'] == cert1.get_serial()
 
         # create self-signed cert, with critical remaining valid duration -> drive again
         CertUtil.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 2  }, serial=7009)
         cert3 = CertUtil( TestEnv.path_domain_pubcert(domain) )
-        assert cert3.get_serial() == 7009
-        time.sleep(1)
-        assert TestEnv.a2md([ "list", domain])['jout']['output'][0]['renew'] == True
-
+        assert cert3.get_serial() == '1B61'
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ] )
-        time.sleep(5)
+        stat = TestEnv.get_md_status(domain);
+        assert stat['serial'] == cert3.get_serial()
 
-        # restart -> new ACME cert becomes active
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ] )
-        cert5 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
-        assert cert5.get_serial() != cert3.get_serial()
-
+        # cert should renew and be different afterwards
+        assert TestEnv.await_completion( [ domain ], must_renew=True )
+        stat = TestEnv.get_md_status(domain);
+        assert stat['serial'] != cert3.get_serial()
+        
     #-----------------------------------------------------------------------------------------------
     # test case: drive with an unsupported challenge due to port availability 
     #
@@ -474,11 +470,8 @@ class TestAuto:
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, new_list )
-        assert TestEnv.await_completion( [ nameX ] )
-
-        certA2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
-        assert nameA in certA2.get_san_list()
-        assert certA.get_serial() == certA2.get_serial()
+        status = TestEnv.get_md_status( nameA )
+        assert status['serial'] == certA.get_serial() 
 
     #-----------------------------------------------------------------------------------------------
     # test case: Same as 7030, but remove *and* add another at the same time.
@@ -533,11 +526,8 @@ class TestAuto:
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, new_list )
-        assert TestEnv.await_completion( [ nameX ] )
-
-        certA2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
-        assert nameA in certA2.get_san_list()
-        assert certA.get_serial() != certA2.get_serial()
+        status = TestEnv.get_md_status( nameA )
+        assert status['serial'] == certA.get_serial() 
 
     #-----------------------------------------------------------------------------------------------
     # test case: create two MDs, move them into one
@@ -566,7 +556,7 @@ class TestAuto:
         assert TestEnv.apache_restart() == 0
         self._check_md_names( name1, [ name1 ] )
         self._check_md_names( name2, [ name2 ] )
-        assert TestEnv.await_completion( [ name1 ] )
+        assert TestEnv.await_completion( [ name1, name2 ] )
         self._check_md_cert( [ name2 ] )
 
         # check: SSL is running OK
@@ -584,7 +574,6 @@ class TestAuto:
                         withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
                         keyPath=TestEnv.path_domain_privkey( domain ) )
         conf.install()
-        # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( name1, [ name1, name2 ] )
         assert TestEnv.await_completion( [ name1 ] )

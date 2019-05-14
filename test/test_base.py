@@ -122,15 +122,15 @@ class TestEnv:
     
     @classmethod
     def run( cls, args, input=None ) :
-        print "execute: ", " ".join(args)
+        #print "execute: ", " ".join(args)
         p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output, errput) = p.communicate(input)
         rv = p.wait()
-        print "stderr: ", errput
         try:
             jout = json.loads(output)
         except:
             jout = None
+            print "stderr: ", errput
             print "stdout: ", output
         return { 
             "rv": rv, 
@@ -370,7 +370,7 @@ class TestEnv:
         if conf:
             cls.install_test_conf(conf)
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd]
-        print "execute: ", " ".join(args)
+        #print "execute: ", " ".join(args)
         cls.apachectl_stderr = ""
         p = subprocess.Popen(args, stderr=subprocess.PIPE)
         (output, cls.apachectl_stderr) = p.communicate()
@@ -511,62 +511,51 @@ class TestEnv:
     def get_content(cls, domain, path, useHTTPS=True):
         schema = "https" if useHTTPS else "http"
         port = cls.HTTPS_PORT if useHTTPS else cls.HTTP_PORT
-        result = TestEnv.curl([ "-k", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)), 
+        result = TestEnv.curl([ "-sk", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)), 
                                ("%s://%s:%s%s" % (schema, domain, port, path)) ])
         assert result['rv'] == 0
         return result['stdout']
 
     @classmethod
-    def await_completion_old(cls, names, timeout=60):
-        try_until = time.time() + timeout
-        while len(names) > 0:
-            if time.time() >= try_until:
-                return False
-            allChanged = True
-            for name in names:
-                # check status in md.json
-                md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
-                if md['state'] == TestEnv.MD_S_COMPLETE:
-                    if 'renew' in md and md['renew'] == True:
-                        # check staging area, if there's already a new cert waiting
-                        path_cert_staging = TestEnv.path_domain_pubcert( name, staging=True )
-                        if os.path.exists(path_cert_staging):
-                            # OK (completed in staging)
-                            names.remove(name)
-                    else:
-                        # OK (completed)
-                        names.remove(name)
-
-            if len(names) != 0:
-                time.sleep(0.5)
-        time.sleep(0.5)  # give server some time to store all changes
-        return True
+    def get_json_content(cls, domain, path, useHTTPS=True):
+        schema = "https" if useHTTPS else "http"
+        port = cls.HTTPS_PORT if useHTTPS else cls.HTTP_PORT
+        result = TestEnv.curl([ "-k", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)), 
+                               ("%s://%s:%s%s" % (schema, domain, port, path)) ])
+        assert result['rv'] == 0
+        return result['jout'] if 'jout' in result else None
 
     @classmethod
-    def await_completion(cls, names, timeout=60):
+    def get_md_status(cls, domain, timeout=60):
+        stat = TestEnv.get_json_content(domain, "/.httpd/certificate-status")
+        #if stat:
+        #    print "md status: %s" % (stat)
+        return stat
+
+    @classmethod
+    def await_completion(cls, names, must_renew=False, restart=True, timeout=60):
         try_until = time.time() + timeout
+        renewals = {}
         while len(names) > 0:
             if time.time() >= try_until:
                 return False
-            allChanged = True
             for name in names:
-                # check status in md.json
-                s = TestEnv.get_content(name, "/.well-known/httpd.apache.org/md/status")
-                stat = json.loads(s)
-                if stat['status'] == TestEnv.MD_S_COMPLETE:
-                    if 'renew' in stat and stat['renew'] == True:
-                        # check staging area, if there's already a new cert waiting
-                        path_cert_staging = TestEnv.path_domain_pubcert( name, staging=True )
-                        if os.path.exists(path_cert_staging):
-                            # OK (completed in staging)
-                            names.remove(name)
-                    else:
-                        # OK (completed)
-                        names.remove(name)
+                stat = TestEnv.get_md_status(name, timeout)
+                if not stat:
+                    print "not managed by md: %s" % (name)
+                    return False
 
+                if 'staging' in stat:
+                    staging = stat['staging']
+                    renewals[name] = True
+                    if 'cert' in staging:
+                        if (not must_renew) or (name in renewals):
+                            names.remove(name)                        
+                    
             if len(names) != 0:
-                time.sleep(0.5)
-        time.sleep(0.5)  # give server some time to store all changes
+                time.sleep(0.1)
+        if restart:
+            return cls.apache_restart() == 0
         return True
 
 
@@ -811,7 +800,7 @@ class CertUtil(object):
         return self.cert.get_issuer()
 
     def get_serial(self):
-        return self.cert.get_serial_number()
+        return ("%lx" % (self.cert.get_serial_number())).upper()
 
     def get_not_before(self):
         tsp = self.cert.get_notBefore()

@@ -1,3 +1,12 @@
+v1.99.9
+----------------------------------------------------------------------------------------------------
+ * A domain that is managed by md now exposes a status resource at /.httpd/certificate-status
+   in JSON format. This lists serial number, valid-from, expires and the cert itself in base64url
+   encoding. Not highly relevant since the connection exposed the certificate already.
+   When a domain certificate has been renewed however, the same properties of the renewed
+   cert are available under the field "staging". When the server is restarted and the cert
+   is activated, these disappear again. This makes it easy to scan domains for pending
+   certificate renewals and also gives information of upcoming certificates right away.
  * Added MD section to Apache's "server-status" page listing all managed domains and their
    settings, renewal status and error count.
 

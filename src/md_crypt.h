@@ -132,6 +132,8 @@ apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert,
 apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool_t *p);
 
+const char *md_cert_get_serial_number(md_cert_t *cert, apr_pool_t *p);
+
 apr_status_t md_chain_fload(struct apr_array_header_t **pcerts, 
                             apr_pool_t *p, const char *fname);
 apr_status_t md_chain_fsave(struct apr_array_header_t *certs, 

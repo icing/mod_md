@@ -963,7 +963,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
              * - admins want better control of timing windows for restarts, e.g.
              *   during less busy hours/days.
              */
-            rv = md_server_graceful(ptemp, wd->s);
+            rv = APR_ENOTIMPL;/*md_server_graceful(ptemp, wd->s);*/
             if (APR_ENOTIMPL == rv) {
                 /* self-graceful restart not supported in this setup */
                 action = " and changes will be activated on next (graceful) server restart.";
@@ -1429,7 +1429,110 @@ out:
 
 #define WELL_KNOWN_PREFIX           "/.well-known/"
 #define ACME_CHALLENGE_PREFIX       WELL_KNOWN_PREFIX"acme-challenge/"
-#define MD_STATUS_RESOURCE          WELL_KNOWN_PREFIX"httpd.apache.org/md/status"
+
+#define APACHE_PREFIX               "/.httpd/"
+#define MD_STATUS_RESOURCE          APACHE_PREFIX"certificate-status"
+
+static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_pool_t *p)
+{
+    char ts[APR_RFC822_DATE_LEN];
+    const char *cert64;
+    apr_status_t rv;
+    
+    apr_rfc822_date(ts, md_cert_get_not_before(cert));
+    md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
+    apr_rfc822_date(ts, md_cert_get_not_after(cert));
+    md_json_sets(ts, json, MD_KEY_EXPIRES, NULL);
+    md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
+    if (APR_SUCCESS != (rv = md_cert_to_base64url(&cert64, cert, p))) goto leave;
+    md_json_sets(cert64, json, MD_KEY_CERT, NULL);
+leave:
+    return rv;
+}
+
+static int md_http_status(request_rec *r)
+{
+    md_store_t *store;
+    md_t *nmd;
+    apr_array_header_t *certs;
+    md_cert_t *cert_active, *cert_staged;
+    md_json_t *resp, *j;
+    int error, renew;
+    const md_srv_conf_t *sc;
+    md_reg_t *reg;
+    const md_t *md;
+    apr_bucket_brigade *bb;
+    apr_status_t rv;
+    
+    if (!r->parsed_uri.path || strcmp(MD_STATUS_RESOURCE, r->parsed_uri.path))
+        return DECLINED;
+        
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
+                  "requesting status for: %s", r->hostname);
+    
+    /* We are looking for information about a staged certificate */
+    sc = ap_get_module_config(r->server->module_config, &md_module);
+    if (!sc || !sc->mc || !sc->mc->reg) return DECLINED;
+    md = md_get_by_domain(sc->mc->mds, r->hostname);
+    if (!md) return DECLINED;
+    nmd = md_reg_get(sc->mc->reg, md->name, r->pool);
+    if (!md) return DECLINED;
+    store = md_reg_store_get(sc->mc->reg);
+    if (!store) return DECLINED;
+    
+    if (r->method_number != M_GET) {
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
+                      "md(%s): status supports only GET", md->name);
+        return HTTP_NOT_IMPLEMENTED;
+    }
+    
+    if (APR_SUCCESS != md_reg_assess(sc->mc->reg, nmd, &error, &renew, r->pool)) { 
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
+                      "md(%s): error assession status", md->name);
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+    
+    resp = md_json_create(r->pool);
+    
+    cert_active = NULL;
+    rv = md_pubcert_load(store, MD_SG_DOMAINS, nmd->name, &certs, r->pool);
+    if (APR_SUCCESS == rv && certs->nelts > 0) {
+        cert_active = APR_ARRAY_IDX(certs, 0, md_cert_t *);
+        json_add_cert_info(resp, cert_active, r->pool);
+    }
+    
+    if (renew) {
+        j = md_json_create(r->pool);
+        md_json_setj(j, resp, "staging", NULL);
+        
+        cert_staged = NULL;
+        rv = md_pubcert_load(store, MD_SG_STAGING, nmd->name, &certs, r->pool);
+        if (APR_SUCCESS == rv && certs->nelts > 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
+                          "md(%s): adding staged certificate info", md->name);
+            cert_staged = APR_ARRAY_IDX(certs, 0, md_cert_t *);
+            json_add_cert_info(j, cert_staged, r->pool);
+        }
+        else if (!APR_STATUS_IS_ENOENT(rv)) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
+                          "loading staged certificates for %s", nmd->name);
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+        else {
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
+                          "md(%s): no staged certificate", md->name);
+        }
+    }
+    
+    apr_table_set(r->headers_out, "Content-Type", "application/json"); 
+
+    bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
+    md_json_writeb(resp, MD_JSON_FMT_INDENT, bb);
+    ap_pass_brigade(r->output_filters, bb);
+    apr_brigade_cleanup(bb);
+    
+    return DONE;
+}
 
 static int md_http_challenge_pr(request_rec *r)
 {
@@ -1487,73 +1590,13 @@ static int md_http_challenge_pr(request_rec *r)
                 else if (APR_STATUS_IS_ENOENT(rv)) {
                     return HTTP_NOT_FOUND;
                 }
-                else {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(10081)
-                                  "loading challenge %s from store", name);
-                    return HTTP_INTERNAL_SERVER_ERROR;
-                }
-            }
-        }
-    }
-    if (r->parsed_uri.path 
-        && !strcmp(MD_STATUS_RESOURCE, r->parsed_uri.path)) {
-        md_store_t *store;
-        md_t *nmd;
-        apr_array_header_t *certs;
-        md_cert_t *cert;
-        md_json_t *resp;
-        char *ts;
-        const char *cert64;
-        int error, renew;
-        
-        /* We are looking for information about a staged certificate */
-        sc = ap_get_module_config(r->server->module_config, &md_module);
-        if (!sc || !sc->mc || !sc->mc->reg) goto leave;
-        md = md_get_by_domain(sc->mc->mds, r->hostname);
-        if (!md) goto leave;
-        nmd = md_reg_get(sc->mc->reg, md->name, r->pool);
-        if (!md) goto leave;
-        store = md_reg_store_get(sc->mc->reg);
-        if (!store) goto leave;
-
-        if (r->method_number != M_GET) {
-            return HTTP_NOT_IMPLEMENTED;
-        }
-            
-        if (APR_SUCCESS != md_reg_assess(sc->mc->reg, nmd, &error, &renew, r->pool)) { 
-            return HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        resp = md_json_create(r->pool);
-        md_json_setl(nmd->state, resp, MD_KEY_STATUS, NULL);
-        md_json_setb(renew, resp, MD_KEY_RENEW, NULL);
-        
-        certs = apr_array_make(r->pool, 5, sizeof(md_cert_t*));
-        rv = md_pubcert_load(store, MD_SG_STAGING, nmd->name, &certs, r->pool);
-        if (APR_SUCCESS == rv && certs->nelts > 0) {
-            cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);
-            
-            ts = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
-            apr_rfc822_date(ts, md->valid_from);
-            md_json_sets(ts, resp, MD_KEY_VALID_FROM, NULL);
-            apr_rfc822_date(ts, md->expires);
-            md_json_sets(ts, resp, MD_KEY_EXPIRES, NULL);
-            
-            if (APR_SUCCESS != md_cert_to_base64url(&cert64, cert, r->pool)) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(10081)
+                              "loading challenge %s from store", name);
                 return HTTP_INTERNAL_SERVER_ERROR;
             }
-            md_json_sets(cert64, resp, MD_KEY_CERT, NULL);
-        }    
-        
-        bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
-        md_json_writeb(resp, MD_JSON_FMT_INDENT, bb);
-        ap_pass_brigade(r->output_filters, bb);
-        apr_brigade_cleanup(bb);
-        
-        return DONE;
+        }
     }
-leave:
-    return DECLINED;
+    return md_http_status(r);
 }
 
 /**************************************************************************************************/

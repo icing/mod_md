@@ -78,13 +78,10 @@ class TestAuto:
         conf.add_md( dns_list )
         conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True)
         conf.install()
-        # restart, gets cert
+        # restart, gets cert, should still be the same cert as it remains valid
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([ domain ] )
-        self._check_md_cert( dns_list )
-        cert2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
-        # should still be the same cert as it remains valid
-        assert cert1.get_serial() == cert2.get_serial()
+        status = TestEnv.get_md_status( domain )
+        assert status['serial'] == cert1.get_serial() 
         
         # change the MD so that we need a new cert
         dns_list = [ domain, "www." + domain, "another."  + domain ]
@@ -95,10 +92,10 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
-        self._check_md_cert( dns_list )
-        cert3 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         # should no longer the same cert
-        assert cert1.get_serial() != cert3.get_serial()
+        status = TestEnv.get_md_status( domain )
+        assert status['serial'] != cert1.get_serial() 
+        self._check_md_cert( dns_list )
         # should have a 2 accounts now
         assert 2 == len(TestEnv.list_accounts())
 
