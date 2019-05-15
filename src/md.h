@@ -40,12 +40,12 @@ struct md_pkey_spec_t;
 #define PROTO_ACME_TLS_1        "acme-tls/1"
 
 typedef enum {
-    MD_S_UNKNOWN,                   /* MD has not been analysed yet */
-    MD_S_INCOMPLETE,                /* MD is missing necessary information, cannot go live */
-    MD_S_COMPLETE,                  /* MD has all necessary information, can go live */
-    MD_S_EXPIRED,                   /* MD is complete, but credentials have expired */
-    MD_S_ERROR,                     /* MD data is flawed, unable to be processed as is */ 
-    MD_S_MISSING,                   /* MD is missing config information, cannot proceed */
+    MD_S_UNKNOWN = 0,               /* MD has not been analysed yet */
+    MD_S_INCOMPLETE = 1,            /* MD is missing necessary information, cannot go live */
+    MD_S_COMPLETE = 2,              /* MD has all necessary information, can go live */
+    MD_S_EXPIRED_DEPRECATED = 3,    /* deprecated */
+    MD_S_ERROR = 4,                 /* MD data is flawed, unable to be processed as is */ 
+    MD_S_MISSING = 5,               /* MD is missing config information, cannot proceed */
 } md_state_t;
 
 typedef enum {

@@ -386,6 +386,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             md->pkey_spec = md_pkey_spec_from_json(md_json_getj(json, MD_KEY_PKEY, NULL), p);
         }
         md->state = (md_state_t)md_json_getl(json, MD_KEY_STATE, NULL);
+        if (MD_S_EXPIRED_DEPRECATED == md->state) md->state = MD_S_COMPLETE;
         md->drive_mode = (int)md_json_getl(json, MD_KEY_DRIVE_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         md->transitive = (int)md_json_getl(json, MD_KEY_TRANSITIVE, NULL);

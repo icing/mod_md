@@ -202,12 +202,6 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
             valid_from = md_cert_get_not_before(creds->cert);
             expires = md_cert_get_not_after(creds->cert);
             serial = md_cert_get_serial_number(creds->cert, p);
-            if (md_cert_has_expired(creds->cert)) {
-                state = MD_S_EXPIRED;
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                              "md{%s}: expired, certificate has expired", md->name);
-                goto out;
-            }
             if (!md_cert_is_valid_now(creds->cert)) {
                 state = MD_S_ERROR;
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
@@ -269,7 +263,7 @@ out:
     return rv;
 }
 
-apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, apr_pool_t *p)
+apr_status_t md_reg_assess(md_reg_t *reg, const md_t *md, int *perrored, int *prenew, apr_pool_t *p)
 {
     int renew = 0;
     int errored = 0;
@@ -286,6 +280,7 @@ apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, 
                          " sub-directory for this MD and start all over.", md->name);
             errored = 1;
             break;
+        case MD_S_EXPIRED_DEPRECATED:
         case MD_S_COMPLETE:
             if (!md->expires) {
                 md_log_perror( MD_LOG_MARK, MD_LOG_WARNING, 0, p,  
@@ -293,8 +288,6 @@ apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, 
                 errored = 1;
             }
             else if (md->expires <= apr_time_now()) {
-                /* Maybe we hibernated in the meantime? */
-                md->state = MD_S_EXPIRED;
                 renew = 1;
             }
             else {
@@ -302,7 +295,6 @@ apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, 
             }
             break;
         case MD_S_INCOMPLETE:
-        case MD_S_EXPIRED:
             renew = 1;
             break;
         case MD_S_MISSING:

@@ -68,7 +68,7 @@ md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p);
 /**
  * Assess the capability and need to driving this managed domain.
  */
-apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, apr_pool_t *p);
+apr_status_t md_reg_assess(md_reg_t *reg, const md_t *md, int *perrored, int *prenew, apr_pool_t *p);
 
 /**
  * Callback invoked for every md in the registry. If 0 is returned, iteration stops.

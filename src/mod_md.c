@@ -672,7 +672,7 @@ static APR_OPTIONAL_FN_TYPE(ap_watchdog_register_callback) *wd_register_callback
 static APR_OPTIONAL_FN_TYPE(ap_watchdog_set_callback_interval) *wd_set_interval;
 
 typedef struct {
-    md_t *md;
+    const md_t *md;
 
     int stalled;
     int renewed;
@@ -1450,7 +1450,7 @@ static apr_status_t json_add_cert_info(md_json_t *json, const md_t *md,
 {
     char ts[APR_RFC822_DATE_LEN];
     const char *cert64;
-    apr_status_t rv;
+    apr_status_t rv = APR_SUCCESS;
     
     if (cert) {
         apr_rfc822_date(ts, md_cert_get_not_before(cert));
@@ -1476,11 +1476,9 @@ static int md_http_status(request_rec *r)
 {
     md_store_t *store;
     apr_array_header_t *certs;
-    md_cert_t *cert_active, *cert_staged;
+    md_cert_t *cert_staged;
     md_json_t *resp, *j;
-    int error, renew;
     const md_srv_conf_t *sc;
-    md_reg_t *reg;
     const md_t *md;
     md_t *md_staged;
     apr_bucket_brigade *bb;
@@ -1489,7 +1487,7 @@ static int md_http_status(request_rec *r)
     if (!r->parsed_uri.path || strcmp(MD_STATUS_RESOURCE, r->parsed_uri.path))
         return DECLINED;
         
-    ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
                   "requesting status for: %s", r->hostname);
     
     /* We are looking for information about a staged certificate */
@@ -1501,7 +1499,7 @@ static int md_http_status(request_rec *r)
     if (!store) return DECLINED;
     
     if (r->method_number != M_GET) {
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
                       "md(%s): status supports only GET", md->name);
         return HTTP_NOT_IMPLEMENTED;
     }
@@ -1558,7 +1556,6 @@ static int md_http_challenge_pr(request_rec *r)
     const md_srv_conf_t *sc;
     const char *name, *data;
     md_reg_t *reg;
-    const md_t *md;
     int configured;
     apr_status_t rv;
     
@@ -1693,7 +1690,6 @@ static const char *si_val_status(const md_t *md, md_json_t *mdj, const status_in
         default:
             case MD_S_INCOMPLETE: return "incomplete";
             case MD_S_COMPLETE: return "complete";
-            case MD_S_EXPIRED: return "expired";
             case MD_S_ERROR: return "error";
             case MD_S_MISSING: return "missing";
             return "unknown";
@@ -1762,18 +1758,31 @@ static const char *si_val_ca(const md_t *md, md_json_t *mdj, const status_info *
     return md->ca_url;
 }
     
+static const char *si_val_renewal(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+{
+    (void)md;
+    (void)info;
+    (void)p;
+    if (md_json_getb(mdj, MD_KEY_RENEW)) {
+        if (md_json_getb(mdj, MD_KEY_PROCESSED)) {
+            return "staged";
+        }
+        return "ongoing";
+    }
+    return "-";
+}
+
 const status_info status_infos[] = {
     { "Name", MD_KEY_NAME, NULL },
     { "Domains", MD_KEY_DOMAINS, NULL },
     { "Status", MD_KEY_STATUS, si_val_status },
     { "Valid", MD_KEY_VALID_FROM, si_val_valid_from },
-    { "Renew",  MD_KEY_RENEW, si_val_yes_no },
-    { "Processed",  MD_KEY_PROCESSED, si_val_yes_no },
-    { "Errors",  MD_KEY_ERRORS, NULL },
     { "Expires", MD_KEY_EXPIRES, si_val_expires },
-    { "Renew-Window", MD_KEY_RENEW_WINDOW, NULL },
+    { "Renewal",  MD_KEY_PROCESSED, si_val_renewal },
+    { "Errors",  MD_KEY_ERRORS, NULL },
     { "Drive-mode", MD_KEY_DRIVE_MODE, si_val_drive_mode },
-    { "Must-Staple", MD_KEY_MUST_STAPLE, si_val_yes_no },
+    { "Window", MD_KEY_RENEW_WINDOW, NULL },
+    { "Staple", MD_KEY_MUST_STAPLE, si_val_yes_no },
     { "Contacts", MD_KEY_CONTACTS, NULL },
     { "CA", MD_KEY_CA, si_val_ca },
 };
@@ -1800,7 +1809,7 @@ static const char *status_val(const md_t *md, md_json_t *mdj, const status_info 
     return s;
 }
 
-static apr_status_t md_status_print(const md_mod_conf_t *mc, md_t *md, request_rec *r)
+static apr_status_t md_status_print(const md_mod_conf_t *mc, const md_t *md, request_rec *r)
 {
     md_json_t *mdj;
     md_job_t *job = NULL;
@@ -1834,16 +1843,16 @@ static int md_status_hook(request_rec *r, int flags)
 {
     const md_srv_conf_t *sc;
     const md_mod_conf_t *mc;
-    md_t *md;
+    const md_t *md;
     int i, html;
     
     sc = ap_get_module_config(r->server->module_config, &md_module);
     if (!sc) return DECLINED;
     mc = sc->mc;
+    if (!mc) return DECLINED;
 
     html = !(flags & AP_STATUS_SHORT);
-        
-    if ((flags & AP_STATUS_SHORT) || mc->mds->nelts == 0) {
+    if (!html || mc->mds->nelts == 0) {
         ap_rputs(apr_psprintf(r->pool, "%sMDomains: %d\n", 
                               html? "<hr>\n" : "", mc->mds->nelts), r);
         return OK;
@@ -1858,7 +1867,7 @@ static int md_status_hook(request_rec *r, int flags)
     ap_rputs("</tr>\n</thead><tbody>", r);
 
     for (i = 0; i < mc->mds->nelts; ++i) {
-        md = md_copy(r->pool, APR_ARRAY_IDX(mc->mds, i, const md_t *));
+        md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
         md_status_print(mc, md, r);
     }
     ap_rputs("</td></tr>\n</tbody>\n</table>\n", r);
