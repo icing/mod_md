@@ -18,7 +18,6 @@
 #include <apr_optional.h>
 #include <apr_strings.h>
 
-#include <mpm_common.h>
 #include <httpd.h>
 #include <http_core.h>
 #include <http_protocol.h>
