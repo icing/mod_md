@@ -174,12 +174,15 @@ struct status_info {
 static void si_val_status(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
     const char *s = "unknown";
-    (void)md;
-    switch (md_json_getl(mdj, info->key, NULL)) {
+    (void)mdj;
+    (void)info;
+    switch (md->state) {
         case MD_S_INCOMPLETE: s = "incomplete"; break;
+        case MD_S_EXPIRED_DEPRECATED:
         case MD_S_COMPLETE: s = "complete"; break;
         case MD_S_ERROR: s = "error"; break;
         case MD_S_MISSING: s = "missing"; break;
+        default: break;
     }
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }

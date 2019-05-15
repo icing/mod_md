@@ -1,3 +1,8 @@
+v1.99.11
+----------------------------------------------------------------------------------------------------
+ * Rework of MD's contribution to httpd 'server-status' page. Better formatting, reordering, using
+   absolute GMT timestamps.
+
 v1.99.10
 ----------------------------------------------------------------------------------------------------
  * MD status now initialized fully in global list. Fixes new status handler to assess
