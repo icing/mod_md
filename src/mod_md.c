@@ -1672,104 +1672,120 @@ static int md_require_https_maybe(request_rec *r)
 /**************************************************************************************************/
 /* Status hook */
 
+typedef struct {
+    apr_pool_t *p;
+    const md_mod_conf_t *mc;
+    apr_bucket_brigade *bb;
+    const char *separator;
+} status_ctx;
+
 typedef struct status_info status_info; 
 
-typedef const char *status_value_fn(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p);
+typedef void add_status_fn(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info);
 
 struct status_info {
     const char *label;
     const char *key;
-    status_value_fn *fn;
+    add_status_fn *fn;
 };
 
-static const char *si_val_status(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+static void si_val_status(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
-    (void)p;
+    const char *s = "unknown";
     (void)md;
     switch (md_json_getl(mdj, info->key, NULL)) {
-        default:
-            case MD_S_INCOMPLETE: return "incomplete";
-            case MD_S_COMPLETE: return "complete";
-            case MD_S_ERROR: return "error";
-            case MD_S_MISSING: return "missing";
-            return "unknown";
+        case MD_S_INCOMPLETE: s = "incomplete"; break;
+        case MD_S_COMPLETE: s = "complete"; break;
+        case MD_S_ERROR: s = "error"; break;
+        case MD_S_MISSING: s = "missing"; break;
     }
+    apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-static const char *si_val_drive_mode(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+static void si_val_drive_mode(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
-    (void)p;
+    const char *s = "auto";
     (void)md;
     switch (md_json_getl(mdj, info->key, NULL)) {
-        default:
-            case MD_DRIVE_MANUAL: return "manual";
-            case MD_DRIVE_ALWAYS: return "always";
-            return "auto";
+        case MD_DRIVE_MANUAL: s = "manual"; break;
+        case MD_DRIVE_ALWAYS: s = "always"; break;
     }
+    apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-static const char *si_val_yes_no(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+static void si_val_yes_no(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
-    (void)p;
     (void)md;
-    return (md_json_getl(mdj, info->key, NULL))? "yes" : "no";
+    apr_brigade_puts(ctx->bb, NULL, NULL, md_json_getl(mdj, info->key, NULL)? "yes" : "no");
 }
 
-static const char *si_val_expires(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+static void si_val_expires(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
     apr_time_t now = apr_time_now();
-    (void)p;
     (void)mdj;
     (void)info;
     if (md->expires > 0) {
         if (md->expires > now) {
-            return apr_psprintf(p, "in %s", md_print_duration(p, md->expires - now));
+            apr_brigade_printf(ctx->bb, NULL, NULL, "in %s",
+                               md_print_duration(ctx->p, md->expires - now));
         }
-        return apr_psprintf(p, "%s ago", md_print_duration(p, now - md->expires));
+        else {
+            apr_brigade_printf(ctx->bb, NULL, NULL, "%s ago", 
+                               md_print_duration(ctx->p, now - md->expires)); 
+
+        }
     }
-    return "-";
+    else {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
+    }
 }
 
-static const char *si_val_valid_from(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+static void si_val_valid_from(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
     apr_time_t now = apr_time_now();
-    (void)p;
     (void)mdj;
     (void)info;
     if (md->valid_from > 0) {
         if (md->expires > now) {
-            return apr_psprintf(p, "in %s", md_print_duration(p, md->valid_from - now));
+            apr_brigade_printf(ctx->bb, NULL, NULL, "in %s", 
+                               md_print_duration(ctx->p, md->valid_from - now));
         }
-        return apr_psprintf(p, "since %s", md_print_duration(p, now - md->valid_from));
+        else {
+            apr_brigade_printf(ctx->bb, NULL, NULL, "since %s", 
+                               md_print_duration(ctx->p, now - md->valid_from));
+        }
     }
-    return "-";
+    else {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
+    }
 }
     
-static const char *si_val_ca(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+static void si_val_ca(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
-    (void)p;
+    const char *s = md->ca_url? md->ca_url : "-";
     (void)mdj;
     (void)info;
-    if (!md->ca_url) return "-";
-    if (!strcmp(LE_ACMEv2_PROD, md->ca_url)) return "letsencrypt(v2)";
-    if (!strcmp(LE_ACMEv1_PROD, md->ca_url)) return "letsencrypt(v1)";
-    if (!strcmp(LE_ACMEv2_STAGING, md->ca_url)) return "letsencrypt(Test, v2)";
-    if (!strcmp(LE_ACMEv1_STAGING, md->ca_url)) return "letsencrypt(Test, v1)";
-    return md->ca_url;
+    if (!strcmp(LE_ACMEv2_PROD, s)) s = "letsencrypt(v2)";
+    else if (!strcmp(LE_ACMEv1_PROD, s)) s = "letsencrypt(v1)";
+    else if (!strcmp(LE_ACMEv2_STAGING, s)) s = "letsencrypt(Testv2)";
+    else if (!strcmp(LE_ACMEv1_STAGING, s)) s = "letsencrypt(Testv1)";
+    apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
     
-static const char *si_val_renewal(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
+static void si_val_renewal(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
+    const char *s = "-";
     (void)md;
     (void)info;
-    (void)p;
     if (md_json_getb(mdj, MD_KEY_RENEW)) {
         if (md_json_getb(mdj, MD_KEY_PROCESSED)) {
-            return "staged";
+            s = "staged";
         }
-        return "ongoing";
+        else {
+            s = "ongoing";
+        }
     }
-    return "-";
+    apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
 const status_info status_infos[] = {
@@ -1787,56 +1803,69 @@ const status_info status_infos[] = {
     { "CA", MD_KEY_CA, si_val_ca },
 };
 
-static const char *status_val(const md_t *md, md_json_t *mdj, const status_info *info, apr_pool_t *p)
-{
-    md_json_t *sj;
-    const char *s;
+static void add_json_val(status_ctx *ctx, md_json_t *j);
 
-    if (info->fn) {
-        s = info->fn(md, mdj, info, p);
-    }
-    else {
-        s = md_json_gets(mdj, info->key, NULL);
-        if (!s) {
-            sj = md_json_getj(mdj, info->key, NULL);
-            if (sj)  s = md_json_writep(sj, p, MD_JSON_FMT_COMPACT);
-            else if (!s && md_json_has_key(mdj, info->key, NULL))
-                s = apr_psprintf(p, "%ld", md_json_getl(mdj, info->key, NULL));
-            else
-                s = "-";
-        }
-    }
-    return s;
+static int json_iter_val(void *data, size_t index, md_json_t *json)
+{
+    status_ctx *ctx = data;
+    if (index) apr_brigade_puts(ctx->bb, NULL, NULL, ctx->separator);
+    add_json_val(ctx, json);
+    return 1;
 }
 
-static apr_status_t md_status_print(const md_mod_conf_t *mc, const md_t *md, request_rec *r)
+static void add_json_val(status_ctx *ctx, md_json_t *j)
+{
+    if (!j) return;
+    else if (md_json_is(MD_JSON_TYPE_ARRAY, j, NULL)) {
+        md_json_itera(json_iter_val, ctx, j, NULL);
+    }
+    else if (md_json_is(MD_JSON_TYPE_INT, j, NULL)) {
+        md_json_writeb(j, MD_JSON_FMT_COMPACT, ctx->bb);
+    }
+    else if (md_json_is(MD_JSON_TYPE_STRING, j, NULL)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, md_json_gets(j, NULL));
+    }
+    else if (md_json_is(MD_JSON_TYPE_OBJECT, j, NULL)) {
+        md_json_writeb(j, MD_JSON_FMT_COMPACT, ctx->bb);
+    }
+}
+
+static void add_status_cell(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+{
+    if (info->fn) {
+        info->fn(ctx, md, mdj, info);
+    }
+    else {
+        add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
+    }
+}
+
+static void add_md_row(status_ctx *ctx, const md_t *md)
 {
     md_json_t *mdj;
     md_job_t *job = NULL;
     int i, errored, renew;
     
-    mdj = md_to_json(md, r->pool);
-    if (APR_SUCCESS == md_reg_assess(mc->reg, md, &errored, &renew, r->pool)) {
+    mdj = md_to_json(md, ctx->p);
+    if (APR_SUCCESS == md_reg_assess(ctx->mc->reg, md, &errored, &renew, ctx->p)) {
         md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     }
     if (renew) {
-        job = apr_pcalloc(r->pool, sizeof(*job));
+        job = apr_pcalloc(ctx->p, sizeof(*job));
         job->md = md;
-        if (APR_SUCCESS == load_job_props(mc->reg, job, r->pool)) {
+        if (APR_SUCCESS == load_job_props(ctx->mc->reg, job, ctx->p)) {
             md_json_setl(job->error_runs, mdj, MD_KEY_ERRORS, NULL);
             md_json_setb(job->restart_processed, mdj, MD_KEY_PROCESSED, NULL);
         }
     }
     
-    ap_rputs("<tr>", r);
+    apr_brigade_puts(ctx->bb, NULL, NULL, "<tr>");
     for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
-        ap_rputs("<td>", r);
-        ap_rputs(status_val(md, mdj, &status_infos[i], r->pool), r);
-        ap_rputs("</td>", r);
+        apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
+        add_status_cell(ctx, md, mdj, &status_infos[i]);
+        apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
     }
-    ap_rputs("</tr>", r);
-
-    return APR_SUCCESS;
+    apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
 }
 
 static int md_status_hook(request_rec *r, int flags)
@@ -1845,6 +1874,7 @@ static int md_status_hook(request_rec *r, int flags)
     const md_mod_conf_t *mc;
     const md_t *md;
     int i, html;
+    status_ctx ctx;
     
     sc = ap_get_module_config(r->server->module_config, &md_module);
     if (!sc) return DECLINED;
@@ -1852,26 +1882,34 @@ static int md_status_hook(request_rec *r, int flags)
     if (!mc) return DECLINED;
 
     html = !(flags & AP_STATUS_SHORT);
+    ctx.p = r->pool;
+    ctx.mc = mc;
+    ctx.bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
+    ctx.separator = " ";
+
     if (!html || mc->mds->nelts == 0) {
-        ap_rputs(apr_psprintf(r->pool, "%sMDomains: %d\n", 
-                              html? "<hr>\n" : "", mc->mds->nelts), r);
-        return OK;
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sMDomains: %d\n", 
+                           html? "<hr>\n" : "", mc->mds->nelts);
+    }
+    else {
+        apr_brigade_puts(ctx.bb, NULL, NULL, 
+                         "<hr>\n<h2>Managed Domains</h2>\n<table class='md_status'><thead><tr>\n");
+        for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+            apr_brigade_puts(ctx.bb, NULL, NULL, "<th>");
+            apr_brigade_puts(ctx.bb, NULL, NULL, status_infos[i].label);
+            apr_brigade_puts(ctx.bb, NULL, NULL, "</th>");
+        }
+        apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
+        for (i = 0; i < mc->mds->nelts; ++i) {
+            md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
+            add_md_row(&ctx, md);
+        }
+        apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
     }
 
-    ap_rputs("<hr>\n<h2>Managed Domains</h2>\n<table class='md_status'><thead><tr>\n", r);
-    for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
-        ap_rputs("<th>", r);
-        ap_rputs(status_infos[i].label, r);
-        ap_rputs("</th>", r);
-    }
-    ap_rputs("</tr>\n</thead><tbody>", r);
-
-    for (i = 0; i < mc->mds->nelts; ++i) {
-        md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
-        md_status_print(mc, md, r);
-    }
-    ap_rputs("</td></tr>\n</tbody>\n</table>\n", r);
-
+    ap_pass_brigade(r->output_filters, ctx.bb);
+    apr_brigade_cleanup(ctx.bb);
+    
     return OK;
 }
 

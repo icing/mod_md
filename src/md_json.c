@@ -259,6 +259,28 @@ int md_json_has_key(md_json_t *json, ...)
 }
 
 /**************************************************************************************************/
+/* type things */
+
+int md_json_is(md_json_type_t jtype, md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+    switch (jtype) {
+        case MD_JSON_TYPE_OBJECT: return (j && json_is_object(j));
+        case MD_JSON_TYPE_ARRAY: return (j && json_is_array(j));
+        case MD_JSON_TYPE_STRING: return (j && json_is_string(j));
+        case MD_JSON_TYPE_REAL: return (j && json_is_real(j));
+        case MD_JSON_TYPE_INT: return (j && json_is_integer(j));
+        case MD_JSON_TYPE_BOOL: return (j && (json_is_true(j) || json_is_false(j)));
+        case MD_JSON_TYPE_NULL: return (j == NULL);
+    }
+}
+
+/**************************************************************************************************/
 /* booleans */
 
 int md_json_getb(md_json_t *json, ...)

@@ -29,6 +29,17 @@ struct md_http_response_t;
 typedef struct md_json_t md_json_t;
 
 typedef enum {
+    MD_JSON_TYPE_OBJECT,
+    MD_JSON_TYPE_ARRAY,
+    MD_JSON_TYPE_STRING,
+    MD_JSON_TYPE_REAL,
+    MD_JSON_TYPE_INT,
+    MD_JSON_TYPE_BOOL,
+    MD_JSON_TYPE_NULL,
+} md_json_type_t;
+
+
+typedef enum {
     MD_JSON_FMT_COMPACT,
     MD_JSON_FMT_INDENT,
 } md_json_fmt_t;
@@ -39,7 +50,9 @@ void md_json_destroy(md_json_t *json);
 md_json_t *md_json_copy(apr_pool_t *pool, md_json_t *json);
 md_json_t *md_json_clone(apr_pool_t *pool, md_json_t *json);
 
+
 int md_json_has_key(md_json_t *json, ...);
+int md_json_is(md_json_type_t type, md_json_t *json, ...);
 
 /* boolean manipulation */
 int md_json_getb(md_json_t *json, ...);
