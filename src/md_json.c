@@ -278,6 +278,7 @@ int md_json_is(md_json_type_t jtype, md_json_t *json, ...)
         case MD_JSON_TYPE_BOOL: return (j && (json_is_true(j) || json_is_false(j)));
         case MD_JSON_TYPE_NULL: return (j == NULL);
     }
+    return 0;
 }
 
 /**************************************************************************************************/
