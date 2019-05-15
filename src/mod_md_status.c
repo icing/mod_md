@@ -236,14 +236,18 @@ static void si_val_valid_from(status_ctx *ctx, const md_t *md, md_json_t *mdj, c
     
 static void si_val_ca(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
-    const char *s = md->ca_url? md->ca_url : "-";
+    const char *s;
     (void)mdj;
     (void)info;
+    if (!md->ca_url) return;
+    
+    s = md->ca_url;
     if (!strcmp(LE_ACMEv2_PROD, s)) s = "letsencrypt(v2)";
     else if (!strcmp(LE_ACMEv1_PROD, s)) s = "letsencrypt(v1)";
     else if (!strcmp(LE_ACMEv2_STAGING, s)) s = "letsencrypt(Testv2)";
     else if (!strcmp(LE_ACMEv1_STAGING, s)) s = "letsencrypt(Testv1)";
-    apr_brigade_puts(ctx->bb, NULL, NULL, s);
+    
+    apr_brigade_printf(ctx->bb, NULL, NULL, "<a href=\"%s\">%s</a>", md->ca_url, s);
 }
     
 static void si_val_renewal(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
