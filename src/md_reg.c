@@ -947,12 +947,11 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge,
     return md_util_pool_vdo(run_stage, reg, p, proto, md, challenge, env, reset, pvalid_from, NULL);
 }
 
-static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
-    const char *name;
     const md_proto_t *proto;
-    const md_t *md, *nmd;
+    const md_t *md;
     md_proto_driver_t *driver;
     apr_table_t *env;
     apr_status_t rv;
@@ -963,22 +962,16 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
      *   (might we check this first?)
      * - 
      */
-    name = va_arg(ap, const char *);
+    md = va_arg(ap, const md_t *);
     env =  va_arg(ap, apr_table_t *);
     
-    if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, name, NULL, ptemp))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, ptemp, "%s: nothing staged", name);
-        return APR_ENOENT;
-    }
-    
-    md = md_reg_get(reg, name, p);
-    if (!md) {
+    if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, md->name, NULL, ptemp))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, ptemp, "%s: nothing staged", md->name);
         return APR_ENOENT;
     }
     
     if (!md->ca_proto) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", name);
-        ((md_t *)md)->state = MD_S_ERROR;
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", md->name);
         return APR_EINVAL;
     }
     
@@ -986,7 +979,6 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     if (!proto) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
-        ((md_t *)md)->state = MD_S_ERROR;
         return APR_EINVAL;
     }
     
@@ -1000,17 +992,6 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
             /* swap */
             rv = md_store_move(reg->store, p, MD_SG_TMP, MD_SG_DOMAINS, md->name, 1);
             if (APR_SUCCESS == rv) {
-                /* load again */
-                nmd = md_reg_get(reg, md->name, p);
-                if (!nmd) {
-                    rv = APR_ENOENT;
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "loading md after staging");
-                }
-                else if (nmd->state != MD_S_COMPLETE) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                                  "md has state %d after load", nmd->state);
-                }
-                
                 md_store_purge(reg->store, p, MD_SG_STAGING, md->name);
                 md_store_purge(reg->store, p, MD_SG_CHALLENGES, md->name);
             }
@@ -1020,8 +1001,8 @@ static apr_status_t run_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     return rv;
 }
 
-apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_table_t *env, apr_pool_t *p)
+apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, apr_table_t *env, apr_pool_t *p)
 {
-    return md_util_pool_vdo(run_load, reg, p, name, env, NULL);
+    return md_util_pool_vdo(run_load_staging, reg, p, md, env, NULL);
 }
 

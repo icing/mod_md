@@ -176,12 +176,12 @@ apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md,
                           int reset, apr_time_t *pvalid_from, apr_pool_t *p);
 
 /**
- * Load a staged set of new credentials for the managed domain. This will archive
- * any existing credential data and make the staged set the new live one.
+ * Load a new set of new credentials for the managed domain from STAGING - if it exists. 
+ * This will archive any existing credential data and make the staged set the new live one.
  * If staging is incomplete or missing, the load will fail and all credentials remain
  * as they are.
  */
-apr_status_t md_reg_load(md_reg_t *reg, const char *name, struct apr_table_t *env, 
-                         apr_pool_t *p);
+apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
+                                 apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */

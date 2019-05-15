@@ -80,6 +80,7 @@ static md_mod_conf_t defmc = {
     NULL,
     NULL,
     NULL,
+    NULL,
 };
 
 /* Default server specific setting */
@@ -123,6 +124,7 @@ static md_mod_conf_t *md_mod_conf_get(apr_pool_t *pool, int create)
         memcpy(mod_md_config, &defmc, sizeof(*mod_md_config));
         mod_md_config->mds = apr_array_make(pool, 5, sizeof(const md_t *));
         mod_md_config->unused_names = apr_array_make(pool, 5, sizeof(const md_t *));
+        mod_md_config->watch_names = apr_array_make(pool, 5, sizeof(const md_t *));
         mod_md_config->env = apr_table_make(pool, 10);
         
 #if AP_MODULE_MAGIC_AT_LEAST(20180906, 2)

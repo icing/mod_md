@@ -1,3 +1,6 @@
+ * Cleanup of post config work to make the dry-run phase faster and avoid double loadings
+   of MD data from the file system.
+
 v1.99.11
 ----------------------------------------------------------------------------------------------------
  * Rework of MD's contribution to httpd 'server-status' page. Better formatting, reordering, using

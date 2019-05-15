@@ -52,6 +52,7 @@ typedef struct {
     int hsts_max_age;                  /* max-age of HSTS (rfc6797) header */
     const char *hsts_header;           /* computed HTST header to use or NULL */
     apr_array_header_t *unused_names;  /* post config, names of all MDs not assigned to a vhost */
+    apr_array_header_t *watch_names;   /* post config, names of all MDs that we need to watch */
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
     struct apr_table_t *env;           /* environment for operation */

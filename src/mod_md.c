@@ -69,7 +69,7 @@ AP_DECLARE_MODULE(md) = {
 #endif
 };
 
-static void md_merge_srv(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
+static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
 {
     if (!md->sc) {
         md->sc = base_sc;
@@ -314,7 +314,7 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
     }
 
     md->can_acme_tls_1 = supports_acme_tls_1(md, base_server);
-
+    
     if (APR_SUCCESS == rv) {
         if (apr_is_empty_array(servers)) {
             if (md->drive_mode != MD_DRIVE_ALWAYS) {
@@ -381,8 +381,9 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
     return rv;
 }
 
-static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
-                                    apr_pool_t *ptemp, server_rec *base_server)
+static apr_status_t update_global_md_list(apr_pool_t *p, apr_pool_t *plog,
+                                          apr_pool_t *ptemp, server_rec *base_server, 
+                                          int log_level)
 {
     md_srv_conf_t *sc;
     md_mod_conf_t *mc;
@@ -393,6 +394,11 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
     apr_sockaddr_t *sa;
     int i, j;
 
+    /* The global module configuration 'mc' keeps a list of all configured MDomains
+     * in the server. This list is collected during configuration processing and,
+     * in the post config phase, get updated from all merged server configurations
+     * before the server starts processing.
+     */ 
     (void)plog;
     sc = md_config_get(base_server);
     mc = sc->mc;
@@ -413,7 +419,7 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
         }
     }
     
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10037)
+    ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10037)
                  "server seems%s reachable via http: (port 80->%d) "
                  "and%s reachable via https: (port 443->%d) ",
                  mc->can_http? "" : " not", mc->local_80,
@@ -421,10 +427,12 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
     
     /* Complete the properties of the MDs, now that we have the complete, merged
      * server configurations. 
-     */
+     * Calculate which MD names are unused and which we need to watch. */
+    apr_array_clear(mc->unused_names);
+    
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, md_t*);
-        md_merge_srv(md, sc, p);
+        merge_srv_config(md, sc, p);
 
         /* Check that we have no overlap with the MDs already completed */
         for (j = 0; j < i; ++j) {
@@ -445,7 +453,7 @@ static apr_status_t md_calc_md_list(apr_pool_t *p, apr_pool_t *plog,
             return rv;
         }
 
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10039)
+        ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10039)
                      "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, renew=%ld]",
                      md->name, md->ca_url, md->ca_proto, md->ca_agreement,
                      md->drive_mode, (long)md->renew_window);
@@ -528,22 +536,15 @@ out:
     return rv;
 }
 
-static apr_status_t setup_reg(md_reg_t **preg, apr_pool_t *p, server_rec *s, 
-                              int can_http, int can_https)
+static apr_status_t setup_reg(md_mod_conf_t *mc, apr_pool_t *p, server_rec *s)
 {
-    md_srv_conf_t *sc;
-    md_mod_conf_t *mc;
     md_store_t *store;
     apr_status_t rv;
     MD_CHK_VARS;
     
-    sc = md_config_get(s);
-    mc = sc->mc;
-    
     if (   MD_OK(setup_store(&store, mc, p, s))
-        && MD_OK(md_reg_init(preg, p, store, mc->proxy_url))) {
-        mc->reg = *preg;
-        return md_reg_set_props(*preg, p, can_http, can_https); 
+        && MD_OK(md_reg_init(&mc->reg, p, store, mc->proxy_url))) {
+        return md_reg_set_props(mc->reg, p, mc->can_http, mc->can_https); 
     }
     return rv;
 }
@@ -679,9 +680,7 @@ typedef struct {
     ap_watchdog_t *watchdog;
     
     apr_time_t next_change;
-    
     apr_array_header_t *jobs;
-    md_reg_t *reg;
 } md_watchdog;
 
 static void assess_renewal(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp) 
@@ -777,7 +776,7 @@ static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
     else if (job->renewed) {
         assess_renewal(wd, job, ptemp);
     }
-    else if (APR_SUCCESS == (rv = md_reg_assess(wd->reg, job->md, &errored, &renew, wd->p))) {
+    else if (APR_SUCCESS == (rv = md_reg_assess(wd->mc->reg, job->md, &errored, &renew, wd->p))) {
         if (errored) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10050) 
                          "md(%s): in error state", job->md->name);
@@ -786,7 +785,7 @@ static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10052) 
                          "md(%s): state=%d, driving", job->md->name, job->md->state);
                          
-            rv = md_reg_stage(wd->reg, job->md, NULL, wd->mc->env, 0, &valid_from, ptemp);
+            rv = md_reg_stage(wd->mc->reg, job->md, NULL, wd->mc->env, 0, &valid_from, ptemp);
             
             if (APR_SUCCESS == rv) {
                 job->renewed = 1;
@@ -823,7 +822,7 @@ static apr_status_t check_job(md_watchdog *wd, md_job_t *job, apr_pool_t *ptemp)
     
 out:
     if (error_runs != job->error_runs) {
-        apr_status_t rv2 = save_job_props(wd->reg, job, ptemp);
+        apr_status_t rv2 = save_job_props(wd->mc->reg, job, ptemp);
         ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, wd->s, "%s: saving job props", job->md->name);
     }
 
@@ -844,11 +843,9 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10054)
                          "md watchdog start, auto drive %d mds", wd->jobs->nelts);
-            assert(wd->reg);
-        
             for (i = 0; i < wd->jobs->nelts; ++i) {
                 job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
-                md_job_update(wd->reg, job, ptemp);
+                md_job_update(wd->mc->reg, job, ptemp);
             }
             break;
         case AP_WATCHDOG_STATE_RUNNING:
@@ -936,7 +933,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                     job = APR_ARRAY_IDX(wd->jobs, i, md_job_t *);
                     if (job->need_restart && !job->restart_processed) {
                         job->restart_processed = 1;
-                        save_job_props(wd->reg, job, ptemp);
+                        save_job_props(wd->mc->reg, job, ptemp);
                     }
                 }
             }
@@ -966,8 +963,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
     return APR_SUCCESS;
 }
 
-static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p, 
-                                   md_reg_t *reg, server_rec *s, md_mod_conf_t *mc)
+static apr_status_t start_watchdog(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     apr_allocator_t *allocator;
     md_watchdog *wd;
@@ -1000,16 +996,15 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
 
     wd = apr_pcalloc(wdp, sizeof(*wd));
     wd->p = wdp;
-    wd->reg = reg;
     wd->s = s;
     wd->mc = mc;
     
     wd->jobs = apr_array_make(wd->p, 10, sizeof(md_job_t *));
-    for (i = 0; i < names->nelts; ++i) {
-        name = APR_ARRAY_IDX(names, i, const char *);
+    for (i = 0; i < mc->watch_names->nelts; ++i) {
+        name = APR_ARRAY_IDX(mc->watch_names, i, const char *);
         md = md_get_by_name(mc->mds, name);
         if (md) {
-            md_reg_assess(wd->reg, md, &errored, &renew, wd->p);
+            md_reg_assess(wd->mc->reg, md, &errored, &renew, wd->p);
             if (errored) {
                 ap_log_error( APLOG_MARK, APLOG_WARNING, 0, wd->s, APLOGNO(10063) 
                              "md(%s): seems errored. Will not process this any further.", name);
@@ -1023,13 +1018,13 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
                 ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, wd->s, APLOGNO(10064) 
                              "md(%s): state=%d, driving", name, md->state);
                 
-                md_job_update(reg, job, wd->p);
+                md_job_update(mc->reg, job, wd->p);
                 if (job->error_runs) {
                     /* We are just restarting. If we encounter jobs that had errors
                      * running the protocol on previous staging runs, we reset
                      * the staging area for it, in case we persisted something that
                      * causes a loop. */
-                    md_store_t *store = md_reg_store_get(wd->reg);
+                    md_store_t *store = md_reg_store_get(wd->mc->reg);
                     
                     md_store_purge(store, p, MD_SG_STAGING, job->md->name);
                     md_store_purge(store, p, MD_SG_CHALLENGES, job->md->name);
@@ -1057,25 +1052,38 @@ static apr_status_t start_watchdog(apr_array_header_t *names, apr_pool_t *p,
     return rv;
 }
  
-static void load_stage_sets(apr_array_header_t *names, apr_pool_t *p, 
-                            md_reg_t *reg, server_rec *s, apr_table_t *env)
+static void load_stagings(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     const char *name; 
     apr_status_t rv;
-    int i;
+    const md_t *md, *nmd;
+    int i, j;
     
-    for (i = 0; i < names->nelts; ++i) {
-        name = APR_ARRAY_IDX(names, i, const char*);
-        if (APR_SUCCESS == (rv = md_reg_load(reg, name, env, p))) {
+    for (i = 0; i < mc->watch_names->nelts; ++i) {
+        name = APR_ARRAY_IDX(mc->watch_names, i, const char*);
+        md = md_get_by_name(mc->mds, name);
+        ap_assert(md);
+        if (APR_SUCCESS == (rv = md_reg_load_staging(mc->reg, md, mc->env, p))) {
             ap_log_error( APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(10068) 
                          "%s: staged set activated", name);
+            nmd = md_reg_get(mc->reg, name, p);
         }
         else if (!APR_STATUS_IS_ENOENT(rv)) {
             ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10069)
                          "%s: error loading staged set", name);
         }
+        else {
+            nmd = md_reg_get(mc->reg, name, p);
+        }
+
+        /* swich out the reloaded nmd with the make prev one */
+        for (j = 0; j < mc->mds->nelts; ++j) {
+            if (md == APR_ARRAY_IDX(mc->mds, j, const md_t*)) {
+                APR_ARRAY_IDX(mc->mds, j, const md_t*) = nmd;
+                break;
+            }
+        }
     }
-    return;
 }
 
 static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
@@ -1085,13 +1093,9 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     const char *mod_md_init_key = "mod_md_init_counter";
     md_srv_conf_t *sc;
     md_mod_conf_t *mc;
-    md_reg_t *reg;
     const md_t *md;
-    md_t *lmd;
-    apr_array_header_t *drive_names;
     apr_status_t rv = APR_SUCCESS;
     int i, dry_run = 0;
-    apr_array_header_t *loaded_mds;
 
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
     if (data == NULL) {
@@ -1106,7 +1110,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
          * us unprepared.
          * But synching our configuration with the md store
          * and determining which domains to drive and start a watchdog
-         * and all that, we do not.
+         * and all that, we delay up to the "real" invocation.
          */
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10070)
                      "initializing post config dry run");
@@ -1123,39 +1127,45 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     init_setups(p, s);
     md_log_set(log_is_level, log_print, NULL);
 
-    /* Check uniqueness of MDs, calculate global, configured MD list.
-     * If successful, we have a list of MD definitions that do not overlap. */
-    /* We also need to find out if we can be reached on 80/443 from the outside (e.g. the CA) */
-    if (APR_SUCCESS != (rv =  md_calc_md_list(p, plog, ptemp, s))) {
+    /* Update and check the global list of MDs with all merged configurations that
+     * apply. Check for consistency, non-overlapping domains etc. 
+     * When we pass this, the global list of MDs is complete and clean.
+     * We also have assigned MDs to server_rec configs where they belong.
+     * As a side effect, we have create a list of MD names that are not in use anywhere. 
+     */ 
+    if (APR_SUCCESS != (rv =  update_global_md_list(p, plog, ptemp, s, 
+                                                    dry_run? APLOG_TRACE1 : APLOG_DEBUG))) {
         return rv;
     }
 
+    /* This is a much checking as we do on a dry run */
+    if (dry_run) {
+        goto out;
+    }
+        
     md_config_post_config(s, p);
     sc = md_config_get(s);
     mc = sc->mc;
 
-    /* Synchronize the definitions we now have with the store via a registry (reg). */
-    if (APR_SUCCESS != (rv = setup_reg(&reg, p, s, mc->can_http, mc->can_https))) {
+    if (APR_SUCCESS != (rv = setup_reg(mc, p, s))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072)
                      "setup md registry");
         goto out;
     }
-    
-    if (APR_SUCCESS != (rv = md_reg_sync(reg, p, ptemp, mc->mds))) {
+
+    /* Now, synchronize the global MD list with our registry. When this runs
+     * through, our store MDs reflect the global MD list. 
+     */
+    if (APR_SUCCESS != (rv = md_reg_sync(mc->reg, p, ptemp, mc->mds))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
                      "synching %d mds to registry", mc->mds->nelts);
     }
     
-    /* Determine the managed domains that are in auto drive_mode. For those,
-     * determine in which state they are:
-     *  - UNKNOWN:            should not happen, report, don't drive
-     *  - ERROR:              something we do not know how to fix, report, don't drive
-     *  - INCOMPLETE/EXPIRED: need to drive them right away
-     *  - COMPLETE:           determine when cert expires, drive when the time comes
-     *
-     * Start the watchdog if we have anything, now or in the future.
+    /* Calculate the list of MD names which we need to watch:
+     * - all MDs in drive mode 'ALWAYS'
+     * - all MDs in drive mode 'AUTO' that are not in 'unused_names'
      */
-    drive_names = apr_array_make(ptemp, mc->mds->nelts+1, sizeof(const char *));
+    apr_array_clear(mc->watch_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
         switch (md->drive_mode) {
@@ -1165,7 +1175,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                 }
                 /* fall through */
             case MD_DRIVE_ALWAYS:
-                APR_ARRAY_PUSH(drive_names, const char *) = md->name; 
+                APR_ARRAY_PUSH(mc->watch_names, const char *) = md->name; 
                 break;
             default:
                 /* leave out */
@@ -1175,32 +1185,20 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     
     init_ssl();
     
-    if (dry_run) {
-        goto out;
-    }
-        
-    /* If there are MDs to drive, start a watchdog to check on them regularly */
-    if (drive_names->nelts > 0) {
+    /* For all MDs that we watch: */
+    if (mc->watch_names->nelts > 0) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
-                     "%d out of %d mds are configured for auto-drive", 
-                     drive_names->nelts, mc->mds->nelts);
+                     "%d out of %d mds need watching", 
+                     mc->watch_names->nelts, mc->mds->nelts);
     
-        load_stage_sets(drive_names, p, reg, s, mc->env);
-
-        /* We have synched our configuration mdomains with the store, load all
-         * again and have them fully initialized, including certificate status,
-         * expiry dates etc. Store that list into out central location for reference. */
-        loaded_mds = apr_array_make(p, mc->mds->nelts, sizeof(md_t *));
-        for (i = 0; i < mc->mds->nelts; ++i) {
-            md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
-            lmd = md_reg_get(reg, md->name, p);
-            if (!lmd) lmd = (md_t*)md;
-            APR_ARRAY_PUSH(loaded_mds, const md_t *) = lmd;
-        }
-        mc->mds = loaded_mds;
+        /* Check if there are new, complete things in STAGING that we
+         * can load now into the MD DOMAINS store area. (We are still
+         * in privileged user mode and have access rights.)
+         */
+        load_stagings(mc, s, p);
 
         md_http_use_implementation(md_curl_get_impl(p));
-        rv = start_watchdog(drive_names, p, reg, s, mc);
+        rv = start_watchdog(mc, s, p);
     }
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075)
