@@ -79,7 +79,9 @@ class TestRegAdd :
         # check: expired cert -> EXPIRED
         copyfile(self._path_conf_ssl("expired_pkey.pem"), TestEnv.path_domain_privkey(name))
         copyfile(self._path_conf_ssl("expired_cert.pem"), TestEnv.path_domain_pubcert(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_EXPIRED
+        out = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        assert out['state'] == TestEnv.MD_S_ERROR
+        assert out['renew'] == True
 
     def test_120_003(self):
         # test case: broken cert file
