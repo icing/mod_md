@@ -532,7 +532,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
     apr_status_t rv;
     int i;
     cha_find_ctx fctx;
-    const char *cha_setup;
+    const char *challenge_setup;
     
     assert(acme);
     assert(authz);
@@ -553,7 +553,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
      
      */
     rv = APR_ENOTIMPL;
-    cha_setup = NULL;
+    challenge_setup = NULL;
     for (i = 0; i < challenges->nelts && !fctx.accepted; ++i) {
         fctx.type = APR_ARRAY_IDX(challenges, i, const char *);
         md_json_itera(find_type, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
@@ -566,7 +566,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
                                       "%s: set up challenge '%s'", 
                                       authz->domain, fctx.accepted->type);
-                        cha_setup = CHA_TYPES[i].name; 
+                        challenge_setup = CHA_TYPES[i].name; 
                         goto out;
                     }
                     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
@@ -578,7 +578,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
     }
     
 out:
-    *psetup_token = (APR_SUCCESS == rv)? apr_psprintf(p, "%s:%s", cha_setup, authz->domain) : NULL;
+    *psetup_token = (APR_SUCCESS == rv)? apr_psprintf(p, "%s:%s", challenge_setup, authz->domain) : NULL;
     if (!fctx.accepted || APR_ENOTIMPL == rv) {
         rv = APR_EINVAL;
         fctx.offered = apr_array_make(p, 5, sizeof(const char*));
@@ -604,15 +604,15 @@ out:
 apr_status_t md_acme_authz_teardown(struct md_store_t *store, 
                                     const char *token, apr_table_t *env, apr_pool_t *p)
 {
-    char *cha_type, *domain;
+    char *challenge, *domain;
     int i;
     
     if (strchr(token, ':')) {
-        cha_type = apr_pstrdup(p, token);
-        domain = strchr(cha_type, ':');
+        challenge = apr_pstrdup(p, token);
+        domain = strchr(challenge, ':');
         *domain = '\0'; domain++;
         for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
-            if (!apr_strnatcasecmp(CHA_TYPES[i].name, cha_type)) {
+            if (!apr_strnatcasecmp(CHA_TYPES[i].name, challenge)) {
                 if (CHA_TYPES[i].teardown) {
                     return CHA_TYPES[i].teardown(store, domain, env, p);
                 }

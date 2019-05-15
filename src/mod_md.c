@@ -1370,28 +1370,28 @@ static int md_is_challenge(conn_rec *c, const char *servername,
 {
     md_srv_conf_t *sc;
     apr_size_t slen, sufflen = sizeof(MD_TLSSNI01_DNS_SUFFIX) - 1;
-    const char *protocol, *cha_type, *cert_name, *pkey_name;
+    const char *protocol, *challenge, *cert_name, *pkey_name;
     apr_status_t rv;
 
     if (!servername) goto out;
                   
-    cha_type = NULL;
+    challenge = NULL;
     slen = strlen(servername);
     if (slen > sufflen 
         && !apr_strnatcasecmp(MD_TLSSNI01_DNS_SUFFIX, servername + slen - sufflen)) {
         /* server name ends with the tls-sni-01 challenge suffix, answer if
          * we have prepared a certificate in store under this name */
-        cha_type = "tls-sni-01";
+        challenge = "tls-sni-01";
         cert_name = MD_FN_TLSSNI01_CERT;
         pkey_name = MD_FN_TLSSNI01_PKEY;
     }
     else if ((protocol = md_protocol_get(c)) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
-        cha_type = "tls-alpn-01";
+        challenge = "tls-alpn-01";
         cert_name = MD_FN_TLSALPN01_CERT;
         pkey_name = MD_FN_TLSALPN01_PKEY;
     }
     
-    if (cha_type) {
+    if (challenge) {
         sc = md_config_get(c->base_server);
         if (sc && sc->mc->reg) {
             md_store_t *store = md_reg_store_get(sc->mc->reg);
@@ -1407,7 +1407,7 @@ static int md_is_challenge(conn_rec *c, const char *servername,
                                    MD_SV_PKEY, (void**)&mdpkey, c->pool);
                 if (APR_SUCCESS == rv && (*pkey = md_pkey_get_EVP_PKEY(mdpkey))) {
                     ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(10078)
-                                  "%s: is a %s challenge host", servername, cha_type);
+                                  "%s: is a %s challenge host", servername, challenge);
                     return 1;
                 }
                 ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO(10079)
@@ -1415,7 +1415,7 @@ static int md_is_challenge(conn_rec *c, const char *servername,
             }
             else {
                 ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO(10080)
-                              "%s: unknown %s challenge host", servername, cha_type);
+                              "%s: unknown %s challenge host", servername, challenge);
             }
         }
     }
