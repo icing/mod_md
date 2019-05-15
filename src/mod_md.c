@@ -1715,9 +1715,14 @@ static void si_val_drive_mode(status_ctx *ctx, const md_t *md, md_json_t *mdj, c
 
 static void si_val_timestamp(status_ctx *ctx, apr_time_t timestamp)
 {
-    char ts[APR_RFC822_DATE_LEN];
     if (timestamp > 0) {
-        apr_rfc822_date(ts, timestamp);
+        char ts[128];
+        apr_time_exp_t texp;
+        apr_size_t len;
+        
+        apr_time_exp_gmt(&texp, timestamp);
+        apr_strftime(ts, &len, sizeof(ts)-1, "%Y-%m-%dT%H:%M:%SZ", &texp);
+        ts[len] = '\0';
         apr_brigade_puts(ctx->bb, NULL, NULL, ts);
     }
     else {
