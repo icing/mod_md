@@ -1713,6 +1713,18 @@ static void si_val_drive_mode(status_ctx *ctx, const md_t *md, md_json_t *mdj, c
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
+static void si_val_timestamp(status_ctx *ctx, apr_time_t timestamp)
+{
+    char ts[APR_RFC822_DATE_LEN];
+    if (timestamp > 0) {
+        apr_rfc822_date(ts, timestamp);
+        apr_brigade_puts(ctx->bb, NULL, NULL, ts);
+    }
+    else {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
+    }
+}
+
 static void si_val_yes_no(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
     (void)md;
@@ -1721,43 +1733,16 @@ static void si_val_yes_no(status_ctx *ctx, const md_t *md, md_json_t *mdj, const
 
 static void si_val_expires(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
-    apr_time_t now = apr_time_now();
     (void)mdj;
     (void)info;
-    if (md->expires > 0) {
-        if (md->expires > now) {
-            apr_brigade_printf(ctx->bb, NULL, NULL, "in %s",
-                               md_print_duration(ctx->p, md->expires - now));
-        }
-        else {
-            apr_brigade_printf(ctx->bb, NULL, NULL, "%s ago", 
-                               md_print_duration(ctx->p, now - md->expires)); 
-
-        }
-    }
-    else {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
-    }
+    si_val_timestamp(ctx, md->expires);
 }
 
 static void si_val_valid_from(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
 {
-    apr_time_t now = apr_time_now();
     (void)mdj;
     (void)info;
-    if (md->valid_from > 0) {
-        if (md->expires > now) {
-            apr_brigade_printf(ctx->bb, NULL, NULL, "in %s", 
-                               md_print_duration(ctx->p, md->valid_from - now));
-        }
-        else {
-            apr_brigade_printf(ctx->bb, NULL, NULL, "since %s", 
-                               md_print_duration(ctx->p, now - md->valid_from));
-        }
-    }
-    else {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
-    }
+    si_val_timestamp(ctx, md->valid_from);
 }
     
 static void si_val_ca(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
