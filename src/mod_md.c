@@ -700,11 +700,6 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         return rv;
     }
 
-    /* This is a much checking as we do on a dry run */
-    if (dry_run) {
-        goto out;
-    }
-        
     md_config_post_config(s, p);
     sc = md_config_get(s);
     mc = sc->mc;
@@ -715,6 +710,11 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
         goto out;
     }
 
+    /* This is a much checking as we do on a dry run */
+    if (dry_run) {
+        goto out;
+    }
+        
     /* Now, synchronize the global MD list with our registry. When this runs
      * through, our store MDs reflect the global MD list. 
      */
@@ -914,7 +914,7 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     reg = sc->mc->reg;
     assert(reg);
     
-    md = md_reg_get(reg, sc->assigned->name, p);
+    md = sc->assigned;
     if (!md) {
         ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10115) 
                      "unable to hand out certificates, as registry can no longer "
