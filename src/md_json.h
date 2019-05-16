@@ -55,21 +55,21 @@ int md_json_has_key(md_json_t *json, ...);
 int md_json_is(md_json_type_t type, md_json_t *json, ...);
 
 /* boolean manipulation */
-int md_json_getb(md_json_t *json, ...);
+int md_json_getb(const md_json_t *json, ...);
 apr_status_t md_json_setb(int value, md_json_t *json, ...);
 
 /* number manipulation */
-double md_json_getn(md_json_t *json, ...);
+double md_json_getn(const md_json_t *json, ...);
 apr_status_t md_json_setn(double value, md_json_t *json, ...);
 
 /* long manipulation */
-long md_json_getl(md_json_t *json, ...);
+long md_json_getl(const md_json_t *json, ...);
 apr_status_t md_json_setl(long value, md_json_t *json, ...);
 
 /* string manipulation */
 md_json_t *md_json_create_s(apr_pool_t *pool, const char *s);
-const char *md_json_gets(md_json_t *json, ...);
-const char *md_json_dups(apr_pool_t *p, md_json_t *json, ...);
+const char *md_json_gets(const md_json_t *json, ...);
+const char *md_json_dups(apr_pool_t *p, const md_json_t *json, ...);
 apr_status_t md_json_sets(const char *s, md_json_t *json, ...);
 
 /* json manipulation */
@@ -95,7 +95,7 @@ apr_status_t md_json_clone_from(void **pvalue, md_json_t *json, apr_pool_t *p, v
 
 /* Manipulating/Iteration on generic Arrays */
 apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb, 
-                          void *baton, md_json_t *json, ...);
+                          void *baton, const md_json_t *json, ...);
 apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, 
                           void *baton, md_json_t *json, ...);
 
@@ -103,11 +103,11 @@ typedef int md_json_itera_cb(void *baton, size_t index, md_json_t *json);
 int md_json_itera(md_json_itera_cb *cb, void *baton, md_json_t *json, ...);
 
 /* Manipulating Object String values */
-apr_status_t md_json_gets_dict(apr_table_t *dict, md_json_t *json, ...);
+apr_status_t md_json_gets_dict(apr_table_t *dict, const md_json_t *json, ...);
 apr_status_t md_json_sets_dict(apr_table_t *dict, md_json_t *json, ...);
 
 /* Manipulating String Arrays */
-apr_status_t md_json_getsa(apr_array_header_t *a, md_json_t *json, ...);
+apr_status_t md_json_getsa(apr_array_header_t *a, const md_json_t *json, ...);
 apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json_t *json, ...);
 apr_status_t md_json_setsa(apr_array_header_t *a, md_json_t *json, ...);
 

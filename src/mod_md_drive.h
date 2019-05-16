@@ -28,22 +28,19 @@ typedef struct md_drive_ctx md_drive_ctx;
 apr_status_t md_start_driving(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p);
 
 
-typedef struct {
-    const md_t *md;
+typedef struct md_drive_job_t md_drive_job_t;
 
-    int stalled;
-    int renewed;
-    int renewal_notified;
-    apr_time_t restart_at;
-    int need_restart;
-    int restart_processed;
+struct md_drive_job_t {
+    const char *name;      /* Name of the MD this job is about */     
+    apr_time_t next_run;   /* Time this job wants to be processed next */
+    int finished;          /* true iff the job finished successfully */
+    apr_time_t valid_from; /* at which time the finished job results become valid */
+    int notified;          /* true iff the user has been notified that results are valid now */
+    int error_runs;        /* Number of errored runs of an unfinished job */
+    int dirty;             /* transient flag if job needs saving */
+};
 
-    apr_status_t last_rv;
-    apr_time_t next_check;
-    int error_runs;
-} md_drive_job_t;
-
-apr_status_t md_drive_job_update(md_drive_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
+apr_status_t md_drive_job_load(md_drive_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
 
 
 

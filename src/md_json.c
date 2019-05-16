@@ -120,7 +120,7 @@ md_json_t *md_json_clone(apr_pool_t *pool, md_json_t *json)
 /* selectors */
 
 
-static json_t *jselect(md_json_t *json, va_list ap)
+static json_t *jselect(const md_json_t *json, va_list ap)
 {
     json_t *j;
     const char *key;
@@ -284,7 +284,7 @@ int md_json_is(md_json_type_t jtype, md_json_t *json, ...)
 /**************************************************************************************************/
 /* booleans */
 
-int md_json_getb(md_json_t *json, ...)
+int md_json_getb(const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -310,7 +310,7 @@ apr_status_t md_json_setb(int value, md_json_t *json, ...)
 /**************************************************************************************************/
 /* numbers */
 
-double md_json_getn(md_json_t *json, ...)
+double md_json_getn(const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -335,7 +335,7 @@ apr_status_t md_json_setn(double value, md_json_t *json, ...)
 /**************************************************************************************************/
 /* longs */
 
-long md_json_getl(md_json_t *json, ...)
+long md_json_getl(const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -360,7 +360,7 @@ apr_status_t md_json_setl(long value, md_json_t *json, ...)
 /**************************************************************************************************/
 /* strings */
 
-const char *md_json_gets(md_json_t *json, ...)
+const char *md_json_gets(const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -372,7 +372,7 @@ const char *md_json_gets(md_json_t *json, ...)
     return (j && json_is_string(j))? json_string_value(j) : NULL;
 }
 
-const char *md_json_dups(apr_pool_t *p, md_json_t *json, ...)
+const char *md_json_dups(apr_pool_t *p, const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -497,7 +497,7 @@ apr_status_t md_json_del(md_json_t *json, ...)
 /**************************************************************************************************/
 /* object strings */
 
-apr_status_t md_json_gets_dict(apr_table_t *dict, md_json_t *json, ...)
+apr_status_t md_json_gets_dict(apr_table_t *dict, const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -591,7 +591,7 @@ apr_status_t md_json_clone_from(void **pvalue, md_json_t *json, apr_pool_t *p, v
 /* array generic */
 
 apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb, void *baton,
-                          md_json_t *json, ...)
+                          const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -698,7 +698,7 @@ int md_json_itera(md_json_itera_cb *cb, void *baton, md_json_t *json, ...)
 /**************************************************************************************************/
 /* array strings */
 
-apr_status_t md_json_getsa(apr_array_header_t *a, md_json_t *json, ...)
+apr_status_t md_json_getsa(apr_array_header_t *a, const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;

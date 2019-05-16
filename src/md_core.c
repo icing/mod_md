@@ -321,6 +321,8 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
 
 md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
 {
+    char ts[APR_RFC822_DATE_LEN];
+
     md_json_t *json = md_json_create(p);
     if (json) {
         apr_array_header_t *domains = md_array_str_compact(p, md->domains, 0);
@@ -338,12 +340,10 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         md_json_setl(md->drive_mode, json, MD_KEY_DRIVE_MODE, NULL);
         if (md->expires > 0) {
-            char *ts = apr_pcalloc(p, APR_RFC822_DATE_LEN);
             apr_rfc822_date(ts, md->expires);
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
         }
         if (md->valid_from > 0) {
-            char *ts = apr_pcalloc(p, APR_RFC822_DATE_LEN);
             apr_rfc822_date(ts, md->valid_from);
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
         }

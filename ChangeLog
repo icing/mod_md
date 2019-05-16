@@ -1,3 +1,6 @@
+ * Renewal jobs properties are persisted after each run. This preserves status and schedules
+   when switching child processes by mod_watchdog. It also allows server-status to provide
+   more information about ongoing activities.
  * Cleanup of post config work to make the dry-run phase faster and avoid double loadings
    of MD data from the file system.
  * Splitting out certificate driving in separate source. Logging errors/warnings about

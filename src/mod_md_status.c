@@ -163,7 +163,8 @@ typedef struct {
 
 typedef struct status_info status_info; 
 
-typedef void add_status_fn(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info);
+typedef void add_status_fn(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                    md_json_t *mdj, const status_info *info);
 
 struct status_info {
     const char *label;
@@ -171,9 +172,11 @@ struct status_info {
     add_status_fn *fn;
 };
 
-static void si_val_status(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void si_val_status(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                          md_json_t *mdj, const status_info *info)
 {
     const char *s = "unknown";
+    (void)job;
     (void)mdj;
     (void)info;
     switch (md->state) {
@@ -187,9 +190,11 @@ static void si_val_status(status_ctx *ctx, const md_t *md, md_json_t *mdj, const
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-static void si_val_drive_mode(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void si_val_drive_mode(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                              md_json_t *mdj, const status_info *info)
 {
     const char *s = "auto";
+    (void)job;
     (void)md;
     switch (md_json_getl(mdj, info->key, NULL)) {
         case MD_DRIVE_MANUAL: s = "manual"; break;
@@ -215,29 +220,37 @@ static void si_val_timestamp(status_ctx *ctx, apr_time_t timestamp)
     }
 }
 
-static void si_val_yes_no(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void si_val_yes_no(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                          md_json_t *mdj, const status_info *info)
 {
     (void)md;
+    (void)job;
     apr_brigade_puts(ctx->bb, NULL, NULL, md_json_getl(mdj, info->key, NULL)? "yes" : "no");
 }
 
-static void si_val_expires(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void si_val_expires(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                           md_json_t *mdj, const status_info *info)
 {
+    (void)job;
     (void)mdj;
     (void)info;
     si_val_timestamp(ctx, md->expires);
 }
 
-static void si_val_valid_from(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void si_val_valid_from(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                              md_json_t *mdj, const status_info *info)
 {
+    (void)job;
     (void)mdj;
     (void)info;
     si_val_timestamp(ctx, md->valid_from);
 }
     
-static void si_val_ca(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void si_val_ca(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                      md_json_t *mdj, const status_info *info)
 {
     const char *s;
+    (void)job;
     (void)mdj;
     (void)info;
     if (!md->ca_url) return;
@@ -251,20 +264,33 @@ static void si_val_ca(status_ctx *ctx, const md_t *md, md_json_t *mdj, const sta
     apr_brigade_printf(ctx->bb, NULL, NULL, "<a href=\"%s\">%s</a>", md->ca_url, s);
 }
     
-static void si_val_renewal(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void si_val_renewal(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                           md_json_t *mdj, const status_info *info)
 {
-    const char *s = "-";
     (void)md;
+    (void)mdj;
     (void)info;
-    if (md_json_getb(mdj, MD_KEY_RENEW)) {
-        if (md_json_getb(mdj, MD_KEY_PROCESSED)) {
-            s = "staged";
+    if (job) {
+        if (job->finished && apr_time_now() >= job->valid_from) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "ready, please restart");
+        }
+        else if (job->finished) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "finished, valid from: ");
+            si_val_timestamp(ctx, job->valid_from);
+        }
+        else if (job->error_runs) {
+            apr_brigade_printf(ctx->bb, NULL, NULL, "ongoing, %d errored attempts, next run: ", 
+                               job->error_runs);
+            si_val_timestamp(ctx, job->next_run);
+        }
+        else if (job->next_run) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "ongoing, next run: ");
+            si_val_timestamp(ctx, job->next_run);
         }
         else {
-            s = "ongoing";
+            apr_brigade_puts(ctx->bb, NULL, NULL, "ongoing");
         }
     }
-    apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
 const status_info status_infos[] = {
@@ -273,8 +299,7 @@ const status_info status_infos[] = {
     { "Status", MD_KEY_STATUS, si_val_status },
     { "Valid", MD_KEY_VALID_FROM, si_val_valid_from },
     { "Expires", MD_KEY_EXPIRES, si_val_expires },
-    { "Renewal",  MD_KEY_PROCESSED, si_val_renewal },
-    { "Errors",  MD_KEY_ERRORS, NULL },
+    { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },
     { "Drive-mode", MD_KEY_DRIVE_MODE, si_val_drive_mode },
     { "Window", MD_KEY_RENEW_WINDOW, NULL },
     { "Staple", MD_KEY_MUST_STAPLE, si_val_yes_no },
@@ -309,10 +334,11 @@ static void add_json_val(status_ctx *ctx, md_json_t *j)
     }
 }
 
-static void add_status_cell(status_ctx *ctx, const md_t *md, md_json_t *mdj, const status_info *info)
+static void add_status_cell(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
+                            md_json_t *mdj, const status_info *info)
 {
     if (info->fn) {
-        info->fn(ctx, md, mdj, info);
+        info->fn(ctx, md, job, mdj, info);
     }
     else {
         add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
@@ -322,26 +348,27 @@ static void add_status_cell(status_ctx *ctx, const md_t *md, md_json_t *mdj, con
 static void add_md_row(status_ctx *ctx, const md_t *md, int index)
 {
     md_json_t *mdj;
+    md_drive_job_t job, *pjob = NULL;
     int i, renew;
     
     mdj = md_to_json(md, ctx->p);
     renew = md_should_renew(md);
     md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     if (renew) {
-        md_drive_job_t job;
         
         memset(&job, 0, sizeof(job));
-        job.md = md;
-        if (APR_SUCCESS == md_drive_job_update(&job, ctx->mc->reg, ctx->p)) {
+        job.name = md->name;
+        if (APR_SUCCESS == md_drive_job_load(&job, ctx->mc->reg, ctx->p)) {
+            pjob = &job;
             md_json_setl(job.error_runs, mdj, MD_KEY_ERRORS, NULL);
-            md_json_setb(job.restart_processed, mdj, MD_KEY_PROCESSED, NULL);
+            md_json_setb(job.notified, mdj, MD_KEY_NOTIFIED, NULL);
         }
     }
     
     apr_brigade_printf(ctx->bb, NULL, NULL, "<tr class=\"%s\">", (index % 2)? "odd" : "even");
     for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
-        add_status_cell(ctx, md, mdj, &status_infos[i]);
+        add_status_cell(ctx, md, pjob, mdj, &status_infos[i]);
         apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
     }
     apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");

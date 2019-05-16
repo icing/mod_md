@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <apr_optional.h>
 #include <apr_strings.h>
+#include <apr_date.h>
 
 #include <httpd.h>
 #include <http_core.h>
@@ -46,19 +47,65 @@
 #include "mod_md_status.h"
 #include "mod_md_drive.h"
 
+/**************************************************************************************************/
+/* drive job persistence */
 
-apr_status_t md_drive_job_update(md_drive_job_t *job, md_reg_t *reg, apr_pool_t *p)
+static void md_drive_job_from_json(md_drive_job_t *job, const md_json_t *json, apr_pool_t *p)
+{
+    const char *s;
+    /* not good, this is malloced from a temp pool */
+    /*job->name = md_json_gets(json, MD_KEY_NAME, NULL);*/
+    job->finished = md_json_getb(json, MD_KEY_FINISHED, NULL);
+    s = md_json_dups(p, json, MD_KEY_NEXT_RUN, NULL);
+    if (s && *s) job->next_run = apr_date_parse_rfc(s);
+    s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
+    if (s && *s) job->valid_from = apr_date_parse_rfc(s);
+    job->notified = md_json_getb(json, MD_KEY_NOTIFIED, NULL);
+    job->error_runs = (int)md_json_getl(json, MD_KEY_ERRORS, NULL);
+}
+
+static void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job)
+{
+    char ts[APR_RFC822_DATE_LEN];
+
+    md_json_sets(job->name, json, MD_KEY_NAME, NULL);
+    md_json_setb(job->finished, json, MD_KEY_FINISHED, NULL);
+    if (job->next_run > 0) {
+        apr_rfc822_date(ts, job->next_run);
+        md_json_sets(ts, json, MD_KEY_NEXT_RUN, NULL);
+    }
+    if (job->valid_from > 0) {
+        apr_rfc822_date(ts, job->valid_from);
+        md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
+    }
+    md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
+    md_json_setl(job->error_runs, json, MD_KEY_ERRORS, NULL);
+}
+
+apr_status_t md_drive_job_load(md_drive_job_t *job, md_reg_t *reg, apr_pool_t *p)
 {
     md_store_t *store = md_reg_store_get(reg);
     md_json_t *jprops;
     apr_status_t rv;
     
-    rv = md_store_load_json(store, MD_SG_STAGING, job->md->name,
-                            MD_FN_JOB, &jprops, p);
+    rv = md_store_load_json(store, MD_SG_STAGING, job->name, MD_FN_JOB, &jprops, p);
     if (APR_SUCCESS == rv) {
-        job->restart_processed = md_json_getb(jprops, MD_KEY_PROCESSED, NULL);
-        job->error_runs = (int)md_json_getl(jprops, MD_KEY_ERRORS, NULL);
+        md_drive_job_from_json(job, jprops, p);
+        job->dirty = 0;
     }
+    return rv;
+}
+
+static apr_status_t md_drive_job_save(md_drive_job_t *job, md_reg_t *reg, apr_pool_t *p)
+{
+    md_store_t *store = md_reg_store_get(reg);
+    md_json_t *jprops;
+    apr_status_t rv;
+    
+    jprops = md_json_create(p);
+    md_drive_job_to_json(jprops, job);
+    rv = md_store_save_json(store, p, MD_SG_STAGING, job->name, MD_FN_JOB, jprops, 1);
+    if (APR_SUCCESS == rv) job->dirty = 0;
     return rv;
 }
 
@@ -77,134 +124,171 @@ struct md_drive_ctx {
     md_mod_conf_t *mc;
     ap_watchdog_t *watchdog;
     
-    apr_time_t next_change;
     apr_array_header_t *jobs;
 };
 
-static void assess_renewal(md_drive_ctx *dctx, md_drive_job_t *job, apr_pool_t *ptemp) 
+static apr_status_t process_job(md_drive_ctx *dctx, md_drive_job_t *job, apr_pool_t *ptemp)
 {
-    apr_time_t now = apr_time_now();
-    if (now >= job->restart_at) {
-        job->need_restart = 1;
-        ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s, 
-                     "md(%s): has been renewed, needs restart now", job->md->name);
-    }
-    else {
-        job->next_check = job->restart_at;
-        
-        if (job->renewal_notified) {
-            ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, dctx->s, 
-                         "%s: renewed cert valid in %s", 
-                         job->md->name, md_print_duration(ptemp, job->restart_at - now));
-        }
-        else {
-            char ts[APR_RFC822_DATE_LEN];
+    apr_status_t rv = APR_SUCCESS;
+    apr_time_t valid_from, delay, next_run;
+    const md_t *md;
+    char ts[APR_RFC822_DATE_LEN];
 
-            apr_rfc822_date(ts, job->restart_at);
+    /* Does this job want to run now? */
+    if (apr_time_now() < job->next_run) {
+        next_run = job->next_run;
+        rv = APR_EAGAIN; goto leave;
+    }
+    
+    md_drive_job_load(job, dctx->mc->reg, ptemp);
+    /* Evaluate again on loaded value. */
+    if (apr_time_now() < job->next_run) {
+        next_run = job->next_run;
+        rv = APR_EAGAIN; goto leave;
+    }
+    
+    next_run = 0; /* 0 is default and means at the regular intervals */
+    
+    md = md_get_by_name(dctx->mc->mds, job->name);
+    AP_DEBUG_ASSERT(md);
+    if (md->state == MD_S_MISSING) {
+        /* Missing information, this will not change until configuration
+         * is changed and server reloaded. */
+        rv = APR_INCOMPLETE;
+        ++job->error_runs;
+        job->dirty = 1;
+        goto leave;
+    }
+    
+    if (job->finished) {
+        if (apr_time_now() < job->valid_from) next_run = job->valid_from;
+    }
+    else if (md_should_renew(md)) {
+        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
+                     "md(%s): state=%d, driving", job->name, md->state);
+        
+        rv = md_reg_stage(dctx->mc->reg, md, NULL, dctx->mc->env, 0, &valid_from, ptemp);
+        job->dirty = 1;
+        
+        if (APR_SUCCESS == rv) {
+            job->finished = 1;
+            job->valid_from = valid_from;
+            job->error_runs = 0;
+
+            apr_rfc822_date(ts, job->valid_from);
             ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10051) 
                          "%s: has been renewed successfully and should be activated at %s"
                          " (this requires a server restart latest in %s)", 
-                         job->md->name, ts, md_print_duration(ptemp, job->restart_at - now));
-            job->renewal_notified = 1;
+                         job->name, ts, md_print_duration(ptemp, job->valid_from - apr_time_now()));
+        }
+        else {
+            ap_log_error( APLOG_MARK, APLOG_ERR, rv, dctx->s, APLOGNO(10056) 
+                         "processing %s", job->name);
+            ++job->error_runs;
+            job->dirty = 1;
+            /* back off duration, depending on the errors we encounter in a row */
+            delay = apr_time_from_sec(5 << (job->error_runs - 1));
+            if (delay > apr_time_from_sec(60*60)) {
+                delay = apr_time_from_sec(60*60);
+            }
+            job->next_run = apr_time_now() + delay;
+            ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
+                         "%s: encountered error for the %d. time, next run in %s",
+                         job->name, job->error_runs, md_print_duration(ptemp, delay));
         }
     }
+    else if (md->expires > 0) {
+        /* Renew is not necessary yet, leave job->next_run as 0 since 
+         * that keeps the default schedule of running twice a day. */
+        apr_rfc822_date(ts, md->expires);
+        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
+                     "md(%s): no need to renew yet, cert expires %s", job->name, ts);
+    }
+    
+leave:
+    if (next_run != job->next_run) {
+        job->next_run = next_run;
+        job->dirty = 1;
+    }
+    if (job->dirty) {
+        apr_status_t rv2 = md_drive_job_save(job, dctx->mc->reg, ptemp);
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, dctx->s, "%s: saving job props", job->name);
+    }
+    return rv;
 }
 
-static apr_status_t save_job_props(md_reg_t *reg, md_drive_job_t *job, apr_pool_t *p)
+static apr_time_t next_run_default()
 {
-    md_store_t *store = md_reg_store_get(reg);
-    md_json_t *jprops;
+    /* we'd like to run at least twice a day by default - keep an eye on things */
+    return apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY / 2);
+}
+
+static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
+{
+    md_drive_job_t *job;
+    const char *names = "";
+    int i, n;
+    apr_time_t now;
     apr_status_t rv;
     
-    rv = md_store_load_json(store, MD_SG_STAGING, job->md->name, MD_FN_JOB, &jprops, p);
-    if (APR_STATUS_IS_ENOENT(rv)) {
-        jprops = md_json_create(p);
-        rv = APR_SUCCESS;
-    }
-    if (APR_SUCCESS == rv) {
-        md_json_setb(job->restart_processed, jprops, MD_KEY_PROCESSED, NULL);
-        md_json_setl(job->error_runs, jprops, MD_KEY_ERRORS, NULL);
-        rv = md_store_save_json(store, p, MD_SG_STAGING, job->md->name,
-                                MD_FN_JOB, jprops, 0);
-    }
-    return rv;
-}
-
-static apr_status_t check_job(md_drive_ctx *dctx, md_drive_job_t *job, apr_pool_t *ptemp)
-{
-    apr_status_t rv = APR_SUCCESS;
-    apr_time_t valid_from, delay;
-    int error_runs;
-    char ts[APR_RFC822_DATE_LEN];
-    
-    if (apr_time_now() < job->next_check) {
-        /* Job needs to wait */
-        return APR_EAGAIN;
-    }
-    
-    job->next_check = 0;
-    error_runs = job->error_runs;
-
-    if (job->md->state == MD_S_MISSING) {
-        job->stalled = 1;
-    }
-    
-    if (job->stalled) {
-        /* Missing information, this will not change until configuration
-         * is changed and server restarted */
-        rv = APR_INCOMPLETE;
-        ++job->error_runs;
-        goto out;
-    }
-    else if (job->renewed) {
-        assess_renewal(dctx, job, ptemp);
-    }
-    else if (md_should_renew(job->md)) {
-        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
-                     "md(%s): state=%d, driving", job->md->name, job->md->state);
-        
-        rv = md_reg_stage(dctx->mc->reg, job->md, NULL, dctx->mc->env, 0, &valid_from, ptemp);
-        
-        if (APR_SUCCESS == rv) {
-            job->renewed = 1;
-            job->restart_at = valid_from;
-            assess_renewal(dctx, job, ptemp);
+    /* Find jobs that are finished and we have not notified about.
+     * 
+     * We notify the user about such restart requests, since
+     * a) on most setups, we lack the privileges to cause a server reload
+     * b) the admin might have her own ideas about when a reload is suitable
+     * 
+     * Collect the Job names we have not send out notifications about yet.
+     */
+    n = 0;
+    now = apr_time_now();
+    for (i = 0; i < dctx->jobs->nelts; ++i) {
+        job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
+        if (job->finished && !job->notified && now >= job->valid_from) {
+            names = apr_psprintf(ptemp, "%s%s%s", names, n? " " : "", job->name);
+            ++n;
         }
     }
-    else {
-        /* Renew is not necessary yet, leave job->next_check as 0 since 
-         * that keeps the default schedule of running twice a day. */
-        apr_rfc822_date(ts, job->md->expires);
-        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
-                     "md(%s): no need to renew yet, cert expires %s", job->md->name, ts);
+    if (n <= 0) return;
+    
+    rv = APR_SUCCESS;
+    if (dctx->mc->notify_cmd) {
+        const char * const *argv;
+        const char *cmdline;
+        int exit_code;
+        
+        cmdline = apr_psprintf(ptemp, "%s %s", dctx->mc->notify_cmd, names); 
+        apr_tokenize_to_argv(cmdline, (char***)&argv, ptemp);
+        if (APR_SUCCESS == (rv = md_util_exec(ptemp, argv[0], argv, &exit_code))) {
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, dctx->s, APLOGNO(10108) 
+                         "notify command '%s' returned %d", 
+                         dctx->mc->notify_cmd, exit_code);
+        }
+        else {
+            ap_log_error(APLOG_MARK, APLOG_ERR, (APR_EINCOMPLETE == rv && exit_code)? 0 : rv, 
+                         dctx->s, APLOGNO(10109) 
+                         "executing MDNotifyCmd %s returned %d. This is sad, as"
+                         " I wanted to tell you that the Manged Domain%s %s"
+                         " are ready for a server reload", 
+                         dctx->mc->notify_cmd, exit_code, 
+                         (n > 1)? "s" : "", names);
+        } 
     }
     
     if (APR_SUCCESS == rv) {
-        job->error_runs = 0;
-    }
-    else {
-        ap_log_error( APLOG_MARK, APLOG_ERR, rv, dctx->s, APLOGNO(10056) 
-                     "processing %s", job->md->name);
-        ++job->error_runs;
-        /* back off duration, depending on the errors we encounter in a row */
-        delay = apr_time_from_sec(5 << (job->error_runs - 1));
-        if (delay > apr_time_from_sec(60*60)) {
-            delay = apr_time_from_sec(60*60);
+        /* mark jobs as notified and persist this. Note, the next run may be
+         * in another child process */
+        for (i = 0, n = 0; i < dctx->jobs->nelts; ++i) {
+            job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
+            if (job->finished && !job->notified && now >= job->valid_from) {
+                job->notified = 1;
+                md_drive_job_save(job, dctx->mc->reg, ptemp);
+            }
         }
-        job->next_check = apr_time_now() + delay;
-        ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
-                     "%s: encountered error for the %d. time, next run in %s",
-                     job->md->name, job->error_runs, md_print_duration(ptemp, delay));
     }
-    
-out:
-    if (error_runs != job->error_runs) {
-        apr_status_t rv2 = save_job_props(dctx->mc->reg, job, ptemp);
-        ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, dctx->s, "%s: saving job props", job->md->name);
-    }
-
-    job->last_rv = rv;
-    return rv;
+    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
+                 "The Managed Domain%s %s %s been setup and changes "
+                 "will be activated on next (graceful) server restart.",
+                 (n > 1)? "s" : "", names, (n > 1)? "have" : "has");
 }
 
 static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
@@ -212,48 +296,44 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
     md_drive_ctx *dctx = baton;
     apr_status_t rv = APR_SUCCESS;
     md_drive_job_t *job;
-    apr_time_t next_run, now;
-    int restart = 0;
+    apr_time_t next_run, wait_time;
     int i;
     
+    /* mod_watchdog invoked us as a single thread inside the whole server (on this machine).
+     * This might be a repeated run inside the same child (mod_watchdog keeps affinity as
+     * long as the child lives) or another/new child.
+     */
     switch (state) {
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10054)
                          "md watchdog start, auto drive %d mds", dctx->jobs->nelts);
-            for (i = 0; i < dctx->jobs->nelts; ++i) {
-                job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
-                md_drive_job_update(job, dctx->mc->reg, ptemp);
-            }
             break;
+            
         case AP_WATCHDOG_STATE_RUNNING:
-        
-            dctx->next_change = 0;
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10055)
                          "md watchdog run, auto drive %d mds", dctx->jobs->nelts);
                          
-            /* normally, we'd like to run at least twice a day */
-            next_run = apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY / 2);
-
-            /* Check on all the jobs we have */
+            /* Process all drive jobs. They will update their next_run property
+             * and we schedule ourself at the earliest of all. A job may specify 0
+             * as next_run to indicate that it wants to participate in the normal
+             * regular runs. */
+            next_run = next_run_default();
             for (i = 0; i < dctx->jobs->nelts; ++i) {
                 job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
                 
-                rv = check_job(dctx, job, ptemp);
-
-                if (job->need_restart && !job->restart_processed) {
-                    restart = 1;
-                }
-                if (job->next_check && job->next_check < next_run) {
-                    next_run = job->next_check;
+                rv = process_job(dctx, job, ptemp);
+                
+                if (job->next_run && job->next_run < next_run) {
+                    next_run = job->next_run;
                 }
             }
 
-            now = apr_time_now();
+            wait_time = next_run - apr_time_now();
             if (APLOGdebug(dctx->s)) {
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10107)
-                             "next run in %s", md_print_duration(ptemp, next_run - now));
+                             "next run in %s", md_print_duration(ptemp, wait_time));
             }
-            wd_set_interval(dctx->watchdog, next_run - now, dctx, run_watchdog);
+            wd_set_interval(dctx->watchdog, wait_time, dctx, run_watchdog);
             break;
             
         case AP_WATCHDOG_STATE_STOPPING:
@@ -261,81 +341,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                          "md watchdog stopping");
             break;
     }
-
-    if (restart) {
-        const char *action, *names = "";
-        int n;
-        
-        for (i = 0, n = 0; i < dctx->jobs->nelts; ++i) {
-            job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
-            if (job->need_restart && !job->restart_processed) {
-                names = apr_psprintf(ptemp, "%s%s%s", names, n? " " : "", job->md->name);
-                ++n;
-            }
-        }
-
-        if (n > 0) {
-            int notified = 1;
-
-            /* Run notify command for ready MDs (if configured) and persist that
-             * we have done so. This process might be reaped after n requests or die
-             * of another cause. The one taking over the watchdog need to notify again.
-             */
-            if (dctx->mc->notify_cmd) {
-                const char * const *argv;
-                const char *cmdline;
-                int exit_code;
-                
-                cmdline = apr_psprintf(ptemp, "%s %s", dctx->mc->notify_cmd, names); 
-                apr_tokenize_to_argv(cmdline, (char***)&argv, ptemp);
-                if (APR_SUCCESS == (rv = md_util_exec(ptemp, argv[0], argv, &exit_code))) {
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, dctx->s, APLOGNO(10108) 
-                                 "notify command '%s' returned %d", 
-                                 dctx->mc->notify_cmd, exit_code);
-                }
-                else {
-                    if (APR_EINCOMPLETE == rv && exit_code) {
-                        rv = 0;
-                    }
-                    ap_log_error(APLOG_MARK, APLOG_ERR, rv, dctx->s, APLOGNO(10109) 
-                                 "executing MDNotifyCmd %s returned %d", 
-                                  dctx->mc->notify_cmd, exit_code);
-                    notified = 0;
-                } 
-            }
-            
-            if (notified) {
-                /* persist the jobs that were notified */
-                for (i = 0, n = 0; i < dctx->jobs->nelts; ++i) {
-                    job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
-                    if (job->need_restart && !job->restart_processed) {
-                        job->restart_processed = 1;
-                        save_job_props(dctx->mc->reg, job, ptemp);
-                    }
-                }
-            }
-            
-            /* FIXME: the server needs to start gracefully to take the new certificate in.
-             * This poses a variety of problems to solve satisfactory for everyone:
-             * - I myself, have no implementation for Windows 
-             * - on *NIX, child processes run with less privileges, preventing
-             *   the signal based restart trigger to work
-             * - admins want better control of timing windows for restarts, e.g.
-             *   during less busy hours/days.
-             */
-            rv = APR_ENOTIMPL;/*md_server_graceful(ptemp, dctx->s);*/
-            if (APR_ENOTIMPL == rv) {
-                /* self-graceful restart not supported in this setup */
-                action = " and changes will be activated on next (graceful) server restart.";
-            }
-            else {
-                action = " and server has been asked to restart now.";
-            }
-            ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
-                         "The Managed Domain%s %s %s been setup%s",
-                         (n > 1)? "s" : "", names, (n > 1)? "have" : "has", action);
-        }
-    }
+    send_notifications(dctx, ptemp);
     
     return APR_SUCCESS;
 }
@@ -418,12 +424,12 @@ apr_status_t md_start_driving(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
                 }
                 
                 job = apr_pcalloc(dctx->p, sizeof(*job));
-                job->md = md;
+                job->name = md->name;
                 APR_ARRAY_PUSH(dctx->jobs, md_drive_job_t*) = job;
                 ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,  
                              "md(%s): state=%d, created drive job", name, md->state);
                 
-                md_drive_job_update(job, mc->reg, dctx->p);
+                md_drive_job_load(job, mc->reg, dctx->p);
                 if (job->error_runs) {
                     /* Server has just restarted. If we encounter an MD job with errors
                      * on a previous driving, we purge its STAGING area.
@@ -434,8 +440,8 @@ apr_status_t md_start_driving(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
                     ap_log_error( APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10064) 
                                  "md(%s): previous drive job showed %d errors, purging STAGING "
                                  "area to reset.", name, job->error_runs);
-                    md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_STAGING, job->md->name);
-                    md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_CHALLENGES, job->md->name);
+                    md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_STAGING, md->name);
+                    md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_CHALLENGES, md->name);
                     job->error_runs = 0;
                 }
             }
