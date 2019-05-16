@@ -617,7 +617,7 @@ static void load_stagings(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     const char *name; 
     apr_status_t rv;
-    const md_t *md, *nmd;
+    const md_t *md, *nmd = NULL;
     int i, j;
     
     for (i = 0; i < mc->drive_names->nelts; ++i) {
@@ -636,12 +636,14 @@ static void load_stagings(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
         else {
             nmd = md_reg_get(mc->reg, name, p);
         }
-
-        /* swich out the reloaded nmd with the make prev one */
-        for (j = 0; j < mc->mds->nelts; ++j) {
-            if (md == APR_ARRAY_IDX(mc->mds, j, const md_t*)) {
-                APR_ARRAY_IDX(mc->mds, j, const md_t*) = nmd;
-                break;
+        
+        if (nmd) {
+            /* swich out the reloaded nmd with the make prev one */
+            for (j = 0; j < mc->mds->nelts; ++j) {
+                if (md == APR_ARRAY_IDX(mc->mds, j, const md_t*)) {
+                    APR_ARRAY_IDX(mc->mds, j, const md_t*) = nmd;
+                    break;
+                }
             }
         }
     }

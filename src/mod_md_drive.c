@@ -217,7 +217,7 @@ leave:
     return rv;
 }
 
-static apr_time_t next_run_default()
+static apr_time_t next_run_default(void)
 {
     /* we'd like to run at least twice a day by default - keep an eye on things */
     return apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY / 2);
@@ -294,7 +294,6 @@ static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
 static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
     md_drive_ctx *dctx = baton;
-    apr_status_t rv = APR_SUCCESS;
     md_drive_job_t *job;
     apr_time_t next_run, wait_time;
     int i;
@@ -321,7 +320,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             for (i = 0; i < dctx->jobs->nelts; ++i) {
                 job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
                 
-                rv = process_job(dctx, job, ptemp);
+                process_job(dctx, job, ptemp);
                 
                 if (job->next_run && job->next_run < next_run) {
                     next_run = job->next_run;
