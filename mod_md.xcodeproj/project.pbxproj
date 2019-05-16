@@ -52,6 +52,8 @@
 		B20333391EDDA82300E5BE7E /* test_0220_acme_authz.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0220_acme_authz.py; sourceTree = "<group>"; };
 		B20E6015228C363000E3FE89 /* mod_md_status.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mod_md_status.h; sourceTree = "<group>"; };
 		B20E6016228C363000E3FE89 /* mod_md_status.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mod_md_status.c; sourceTree = "<group>"; };
+		B20E6017228D54F000E3FE89 /* mod_md_drive.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mod_md_drive.h; sourceTree = "<group>"; };
+		B20E6018228D54F000E3FE89 /* mod_md_drive.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mod_md_drive.c; sourceTree = "<group>"; };
 		B2123B8C1F2DD7A200267CAF /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		B2123B8D1F2DD7A200267CAF /* test_md_json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_json.c; sourceTree = "<group>"; };
 		B2123B8E1F2DD7A200267CAF /* test_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test_common.h; sourceTree = "<group>"; };
@@ -451,6 +453,8 @@
 				B24052291EF9145000E36701 /* md.h */,
 				B2B3300C1F39E5BD00579179 /* mod_md_config.c */,
 				B2B3300D1F39E5BD00579179 /* mod_md_config.h */,
+				B20E6018228D54F000E3FE89 /* mod_md_drive.c */,
+				B20E6017228D54F000E3FE89 /* mod_md_drive.h */,
 				B2B3300E1F39E5BD00579179 /* mod_md_os.c */,
 				B2B3300F1F39E5BD00579179 /* mod_md_os.h */,
 				B24052201EF9145000E36701 /* mod_md_private.h */,

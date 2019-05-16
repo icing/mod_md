@@ -1,5 +1,7 @@
  * Cleanup of post config work to make the dry-run phase faster and avoid double loadings
    of MD data from the file system.
+ * Splitting out certificate driving in separate source. Logging errors/warnings about
+   MDomains that can not be renewed once at post config.
 
 v1.99.11
 ----------------------------------------------------------------------------------------------------

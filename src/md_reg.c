@@ -202,13 +202,6 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
             valid_from = md_cert_get_not_before(creds->cert);
             expires = md_cert_get_not_after(creds->cert);
             serial = md_cert_get_serial_number(creds->cert, p);
-            if (!md_cert_is_valid_now(creds->cert)) {
-                state = MD_S_ERROR;
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                              "md{%s}: error, certificate valid in future (clock wrong?)", 
-                              md->name);
-                goto out;
-            }
             if (!md_cert_covers_md(creds->cert, md)) {
                 state = MD_S_INCOMPLETE;
                 md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
@@ -261,48 +254,6 @@ out:
         return md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
     }
     return rv;
-}
-
-apr_status_t md_reg_assess(md_reg_t *reg, const md_t *md, int *perrored, int *prenew, apr_pool_t *p)
-{
-    int renew = 0;
-    int errored = 0;
-    
-    (void)reg;
-    switch (md->state) {
-        case MD_S_UNKNOWN:
-            md_log_perror( MD_LOG_MARK, MD_LOG_ERR, 0, p, "md(%s): in unknown state.", md->name);
-            break;
-        case MD_S_ERROR:
-            md_log_perror( MD_LOG_MARK, MD_LOG_ERR, 0, p,  
-                         "md(%s): in error state, unable to drive forward. If unable to "
-                         " detect the cause, you may remove the staging or even domain "
-                         " sub-directory for this MD and start all over.", md->name);
-            errored = 1;
-            break;
-        case MD_S_EXPIRED_DEPRECATED:
-        case MD_S_COMPLETE:
-            if (!md->expires) {
-                md_log_perror( MD_LOG_MARK, MD_LOG_WARNING, 0, p,  
-                             "md(%s): looks complete, but has unknown expiration date.", md->name);
-                errored = 1;
-            }
-            else if (md->expires <= apr_time_now()) {
-                renew = 1;
-            }
-            else {
-                renew = md_should_renew(md);
-            }
-            break;
-        case MD_S_INCOMPLETE:
-            renew = 1;
-            break;
-        case MD_S_MISSING:
-            break;
-    }
-    *prenew = renew;
-    *perrored = errored;
-    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/

@@ -246,35 +246,28 @@ md_cmd_t MD_RegUpdateCmd = {
 
 static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
 {
-    int errored, force, renew, reset;
+    int force, reset;
     const char *challenge, *msg;
-    apr_status_t rv;
+    apr_status_t rv = APR_SUCCESS;
     
     reset = md_cmd_ctx_has_option(ctx, "reset");  
     force = md_cmd_ctx_has_option(ctx, "force");
     challenge = md_cmd_ctx_get_option(ctx, "challenge");
      
-    if (APR_SUCCESS != (rv = md_reg_assess(ctx->reg, md, &errored, &renew, ctx->p))) {
-        msg = "error assessing the current state of the "
-              "Managed Domain. Please check the server "
-              "logs or run this command in very verbose form and check the output.";
-        goto out;
-    }
-    
-    if (errored) {
+    if (md->state == MD_S_ERROR) {
         rv = APR_EGENERAL;
         msg = "is in error state. Please check the server "
               "logs or run this command in very verbose form and check the output.";
         goto out;
     }
     
-    if (renew || force) {
+    if (force || md_should_renew(md)) {
         
         msg = "incomplete, sign up";
         if (md->state == MD_S_COMPLETE) {
             msg = force? "forcing renewal" : "for renewal";
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "%s: %s", md->name, msg);
         
         if (APR_SUCCESS == (rv = md_reg_stage(ctx->reg, md, challenge, ctx->env, 
                                               reset, NULL, ctx->p))) {

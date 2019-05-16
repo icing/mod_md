@@ -78,12 +78,14 @@ mod_md_la_LDFLAGS  = -module -L../src -lmd -ljansson -lcurl -lssl -lcrypto -expo
 
 OBJECTS = \
     mod_md_config.c \
+    mod_md_drive.c \
     mod_md_os.c \
     mod_md_status.c \
     mod_md.c
 
 HFILES = \
     mod_md_config.h \
+    mod_md_drive.h \
     mod_md_os.h \
     mod_md_status.h \
     mod_md_private.h \

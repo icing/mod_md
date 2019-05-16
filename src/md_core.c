@@ -206,28 +206,38 @@ md_t *md_create(apr_pool_t *p, apr_array_header_t *domains)
 
 int md_should_renew(const md_t *md) 
 {
-    apr_time_t now = apr_time_now();
+    apr_time_t now;
 
-    if (md->expires <= now) {
-        return 1;
-    }
-    else if (md->expires > 0) {
-        double renew_win,  life;
-        apr_interval_time_t left;
-        
-        renew_win = (double)md->renew_window;
-        if (md->renew_norm > 0 
-            && md->renew_norm > renew_win
-            && md->expires > md->valid_from) {
-            /* Calc renewal days as fraction of cert lifetime - if known */
-            life = (double)(md->expires - md->valid_from); 
-            renew_win = life * renew_win / (double)md->renew_norm;
-        }
-        
-        left = md->expires - now;
-        if (left <= renew_win) {
+    switch (md->state) {
+        case MD_S_EXPIRED_DEPRECATED:
+        case MD_S_COMPLETE:
+            now = apr_time_now();
+            if (md->expires <= now) {
+                return 1;
+            }
+            else if (md->expires > 0) {
+                double renew_win,  life;
+                apr_interval_time_t left;
+                
+                renew_win = (double)md->renew_window;
+                if (md->renew_norm > 0 
+                    && md->renew_norm > renew_win
+                    && md->expires > md->valid_from) {
+                    /* Calc renewal days as fraction of cert lifetime - if known */
+                    life = (double)(md->expires - md->valid_from); 
+                    renew_win = life * renew_win / (double)md->renew_norm;
+                }
+                
+                left = md->expires - now;
+                if (left <= renew_win) {
+                    return 1;
+                }                
+            }
+            break;
+        case MD_S_INCOMPLETE:
             return 1;
-        }                
+        default:
+            break;
     }
     return 0;
 }

@@ -14,11 +14,37 @@
  * limitations under the License.
  */
 
-#ifndef mod_md_md_status_h
-#define mod_md_md_status_h
+#ifndef mod_md_md_drive_h
+#define mod_md_md_drive_h
 
-int md_http_cert_status(request_rec *r);
+struct md_mod_conf_t;
+struct md_reg_t;
 
-int md_status_hook(request_rec *r, int flags);
+typedef struct md_drive_ctx md_drive_ctx;
 
-#endif /* mod_md_md_status_h */
+/**
+ * Start driving the certificate procotol for the domains mentioned in mc->drive_names.
+ */
+apr_status_t md_start_driving(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p);
+
+
+typedef struct {
+    const md_t *md;
+
+    int stalled;
+    int renewed;
+    int renewal_notified;
+    apr_time_t restart_at;
+    int need_restart;
+    int restart_processed;
+
+    apr_status_t last_rv;
+    apr_time_t next_check;
+    int error_runs;
+} md_drive_job_t;
+
+apr_status_t md_drive_job_update(md_drive_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
+
+
+
+#endif /* mod_md_md_drive_h */

@@ -70,7 +70,7 @@ class TestAuto:
         md = TestEnv.a2md([ "-j", "list", domain ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_INCOMPLETE
         assert 'account' not in md['ca']
-        assert TestEnv.apache_err_scan( re.compile('.*\[md:debug\].*no mds to auto drive') )
+        assert TestEnv.apache_err_scan( re.compile('.*\[md:debug\].*no mds to drive') )
 
         # add vhost for MD, restart should drive it
         conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True)

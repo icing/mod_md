@@ -43,6 +43,7 @@
 #include "mod_md.h"
 #include "mod_md_private.h"
 #include "mod_md_config.h"
+#include "mod_md_drive.h"
 #include "mod_md_status.h"
 
 /**************************************************************************************************/
@@ -321,18 +322,17 @@ static void add_status_cell(status_ctx *ctx, const md_t *md, md_json_t *mdj, con
 static void add_md_row(status_ctx *ctx, const md_t *md, int index)
 {
     md_json_t *mdj;
-    int i, errored, renew;
+    int i, renew;
     
     mdj = md_to_json(md, ctx->p);
-    if (APR_SUCCESS == md_reg_assess(ctx->mc->reg, md, &errored, &renew, ctx->p)) {
-        md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
-    }
+    renew = md_should_renew(md);
+    md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     if (renew) {
-        md_job_t job;
+        md_drive_job_t job;
         
         memset(&job, 0, sizeof(job));
         job.md = md;
-        if (APR_SUCCESS == md_job_update(ctx->mc->reg, &job, ctx->p)) {
+        if (APR_SUCCESS == md_drive_job_update(&job, ctx->mc->reg, ctx->p)) {
             md_json_setl(job.error_runs, mdj, MD_KEY_ERRORS, NULL);
             md_json_setb(job.restart_processed, mdj, MD_KEY_PROCESSED, NULL);
         }

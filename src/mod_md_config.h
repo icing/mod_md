@@ -38,7 +38,8 @@ typedef enum {
     MD_CONFIG_NOTIFY_CMD,
 } md_config_var_t;
 
-typedef struct {
+typedef struct md_mod_conf_t md_mod_conf_t;
+struct md_mod_conf_t{
     apr_array_header_t *mds;           /* all md_t* defined in the config, shared */
     const char *base_dir;              /* base dir for store */
     const char *proxy_url;             /* proxy url to use (or NULL) */
@@ -52,11 +53,11 @@ typedef struct {
     int hsts_max_age;                  /* max-age of HSTS (rfc6797) header */
     const char *hsts_header;           /* computed HTST header to use or NULL */
     apr_array_header_t *unused_names;  /* post config, names of all MDs not assigned to a vhost */
-    apr_array_header_t *watch_names;   /* post config, names of all MDs that we need to watch */
+    apr_array_header_t *drive_names;   /* post config, names of all MDs that we need to watch */
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
     struct apr_table_t *env;           /* environment for operation */
-} md_mod_conf_t;
+};
 
 typedef struct md_srv_conf_t {
     const char *name;
