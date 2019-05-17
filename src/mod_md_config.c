@@ -81,6 +81,7 @@ static md_mod_conf_t defmc = {
     NULL,
     NULL,
     NULL,
+    0
 };
 
 /* Default server specific setting */

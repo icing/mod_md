@@ -66,6 +66,11 @@ md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, a
 md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p);
 
 /**
+ * Re-compute the state of the MD, given current store contents.
+ */
+apr_status_t md_reg_reinit_state(md_reg_t *reg, md_t *md, apr_pool_t *p);
+
+/**
  * Callback invoked for every md in the registry. If 0 is returned, iteration stops.
  */
 typedef int md_reg_do_cb(void *baton, md_reg_t *reg, md_t *md);

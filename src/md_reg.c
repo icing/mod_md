@@ -310,6 +310,11 @@ md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p)
     return NULL;
 }
 
+apr_status_t md_reg_reinit_state(md_reg_t *reg, md_t *md, apr_pool_t *p)
+{
+    return state_init(reg, p, md, 0);
+}
+
 typedef struct {
     const char *domain;
     md_t *md;
@@ -917,7 +922,7 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     env =  va_arg(ap, apr_table_t *);
     
     if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, md->name, NULL, ptemp))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, ptemp, "%s: nothing staged", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, "%s: nothing staged", md->name);
         return APR_ENOENT;
     }
     

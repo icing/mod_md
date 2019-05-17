@@ -57,6 +57,7 @@ struct md_mod_conf_t{
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
     struct apr_table_t *env;           /* environment for operation */
+    int dry_run;                       /* != 0 iff config dry run */
 };
 
 typedef struct md_srv_conf_t {

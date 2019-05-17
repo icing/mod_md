@@ -208,11 +208,9 @@ static apr_status_t setup_reg(md_mod_conf_t *mc, apr_pool_t *p, server_rec *s)
 {
     md_store_t *store;
     apr_status_t rv;
-    MD_CHK_VARS;
     
-    if (   MD_OK(setup_store(&store, mc, p, s))
-        && MD_OK(md_reg_init(&mc->reg, p, store, mc->proxy_url))) {
-        return md_reg_set_props(mc->reg, p, mc->can_http, mc->can_https); 
+    if (APR_SUCCESS == (rv = setup_store(&store, mc, p, s))) {
+        rv = md_reg_init(&mc->reg, p, store, mc->proxy_url);
     }
     return rv;
 }
@@ -335,6 +333,35 @@ static int uses_port(server_rec *s, int port)
     return match;
 }
 
+static apr_status_t detect_supported_ports(md_mod_conf_t *mc, server_rec *s, 
+                                           apr_pool_t *p, int log_level)
+{
+    ap_listen_rec *lr;
+    apr_sockaddr_t *sa;
+
+    mc->can_http = 0;
+    mc->can_https = 0;
+    for (lr = ap_listeners; lr; lr = lr->next) {
+        for (sa = lr->bind_addr; sa; sa = sa->next) {
+            if  (sa->port == mc->local_80 
+                 && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
+                mc->can_http = 1;
+            }
+            else if (sa->port == mc->local_443
+                     && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
+                mc->can_https = 1;
+            }
+        }
+    }
+
+    ap_log_error(APLOG_MARK, log_level, 0, s, APLOGNO(10037)
+                 "server seems%s reachable via http: (port 80->%d) "
+                 "and%s reachable via https: (port 443->%d) ",
+                 mc->can_http? "" : " not", mc->local_80,
+                 mc->can_https? "" : " not", mc->local_443);
+    return md_reg_set_props(mc->reg, p, mc->can_http, mc->can_https); 
+}
+
 static server_rec *get_https_server(const char *domain, server_rec *base_server)
 {
     md_srv_conf_t *sc;
@@ -387,20 +414,18 @@ static int supports_acme_tls_1(md_t *md, server_rec *base_server)
     return 1;
 }
 
-static apr_status_t assign_to_servers(md_t *md, server_rec *base_server, 
-                                     apr_pool_t *p, apr_pool_t *ptemp)
+static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *base_server, 
+                                       apr_pool_t *p, apr_pool_t *ptemp)
 {
     server_rec *s, *s_https;
     request_rec r;
     md_srv_conf_t *sc;
-    md_mod_conf_t *mc;
     apr_status_t rv = APR_SUCCESS;
     int i;
     const char *domain;
     apr_array_header_t *servers;
     
     sc = md_config_get(base_server);
-    mc = sc->mc;
 
     /* Assign the MD to all server_rec configs that it matches. If there already
      * is an assigned MD not equal this one, the configuration is in error.
@@ -464,8 +489,6 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
         continue;
     }
 
-    md->can_acme_tls_1 = supports_acme_tls_1(md, base_server);
-    
     if (APR_SUCCESS == rv) {
         if (apr_is_empty_array(servers)) {
             if (md->drive_mode != MD_DRIVE_ALWAYS) {
@@ -532,17 +555,31 @@ static apr_status_t assign_to_servers(md_t *md, server_rec *base_server,
     return rv;
 }
 
-static apr_status_t update_global_md_list(apr_pool_t *p, apr_pool_t *plog,
-                                          apr_pool_t *ptemp, server_rec *base_server, 
-                                          int log_level)
+static apr_status_t link_mds_to_servers(md_mod_conf_t *mc, server_rec *s, 
+                                            apr_pool_t *p, apr_pool_t *ptemp)
 {
-    md_srv_conf_t *sc;
-    md_mod_conf_t *mc;
+    int i;
+    md_t *md;
+    apr_status_t rv = APR_SUCCESS;
+    
+    apr_array_clear(mc->unused_names);
+    for (i = 0; i < mc->mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mc->mds, i, md_t*);
+        if (APR_SUCCESS != (rv = link_md_to_servers(mc, md, s, p, ptemp))) {
+            goto leave;
+        }
+    }
+leave:
+    return rv;
+}
+
+static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p, 
+                                        server_rec *base_server, int log_level)
+{
+    md_srv_conf_t *base_conf;
     md_t *md, *omd;
     const char *domain;
     apr_status_t rv = APR_SUCCESS;
-    ap_listen_rec *lr;
-    apr_sockaddr_t *sa;
     int i, j;
 
     /* The global module configuration 'mc' keeps a list of all configured MDomains
@@ -550,40 +587,14 @@ static apr_status_t update_global_md_list(apr_pool_t *p, apr_pool_t *plog,
      * in the post config phase, get updated from all merged server configurations
      * before the server starts processing.
      */ 
-    (void)plog;
-    sc = md_config_get(base_server);
-    mc = sc->mc;
-    
-    mc->can_http = 0;
-    mc->can_https = 0;
-
-    for (lr = ap_listeners; lr; lr = lr->next) {
-        for (sa = lr->bind_addr; sa; sa = sa->next) {
-            if  (sa->port == mc->local_80 
-                 && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
-                mc->can_http = 1;
-            }
-            else if (sa->port == mc->local_443
-                     && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
-                mc->can_https = 1;
-            }
-        }
-    }
-    
-    ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10037)
-                 "server seems%s reachable via http: (port 80->%d) "
-                 "and%s reachable via https: (port 443->%d) ",
-                 mc->can_http? "" : " not", mc->local_80,
-                 mc->can_https? "" : " not", mc->local_443);
+    base_conf = md_config_get(base_server);
     
     /* Complete the properties of the MDs, now that we have the complete, merged
-     * server configurations. 
-     * Calculate which MD names are unused and which we need to watch. */
-    apr_array_clear(mc->unused_names);
-    
+     * server configurations.
+     */
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, md_t*);
-        merge_srv_config(md, sc, p);
+        merge_srv_config(md, base_conf, p);
 
         /* Check that we have no overlap with the MDs already completed */
         for (j = 0; j < i; ++j) {
@@ -598,131 +609,57 @@ static apr_status_t update_global_md_list(apr_pool_t *p, apr_pool_t *plog,
             }
         }
 
-        /* Assign MD to the server_rec configs that it matches. Perform some
-         * last finishing touches on the MD. */
-        if (APR_SUCCESS != (rv = assign_to_servers(md, base_server, p, ptemp))) {
-            return rv;
-        }
+        md->can_acme_tls_1 = supports_acme_tls_1(md, base_server);
 
         ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10039)
-                     "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, renew=%ld]",
+                     "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, "
+                     "renew=%ld, acme_tls_1=%d]",
                      md->name, md->ca_url, md->ca_proto, md->ca_agreement,
-                     md->drive_mode, (long)md->renew_window);
+                     md->drive_mode, (long)md->renew_window, md->can_acme_tls_1);
     }
-    
     return rv;
 }
 
-static void load_stagings(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
+static void load_staged_data(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
-    const char *name; 
     apr_status_t rv;
-    const md_t *md, *nmd = NULL;
-    int i, j;
+    md_t *md; 
+    int i;
     
-    for (i = 0; i < mc->drive_names->nelts; ++i) {
-        name = APR_ARRAY_IDX(mc->drive_names, i, const char*);
-        md = md_get_by_name(mc->mds, name);
-        ap_assert(md);
+    for (i = 0; i < mc->mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mc->mds, i, md_t *);
         if (APR_SUCCESS == (rv = md_reg_load_staging(mc->reg, md, mc->env, p))) {
             ap_log_error( APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(10068) 
-                         "%s: staged set activated", name);
-            nmd = md_reg_get(mc->reg, name, p);
+                         "%s: staged set activated", md->name);
         }
         else if (!APR_STATUS_IS_ENOENT(rv)) {
             ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10069)
-                         "%s: error loading staged set", name);
-        }
-        else {
-            nmd = md_reg_get(mc->reg, name, p);
-        }
-        
-        if (nmd) {
-            /* swich out the reloaded nmd with the make prev one */
-            for (j = 0; j < mc->mds->nelts; ++j) {
-                if (md == APR_ARRAY_IDX(mc->mds, j, const md_t*)) {
-                    APR_ARRAY_IDX(mc->mds, j, const md_t*) = nmd;
-                    break;
-                }
-            }
+                         "%s: error loading staged set", md->name);
         }
     }
 }
 
-static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
-                                   apr_pool_t *ptemp, server_rec *s)
+static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
-    void *data = NULL;
-    const char *mod_md_init_key = "mod_md_init_counter";
-    md_srv_conf_t *sc;
-    md_mod_conf_t *mc;
-    const md_t *md;
+    md_t *md; 
     apr_status_t rv = APR_SUCCESS;
-    int i, dry_run = 0;
-
-    apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
-    if (data == NULL) {
-        /* At the first start, httpd makes a config check dry run. It
-         * runs all config hooks to check if it can. If so, it does
-         * this all again and starts serving requests.
-         * 
-         * This is known.
-         *
-         * On a dry run, we therefore do all the cheap config things we
-         * need to do. Because otherwise mod_ssl fails because it calls
-         * us unprepared.
-         * But synching our configuration with the md store etc.
-         * we delay up to the "real" invocation.
-         */
-        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10070)
-                     "initializing post config dry run");
-        apr_pool_userdata_set((const void *)1, mod_md_init_key,
-                              apr_pool_cleanup_null, s->process->pool);
-        dry_run = 1;
-    }
-    else {
-        ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO(10071)
-                     "mod_md (v%s), initializing...", MOD_MD_VERSION);
-    }
-
-    (void)plog;
-    init_setups(p, s);
-    md_log_set(log_is_level, log_print, NULL);
-
-    /* Update and check the global list of MDs with all merged configurations that
-     * apply. Check for consistency, non-overlapping domains etc. 
-     * When we pass this, the global list of MDs is complete and clean.
-     * We also have assigned MDs to server_rec configs where they belong.
-     * As a side effect, we have create a list of MD names that are not in use anywhere. 
-     */ 
-    if (APR_SUCCESS != (rv =  update_global_md_list(p, plog, ptemp, s, 
-                                                    dry_run? APLOG_TRACE1 : APLOG_DEBUG))) {
-        return rv;
-    }
-
-    md_config_post_config(s, p);
-    sc = md_config_get(s);
-    mc = sc->mc;
-
-    if (APR_SUCCESS != (rv = setup_reg(mc, p, s))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072)
-                     "setup md registry");
-        goto out;
-    }
-
-    /* This is a much checking as we do on a dry run */
-    if (dry_run) {
-        goto out;
-    }
-        
-    /* Now, synchronize the global MD list with our registry. When this runs
-     * through, our store MDs reflect the global MD list. 
-     */
-    if (APR_SUCCESS != (rv = md_reg_sync(mc->reg, p, ptemp, mc->mds))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
-                     "synching %d mds to registry", mc->mds->nelts);
-    }
+    int i;
     
+    for (i = 0; i < mc->mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mc->mds, i, md_t *);
+        if (APR_SUCCESS != (rv = md_reg_reinit_state(mc->reg, (md_t*)md, p))) {
+            ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
+                         "%s: error reinitiazing from store", md->name);
+            break;
+        }
+    }
+    return rv;
+}
+
+static void init_drive_names(md_mod_conf_t *mc)
+{
+    const md_t *md;
+    int i;
     /* Calculate the list of MD names which we need to watch:
      * - all MDs in drive mode 'ALWAYS'
      * - all MDs in drive mode 'AUTO' that are not in 'unused_names'
@@ -740,33 +677,111 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                 APR_ARRAY_PUSH(mc->drive_names, const char *) = md->name; 
                 break;
             default:
-                /* leave out */
                 break;
         }
     }
+}   
+
+static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
+                                   apr_pool_t *ptemp, server_rec *s)
+{
+    void *data = NULL;
+    const char *mod_md_init_key = "mod_md_init_counter";
+    md_srv_conf_t *sc;
+    md_mod_conf_t *mc;
+    apr_status_t rv = APR_SUCCESS;
+    int dry_run = 0, log_level = APLOG_DEBUG;
+
+    apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
+    if (data == NULL) {
+        /* At the first start, httpd makes a config check dry run. It
+         * runs all config hooks to check if it can. If so, it does
+         * this all again and starts serving requests.
+         * 
+         * On a dry run, we therefore do all the cheap config things we
+         * need to do to find out if the settings are ok. More expensive
+         * things we delay to the real run.
+         */
+        dry_run = 1;
+        log_level = APLOG_TRACE1;
+        ap_log_error( APLOG_MARK, log_level, 0, s, APLOGNO(10070)
+                     "initializing post config dry run");
+        apr_pool_userdata_set((const void *)1, mod_md_init_key,
+                              apr_pool_cleanup_null, s->process->pool);
+    }
+    else {
+        ap_log_error( APLOG_MARK, APLOG_INFO, 0, s, APLOGNO(10071)
+                     "mod_md (v%s), initializing...", MOD_MD_VERSION);
+    }
+
+    (void)plog;
+    init_setups(p, s);
+    md_log_set(log_is_level, log_print, NULL);
+
+    md_config_post_config(s, p);
+    sc = md_config_get(s);
+    mc = sc->mc;
+    mc->dry_run = dry_run;
+
+    if (APR_SUCCESS != (rv = setup_reg(mc, p, s))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072)
+                     "setup md registry");
+        goto leave;
+    }
     
     init_ssl();
+
+    /* How to bootstrap this module:
+     * 1. find out if we know where http: and https: requests will arrive
+     * 2. apply the now complete configuration setttings to the MDs
+     * 3. Link MDs to the server_recs they are used in. Detect unused MDs.
+     * 4. on a dry run, this is all we do
+     * 5. Update the store with the MDs. Change domain names, create new MDs, etc.
+     *    Basically all MD properties that are configured directly.
+     *    WARNING: this may change the name of an MD. If an MD loses the first
+     *    of its domain names, it first gets the new first one as name. The 
+     *    store will find the old settings and "recover" the previous name.
+     * 6. Load any staged data from previous driving.
+     * 7. Read back the MD properties that reflect the existance and aspect of
+     *    credentials that are in the store (or missing there). 
+     *    Expiry times, MD state, etc.
+     * 8. Determine the list of MDs that need driving/supervision.
+     * 9. If this list is non-empty, setup a watchdog to run. 
+     */
+    /*1*/
+    if (APR_SUCCESS != (rv = detect_supported_ports(mc, s, p, log_level))) goto leave;
+    /*2*/
+    if (APR_SUCCESS != (rv = merge_mds_with_conf(mc, p, s, log_level))) goto leave;
+    /*3*/
+    if (APR_SUCCESS != (rv = link_mds_to_servers(mc, s, p, ptemp))) goto leave;
+    /*4*/
+    if (dry_run) goto leave;
+    /*5*/
+    if (APR_SUCCESS != (rv = md_reg_sync(mc->reg, p, ptemp, mc->mds))) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
+                     "synching %d mds to registry", mc->mds->nelts);
+        goto leave;
+    }
+    /*6*/
+    load_staged_data(mc, s, p);
+    /*7*/
+    if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
+    /*8*/
+    init_drive_names(mc);
     
-    /* For all MDs that we watch: */
     if (mc->drive_names->nelts > 0) {
+        /*9*/
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
                      "%d out of %d mds need watching", 
                      mc->drive_names->nelts, mc->mds->nelts);
     
-        /* Check if there are new, complete things in STAGING that we
-         * can load now into the MD DOMAINS store area. (We are still
-         * in privileged user mode and have access rights.)
-         */
-        load_stagings(mc, s, p);
-
         md_http_use_implementation(md_curl_get_impl(p));
         rv = md_start_driving(mc, s, p);
     }
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075) "no mds to drive");
     }
-    
-out:
+leave:
     return rv;
 }
 
@@ -958,7 +973,8 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
         rv = APR_EAGAIN;
     }
     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10077) 
-                 "%s: providing certificate for server %s", md->name, s->server_hostname);
+                 "%s[state=%d]: providing certificate for server %s", 
+                 md->name, md->state, s->server_hostname);
     return rv;
 }
 

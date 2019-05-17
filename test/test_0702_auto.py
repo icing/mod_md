@@ -514,7 +514,7 @@ class TestAuto:
         assert nameB in certB.get_san_list()
         assert certA.get_serial() == certB.get_serial()
         
-        # change MD by removing 1st name
+        # change MD by removing 1st name and adding another
         new_list = [ nameA, nameB, nameC ]
         conf = HttpdConf( TestAuto.TMP_CONF )
         conf.add_admin( "admin@" + domain )
