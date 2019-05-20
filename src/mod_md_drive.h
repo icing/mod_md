@@ -37,7 +37,7 @@ struct md_drive_job_t {
     apr_time_t valid_from; /* at which time the finished job results become valid */
     int notified;          /* true iff the user has been notified that results are valid now */
     int error_runs;        /* Number of errored runs of an unfinished job */
-    int dirty;             /* transient flag if job needs saving */
+    int dirty;             /* transient flag if job needs saving */    
 };
 
 apr_status_t md_drive_job_load(md_drive_job_t *job, struct md_reg_t *reg, apr_pool_t *p);

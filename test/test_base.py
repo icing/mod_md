@@ -555,6 +555,10 @@ class TestEnv:
             return cls.apache_restart() == 0
         return True
 
+    @classmethod
+    def is_staging(cls, name, timeout=60):
+        stat = TestEnv.get_md_status(name, timeout)
+        return 'staging' in stat
 
     @classmethod
     def await_renew_state(cls, names, timeout=60):

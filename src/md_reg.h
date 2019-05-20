@@ -146,6 +146,7 @@ typedef struct md_proto_driver_t md_proto_driver_t;
 struct md_proto_driver_t {
     const md_proto_t *proto;
     apr_pool_t *p;
+    void *baton;
     struct apr_table_t *env;
 
     md_reg_t *reg;
@@ -157,12 +158,17 @@ struct md_proto_driver_t {
     int can_https;
     int reset;
 
-    void *baton;
-    apr_time_t renew_valid_from;
 };
 
-typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver);
-typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver);
+typedef struct md_drive_result md_drive_result;
+struct md_drive_result {
+    apr_status_t rv;
+    apr_time_t valid_from;
+    const char *message;
+};
+
+typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, md_drive_result *result);
+typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver, md_drive_result *result);
 typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, md_store_group_t group);
 
 struct md_proto_t {
@@ -172,6 +178,14 @@ struct md_proto_t {
     md_proto_preload_cb *preload;
 };
 
+/**
+ * Run a test intialization of the renew protocol for the given MD. This verifies
+ * basic parameter settings and is expected to return a description of encountered
+ * problems in <pmessage> when != APR_SUCCESS.
+ * A message return is allocated fromt the given pool.
+ */
+apr_status_t md_reg_test_init(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
+                              md_drive_result *result, apr_pool_t *p);
 
 /**
  * Obtain new credentials for the given managed domain in STAGING.
@@ -180,7 +194,7 @@ struct md_proto_t {
  */
 apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md, 
                           struct apr_table_t *env, int reset, 
-                          apr_time_t *pvalid_from, apr_pool_t *p);
+                          md_drive_result *result, apr_pool_t *p);
 
 /**
  * Load a new set of credentials for the managed domain from STAGING - if it exists. 

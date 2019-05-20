@@ -372,7 +372,7 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert TestEnv.await_error( [ domain ] )
+        assert not TestEnv.is_staging( domain )
 
         # now the same with a 80 mapped to a supported port 
         conf = HttpdConf( TestAuto.TMP_CONF )
@@ -403,7 +403,7 @@ class TestAuto:
         conf.install()
         assert TestEnv.apache_restart() == 0
         self._check_md_names(domain, dns_list)
-        assert TestEnv.await_error( [ domain ] )
+        assert not TestEnv.is_staging( domain )
 
         # now the same with a 443 mapped to a supported port 
         conf = HttpdConf( TestAuto.TMP_CONF )

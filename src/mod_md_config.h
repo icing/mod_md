@@ -17,6 +17,7 @@
 #ifndef mod_md_md_config_h
 #define mod_md_md_config_h
 
+struct apr_hash_t;
 struct md_store_t;
 struct md_reg_t;
 struct md_pkey_spec_t;
@@ -39,7 +40,7 @@ typedef enum {
 } md_config_var_t;
 
 typedef struct md_mod_conf_t md_mod_conf_t;
-struct md_mod_conf_t{
+struct md_mod_conf_t {
     apr_array_header_t *mds;           /* all md_t* defined in the config, shared */
     const char *base_dir;              /* base dir for store */
     const char *proxy_url;             /* proxy url to use (or NULL) */
@@ -54,6 +55,7 @@ struct md_mod_conf_t{
     const char *hsts_header;           /* computed HTST header to use or NULL */
     apr_array_header_t *unused_names;  /* post config, names of all MDs not assigned to a vhost */
     apr_array_header_t *watched_names; /* post config, names of all MDs that we need to watch */
+    struct apr_hash_t *init_errors;    /* init errors reported with md name as key */
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
     struct apr_table_t *env;           /* environment for operation */

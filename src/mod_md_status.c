@@ -335,6 +335,8 @@ static void si_val_props(status_ctx *ctx, const md_t *md, const md_drive_job_t *
 static void si_val_renewal(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
                            md_json_t *mdj, const status_info *info)
 {
+    const char *error;
+    
     (void)md;
     (void)mdj;
     (void)info;
@@ -359,6 +361,9 @@ static void si_val_renewal(status_ctx *ctx, const md_t *md, const md_drive_job_t
         else {
             apr_brigade_puts(ctx->bb, NULL, NULL, "ongoing");
         }
+    }
+    else if ((error = apr_hash_get(ctx->mc->init_errors, md->name, APR_HASH_KEY_STRING))) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, error);
     }
 }
 

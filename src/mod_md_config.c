@@ -127,7 +127,8 @@ static md_mod_conf_t *md_mod_conf_get(apr_pool_t *pool, int create)
         mod_md_config->unused_names = apr_array_make(pool, 5, sizeof(const md_t *));
         mod_md_config->watched_names = apr_array_make(pool, 5, sizeof(const md_t *));
         mod_md_config->env = apr_table_make(pool, 10);
-        
+        mod_md_config->init_errors = apr_hash_make(pool);
+         
 #if AP_MODULE_MAGIC_AT_LEAST(20180906, 2)
         mod_md_config->base_dir = ap_state_dir_relative(pool,
                                                         MD_DEFAULT_BASE_DIR);

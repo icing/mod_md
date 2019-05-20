@@ -656,10 +656,13 @@ static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     return rv;
 }
 
-static void init_watched_names(md_mod_conf_t *mc)
+static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, server_rec *s)
 {
     const md_t *md;
+    md_drive_result result;
+    apr_status_t rv;
     int i;
+    
     /* Calculate the list of MD names which we need to watch:
      * - all MDs in drive mode 'ALWAYS'
      * - all MDs in drive mode 'AUTO' that are not in 'unused_names'
@@ -667,6 +670,30 @@ static void init_watched_names(md_mod_conf_t *mc)
     apr_array_clear(mc->watched_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
+        rv = APR_SUCCESS;
+        
+        if (md->state == MD_S_ERROR) {
+            result.message = "in error state, unable to drive forward. This "
+                "indicates an incomplete or inconsistent configuration. "
+                "Please check the log for warnings in this regard.";
+            rv = APR_EGENERAL;
+        }
+        else if (md->state == MD_S_COMPLETE && !md->expires) {
+            result.message = "is complete but has no expiration date. This "
+                "means it will never be renewed and should not happen.";
+            rv = APR_EGENERAL;
+        }
+        else {
+            rv = md_reg_test_init(mc->reg, md, mc->env, &result, p);
+        }
+            
+        if (APR_SUCCESS != rv && result.message) {
+            apr_hash_set(mc->init_errors, md->name, APR_HASH_KEY_STRING, result.message);
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO() 
+                         "md[%s]: %s", md->name, result.message);
+            continue;
+        }
+        
         switch (md->drive_mode) {
             case MD_DRIVE_AUTO:
                 if (md_array_str_index(mc->unused_names, md->name, 0, 0) >= 0) {
@@ -767,7 +794,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     /*7*/
     if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
     /*8*/
-    init_watched_names(mc);
+    init_watched_names(mc, p, s);
     
     if (mc->watched_names->nelts > 0) {
         /*9*/

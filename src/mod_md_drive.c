@@ -16,6 +16,7 @@
  
 #include <assert.h>
 #include <apr_optional.h>
+#include <apr_hash.h>
 #include <apr_strings.h>
 #include <apr_date.h>
 
@@ -133,6 +134,7 @@ static apr_status_t process_drive_job(md_drive_ctx *dctx, md_drive_job_t *job, a
     apr_time_t valid_from, delay, next_run;
     const md_t *md;
     char ts[APR_RFC822_DATE_LEN];
+    md_drive_result result;
 
     md_drive_job_load(job, dctx->mc->reg, ptemp);
     /* Evaluate again on loaded value. This may change when watchdog switches child process */
@@ -168,12 +170,12 @@ static apr_status_t process_drive_job(md_drive_ctx *dctx, md_drive_job_t *job, a
          * Only returns SUCCESS when the renewal is complete, e.g. STAGING as a
          * complete set of new credentials.
          */
-        rv = md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, &valid_from, ptemp);
+        rv = md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, &result, ptemp);
         job->dirty = 1;
         
         if (APR_SUCCESS == rv) {
             job->finished = 1;
-            job->valid_from = valid_from;
+            job->valid_from = result.valid_from;
             job->error_runs = 0;
 
             apr_rfc822_date(ts, job->valid_from);
@@ -406,42 +408,28 @@ apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     for (i = 0; i < mc->watched_names->nelts; ++i) {
         name = APR_ARRAY_IDX(mc->watched_names, i, const char *);
         md = md_get_by_name(mc->mds, name);
-        if (md) {
-            if (md->state == MD_S_ERROR) {
-                ap_log_error( APLOG_MARK, APLOG_WARNING, 0, dctx->s, APLOGNO() 
-                             "md(%s): in error state, unable to drive forward. This "
-                             "indicates an incomplete or inconsistent configuration. "
-                             "Please check the log for warnings in this regard.", md->name);
-            }
-            else {
-                if (md->state == MD_S_COMPLETE && !md->expires) {
-                    ap_log_error( APLOG_MARK, APLOG_WARNING, 0, dctx->s, APLOGNO() 
-                                 "md(%s): is complete but has no expiration date. This "
-                                 "means it will never be renewed and should not happen.", md->name);
-                }
-                
-                job = apr_pcalloc(dctx->p, sizeof(*job));
-                job->name = md->name;
-                APR_ARRAY_PUSH(dctx->jobs, md_drive_job_t*) = job;
-                ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,  
-                             "md(%s): state=%d, created drive job", name, md->state);
-                
-                md_drive_job_load(job, mc->reg, dctx->p);
-                if (job->error_runs) {
-                    /* Server has just restarted. If we encounter an MD job with errors
-                     * on a previous driving, we purge its STAGING area.
-                     * This will reset the driving for the MD. It may run into the same
-                     * error again, or in case of race/confusion/our error/CA error, it
-                     * might allow the MD to succeed by a fresh start.
-                     */
-                    ap_log_error( APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10064) 
-                                 "md(%s): previous drive job showed %d errors, purging STAGING "
-                                 "area to reset.", name, job->error_runs);
-                    md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_STAGING, md->name);
-                    md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_CHALLENGES, md->name);
-                    job->error_runs = 0;
-                }
-            }
+        if (!md) continue;
+        
+        job = apr_pcalloc(dctx->p, sizeof(*job));
+        job->name = md->name;
+        APR_ARRAY_PUSH(dctx->jobs, md_drive_job_t*) = job;
+        ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,  
+                     "md(%s): state=%d, created drive job", name, md->state);
+        
+        md_drive_job_load(job, mc->reg, dctx->p);
+        if (job->error_runs) {
+            /* Server has just restarted. If we encounter an MD job with errors
+             * on a previous driving, we purge its STAGING area.
+             * This will reset the driving for the MD. It may run into the same
+             * error again, or in case of race/confusion/our error/CA error, it
+             * might allow the MD to succeed by a fresh start.
+             */
+            ap_log_error( APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10064) 
+                         "md(%s): previous drive job showed %d errors, purging STAGING "
+                         "area to reset.", name, job->error_runs);
+            md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_STAGING, md->name);
+            md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_CHALLENGES, md->name);
+            job->error_runs = 0;
         }
     }
 

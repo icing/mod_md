@@ -249,6 +249,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
     int force, reset;
     const char *challenge, *msg;
     apr_status_t rv = APR_SUCCESS;
+    md_drive_result result;
     
     reset = md_cmd_ctx_has_option(ctx, "reset");  
     force = md_cmd_ctx_has_option(ctx, "force");
@@ -269,7 +270,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "%s: %s", md->name, msg);
         
         if (APR_SUCCESS == (rv = md_reg_renew(ctx->reg, md, ctx->env, 
-                                              reset, NULL, ctx->p))) {
+                                              reset, &result, ctx->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
             
             rv = md_reg_load_staging(ctx->reg, md, ctx->env, ctx->p);
@@ -282,7 +283,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
             }
         }
         else {
-            msg = "error obtaining new credentials";
+            msg = result.message? result.message : "error obtaining new credentials";
         }
     }
     else {
