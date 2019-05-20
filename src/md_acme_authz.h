@@ -32,7 +32,6 @@ typedef struct md_acme_challenge_t md_acme_challenge_t;
 
 #define MD_AUTHZ_TYPE_DNS01         "dns-01"
 #define MD_AUTHZ_TYPE_HTTP01        "http-01"
-#define MD_AUTHZ_TYPE_TLSSNI01      "tls-sni-01"
 #define MD_AUTHZ_TYPE_TLSALPN01     "tls-alpn-01"
 
 typedef enum {

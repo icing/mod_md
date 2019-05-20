@@ -252,7 +252,6 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
     
     reset = md_cmd_ctx_has_option(ctx, "reset");  
     force = md_cmd_ctx_has_option(ctx, "force");
-    challenge = md_cmd_ctx_get_option(ctx, "challenge");
      
     if (md->state == MD_S_ERROR) {
         rv = APR_EGENERAL;
@@ -269,7 +268,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "%s: %s", md->name, msg);
         
-        if (APR_SUCCESS == (rv = md_reg_stage(ctx->reg, md, challenge, ctx->env, 
+        if (APR_SUCCESS == (rv = md_reg_renew(ctx->reg, md, ctx->env, 
                                               reset, NULL, ctx->p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
             
@@ -333,7 +332,7 @@ static apr_status_t cmd_reg_drive_opts(md_cmd_ctx *ctx, int option, const char *
 {
     switch (option) {
         case 'c':
-            md_cmd_ctx_set_option(ctx, "challenge", optarg);
+            md_cmd_ctx_set_env(ctx, MD_KEY_CHALLENGE, optarg);
             break;
         case 'f':
             md_cmd_ctx_set_option(ctx, "force", "1");

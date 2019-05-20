@@ -377,8 +377,7 @@ AC_CONFIG_FILES([
     src/Makefile
     test/Makefile
     test/conf/global.conf
-    test/conf/httpd_http.conf
-    test/conf/httpd_https.conf
+    test/conf/httpd.conf
     test/conf/modules.conf
     test/test.ini
     test/data/test_conf_validate/test_014.conf

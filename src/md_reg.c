@@ -821,9 +821,8 @@ apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int a
 /* driving */
 
 static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_t *proto, 
-                                      md_reg_t *reg, const md_t *md, 
-                                      const char *challenge, apr_table_t *env, 
-                                      int reset, apr_pool_t *p) 
+                                      md_reg_t *reg, const md_t *md, apr_table_t *env, 
+                                      apr_pool_t *p) 
 {
     apr_status_t rv = APR_SUCCESS;
 
@@ -832,91 +831,109 @@ static apr_status_t init_proto_driver(md_proto_driver_t *driver, const md_proto_
      */
     driver->proto = proto;
     driver->p = p;
-    driver->challenge = challenge;
-    driver->can_http = reg->can_http;
-    driver->can_https = reg->can_https;
+    driver->env = env? apr_table_copy(p, env) : apr_table_make(p, 10);
+
     driver->reg = reg;
     driver->store = md_reg_store_get(reg);
     driver->proxy_url = reg->proxy_url;
     driver->md = md;
-    driver->env = env? apr_table_copy(p, env) : apr_table_make(p, 10);
-    driver->reset = reset;
+
+    driver->can_http = reg->can_http;
+    driver->can_https = reg->can_https;
 
     return rv;
 }
 
-static apr_status_t run_stage(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+static apr_status_t run_init(void *baton, apr_pool_t *p, apr_pool_t *ptemp, ...)
 {
+    va_list ap;
     md_reg_t *reg = baton;
     const md_proto_t *proto;
     const md_t *md;
     int reset;
-    md_proto_driver_t *driver;
-    const char *challenge;
+    md_proto_driver_t *driver, **pdriver;
     apr_time_t *pvalid_from;
     apr_table_t *env;
     apr_status_t rv;
     
     (void)p;
-    proto = va_arg(ap, const md_proto_t *);
+    va_start(ap, ptemp);
+    pdriver = va_arg(ap, md_proto_driver_t **);
     md = va_arg(ap, const md_t *);
-    challenge = va_arg(ap, const char *);
     env = va_arg(ap, apr_table_t *);
-    reset = va_arg(ap, int); 
-    pvalid_from = va_arg(ap, apr_time_t*);
-    
-    driver = apr_pcalloc(ptemp, sizeof(*driver));
-    rv = init_proto_driver(driver, proto, reg, md, challenge, env, reset, ptemp);
-    if (APR_SUCCESS == rv && 
-        APR_SUCCESS == (rv = proto->init(driver))) {
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
-        rv = proto->stage(driver);
-
-        if (APR_SUCCESS == rv && pvalid_from) {
-            *pvalid_from = driver->stage_valid_from;
-        }
-    }
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: staging done", md->name);
-    return rv;
-}
-
-apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, const char *challenge, 
-                          apr_table_t *env, int reset, apr_time_t *pvalid_from, apr_pool_t *p)
-{
-    const md_proto_t *proto;
+    va_end(ap);
     
     if (!md->ca_proto) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", md->name);
-        ((md_t *)md)->state = MD_S_ERROR;
-        return APR_SUCCESS;
+        return APR_EGENERAL;
     }
     
     proto = apr_hash_get(reg->protos, md->ca_proto, (apr_ssize_t)strlen(md->ca_proto));
     if (!proto) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
                       "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
-        ((md_t *)md)->state = MD_S_ERROR;
-        return APR_EINVAL;
+        return APR_EGENERAL;
     }
     
-    return md_util_pool_vdo(run_stage, reg, p, proto, md, challenge, env, reset, pvalid_from, NULL);
+    *pdriver = driver = apr_pcalloc(ptemp, sizeof(*driver));
+    rv = init_proto_driver(driver, proto, reg, md, env, ptemp);
+    if (APR_SUCCESS == rv) { 
+        rv = proto->init(driver);
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: init done", md->name);
+    return rv;
+}
+
+static apr_status_t run_renew(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_reg_t *reg = baton;
+    const md_t *md;
+    int reset;
+    md_proto_driver_t *driver;
+    apr_time_t *pvalid_from;
+    apr_table_t *env;
+    apr_status_t rv;
+    
+    (void)p;
+    md = va_arg(ap, const md_t *);
+    env = va_arg(ap, apr_table_t *);
+    reset = va_arg(ap, int); 
+    pvalid_from = va_arg(ap, apr_time_t*);
+
+    rv = run_init(baton, p, ptemp, &driver, md, env, NULL);
+    if (APR_SUCCESS == rv) { 
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
+        driver->reset = reset;
+        rv = driver->proto->renew(driver);
+
+        if (APR_SUCCESS == rv && pvalid_from) {
+            *pvalid_from = driver->renew_valid_from;
+        }
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: staging done", md->name);
+    return rv;
+}
+
+apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md, apr_table_t *env, 
+                          int reset, apr_time_t *pvalid_from, apr_pool_t *p)
+{
+    return md_util_pool_vdo(run_renew, reg, p, md, env, reset, pvalid_from, NULL);
 }
 
 static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
-    const md_proto_t *proto;
     const md_t *md;
     md_proto_driver_t *driver;
     apr_table_t *env;
     apr_status_t rv;
     
-    /* For the MD of given name,  check if something is in the STAGING area.
-     * - If none is there, return that status.
-     * - If the name is no longer in the global registry, ignore this as well
-     *   (might we check this first?)
-     * - 
+    /* For the MD,  check if something is in the STAGING area. If none is there, 
+     * return that status. Otherwise ask the protocol driver to preload it into
+     * a new, temporary area. 
+     * If that succeeds, we move the TEMP area over the DOMAINS (causing the 
+     * existing one go to ARCHIVE).
+     * Finally, we clean up the data from CHALLENGES and STAGING.
      */
     md = va_arg(ap, const md_t *);
     env =  va_arg(ap, apr_table_t *);
@@ -926,25 +943,11 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
         return APR_ENOENT;
     }
     
-    if (!md->ca_proto) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md %s has no CA protocol", md->name);
-        return APR_EINVAL;
-    }
-    
-    proto = apr_hash_get(reg->protos, md->ca_proto, (apr_ssize_t)strlen(md->ca_proto));
-    if (!proto) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
-                      "md %s has unknown CA protocol: %s", md->name, md->ca_proto);
-        return APR_EINVAL;
-    }
-    
-    driver = apr_pcalloc(ptemp, sizeof(*driver));
-    init_proto_driver(driver, proto, reg, md, NULL, env, 0, ptemp);
-
-    if (APR_SUCCESS == (rv = proto->init(driver))) {
+    rv = run_init(baton, p, ptemp, &driver, md, env, NULL);
+    if (APR_SUCCESS == rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);
         
-        if (APR_SUCCESS == (rv = proto->preload(driver, MD_SG_TMP))) {
+        if (APR_SUCCESS == (rv = driver->proto->preload(driver, MD_SG_TMP))) {
             /* swap */
             rv = md_store_move(reg->store, p, MD_SG_TMP, MD_SG_DOMAINS, md->name, 1);
             if (APR_SUCCESS == rv) {

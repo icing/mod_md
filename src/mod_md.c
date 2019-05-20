@@ -656,7 +656,7 @@ static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     return rv;
 }
 
-static void init_drive_names(md_mod_conf_t *mc)
+static void init_watched_names(md_mod_conf_t *mc)
 {
     const md_t *md;
     int i;
@@ -664,7 +664,7 @@ static void init_drive_names(md_mod_conf_t *mc)
      * - all MDs in drive mode 'ALWAYS'
      * - all MDs in drive mode 'AUTO' that are not in 'unused_names'
      */
-    apr_array_clear(mc->drive_names);
+    apr_array_clear(mc->watched_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
         switch (md->drive_mode) {
@@ -674,7 +674,7 @@ static void init_drive_names(md_mod_conf_t *mc)
                 }
                 /* fall through */
             case MD_DRIVE_ALWAYS:
-                APR_ARRAY_PUSH(mc->drive_names, const char *) = md->name; 
+                APR_ARRAY_PUSH(mc->watched_names, const char *) = md->name; 
                 break;
             default:
                 break;
@@ -767,16 +767,16 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     /*7*/
     if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
     /*8*/
-    init_drive_names(mc);
+    init_watched_names(mc);
     
-    if (mc->drive_names->nelts > 0) {
+    if (mc->watched_names->nelts > 0) {
         /*9*/
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
                      "%d out of %d mds need watching", 
-                     mc->drive_names->nelts, mc->mds->nelts);
+                     mc->watched_names->nelts, mc->mds->nelts);
     
         md_http_use_implementation(md_curl_get_impl(p));
-        rv = md_start_driving(mc, s, p);
+        rv = md_start_watching(mc, s, p);
     }
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075) "no mds to drive");
@@ -1055,7 +1055,7 @@ out:
 }
 
 /**************************************************************************************************/
-/* ACME challenge responses */
+/* ACME 'http-01' challenge responses */
 
 #define WELL_KNOWN_PREFIX           "/.well-known/"
 #define ACME_CHALLENGE_PREFIX       WELL_KNOWN_PREFIX"acme-challenge/"
@@ -1121,7 +1121,7 @@ static int md_http_challenge_pr(request_rec *r)
             }
         }
     }
-    return md_http_cert_status(r);
+    return DECLINED;
 }
 
 /**************************************************************************************************/
@@ -1215,6 +1215,8 @@ static void md_hooks(apr_pool_t *pool)
     ap_hook_protocol_switch(md_protocol_switch, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_protocol_get(md_protocol_get, NULL, NULL, APR_HOOK_MIDDLE);
 
+    /* Status request handlers and contributors */
+    ap_hook_post_read_request(md_http_cert_status, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ap, status_hook, md_status_hook, NULL, NULL, APR_HOOK_MIDDLE);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);

@@ -1,3 +1,7 @@
+
+ * Adding challenge type 'tls-alpn-01' to ACMEv1 as well.
+ * server-status columns compressed. Expiry/Valid timestamp given as dates only for better
+   readability. Full time as tooltip.
  * Renewal jobs properties are persisted after each run. This preserves status and schedules
    when switching child processes by mod_watchdog. It also allows server-status to provide
    more information about ongoing activities.

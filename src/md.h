@@ -123,6 +123,7 @@ struct md_t {
 #define MD_KEY_CA_URL           "ca-url"
 #define MD_KEY_CERT             "cert"
 #define MD_KEY_CERTIFICATE      "certificate"
+#define MD_KEY_CHALLENGE        "challenge"
 #define MD_KEY_CHALLENGES       "challenges"
 #define MD_KEY_CMD_DNS01        "cmd-dns-01"
 #define MD_KEY_CONTACT          "contact"

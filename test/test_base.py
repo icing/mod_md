@@ -174,10 +174,10 @@ class TestEnv:
                 return True
             except IOError:
                 print "connect error:", sys.exc_info()[0]
-                time.sleep(.2)
+                time.sleep(.1)
             except:
                 print "Unexpected error:", sys.exc_info()[0]
-                time.sleep(.2)
+                time.sleep(.1)
         print "Unable to contact server after %d sec" % timeout
         return False
 
@@ -192,7 +192,7 @@ class TestEnv:
                 c.request('HEAD', server.path)
                 resp = c.getresponse()
                 c.close()
-                time.sleep(.2)
+                time.sleep(.1)
             except IOError:
                 return True
             except:
@@ -350,11 +350,8 @@ class TestEnv:
     # --------- control apache ---------
 
     @classmethod
-    def install_test_conf( cls, conf=None, sslOnly=False) :
-        if sslOnly:
-            root_conf_src = os.path.join("conf", "httpd_https.conf")
-        else:
-            root_conf_src = os.path.join("conf", "httpd_http.conf")
+    def install_test_conf( cls, conf=None) :
+        root_conf_src = os.path.join("conf", "httpd.conf")
         copyfile(root_conf_src, cls.APACHE_CONF)
 
         if conf is None:
@@ -631,9 +628,8 @@ class TestEnv:
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, path, writeCertFiles=False, sslOnly=False, acmeUrl=None, acmeTos=None):
+    def __init__(self, path, writeCertFiles=False, acmeUrl=None, acmeTos=None):
         self.path = path
-        self.sslOnly = sslOnly
         self.writeCertFiles = writeCertFiles
         if acmeUrl == None:
             acmeUrl = TestEnv.ACME_URL
@@ -643,7 +639,11 @@ class HttpdConf(object):
             os.remove(self.path)
         open(self.path, "a").write(("  MDCertificateAuthority %s\n"
                                     "  MDCertificateProtocol ACME\n"
-                                    "  MDCertificateAgreement %s\n\n")
+                                    "  MDCertificateAgreement %s\n\n"
+                                    "  <Location \"/server-status\">\n"
+                                    "     SetHandler server-status\n"
+                                    "  </Location>\n"
+                                    )
                                    % (acmeUrl, acmeTos))
 
     def _add_line(self, line):
@@ -711,7 +711,7 @@ class HttpdConf(object):
         self._add_line("</VirtualHost>\n\n")
 
     def install(self):
-        TestEnv.install_test_conf(self.path, self.sslOnly)
+        TestEnv.install_test_conf(self.path)
 
 # -----------------------------------------------
 # --

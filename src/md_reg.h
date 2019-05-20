@@ -139,47 +139,57 @@ typedef struct md_proto_t md_proto_t;
 
 typedef struct md_proto_driver_t md_proto_driver_t;
 
+/** 
+ * Operating environment for a protocol driver. This is valid only for the
+ * duration of one run (init + renew, init + preload).
+ */
 struct md_proto_driver_t {
     const md_proto_t *proto;
     apr_pool_t *p;
-    const char *challenge;
+    struct apr_table_t *env;
+
+    md_reg_t *reg;
+    struct md_store_t *store;
+    const char *proxy_url;
+    const md_t *md;
+
     int can_http;
     int can_https;
-    struct md_store_t *store;
-    md_reg_t *reg;
-    const md_t *md;
-    void *baton;
     int reset;
-    apr_time_t stage_valid_from;
-    const char *proxy_url;
-    struct apr_table_t *env;
+
+    void *baton;
+    apr_time_t renew_valid_from;
 };
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver);
-typedef apr_status_t md_proto_stage_cb(md_proto_driver_t *driver);
+typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver);
 typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, md_store_group_t group);
 
 struct md_proto_t {
     const char *protocol;
     md_proto_init_cb *init;
-    md_proto_stage_cb *stage;
+    md_proto_renew_cb *renew;
     md_proto_preload_cb *preload;
 };
 
 
 /**
- * Stage a new credentials set for the given managed domain in a separate location
- * without interfering with any existing credentials.
+ * Obtain new credentials for the given managed domain in STAGING.
+ *
+ * @return APR_SUCCESS if new credentials have been staged successfully
  */
-apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, 
-                          const char *challenge, struct apr_table_t *env,
-                          int reset, apr_time_t *pvalid_from, apr_pool_t *p);
+apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md, 
+                          struct apr_table_t *env, int reset, 
+                          apr_time_t *pvalid_from, apr_pool_t *p);
 
 /**
- * Load a new set of new credentials for the managed domain from STAGING - if it exists. 
- * This will archive any existing credential data and make the staged set the new live one.
+ * Load a new set of credentials for the managed domain from STAGING - if it exists. 
+ * This will archive any existing credential data and make the staged set the new one
+ * in DOMAINS.
  * If staging is incomplete or missing, the load will fail and all credentials remain
  * as they are.
+ *
+ * @return APR_SUCCESS on loading new data, APR_ENOENT when nothing is staged, error otherwise.
  */
 apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
                                  apr_pool_t *p);

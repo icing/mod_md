@@ -101,6 +101,12 @@ void md_cmd_ctx_set_option(md_cmd_ctx *ctx, const char *key, const char *value)
     apr_table_setn(ctx->options, key, value);
 }
 
+void md_cmd_ctx_set_env(md_cmd_ctx *ctx, const char *key, const char *value)
+{
+    apr_table_setn(ctx->env, key, value);
+}
+
+
 int md_cmd_ctx_has_option(md_cmd_ctx *ctx, const char *option)
 {
     return NULL != apr_table_get(ctx->options, option);

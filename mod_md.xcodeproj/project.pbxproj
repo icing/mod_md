@@ -17,8 +17,6 @@
 		758572931F6FBB4000A0FB3C /* test_020a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_020a.conf; sourceTree = "<group>"; };
 		758572941F6FBB4000A0FB3C /* test_020b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_020b.conf; sourceTree = "<group>"; };
 		758572951F6FBB4000A0FB3C /* test_020c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_020c.conf; sourceTree = "<group>"; };
-		758B85541F261AB10076B27A /* httpd_http.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_http.conf.in; sourceTree = "<group>"; };
-		758B85551F261AB10076B27A /* httpd_https.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd_https.conf.in; sourceTree = "<group>"; };
 		758B85561F263F740076B27A /* renew_10.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_10.conf; sourceTree = "<group>"; };
 		75AF53041F5E82160093DD5C /* key_rsa_2048.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = key_rsa_2048.conf; sourceTree = "<group>"; };
 		75AF53051F5E82160093DD5C /* key_rsa_4096.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = key_rsa_4096.conf; sourceTree = "<group>"; };
@@ -99,6 +97,7 @@
 		B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
 		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
+		B2A93D122292D7A400BC6339 /* httpd.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd.conf.in; sourceTree = "<group>"; };
 		B2B330051F39E1D300579179 /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
 		B2B330061F39E1D300579179 /* md_acme_acct.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_acct.h; sourceTree = "<group>"; };
 		B2B330071F39E1D300579179 /* md_acme_authz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
@@ -390,9 +389,8 @@
 		B2D31AEA1EC1B506007BECC8 /* conf */ = {
 			isa = PBXGroup;
 			children = (
+				B2A93D122292D7A400BC6339 /* httpd.conf.in */,
 				755F874C1F273ECB00871895 /* global.conf.in */,
-				758B85541F261AB10076B27A /* httpd_http.conf.in */,
-				758B85551F261AB10076B27A /* httpd_https.conf.in */,
 				B2D31AEC1EC1B506007BECC8 /* mime.types */,
 				B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */,
 				B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */,
@@ -602,7 +600,7 @@
 		B27BBD201A65757700C58A41 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1000;
+				LastUpgradeCheck = 1020;
 				TargetAttributes = {
 					B2B81EBA1F0E693500E35CA3 = {
 						CreatedOnToolsVersion = 8.3.3;

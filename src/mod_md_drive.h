@@ -23,9 +23,9 @@ struct md_reg_t;
 typedef struct md_drive_ctx md_drive_ctx;
 
 /**
- * Start driving the certificate procotol for the domains mentioned in mc->drive_names.
+ * Start driving the certificate procotol for the domains mentioned in mc->watched_names.
  */
-apr_status_t md_start_driving(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p);
+apr_status_t md_start_watching(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p);
 
 
 typedef struct md_drive_job_t md_drive_job_t;

@@ -188,13 +188,13 @@ class TestConf:
         # test case: ca challenge type - http-01
         TestEnv.install_test_conf("challenge_tls-sni");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-alpn-01' ]
 
     def test_310_116(self):
         # test case: ca challenge type - all
         TestEnv.install_test_conf("challenge_all");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-alpn-01' ]
 
     def test_310_117(self):
         # test case: automatically collect md names from vhost config
@@ -478,11 +478,11 @@ class TestConf:
         # test case: drive mode auto
         TestEnv.install_test_conf("challenge_tls-sni");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-alpn-01' ]
         # test case: drive mode always
         TestEnv.install_test_conf("challenge_all");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-alpn-01' ]
 
     def test_310_307(self):
         # test case:  RSA key length: 4096 -> 2048 -> 4096

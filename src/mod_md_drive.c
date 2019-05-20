@@ -127,21 +127,15 @@ struct md_drive_ctx {
     apr_array_header_t *jobs;
 };
 
-static apr_status_t process_job(md_drive_ctx *dctx, md_drive_job_t *job, apr_pool_t *ptemp)
+static apr_status_t process_drive_job(md_drive_ctx *dctx, md_drive_job_t *job, apr_pool_t *ptemp)
 {
     apr_status_t rv = APR_SUCCESS;
     apr_time_t valid_from, delay, next_run;
     const md_t *md;
     char ts[APR_RFC822_DATE_LEN];
 
-    /* Does this job want to run now? */
-    if (apr_time_now() < job->next_run) {
-        next_run = job->next_run;
-        rv = APR_EAGAIN; goto leave;
-    }
-    
     md_drive_job_load(job, dctx->mc->reg, ptemp);
-    /* Evaluate again on loaded value. */
+    /* Evaluate again on loaded value. This may change when watchdog switches child process */
     if (apr_time_now() < job->next_run) {
         next_run = job->next_run;
         rv = APR_EAGAIN; goto leave;
@@ -161,13 +155,20 @@ static apr_status_t process_job(md_drive_ctx *dctx, md_drive_job_t *job, apr_poo
     }
     
     if (job->finished) {
+        /* Finished jobs might take a while before the results become valid.
+         * If that is in the future, request to run then */
         if (apr_time_now() < job->valid_from) next_run = job->valid_from;
     }
     else if (md_should_renew(md)) {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
                      "md(%s): state=%d, driving", job->name, md->state);
         
-        rv = md_reg_stage(dctx->mc->reg, md, NULL, dctx->mc->env, 0, &valid_from, ptemp);
+        /* Renew the MDs credentials in a STAGING area. Might be invoked repeatedly 
+         * without discarding previous/intermediate results.
+         * Only returns SUCCESS when the renewal is complete, e.g. STAGING as a
+         * complete set of new credentials.
+         */
+        rv = md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, &valid_from, ptemp);
         job->dirty = 1;
         
         if (APR_SUCCESS == rv) {
@@ -217,12 +218,6 @@ leave:
     return rv;
 }
 
-static apr_time_t next_run_default(void)
-{
-    /* we'd like to run at least twice a day by default - keep an eye on things */
-    return apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY / 2);
-}
-
 static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
 {
     md_drive_job_t *job;
@@ -232,12 +227,6 @@ static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
     apr_status_t rv;
     
     /* Find jobs that are finished and we have not notified about.
-     * 
-     * We notify the user about such restart requests, since
-     * a) on most setups, we lack the privileges to cause a server reload
-     * b) the admin might have her own ideas about when a reload is suitable
-     * 
-     * Collect the Job names we have not send out notifications about yet.
      */
     n = 0;
     now = apr_time_now();
@@ -291,6 +280,12 @@ static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
                  (n > 1)? "s" : "", names, (n > 1)? "have" : "has");
 }
 
+static apr_time_t next_run_default(void)
+{
+    /* we'd like to run at least twice a day by default */
+    return apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY / 2);
+}
+
 static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
     md_drive_ctx *dctx = baton;
@@ -320,7 +315,9 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             for (i = 0; i < dctx->jobs->nelts; ++i) {
                 job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
                 
-                process_job(dctx, job, ptemp);
+                if (apr_time_now() >= job->next_run) {
+                    process_drive_job(dctx, job, ptemp);
+                }
                 
                 if (job->next_run && job->next_run < next_run) {
                     next_run = job->next_run;
@@ -340,12 +337,13 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
                          "md watchdog stopping");
             break;
     }
+    /* Run over all jobs complete. Any changes we'd like to notify the admin about? */
     send_notifications(dctx, ptemp);
     
     return APR_SUCCESS;
 }
 
-apr_status_t md_start_driving(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
+apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     apr_allocator_t *allocator;
     md_drive_ctx *dctx;
@@ -357,7 +355,7 @@ apr_status_t md_start_driving(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     int i;
     
     /* We use mod_watchdog to run a single thread in one of the child processes
-     * to monitor the MDs in mc->drive_names, using the const data in the list
+     * to monitor the MDs in mc->watched_names, using the const data in the list
      * mc->mds of our MD structures.
      *
      * The data in mc cannot be changed, as we may spawn copies in new child processes
@@ -404,9 +402,9 @@ apr_status_t md_start_driving(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     dctx->s = s;
     dctx->mc = mc;
     
-    dctx->jobs = apr_array_make(dctx->p, mc->drive_names->nelts, sizeof(md_drive_job_t *));
-    for (i = 0; i < mc->drive_names->nelts; ++i) {
-        name = APR_ARRAY_IDX(mc->drive_names, i, const char *);
+    dctx->jobs = apr_array_make(dctx->p, mc->watched_names->nelts, sizeof(md_drive_job_t *));
+    for (i = 0; i < mc->watched_names->nelts; ++i) {
+        name = APR_ARRAY_IDX(mc->watched_names, i, const char *);
         md = md_get_by_name(mc->mds, name);
         if (md) {
             if (md->state == MD_S_ERROR) {
@@ -436,7 +434,7 @@ apr_status_t md_start_driving(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
                      * error again, or in case of race/confusion/our error/CA error, it
                      * might allow the MD to succeed by a fresh start.
                      */
-                    ap_log_error( APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10064) 
+                    ap_log_error( APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10064) 
                                  "md(%s): previous drive job showed %d errors, purging STAGING "
                                  "area to reset.", name, job->error_runs);
                     md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_STAGING, md->name);

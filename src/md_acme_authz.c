@@ -225,7 +225,7 @@ static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
 
     jpayload = md_json_create(req->p);
     if (MD_ACME_VERSION_MAJOR(req->acme->version) <= 1) {
-        md_json_sets("challenge", jpayload, MD_KEY_RESOURCE, NULL);
+        md_json_sets(MD_KEY_CHALLENGE, jpayload, MD_KEY_RESOURCE, NULL);
     }
     if (ctx->challenge->key_authz) {
         md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);

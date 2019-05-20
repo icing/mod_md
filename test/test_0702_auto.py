@@ -175,8 +175,7 @@ class TestAuto:
     # test case: drive with using single challenge type explicitly
     #
     @pytest.mark.parametrize("challengeType", [
-        # tls-sni-01 is no longer supported
-        #("tls-sni-01"), 
+        ("tls-alpn-01"), 
         ("http-01")
     ])
     def test_702_004(self, challengeType):
@@ -186,6 +185,7 @@ class TestAuto:
         # generate 1 MD and 1 vhost
         conf = HttpdConf( TestAuto.TMP_CONF )
         conf.add_admin( "admin@" + domain )
+        conf.add_line( "Protocols http/1.1 acme-tls/1" )
         conf.add_drive_mode( "auto" )
         conf.add_ca_challenges( [ challengeType ] )
         conf.add_md( dns_list )
@@ -397,8 +397,9 @@ class TestAuto:
         # generate 1 MD and 1 vhost, map port 80 onto itself where the server does not listen
         conf = HttpdConf( TestAuto.TMP_CONF )
         conf.add_admin( "admin@" + domain )
+        conf.add_line( "Protocols http/1.1 acme-tls/1" )
         conf.add_drive_mode( "auto" )
-        conf.add_ca_challenges( [ "tls-sni-01" ] )
+        conf.add_ca_challenges( [ "tls-alpn-01" ] )
         conf._add_line("MDPortMap 443:99")        
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
@@ -407,19 +408,19 @@ class TestAuto:
         self._check_md_names(domain, dns_list)
         assert TestEnv.await_error( [ domain ] )
 
-        # disabled since tls-sni-01 is no longer supported
-        ## now the same with a 80 mapped to a supported port 
-        #conf = HttpdConf( TestAuto.TMP_CONF )
-        #conf.add_admin( "admin@" + domain )
-        #conf.add_drive_mode( "auto" )
-        #conf.add_ca_challenges( [ "tls-sni-01" ] )
-        #conf._add_line("MDPortMap 443:%s" % TestEnv.HTTPS_PORT)
-        #conf.add_md( dns_list )
-        #conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
-        #conf.install()
-        #assert TestEnv.apache_restart() == 0
-        #self._check_md_names(domain, dns_list)
-        #assert TestEnv.await_completion( [ domain ] )
+        # now the same with a 80 mapped to a supported port 
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.add_admin( "admin@" + domain )
+        conf.add_line( "Protocols http/1.1 acme-tls/1" )
+        conf.add_drive_mode( "auto" )
+        conf.add_ca_challenges( [ "tls-alpn-01" ] )
+        conf._add_line("MDPortMap 443:%s" % TestEnv.HTTPS_PORT)
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names(domain, dns_list)
+        assert TestEnv.await_completion( [ domain ] )
 
     #-----------------------------------------------------------------------------------------------
     # test case: one MD with several dns names. sign up. remove the *first* name

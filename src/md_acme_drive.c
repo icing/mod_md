@@ -492,6 +492,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     md_acme_driver_t *ad;
     apr_status_t rv = APR_SUCCESS;
     int configured_count;
+    const char *challenge;
     
     ad = apr_pcalloc(d->p, sizeof(*ad));
     
@@ -500,14 +501,14 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
     
     ad->authz_monitor_timeout = apr_time_from_sec(30);
     ad->cert_poll_timeout = apr_time_from_sec(30);
-
+    
     /* We can only support challenges if the server is reachable from the outside
      * via port 80 and/or 443. These ports might be mapped for httpd to something
      * else, but a mapping needs to exist. */
-    ad->ca_challenges = apr_array_make(d->p, 3, sizeof(const char *)); 
-    if (d->challenge) {
-        /* we have been told to use this type */
-        APR_ARRAY_PUSH(ad->ca_challenges, const char*) = apr_pstrdup(d->p, d->challenge);
+    ad->ca_challenges = apr_array_make(d->p, 3, sizeof(const char *));
+    challenge = apr_table_get(d->env, MD_KEY_CHALLENGE); 
+    if (challenge) {
+        APR_ARRAY_PUSH(ad->ca_challenges, const char*) = apr_pstrdup(d->p, challenge);
     }
     else if (d->md->ca_challenges && d->md->ca_challenges->nelts > 0) {
         /* pre-configured set for this managed domain */
@@ -517,14 +518,20 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         /* free to chose. Add all we support and see what we get offered */
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_HTTP01;
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_TLSALPN01;
+        if (apr_table_get(d->env, MD_KEY_CMD_DNS01)) {
+            APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_DNS01;
+        }
     }
     
     configured_count = ad->ca_challenges->nelts;
-    if (!d->can_http && !d->can_https) {
+    if (!d->can_http && !d->can_https 
+        && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0, 0) < 0) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: the server seems neither "
                       "reachable via http (port 80) nor https (port 443). The ACME protocol "
                       "needs at least one of those so the CA can talk to the server and verify "
-                      "a domain ownership.", d->md->name);
+                      "a domain ownership. Alternatively, you may configure support "
+                      "for the %s challenge method, if your CA supports it.", 
+                      d->md->name, MD_AUTHZ_TYPE_DNS01);
         return APR_EGENERAL;
     }
     
@@ -542,22 +549,13 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, d->p, "%s: from the %d CA challenge methods "
                       "configured for this domain, none are suitable. There are preconditions "
                       "that must be met, for example: "
-                      "'http-01' needs a server reachable on port 80, 'tls-sni-01'"
-                      " needs port 443. ACMEv2 CAs, which may offer 'tls-alpn-01', also "
-                      " require port 443%s. Please consult the documentation for details.", 
+                      "'http-01' needs a server reachable on port 80, 'tls-alpn-01'"
+                      " needs port 443%s. 'dns-01' needs a MDChallengeDns01 command to be "
+                      "configured. Please consult the documentation for details.", 
                       d->md->name, configured_count, (d->md->can_acme_tls_1? "" :
                       " and the protocol 'acme-tls/1' allowed on this server"));
         return APR_EGENERAL;
     }
-    else if (ad->ca_challenges->nelts == 1 
-        && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSSNI01, 0, 0) >= 0) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, d->p, "%s: only challenge type '%s' "
-                      "is available. This method of obtaining certificates was "
-                      "discontinued by Let's Encrypt and other CAs from early 2019 on. You "
-                      "need to allow other challenge methods to obtain certificates. Please "
-                      "have a look at the documentation on how to configure your server.", 
-                      d->md->name, MD_AUTHZ_TYPE_TLSSNI01);
-    } 
     
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: init driver", d->md->name);
     
@@ -567,7 +565,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d)
 /**************************************************************************************************/
 /* ACME staging */
 
-static apr_status_t acme_stage(md_proto_driver_t *d)
+static apr_status_t acme_renew(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad = d->baton;
     int reset_staging = d->reset;
@@ -582,6 +580,8 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
                       apr_array_pstrcat(d->p, ad->ca_challenges, ' '));
     }
 
+    /* When not explicitly told to reset, we check the existing data. If
+     * it is incomplete or old, we trigger the reset for a clean start. */
     if (!reset_staging) {
         rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
         if (APR_SUCCESS == rv) {
@@ -594,14 +594,13 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
             reset_staging = 1;
             rv = APR_SUCCESS;
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, 
-                      "%s: checked staging area, will%s reset",
-                      d->md->name, reset_staging? "" : " not");
     }
     
     if (reset_staging) {
         /* reset the staging area for this domain */
         rv = md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, 
+                      "%s: reset staging area, will", d->md->name);
         if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
             return rv;
         }
@@ -694,7 +693,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
     
     /* determine when this cert should be activated */
     now = apr_time_now();
-    d->stage_valid_from = md_cert_get_not_before(APR_ARRAY_IDX(ad->certs, 0, md_cert_t*));
+    d->renew_valid_from = md_cert_get_not_before(APR_ARRAY_IDX(ad->certs, 0, md_cert_t*));
     if (d->md->state == MD_S_COMPLETE && d->md->expires > now) {            
         /* The MD is complete and un-expired. This is a renewal run. 
          * Give activation 24 hours leeway (if we have that time) to
@@ -704,7 +703,7 @@ static apr_status_t acme_stage(md_proto_driver_t *d)
         if (delay_activation > (max_delay = d->md->expires - now)) {
             delay_activation = max_delay;
         }
-        d->stage_valid_from += delay_activation;
+        d->renew_valid_from += delay_activation;
     }
 
     /* As last step, cleanup any order we created so that challenge data
@@ -715,13 +714,13 @@ out:
     return rv;
 }
 
-static apr_status_t acme_driver_stage(md_proto_driver_t *d)
+static apr_status_t acme_driver_renew(md_proto_driver_t *d)
 {
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
 
     ad->phase = "ACME staging";
-    if (APR_SUCCESS == (rv = acme_stage(d))) {
+    if (APR_SUCCESS == (rv = acme_renew(d))) {
         ad->phase = "staging done";
     }
         
@@ -853,7 +852,7 @@ static apr_status_t acme_driver_preload(md_proto_driver_t *d, md_store_group_t g
 }
 
 static md_proto_t ACME_PROTO = {
-    MD_PROTO_ACME, acme_driver_init, acme_driver_stage, acme_driver_preload
+    MD_PROTO_ACME, acme_driver_init, acme_driver_renew, acme_driver_preload
 };
  
 apr_status_t md_acme_protos_add(apr_hash_t *protos, apr_pool_t *p)
