@@ -18,6 +18,7 @@
 
 struct apr_array_header_t;
 struct md_acme_order_t;
+struct md_drive_result;
 
 typedef struct md_acme_driver_t {
     md_proto_driver_t *driver;
@@ -46,8 +47,10 @@ typedef struct md_acme_driver_t {
     
 } md_acme_driver_t;
 
-apr_status_t md_acme_drive_set_acct(struct md_proto_driver_t *d);
-apr_status_t md_acme_drive_setup_certificate(struct md_proto_driver_t *d);
+apr_status_t md_acme_drive_set_acct(struct md_proto_driver_t *d, 
+                                    struct md_drive_result *result);
+apr_status_t md_acme_drive_setup_certificate(struct md_proto_driver_t *d, 
+                                             struct md_drive_result *result);
 apr_status_t md_acme_drive_cert_poll(struct md_proto_driver_t *d, int only_once);
 
 #endif /* md_acme_drive_h */

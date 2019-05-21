@@ -133,7 +133,7 @@ static const md_cmd_t *find_cmd(const md_cmd_t **cmds, const char *name)
 static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_getopt_t *os;
-    const char *optarg;
+    const char *optarg, *error;
     int opt;
     apr_status_t rv = APR_SUCCESS;
 
@@ -199,9 +199,10 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                     ctx->ca_url, ctx->base_dir);
             return rv;
         }
-        rv = md_acme_setup(ctx->acme);
+        rv = md_acme_setup(ctx->acme, &error);
         if (rv != APR_SUCCESS) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "contacting %s", ctx->ca_url);
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "contacting %s: %s", 
+                          ctx->ca_url, error);
             return rv;
         }
     }

@@ -37,6 +37,8 @@ struct md_drive_job_t {
     apr_time_t valid_from; /* at which time the finished job results become valid */
     int notified;          /* true iff the user has been notified that results are valid now */
     int error_runs;        /* Number of errored runs of an unfinished job */
+    int last_status;       /* Status of last run */
+    const char *last_message; /* Message from last run */
     int dirty;             /* transient flag if job needs saving */    
 };
 

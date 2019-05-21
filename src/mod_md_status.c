@@ -186,7 +186,7 @@ static void si_val_status(status_ctx *ctx, const md_t *md, const md_drive_job_t 
         case MD_S_EXPIRED_DEPRECATED:
         case MD_S_COMPLETE: s = "ok"; break;
         case MD_S_ERROR: s = "error"; break;
-        case MD_S_MISSING: s = "missing information"; break;
+        case MD_S_MISSING_INFORMATION: s = "missing information"; break;
         default: break;
     }
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
@@ -206,25 +206,6 @@ static void si_val_drive_mode(status_ctx *ctx, const md_t *md, const md_drive_jo
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-
-/* currently unused 
-static void si_val_timestamp(status_ctx *ctx, apr_time_t timestamp)
-{
-    if (timestamp > 0) {
-        char ts[128];
-        apr_time_exp_t texp;
-        apr_size_t len;
-        
-        apr_time_exp_gmt(&texp, timestamp);
-        apr_strftime(ts, &len, sizeof(ts)-1, "%Y-%m-%dT%H:%M:%SZ", &texp);
-        ts[len] = '\0';
-        apr_brigade_puts(ctx->bb, NULL, NULL, ts);
-    }
-    else {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
-    }
-}
-*/
 
 static void si_val_date(status_ctx *ctx, apr_time_t timestamp)
 {
@@ -268,14 +249,6 @@ static void si_val_time(status_ctx *ctx, apr_time_t timestamp)
     else {
         apr_brigade_puts(ctx->bb, NULL, NULL, "-");
     }
-}
-
-static void si_val_yes_no(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
-                          md_json_t *mdj, const status_info *info)
-{
-    (void)md;
-    (void)job;
-    apr_brigade_puts(ctx->bb, NULL, NULL, md_json_getl(mdj, info->key, NULL)? "yes" : "no");
 }
 
 static void si_val_expires(status_ctx *ctx, const md_t *md, const md_drive_job_t *job, 
@@ -336,12 +309,19 @@ static void si_val_renewal(status_ctx *ctx, const md_t *md, const md_drive_job_t
                            md_json_t *mdj, const status_info *info)
 {
     const char *error;
-    
+    char buffer[HUGE_STRING_LEN];
     (void)md;
     (void)mdj;
     (void)info;
     if (job) {
-        if (job->finished && apr_time_now() >= job->valid_from) {
+        if (job->last_status != APR_SUCCESS) {
+            apr_brigade_printf(ctx->bb, NULL, NULL, "Error[%s]: ", 
+                               apr_strerror(job->last_status, buffer, sizeof(buffer)));
+        }
+        if (job->last_message) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, job->last_message);
+        }
+        else if (job->finished && apr_time_now() >= job->valid_from) {
             apr_brigade_puts(ctx->bb, NULL, NULL, "ready for reload since ");
             si_val_time(ctx, job->valid_from);
         }

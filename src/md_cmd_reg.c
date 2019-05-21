@@ -247,7 +247,7 @@ md_cmd_t MD_RegUpdateCmd = {
 static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
 {
     int force, reset;
-    const char *challenge, *msg;
+    const char *msg;
     apr_status_t rv = APR_SUCCESS;
     md_drive_result result;
     

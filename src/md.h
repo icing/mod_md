@@ -45,7 +45,7 @@ typedef enum {
     MD_S_COMPLETE = 2,              /* MD has all necessary information, can go live */
     MD_S_EXPIRED_DEPRECATED = 3,    /* deprecated */
     MD_S_ERROR = 4,                 /* MD data is flawed, unable to be processed as is */ 
-    MD_S_MISSING = 5,               /* MD is missing config information, cannot proceed */
+    MD_S_MISSING_INFORMATION = 5,     /* User has not agreed to ToS */
 } md_state_t;
 
 typedef enum {
@@ -145,7 +145,9 @@ struct md_t {
 #define MD_KEY_IDENTIFIER       "identifier"
 #define MD_KEY_KEY              "key"
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"
+#define MD_KEY_LAST             "last"
 #define MD_KEY_LOCATION         "location"
+#define MD_KEY_MESSAGE          "message"
 #define MD_KEY_MUST_STAPLE      "must-staple"
 #define MD_KEY_NAME             "name"
 #define MD_KEY_NEXT_RUN         "next-run"

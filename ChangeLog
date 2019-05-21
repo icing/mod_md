@@ -1,4 +1,6 @@
 
+ * Status now shows message from a failed renewal with information and error code on where/why
+   it failed.
  * At startup, an initial ACME parameter check is performed. More details are given when
    ACME challenge methods are unavailable as to the cause. server-status list these per MD.
  * Adding challenge type 'tls-alpn-01' to ACMEv1 as well.

@@ -63,6 +63,8 @@ static void md_drive_job_from_json(md_drive_job_t *job, const md_json_t *json, a
     if (s && *s) job->valid_from = apr_date_parse_rfc(s);
     job->notified = md_json_getb(json, MD_KEY_NOTIFIED, NULL);
     job->error_runs = (int)md_json_getl(json, MD_KEY_ERRORS, NULL);
+    job->last_status = (int)md_json_getl(json, MD_KEY_LAST, MD_KEY_STATUS, NULL);
+    job->last_message = md_json_dups(p, json, MD_KEY_LAST, MD_KEY_MESSAGE, NULL);
 }
 
 static void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job)
@@ -81,6 +83,8 @@ static void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job)
     }
     md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
     md_json_setl(job->error_runs, json, MD_KEY_ERRORS, NULL);
+    md_json_setl(job->last_status, json, MD_KEY_LAST, MD_KEY_STATUS, NULL);
+    md_json_sets(job->last_message, json, MD_KEY_LAST, MD_KEY_MESSAGE, NULL);
 }
 
 apr_status_t md_drive_job_load(md_drive_job_t *job, md_reg_t *reg, apr_pool_t *p)
@@ -130,24 +134,23 @@ struct md_drive_ctx {
 
 static apr_status_t process_drive_job(md_drive_ctx *dctx, md_drive_job_t *job, apr_pool_t *ptemp)
 {
-    apr_status_t rv = APR_SUCCESS;
-    apr_time_t valid_from, delay, next_run;
+    apr_time_t delay, next_run;
     const md_t *md;
     char ts[APR_RFC822_DATE_LEN];
     md_drive_result result;
+    apr_status_t rv;
 
     md_drive_job_load(job, dctx->mc->reg, ptemp);
-    /* Evaluate again on loaded value. This may change when watchdog switches child process */
-    if (apr_time_now() < job->next_run) {
-        next_run = job->next_run;
-        rv = APR_EAGAIN; goto leave;
-    }
+    /* Evaluate again on loaded value. Values will change when watchdog switches child process */
+    if (apr_time_now() < job->next_run) return APR_EAGAIN;
     
     next_run = 0; /* 0 is default and means at the regular intervals */
+    rv = job->last_status;
+    result.message = job->last_message;
     
     md = md_get_by_name(dctx->mc->mds, job->name);
     AP_DEBUG_ASSERT(md);
-    if (md->state == MD_S_MISSING) {
+    if (md->state == MD_S_MISSING_INFORMATION) {
         /* Missing information, this will not change until configuration
          * is changed and server reloaded. */
         rv = APR_INCOMPLETE;
@@ -211,6 +214,11 @@ static apr_status_t process_drive_job(md_drive_ctx *dctx, md_drive_job_t *job, a
 leave:
     if (next_run != job->next_run) {
         job->next_run = next_run;
+        job->dirty = 1;
+    }
+    if (rv != job->last_status || result.message != job->last_message) {
+        job->last_status = rv;
+        job->last_message = result.message;
         job->dirty = 1;
     }
     if (job->dirty) {

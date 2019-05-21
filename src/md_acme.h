@@ -147,7 +147,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
  * 
  * @param acme    the ACME server to contact
  */
-apr_status_t md_acme_setup(md_acme_t *acme);
+apr_status_t md_acme_setup(md_acme_t *acme, const char **perror);
 
 /**************************************************************************************************/
 /* account handling */

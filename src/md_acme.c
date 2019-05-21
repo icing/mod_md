@@ -327,7 +327,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
 {
     apr_status_t rv;
     md_acme_t *acme = req->acme;
-    const char *body = NULL;
+    const char *body = NULL, *error;
 
     assert(acme->url);
     
@@ -335,7 +335,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
                   "sending req: %s %s", req->method, req->url);
     if (strcmp("GET", req->method) && strcmp("HEAD", req->method)) {
         if (acme->version == MD_ACME_VERSION_UNKNOWN) {
-            if (APR_SUCCESS != (rv = md_acme_setup(acme))) {
+            if (APR_SUCCESS != (rv = md_acme_setup(acme, &error))) {
                 return rv;
             }
         }
@@ -599,13 +599,14 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
 }
 
 
-apr_status_t md_acme_setup(md_acme_t *acme)
+apr_status_t md_acme_setup(md_acme_t *acme, const char **perror)
 {
     apr_status_t rv;
     md_json_t *json;
     const char *s;
     
     assert(acme->url);
+    *perror = NULL;
     acme->version = MD_ACME_VERSION_UNKNOWN;
     
     if (!acme->http && APR_SUCCESS != (rv = md_http_create(&acme->http, acme->p,
@@ -618,14 +619,15 @@ apr_status_t md_acme_setup(md_acme_t *acme)
     
     rv = md_acme_get_json(&json, acme, acme->url, acme->p);
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "unsuccessful in contacting ACME "
-                      "server at %s. If this problem persists, please check your network "
-                      "connectivity from your Apache server to the ACME server. Also, older "
-                      "servers might have trouble verifying the certificates of the ACME "
-                      "server. You can check if you are able to contact it manually via the "
-                      "curl command. Sometimes, the ACME server might be down for maintenance, "
-                      "so failing to contact it is not an immediate problem. mod_md will "
-                      "continue retrying this.", acme->url);
+        *perror = apr_psprintf(acme->p, 
+            "Unsuccessful in contacting ACME server at <%s>. If this problem persists, "
+            "please check your network connectivity from your Apache server to the "
+            "ACME server. Also, older servers might have trouble verifying the certificates "
+            "of the ACME server. You can check if you are able to contact it manually via the "
+            "curl command. Sometimes, the ACME server might be down for maintenance, "
+            "so failing to contact it is not an immediate problem. Apache will "
+            "continue retrying this.", acme->url);
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "%s", *perror);
         goto out;
     }
     
@@ -661,8 +663,10 @@ apr_status_t md_acme_setup(md_acme_t *acme)
     }
     
     if (MD_ACME_VERSION_UNKNOWN == acme->version) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p,
-                      "Unable to understand ACME server response. Wrong ACME protocol version or link?");
+        *perror = apr_psprintf(acme->p, 
+            "Unable to understand ACME server response from <%s>. "
+            "Wrong ACME protocol version or link?", acme->url); 
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "%s", *perror);
         rv = APR_EINVAL;
     }
 out:

@@ -825,7 +825,6 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     va_list ap;
     md_reg_t *reg = baton;
     const md_t *md;
-    int reset;
     md_proto_driver_t *driver, **pdriver;
     md_drive_result *result;
     apr_table_t *env;
@@ -874,7 +873,6 @@ leave:
 
 static apr_status_t run_test_init(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
-    md_reg_t *reg = baton;
     const md_t *md;
     apr_table_t *env;
     md_drive_result *result;
@@ -901,7 +899,6 @@ apr_status_t md_reg_test_init(md_reg_t *reg, const md_t *md, struct apr_table_t 
 
 static apr_status_t run_renew(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
-    md_reg_t *reg = baton;
     const md_t *md;
     int reset;
     md_proto_driver_t *driver;

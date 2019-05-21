@@ -18,7 +18,10 @@
 
 struct md_json_t;
 struct md_proto_driver_t;
+struct md_drive_result;
 
-apr_status_t md_acmev2_drive_renew(struct md_acme_driver_t *ad, struct md_proto_driver_t *d);
+apr_status_t md_acmev2_drive_renew(struct md_acme_driver_t *ad, 
+                                   struct md_proto_driver_t *d,
+                                   struct md_drive_result *result);
 
 #endif /* md_acmev2_drive_h */
