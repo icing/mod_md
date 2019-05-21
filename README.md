@@ -1,33 +1,41 @@
 
-# mod_md - Everybody Spies
+# mod_md - Let's Encrypt for Apache
 
 Copyright 2017-2019 greenbytes GmbH
 
 This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). 
 
-This code here is to help people review and comment and test early versions. Issues you can raise here, general discussion is probably best at the httpd dev mailing list. The module is, in Apache terms, **experimental**, meaning features might change based on feedback by the community. It is however a complete implementation of the ACMEv1 protocol and used in production in many locations.
+This code here is to help people review and comment and test early versions. You may raise issues here, but general discussion is probably best at the httpd users/dev mailing list. 
 
-## NEWS: Experimental! Again! Wildcards!
+The versions v1.1.x are ready for production and reflect what is shipped with Apache 2.4.x. The versions v1.99.x and the soon coming **v2.x** should be considered **experimental**.
 
-The current releases, v1.99.x, contain new support for the ACMEv2 protocol and can *NOT* be considered
-as stable as the previous releases. Please help me test this, but do expect things to go ***pling*** now and then.
+## v2.x
+
+The current pre-releases, v1.99.x, contain new support for the ACMEv2 protocol.
 
 From v1.99.5 onwards mod_md supports ***wildcard certificates***. See the section below about details.
 
-For the new ```tls-alpn-01``` challenge method to work, you ***need a patched*** mod_ssl. The patches for trunk and 2.4.x versions of the Apache httpd are available in the ```patches``` directory. When you have that, you also need to extend the protocols you allow on your server:
-
-```
-Protocols h2 http/1.1 acme-tls/1
-```
-The last one, ```acme-tls/1```, is the new one that needs adding. You do not need ```h2```.
 
 ## Documentation
 
 For Versions before v1.1.x and earlier, look [on the wiki](https://github.com/icing/mod_md/wiki) for directions on how to use ```mod_md```.
 
-For Versions 1.99.x here are a summary of the changes which will be merged into the wiki once this version becomes stable:
+For Versions v2.x (1.99.x+) here are the relevant changes and new features:
 
-### Base Setup in 1.99.x
+### Server-Status v2.x
+
+Apache has a standard module for monitoring [mod_status](https://httpd.apache.org/docs/2.4/mod/mod_status.html). With v2.x ```mod_md``` contributes a section and makes monitoring your domains easy. A snippet from my own server looks like this:
+
+```
+A typical server-status snipplet:
+```
+
+![A server-status with mod_md information](mod_md_status.png)
+
+The ```Status``` column will show activity and error descriptions for certificate renewals. This should make
+life easier for people to find out if everything is all right or what went wrong.
+
+### ACMEv2 in v2.x
 
   * For now, the ACMEv2 endpoint of  Let's Encrypt is not enabled by default. If you want to test it on your server, you need to explicitly set:
   * 
@@ -45,36 +53,33 @@ to your configuration. ```mod_md``` will in version 2.0 do that as the new defau
 
   * Changing the ```MDCertificateAuthority``` configuration will ***not*** invalidate the certificates you have. It only affects certificate renewal when it is time.
 
-### Challenges in v1.99.x
+
+### Challenges in v2.x
 
 *Challenges* are the method how Let's Encrypt (LE) verfifies that the domain is controlled by you. Only if you (or your Apache server) answers such a challenge correctly, LE will sign a new ceritficate.
 
-ACMEv1 and ACMEv2 have different challenge methods they allow:
+The module supports the following ACME challenge types:
 
-  * ```http-01```: the server needs to answer a special ```http:``` request correctly. Supported on ACME v1+v2, your Apache server needs to be reachable on port 80.
-  * ```dns-01```: the DNS server for your domain needs to contain a special record. Supported on ACME v1+v2, but not supported by Apache (yet).
-  * ```tls-sni-01```: the Apache server needs to answer a ```https:``` connection in a certain way. Supported initialy on ACME v1, but disabled for security reasons.
-  * ```tls-alpn-01```: the Apache server needs to answer a ```https:``` connection in a certain way. Supported on ACME v2, server needs to be reachable on port 443.
+  * ```http-01```: the server needs to answer a special ```http:``` request correctly. Your Apache server needs to be reachable on port 80.
+  * ```dns-01```: the DNS server for your domain needs to contain a special record. You need to configure a command for setup/teardown of DNS records.
+  * ```tls-alpn-01```: the Apache server needs to answer a ```https:``` connection in a certain way. Your server needs to be reachable on port 443. You need to configure your server to support the ```acme-tls/1``` protocol. See description below.
  
-To summarize: with ```mod_md``` version 1.x you needed port 80 to be open to get LE certificates. With version 2.x you can continue to do that. But you can also configure the new challenge method and no longer need port 80. See below how this works.
-
 #### Challenge Type ```tls-alpn-01```
 
-This ACME v2 challenge type is designed to fix the weaknesses of the former ```tls-sni-01``` challenge type. For that, amongst other changes, it opens a TLS connection to you Apache for the protocol named 'acme-tls/1'. 
+This ACME challenge type is designed to fix the weaknesses of the former ```tls-sni-01``` challenge type that is no longer available. The ACME server will open a TLS connection to you Apache for the protocol named ```acme-tls/1```. 
 
 This protocol string is send in the application layer protocol names (ALPN) extensions of SSL.
-No server that is not prepared for ACME challenges will ever answer that protocol. That makes it harder for cheaters so somehow fake the challenge answer.
 
-The protocols that your Apache server allows are configured with the ```Protocols``` directive. It has as default ```http/1.1```, but if you already run the HTTP/2 protocol, you will  have added ```h2``` already. Now, for your server to answer the new ACMEv2 challenges, you would then add it simply:
+The protocols an Apache server allows are configured with the ```Protocols``` directive. It has as default ```http/1.1```, but if you already run the HTTP/2 protocol, you will  have added ```h2```. Now, for your server to answer the new ACMEv2 challenges, you would then add it simply:
 
 ```
 Protocols h2 http/1.1 acme-tls/1
 ```
-```mod_md``` will see that and use the new challenge type. 
+```mod_md``` will see this and allow the new challenge type. 
 
 ***HOWEVER*** (there is always a catch, is there not?): for now, you 'll also need a patched ```mod_ssl```to make this work. The patch is included here, but patching and compiling ```mod_ssl``` might not be everyone's cup of tea. If you do *not* have a patched mod_ssl, you can still run the new mod_md, but do not enable the ```tls-alpn-01``` challenge protocol.
 
-### Wildcard Certificates in v1.99.x
+### Wildcard Certificates in v2.x
 
 Since v1.99.5 you can request wildcard certificates, e.g. ```*.mod_md.org```. These can be combined with other names for Managed Domains, just as before:
 
@@ -111,7 +116,74 @@ One more detail: the command will, on most installations, not be executed as ```
 
 So, no ready-made solution here. Sorry! But! There are many possible scenarios on how to set this up and I am sure that Linux distribution will think of nice ways to integrate this into their server setups.
 
-## Status
+### Smaller Quality of Life Changes
+
+#### MDCertificateAgreement
+
+This used to be a configuration setting that gave people headaches sometimes. It required you to specify the
+URL from Let's Encrypt for their current Terms of Service document. This broke easily after they updated
+it, which rendered all existing documentation that mention the link inoperable. This was in ACMEv1.
+
+In ACMEv2, they only require that you POST to them a bit meaning 'I accept the ToS'. I retrofitted that to the 
+ACMEv1 use as well and now you configure in Apache:
+
+```
+MDCertificateAgreement accepted
+```
+and it will do the right thing.
+
+#### certificate-status
+
+There is an experimental handler added by mod_md that gives information about current and
+upcoming certificates on a domain. You invoke it like this:
+
+```
+> curl https://eissing.org/.httpd/certificate-status
+{
+  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
+  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
+  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
+}
+```
+
+This is information available to everyone already as part of your TLS connections, so this does
+not leak. Also, it does not show which other domains are on the server. It just allows an easier,
+scripted access.
+
+When a new certificate has been obtained, but is not activated yet, this will show:
+
+```
+{
+  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
+  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
+  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
+  "staging": {
+    "validFrom": "Tue, 21 May 2019 11:53:59 GMT",
+    "expires": "Mon, 19 Aug 2019 11:53:59 GMT",
+    "serial": "FFC16E5FEFBE90805AC153D70EF9E8D3873A",
+    "cert": "LS0tLS1...VRFLS0tLS0K"
+  }
+```
+And ```cert``` will give the whole certificate in base64url encoding. Again, once the server reload, this certificate will be send to anyone opening a TLS conncection to this domain. No privacy is lost in announcing this beforehand. Instead, security might be gained: if you see someong getting a new certificate for your domain (as visible in the [new CT Log](https://letsencrypt.org/2019/05/15/introducing-oak-ct-log.html)), you can contact your Apache and check if it was the one responsible.
+
+(Caveat: the path for this resource might still move based on user input and/if other servers might be interested in picking this up.)
+
+#### Initial Parameter Check
+
+The consistency of parameters for a Managed Domain is now checked additionally once at server startup. This will 
+immediately show problems on the status page which formerly where only detected when renewal was attempted.
+
+#### Job Persistence
+
+All parameters of ongoing renewal jobs are persisted inbetween attempts. This allows ```mod_md``` to pick up 
+where it was even when you restarted the server.
+
+#### Faster Startup
+
+While mod_md will never stall your server startup - it does renewals afterwards - there were some double 
+checks by mod_md in v1.1.x which are now eliminated. If you have many domains, this might be noticable.
+
+## Availability
 
 The module has been backported to Apache 2.4.x branch and was released in version 2.4.33 (in the release notes, you
 will see it listed as change in 2.4.30 - a release that never saw the light of day. So, in a sane world, all changes since
@@ -152,11 +224,11 @@ Please see the file called LICENSE.
 
 ## Credits
 
-This work is supported by an Award from MOSS, the Mozilla Open Source Support project. Many thanks to these excellent people! You are awesome!
+This work is supported by an Award from MOSS, the Mozilla Open Source Support project (twice now!). Many thanks to these excellent people! You are awesome!
 
 Test cases mostly written by my colleague @michael-koeller who made this to a good part really a test driven development. Thanks!
 
-Münster, 07.01.2019
+Münster, 21.05.2019
 
 Stefan Eissing, greenbytes GmbH
 
