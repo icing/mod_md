@@ -364,7 +364,7 @@ const status_info status_infos[] = {
     { "Expires", MD_KEY_EXPIRES, si_val_expires },
     { "Renew", MD_KEY_DRIVE_MODE, si_val_drive_mode },
     { "Configuration", MD_KEY_MUST_STAPLE, si_val_props },
-    { "Status",  MD_KEY_NOTIFIED, si_val_renewal },
+    { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },
 };
 
 static int json_iter_val(void *data, size_t index, md_json_t *json)
