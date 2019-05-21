@@ -1,3 +1,5 @@
+ * Non-HTML format of mod_status now lists number of ok/renew/error/ready MDomains.
+
 v1.99.12
 ----------------------------------------------------------------------------------------------------
  * Status lists private key specification, if different from default RSA(2048).

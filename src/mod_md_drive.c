@@ -67,7 +67,7 @@ static void md_drive_job_from_json(md_drive_job_t *job, const md_json_t *json, a
     job->last_message = md_json_dups(p, json, MD_KEY_LAST, MD_KEY_MESSAGE, NULL);
 }
 
-static void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job)
+void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job)
 {
     char ts[APR_RFC822_DATE_LEN];
 

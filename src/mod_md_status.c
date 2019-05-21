@@ -418,8 +418,6 @@ static void add_md_row(status_ctx *ctx, const md_t *md, int index)
         job.name = md->name;
         if (APR_SUCCESS == md_drive_job_load(&job, ctx->mc->reg, ctx->p)) {
             pjob = &job;
-            md_json_setl(job.error_runs, mdj, MD_KEY_ERRORS, NULL);
-            md_json_setb(job.notified, mdj, MD_KEY_NOTIFIED, NULL);
         }
     }
     
@@ -430,6 +428,67 @@ static void add_md_row(status_ctx *ctx, const md_t *md, int index)
         apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
     }
     apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
+}
+
+static md_json_t *make_status_json(apr_pool_t *p, apr_array_header_t *mds, 
+                                   const md_mod_conf_t *mc)
+{
+    md_json_t *json, *mdj, *jobj;
+    const md_t *md;
+    md_drive_job_t job;
+    int i;
+    
+    json = md_json_create(p);
+    for (i = 0; i < mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mds, i, const md_t *);
+        mdj = md_to_json(md, p);
+
+        if (md_should_renew(md)) {
+            memset(&job, 0, sizeof(job));
+            job.name = md->name;
+            if (APR_SUCCESS == md_drive_job_load(&job, mc->reg, p)) {
+                jobj = md_json_create(p);
+                md_drive_job_to_json(jobj, &job);
+                md_json_del(jobj, MD_KEY_NAME, NULL);
+                md_json_setj(jobj, mdj, MD_KEY_RENEWAL, NULL);
+            }
+        }
+        md_json_addj(mdj, json, MD_KEY_STATUS, NULL);
+    }
+    
+    return md_json_getj(json, MD_KEY_STATUS, NULL);
+}
+
+static void  count_states(apr_pool_t *p, apr_array_header_t *mds, const md_mod_conf_t *mc,
+                          int *pok, int *prenew, int *perror, int *pready)
+{
+    const md_t *md;
+    md_drive_job_t job;
+    int i;
+
+    *pok = *prenew = *perror = 0;
+    for (i = 0; i < mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mds, i, const md_t *);
+        switch (md->state) {
+            case MD_S_COMPLETE: ++(*pok); /* fall through */
+            case MD_S_INCOMPLETE:
+                if (md_should_renew(md)) {
+                    ++(*prenew);
+                    memset(&job, 0, sizeof(job));
+                    job.name = md->name;
+                    if (APR_SUCCESS == md_drive_job_load(&job, mc->reg, p)) {
+                        if (job.error_runs > 0 || job.last_status != APR_SUCCESS) {
+                            ++(*perror);
+                        }
+                        else if (job.finished) {
+                            ++(*pready);
+                        }
+                    }
+                }
+                break;
+            default: ++(*perror); break;
+        }
+    }
 }
 
 static int md_name_cmp(const void *v1, const void *v2)
@@ -457,11 +516,29 @@ int md_status_hook(request_rec *r, int flags)
     ctx.bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
     ctx.separator = " ";
 
-    if (!html || mc->mds->nelts == 0) {
-        apr_brigade_printf(ctx.bb, NULL, NULL, "%sMDomains: %d\n", 
-                           html? "<hr>\n" : "", mc->mds->nelts);
+    mds = apr_array_copy(r->pool, mc->mds);
+    qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
+
+    if (!html) {
+        apr_brigade_puts(ctx.bb, NULL, NULL, "ManagedDomains: ");
+        if (1 && mc->mds->nelts > 0) {
+            int oks, renews, errored, ready;
+            count_states(r->pool, mds, mc, &oks, &renews, &errored, &ready);
+            apr_brigade_printf(ctx.bb, NULL, NULL, "ok=%d renew=%d errored=%d ready=%d", 
+                               oks, renews, errored, ready);
+        } 
+        else if (mc->mds->nelts > 0) {
+            md_json_t *json;
+            
+            json = make_status_json(r->pool, mds, mc);
+            md_json_writeb(json, MD_JSON_FMT_COMPACT, ctx.bb);
+        }
+        else {
+            apr_brigade_puts(ctx.bb, NULL, NULL, "[]"); 
+        }
+        apr_brigade_puts(ctx.bb, NULL, NULL, "\n"); 
     }
-    else {
+    else if (mc->mds->nelts > 0) {
         apr_brigade_puts(ctx.bb, NULL, NULL, 
                          "<hr>\n<h2>Managed Domains</h2>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
@@ -469,9 +546,6 @@ int md_status_hook(request_rec *r, int flags)
             apr_brigade_puts(ctx.bb, NULL, NULL, status_infos[i].label);
             apr_brigade_puts(ctx.bb, NULL, NULL, "</th>");
         }
-        
-        mds = apr_array_copy(r->pool, mc->mds);
-        qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
         apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
         for (i = 0; i < mds->nelts; ++i) {
             md = APR_ARRAY_IDX(mds, i, const md_t *);

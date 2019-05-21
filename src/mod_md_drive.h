@@ -44,6 +44,8 @@ struct md_drive_job_t {
 
 apr_status_t md_drive_job_load(md_drive_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
 
+void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job);
+
 
 
 #endif /* mod_md_md_drive_h */

@@ -158,6 +158,7 @@ struct md_t {
 #define MD_KEY_PROTO            "proto"
 #define MD_KEY_REGISTRATION     "registration"
 #define MD_KEY_RENEW            "renew"
+#define MD_KEY_RENEWAL          "renewal"
 #define MD_KEY_RENEW_WINDOW     "renew-window"
 #define MD_KEY_REQUIRE_HTTPS    "require-https"
 #define MD_KEY_RESOURCE         "resource"
