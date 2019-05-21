@@ -308,7 +308,7 @@ static void si_val_props(status_ctx *ctx, const md_t *md, const md_drive_job_t *
     switch (ptype) {
         case MD_PKEY_TYPE_RSA:
             if (i++) apr_brigade_puts(ctx->bb, NULL, NULL, " \n"); 
-            apr_brigade_printf(ctx->bb, NULL, NULL, "key[RSA(%ud)]", md->pkey_spec->params.rsa.bits);
+            apr_brigade_printf(ctx->bb, NULL, NULL, "key[RSA(%u)]", md->pkey_spec->params.rsa.bits);
         default:
             break;
     }
