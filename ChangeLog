@@ -1,4 +1,5 @@
 
+ * Status shows list of MDs sorted alphabetically.
  * Status now shows message from a failed renewal with information and error code on where/why
    it failed.
  * At startup, an initial ACME parameter check is performed. More details are given when

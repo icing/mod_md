@@ -423,6 +423,11 @@ static void add_md_row(status_ctx *ctx, const md_t *md, int index)
     apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
 }
 
+static int md_name_cmp(const void *v1, const void *v2)
+{
+    return strcmp((*(const md_t**)v1)->name, (*(const md_t**)v2)->name);
+}
+
 int md_status_hook(request_rec *r, int flags)
 {
     const md_srv_conf_t *sc;
@@ -430,6 +435,7 @@ int md_status_hook(request_rec *r, int flags)
     const md_t *md;
     int i, html;
     status_ctx ctx;
+    apr_array_header_t *mds;
     
     sc = ap_get_module_config(r->server->module_config, &md_module);
     if (!sc) return DECLINED;
@@ -454,9 +460,12 @@ int md_status_hook(request_rec *r, int flags)
             apr_brigade_puts(ctx.bb, NULL, NULL, status_infos[i].label);
             apr_brigade_puts(ctx.bb, NULL, NULL, "</th>");
         }
+        
+        mds = apr_array_copy(r->pool, mc->mds);
+        qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
         apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
-        for (i = 0; i < mc->mds->nelts; ++i) {
-            md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
+        for (i = 0; i < mds->nelts; ++i) {
+            md = APR_ARRAY_IDX(mds, i, const md_t *);
             add_md_row(&ctx, md, i);
         }
         apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
