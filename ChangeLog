@@ -1,4 +1,4 @@
-
+ * Status lists private key specification, if different from default RSA(2048).
  * Status shows list of MDs sorted alphabetically.
  * Status now shows message from a failed renewal with information and error code on where/why
    it failed.
