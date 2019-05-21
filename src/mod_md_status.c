@@ -466,7 +466,7 @@ static void  count_states(apr_pool_t *p, apr_array_header_t *mds, const md_mod_c
     md_drive_job_t job;
     int i;
 
-    *pok = *prenew = *perror = 0;
+    *pok = *prenew = *perror = *pready = 0;
     for (i = 0; i < mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mds, i, const md_t *);
         switch (md->state) {
