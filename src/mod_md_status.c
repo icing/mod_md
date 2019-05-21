@@ -273,6 +273,7 @@ static void si_val_props(status_ctx *ctx, const md_t *md, const md_drive_job_t *
                          md_json_t *mdj, const status_info *info)
 {
     const char *s;
+    md_pkey_type_t ptype;
     int i = 0;
     (void)job;
     (void)mdj;
@@ -303,7 +304,8 @@ static void si_val_props(status_ctx *ctx, const md_t *md, const md_drive_job_t *
         add_json_val(ctx, md_json_getj(mdj, MD_KEY_CONTACTS, NULL));
         apr_brigade_puts(ctx->bb, NULL, NULL, "]");
     }
-    switch (md->pkey_spec->type) {
+    ptype = md->pkey_spec? md->pkey_spec->type : MD_PKEY_TYPE_DEFAULT;
+    switch (ptype) {
         case MD_PKEY_TYPE_RSA:
             if (i++) apr_brigade_puts(ctx->bb, NULL, NULL, " \n"); 
             apr_brigade_printf(ctx->bb, NULL, NULL, "key[RSA(%ud)]", md->pkey_spec->params.rsa.bits);
