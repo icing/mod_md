@@ -96,10 +96,10 @@ static md_srv_conf_t defconf = {
     MD_DRIVE_AUTO,
     0,
     NULL, 
-    apr_time_from_sec(90 * MD_SECS_PER_DAY), /* If the cert lifetime were 90 days, renew */
-    apr_time_from_sec(30 * MD_SECS_PER_DAY), /* 30 days before. Adjust to actual lifetime */
+    MD_TIME_RENEW_NORM,       /* Normalized lifetime of a certificate */
+    MD_TIME_RENEW_WINDOW_DEF, /* Default remaining time when renewal commences */
     NULL,
-    NULL,
+    "ACME",
     NULL,
     NULL,
     NULL,
@@ -619,8 +619,8 @@ static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const ch
     else {
         switch (percentage_parse(value, &percent)) {
             case APR_SUCCESS:
-                config->renew_norm = apr_time_from_sec(100 * MD_SECS_PER_DAY);
-                config->renew_window = apr_time_from_sec(percent * MD_SECS_PER_DAY);
+                config->renew_norm = MD_TIME_RENEW_NORM;
+                config->renew_window = (long)(config->renew_norm * percent / 100L);
                 return NULL;
             case APR_BADARG:
                 return "MDRenewWindow as percent must be less than 100";

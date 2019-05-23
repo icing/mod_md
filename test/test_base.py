@@ -650,6 +650,10 @@ class HttpdConf(object):
                                     )
                                    % (acmeUrl, acmeTos))
 
+    def clear(self):
+        if os.path.isfile(self.path):
+            os.remove(self.path)
+
     def _add_line(self, line):
         open(self.path, "a").write(line + "\n")
 
@@ -670,6 +674,12 @@ class HttpdConf(object):
 
     def add_md(self, dnsList):
         self._add_line("  MDomain %s\n\n" % " ".join(dnsList))
+
+    def start_md(self, dnsList):
+        self._add_line("  <MDomainSet %s>\n" % " ".join(dnsList))
+
+    def end_md(self):
+        self._add_line("  </MDomainSet>\n")
 
     def add_must_staple(self, mode):
         self._add_line("  MDMustStaple %s\n" % mode)

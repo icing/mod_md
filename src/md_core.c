@@ -415,8 +415,8 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             if (s && strchr(s, '%')) {
                 int percent = atoi(s);
                 if (0 < percent && percent < 100) {
-                    md->renew_norm = apr_time_from_sec(100 * MD_SECS_PER_DAY);
-                    md->renew_window = apr_time_from_sec(percent * MD_SECS_PER_DAY);
+                    md->renew_norm = MD_TIME_RENEW_NORM;
+                    md->renew_window = (long)(md->renew_norm * percent / 100L);
                 }
             }
         }

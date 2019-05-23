@@ -39,6 +39,9 @@ struct md_pkey_spec_t;
 
 #define PROTO_ACME_TLS_1        "acme-tls/1"
 
+#define MD_TIME_RENEW_NORM          (apr_time_from_sec(90 * MD_SECS_PER_DAY))
+#define MD_TIME_RENEW_WINDOW_DEF    (apr_time_from_sec(30 * MD_SECS_PER_DAY))
+
 typedef enum {
     MD_S_UNKNOWN = 0,               /* MD has not been analysed yet */
     MD_S_INCOMPLETE = 1,            /* MD is missing necessary information, cannot go live */

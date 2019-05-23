@@ -167,6 +167,65 @@ class TestAuto:
         assert 2 == len(TestEnv.list_accounts())
 
 
+    #-----------------------------------------------------------------------------------------------
+    # create an MD with ACMEv1, let them get a cert, remove the explicit 
+    # MDCertificateAuthority config and expect the old value to be preserved
+    # without any errors/warnings after restart.
+    # 
+    def test_710_003(self):
+        domain = "a-test710-003-" + TestAuto.dns_uniq
+        domainb = "b-test710-003-" + TestAuto.dns_uniq
+
+        # use ACMEv1 initially
+        TestEnv.set_acme('acmev1')
+        ca_url = TestEnv.ACME_URL
+        
+        dnsList = [ domain, "www." + domain ]
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.clear()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_line( "MDCertificateAgreement accepted" )
+        conf.add_line( "MDMembers auto" )
+        conf.start_md( [ domain ] )
+        conf.add_line( "MDCertificateAuthority %s" % (ca_url) )
+        conf.end_md()
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=dnsList[1:], withSSL=True )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        self._check_md_names( domain, dnsList )
+        assert TestEnv.await_completion( [ domain ] )
+        assert (0, 0) == TestEnv.apache_err_count()
+        self._check_md_ca(domain, ca_url)
+                
+        # use ACMEv2 now, same MD, no CA url
+        TestEnv.set_acme('acmev2')
+        # this changes the default CA url
+        assert TestEnv.ACME_URL_DEFAULT != ca_url
+        
+        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf.clear()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_line( "MDCertificateAgreement accepted" )
+        conf.add_line( "MDMembers auto" )
+        conf.start_md( [ domain ] )
+        conf.end_md()
+        conf.start_md( [ domainb ] )
+        # this willg get the reald Let's Encrypt URL assigned, turn off
+        # auto renewal, so we will not talk to them
+        conf.add_line( "MDDriveMode manual" )
+        conf.end_md()
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=dnsList[1:], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domainb, aliasList=[], withSSL=True )
+        conf.install()
+        
+        assert TestEnv.apache_restart() == 0
+        assert (0, 0) == TestEnv.apache_err_count()
+        # the existing MD kept his CA url
+        self._check_md_ca(domain, ca_url)
+        # the new MD got the new default
+        self._check_md_ca(domainb, TestEnv.ACME_URL_DEFAULT)
+
+        
     # --------- _utils_ ---------
 
     def _check_md_names(self, name, dns_list):
@@ -178,9 +237,13 @@ class TestAuto:
     def _check_md_cert(self, dns_list):
         name = dns_list[0]
         md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
         assert os.path.isfile( TestEnv.path_domain_privkey(name) )
         assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
+
+    def _check_md_ca(self, name, url):
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        # check ca url
+        assert url == md['ca']['url']
 
 
