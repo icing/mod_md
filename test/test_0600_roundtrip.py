@@ -16,7 +16,7 @@ from test_base import CertUtil
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
+    TestEnv.initv1()
     TestEnv.APACHE_CONF_SRC = "data/test_roundtrip"
     
 def teardown_module(module):

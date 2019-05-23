@@ -726,6 +726,19 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     }
                 }
 
+                /* If no CA url/proto is configured for the MD, take the existing
+                 * one, if set */
+                if (!md->ca_url) {
+                    if (smd->ca_url) {
+                        md->ca_url = apr_pstrdup(p, smd->ca_url);
+                        md->ca_proto = smd->ca_proto? apr_pstrdup(p, smd->ca_proto) : NULL; 
+                    }
+                    else {
+                        md->ca_url = MD_ACME_DEF_URL;
+                        md->ca_proto = MD_PROTO_ACME; 
+                    }
+                }
+                
                 if (MD_SVAL_UPDATE(md, smd, ca_url)) {
                     smd->ca_url = md->ca_url;
                     fields |= MD_UPD_CA_URL;
@@ -799,6 +812,11 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
             }
             else {
                 /* new managed domain */
+                /* If no CA url/proto is configured for the MD, take the default */
+                if (!md->ca_url) {
+                    md->ca_url = MD_ACME_DEF_URL;
+                    md->ca_proto = MD_PROTO_ACME; 
+                }
                 rv = md_reg_add(reg, md, ptemp);
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "new md %s added", md->name);
             }

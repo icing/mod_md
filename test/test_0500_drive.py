@@ -16,7 +16,7 @@ from test_base import CertUtil
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
-    TestEnv.init()
+    TestEnv.initv1()
     TestEnv.check_acme()
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
@@ -129,10 +129,9 @@ class TestDrive :
         assert TestEnv.a2md( [ "-vv", "drive", "-c", "http-01", name ] )['rv'] == 0
         self._check_md_cert([ name, "test." + domain ])
 
-    @pytest.mark.skip(reason="indicatpr for ALPN 'acme-tls/1' support is always false right now")
     def test_500_102(self):
-        # test case: md with one domain, local TOS agreement and ACME account
-        # setup: create md
+        # Driving an MD with 'tls-alpn-01' challenge without making it known to Apache
+        # first will not work, as support for ALPN protocol acme-tls/1 cannot be checked.
         domain = "test500-102-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name ])
@@ -144,10 +143,7 @@ class TestDrive :
         # setup: link md to account
         assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
-        r = TestEnv.a2md( [ "-vvv", "drive", "-c", "tls-alpn-01", name ] )
-        assert r['stderr'] == ''
-        assert r['rv'] == 0
-        self._check_md_cert([ name ])
+        r = TestEnv.a2md( [ "-v", "drive", "-c", "tls-alpn-01", name ] ) == 1
 
     def test_500_103(self):
         # test case: md with one domain, ACME account and TOS agreement on server
@@ -222,16 +218,15 @@ class TestDrive :
         assert run['rv'] == 0
         self._check_md_cert([ name ])
 
-    @pytest.mark.skip(reason="indicatpr for ALPN 'acme-tls/1' support is always false right now")
     def test_500_106(self):
-        # test case: drive using HTTPS only challenge
+        # Driving an MD with TLS only, without making it known to Apache
+        # first will not work, as support for ALPN protocol acme-tls/1 cannot be checked.
         domain = "test500-106-" + TestDrive.dns_uniq
         name = "www." + domain
         self._prepare_md([ name, "test." + domain ])
         assert TestEnv.apache_start() == 0
         # drive
-        assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-alpn-01", name ] )['rv'] == 0
-        self._check_md_cert([ name, "test." + domain ])
+        assert TestEnv.a2md( [ "-vv", "drive", "-c", "tls-alpn-01", name ] )['rv'] == 1
 
     def test_500_107(self):
         # test case: drive again on COMPLETE md, then drive --force

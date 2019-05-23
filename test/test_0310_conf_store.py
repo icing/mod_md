@@ -288,17 +288,16 @@ class TestConf:
         self._check_md_names("testdomain.org", dnsList2, 1, 2)
 
     def test_310_204(self):
-        # test case: remove ca info from md, should fall back to default value
-        # setup: add md with ca info
+        # test case: remove ca info from md, should keep previous values
         name = "testdomain.org"
         TestEnv.install_test_conf("one_md_ca");
         assert TestEnv.apache_restart() == 0
         # setup: sync with ca info removed
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
-        # check: md stays the same with previous ca info. TOS url stays as before.
+        # check: md keeps its CA and ToS.
         self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME", "http://acme.test.org:4000/terms/v1")
+        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", "http://acme.test.org:4000/terms/v1")
 
     def test_310_205(self):
         # test case: remove server admin from md

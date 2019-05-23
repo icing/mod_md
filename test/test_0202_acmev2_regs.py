@@ -14,7 +14,7 @@ from test_base import TestEnv
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
-    TestEnv.initv2()
+    TestEnv.init()
 
 def teardown_module(module):
     print("teardown_module:%s" % module.__name__)

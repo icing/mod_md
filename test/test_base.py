@@ -73,7 +73,7 @@ class TestEnv:
         cls.ACME_SERVER_OK = False
 
         cls.set_store_dir_default()
-        cls.set_acme('acmev1')
+        cls.set_acme('acmev2')
         cls.clear_store()
         cls.install_test_conf()
 
@@ -95,11 +95,11 @@ class TestEnv:
     @classmethod
     def initv1( cls ) :
         cls._init_base()
+        cls.set_acme('acmev1')
 
     @classmethod
     def initv2( cls ) :
         cls._init_base()
-        cls.set_acme('acmev2')
 
     @classmethod
     def set_store_dir( cls, dir ) :

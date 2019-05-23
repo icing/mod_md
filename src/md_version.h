@@ -37,6 +37,6 @@
  */
 #define MOD_MD_VERSION_NUM 0x01630d
 
-#define MD_ACME_DEF_URL    "https://acme-v01.api.letsencrypt.org/directory"
+#define MD_ACME_DEF_URL    "https://acme-v02.api.letsencrypt.org/directory"
 
 #endif /* mod_md_md_version_h */

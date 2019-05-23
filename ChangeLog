@@ -1,3 +1,5 @@
+ * The ACMEv2 endpoint of Let's Encrypt is now the default for new MDs. Existing MDs will keep
+   their values unless one explicitly configures a 'MDCertificateAuthority'. 
  * Non-HTML format of mod_status now lists number of ok/renew/error/ready MDomains.
 
 v1.99.12

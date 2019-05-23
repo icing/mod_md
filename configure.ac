@@ -158,11 +158,11 @@ AC_SUBST(WERROR_CFLAGS)
 AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
 AC_PATH_PROG([PKGCONFIG], [pkg-config])
 
-ACME_DEF_URL=https://acme-v01.api.letsencrypt.org/directory
-AC_SUBST(ACME_DEF_URL)
+ACME_DEFv1_URL=https://acme-v01.api.letsencrypt.org/directory
+AC_SUBST(ACME_DEFv1_URL)
 
-ACME_DEFv2_URL=https://acme-v02.api.letsencrypt.org/directory
-AC_SUBST(ACME_DEFv2_URL)
+ACME_DEF_URL=https://acme-v02.api.letsencrypt.org/directory
+AC_SUBST(ACME_DEF_URL)
 
 if test "x$request_boulder" = "xdef"; then
     BOULDER_URL=http://localhost:4000/directory

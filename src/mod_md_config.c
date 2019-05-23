@@ -98,8 +98,8 @@ static md_srv_conf_t defconf = {
     NULL, 
     apr_time_from_sec(90 * MD_SECS_PER_DAY), /* If the cert lifetime were 90 days, renew */
     apr_time_from_sec(30 * MD_SECS_PER_DAY), /* 30 days before. Adjust to actual lifetime */
-    MD_ACME_DEF_URL,
-    "ACME",
+    NULL,
+    NULL,
     NULL,
     NULL,
     NULL,
