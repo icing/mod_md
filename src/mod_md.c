@@ -993,12 +993,6 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
         return APR_EAGAIN;
     }
     
-    /* We have key and cert files, but they might no longer be valid or not
-     * match all domain names. Still use these files for now, but indicate that 
-     * resources should no longer be served until we have a new certificate again. */
-    if (md->state != MD_S_COMPLETE) {
-        rv = APR_EAGAIN;
-    }
     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10077) 
                  "%s[state=%d]: providing certificate for server %s", 
                  md->name, md->state, s->server_hostname);
