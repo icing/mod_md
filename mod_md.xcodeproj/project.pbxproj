@@ -98,6 +98,7 @@
 		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
 		B2A93D122292D7A400BC6339 /* httpd.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd.conf.in; sourceTree = "<group>"; };
+		B2A93D132297E14600BC6339 /* test_0910_cleanups.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0910_cleanups.py; sourceTree = "<group>"; };
 		B2B330051F39E1D300579179 /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
 		B2B330061F39E1D300579179 /* md_acme_acct.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_acme_acct.h; sourceTree = "<group>"; };
 		B2B330071F39E1D300579179 /* md_acme_authz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_authz.c; sourceTree = "<group>"; };
@@ -378,6 +379,7 @@
 				B2C1BE082201AC02002EF7B4 /* test_0720_wildcard.py */,
 				B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */,
 				B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */,
+				B2A93D132297E14600BC6339 /* test_0910_cleanups.py */,
 				B255730C1EE6D11200E0B132 /* test_base.py */,
 				B2307ED520E2562100487AD7 /* test.ini */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,

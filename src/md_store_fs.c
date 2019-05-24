@@ -84,6 +84,8 @@ static apr_status_t fs_move(md_store_t *store, apr_pool_t *p,
 static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_t *store, 
                                apr_pool_t *p, md_store_group_t group,  const char *pattern,
                                const char *aspect, md_store_vtype_t vtype);
+static apr_status_t fs_iterate_names(md_store_inspect *inspect, void *baton, md_store_t *store, 
+                                     apr_pool_t *p, md_store_group_t group, const char *pattern);
 
 static apr_status_t fs_get_fname(const char **pfname, 
                                  md_store_t *store, md_store_group_t group, 
@@ -284,6 +286,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.move = fs_move;
     s_fs->s.purge = fs_purge;
     s_fs->s.iterate = fs_iterate;
+    s_fs->s.iterate_names = fs_iterate_names;
     s_fs->s.get_fname = fs_get_fname;
     s_fs->s.is_newer = fs_is_newer;
     
@@ -771,6 +774,35 @@ static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_
     groupname = md_store_group_name(group);
 
     rv = md_util_files_do(insp_dir, &ctx, p, ctx.s_fs->base, groupname, pattern, NULL);
+    
+    return rv;
+}
+
+static apr_status_t insp_name(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                              const char *dir, const char *name, apr_filetype_e ftype)
+{
+    inspect_ctx *ctx = baton;
+    
+    (void)ftype;
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting name at: %s/%s", dir, name);
+    return ctx->inspect(ctx->baton, dir, name, 0, NULL, ptemp);
+}
+
+static apr_status_t fs_iterate_names(md_store_inspect *inspect, void *baton, md_store_t *store, 
+                                     apr_pool_t *p, md_store_group_t group, const char *pattern)
+{
+    const char *groupname;
+    apr_status_t rv;
+    inspect_ctx ctx;
+    
+    ctx.s_fs = FS_STORE(store);
+    ctx.group = group;
+    ctx.pattern = pattern;
+    ctx.inspect = inspect;
+    ctx.baton = baton;
+    groupname = md_store_group_name(group);
+
+    rv = md_util_files_do(insp_name, &ctx, p, ctx.s_fs->base, groupname, pattern, NULL);
     
     return rv;
 }

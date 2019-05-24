@@ -425,17 +425,25 @@ static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int dep
     }
     pattern = APR_ARRAY_IDX(ctx->patterns, depth, const char *);
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ptemp, "match_and_do "
+                  "path=%s depth=%d pattern=%s", path, depth, pattern);
     rv = apr_dir_open(&d, path, ptemp);
     if (APR_SUCCESS != rv) {
         return rv;
     }
     
     while (APR_SUCCESS == (rv = apr_dir_read(&finfo, wanted, d))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ptemp, "match_and_do "
+                      "candidate=%s", finfo.name);
         if (!strcmp(".", finfo.name) || !strcmp("..", finfo.name)) {
             continue;
         } 
         if (APR_SUCCESS == apr_fnmatch(pattern, finfo.name, 0)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ptemp, "match_and_do "
+                          "candidate=%s matches pattern", finfo.name);
             if (ndepth < ctx->patterns->nelts) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ptemp, "match_and_do "
+                              "need to go deepter");
                 if (APR_DIR == finfo.filetype) { 
                     /* deeper and deeper, irgendwo in der tiefe leuchtet ein licht */
                     rv = md_util_path_merge(&npath, ptemp, path, finfo.name, NULL);
@@ -445,6 +453,8 @@ static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int dep
                 }
             }
             else {
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ptemp, "match_and_do "
+                              "invoking inspector on name=%s", finfo.name);
                 rv = ctx->cb(ctx->baton, p, ptemp, path, finfo.name, finfo.filetype);
             }
         }

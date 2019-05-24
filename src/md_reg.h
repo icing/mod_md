@@ -132,6 +132,17 @@ apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int a
 apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_id);
 
 
+/**
+ * Cleanup any challenges that are no longer in use.
+ * 
+ * @param reg   the registry
+ * @param p     pool for permament storage
+ * @param ptemp pool for temporary storage
+ * @param mds   the list of configured MDs
+ */
+apr_status_t md_reg_cleanup_challenges(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
+                                       apr_array_header_t *mds);
+
 /**************************************************************************************************/
 /* protocol drivers */
 

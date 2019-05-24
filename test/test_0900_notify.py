@@ -52,7 +52,7 @@ class TestAuto:
         print("teardown_method: %s" % method.__name__)
 
     #-----------------------------------------------------------------------------------------------
-    # MD host with notifcy command
+    # MD host with notify command
     # 
     #-----------------------------------------------------------------------------------------------
     # test case: signup with configured notify cmd that is invalid

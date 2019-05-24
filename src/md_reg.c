@@ -834,6 +834,53 @@ apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int a
     return md_store_move(reg->store, p, MD_SG_DOMAINS, MD_SG_ARCHIVE, name, archive);
 }
 
+typedef struct {
+    md_reg_t *reg;
+    apr_pool_t *p;
+    apr_array_header_t *mds;
+} cleanup_challenge_ctx;
+ 
+static apr_status_t cleanup_challenge_inspector(void *baton, const char *dir, const char *name, 
+                                                md_store_vtype_t vtype, void *value, 
+                                                apr_pool_t *ptemp)
+{
+    cleanup_challenge_ctx *ctx = baton;
+    const md_t *md;
+    int i, used;
+    apr_status_t rv;
+    
+    (void)value;
+    (void)vtype;
+    for (used = 0, i = 0; i < ctx->mds->nelts && !used; ++i) {
+        md = APR_ARRAY_IDX(ctx->mds, i, const md_t *);
+        used = !strcmp(name, md->name);
+    }
+    if (!used) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, 
+                      "challenges/%s: not in use, purging", name);
+        rv = md_store_purge(ctx->reg->store, ctx->p, MD_SG_CHALLENGES, name);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ptemp, 
+                          "challenges/%s: unable to purge", name);
+        }
+    }
+    return APR_SUCCESS;
+}
+
+apr_status_t md_reg_cleanup_challenges(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
+                                       apr_array_header_t *mds)
+{
+    apr_status_t rv;
+    cleanup_challenge_ctx ctx;
+    
+    ctx.reg = reg;
+    ctx.p = ptemp;
+    ctx.mds = mds;
+    rv = md_store_iter_names(cleanup_challenge_inspector, &ctx, reg->store, ptemp, 
+                             MD_SG_CHALLENGES, "*");
+    return rv;
+}
+
 
 /**************************************************************************************************/
 /* driving */

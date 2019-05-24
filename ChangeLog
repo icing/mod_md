@@ -1,3 +1,5 @@
+ * If a MDomain is removed, all its challenge store information is purged as well. Test
+   case for that added. Fixes #93
  * The ACMEv2 endpoint of Let's Encrypt is now the default for new MDs. Existing MDs will keep
    their values unless one explicitly configures a 'MDCertificateAuthority'. 
  * Non-HTML format of mod_status now lists number of ok/renew/error/ready MDomains.

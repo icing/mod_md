@@ -773,7 +773,9 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
      *    credentials that are in the store (or missing there). 
      *    Expiry times, MD state, etc.
      * 8. Determine the list of MDs that need driving/supervision.
-     * 9. If this list is non-empty, setup a watchdog to run. 
+     * 9. Cleanup any left-overs in registry/store that are no longer needed for
+     *    the list of MDs as we know it now.
+     * 10. If this list is non-empty, setup a watchdog to run. 
      */
     /*1*/
     if (APR_SUCCESS != (rv = detect_supported_ports(mc, s, p, log_level))) goto leave;
@@ -795,9 +797,11 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
     /*8*/
     init_watched_names(mc, p, s);
+    /*9*/
+    md_reg_cleanup_challenges(mc->reg, p, ptemp, mc->mds);
     
     if (mc->watched_names->nelts > 0) {
-        /*9*/
+        /*10*/
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
                      "%d out of %d mds need watching", 
                      mc->watched_names->nelts, mc->mds->nelts);
