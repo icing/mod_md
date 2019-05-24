@@ -1,3 +1,5 @@
+ * Updating the documentation by pulling the wiki into README.md and making the necessary
+   additions and edits.
  * If a MDomain is removed, all its challenge store information is purged as well. Test
    case for that added. Fixes #93
  * The ACMEv2 endpoint of Let's Encrypt is now the default for new MDs. Existing MDs will keep
