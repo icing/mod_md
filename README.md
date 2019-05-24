@@ -157,15 +157,21 @@ While most users will not have to care about this, there is a feature only avail
 If you do not specify in `mod_md` which CA to use, the module will select ACMEv2 for new MDs. If you want _all_ your domains to use this, you can configure:
 
 ```
-MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory```
+MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
+```
 explicitly. This may be useful during [upgrading](#upgrading). Or you can enforce the older protocol for all by:
 
-```MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
-```You can also set this per domain:
+```
+MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
+```
+You can also set this per domain:
 
 ```
 <MDomainSet aaa.mydomain.net>
-  MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory</mDomainSet```which ensure that, whatever you set globally, this domain will use ACMEv2 with LE.
+  MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
+</mDomainSet
+```
+which ensure that, whatever you set globally, this domain will use ACMEv2 with LE.
 
 
 ### Other CAs
@@ -383,7 +389,8 @@ If your server is not reachable on the ports needed, the domain renewal will fai
 OTOH, some servers do not listen on 80/443, but are nevertheless reachable on those ports. The common cause is a firewall/router that does _port mapping_. How should `mod_md` know? Well you need to tell it that:
 
 ```
-    MDPortaMap 80:8001 443:8002```
+    MDPortaMap 80:8001 443:8002
+```
 Which says: _"when someone on the internet opens port 80, it arrives at Apache on port 8001"_.
 
 # TLS ALPN Challenges
@@ -414,7 +421,9 @@ The difficulty here is that Apache cannot do that on its own. (which is also a s
 
 If you know how to do that, you can integrated this with `mod_md`. Let's say you have a scipt for that in `/usr/bin/acme-setup-dns` you configure Apache with:
 
-```MDChallengeDns01 /usr/bin/acme-setup-dns```
+```
+MDChallengeDns01 /usr/bin/acme-setup-dns
+```
 and Apache will call this script when it needs to setup/teardown a DNS challenge record for a domain. 
 
 Assuming you want a certificate for `*.mydomain.net`, mod_md will call:
@@ -423,13 +432,17 @@ Assuming you want a certificate for `*.mydomain.net`, mod_md will call:
 /usr/bin/acme-setup-dns setup mydomain.net challenge-data
 # this needs to remove all existing DNS TXT records for 
 # _acme-challenge.mydomain.net and create a new one with 
-# content "challenge-data"```
+# content "challenge-data"
+```
 and afterwards it will call
 
-```/usr/bin/acme-setup-dns teardown mydomain.net
+```
+/usr/bin/acme-setup-dns teardown mydomain.net
 # this needs to remove all existing DNS TXT records for 
 # _acme-challenge.mydomain.net
-```If you DNS provider offers an interface for this, there is probably someone who has already
+```
+
+If you DNS provider offers an interface for this, there is probably someone who has already
 written such a script. Or he may provide one.
 
 If your DNS provider does _not_ offer an interface that you can script, he _will_ offer at least a web interface where you can enter records manually. You can then configure a script that mails you the the information, so you can do it yourself. Welcome to the machine age!
@@ -458,7 +471,9 @@ Just configure:
 ```
 <MDomainSet test.mydomain.net>
   MDCertificateAuthority https://acme-staging-v02.api.letsencrypt.org/directory
-</MDomainSet``` 
+</MDomainSet
+```
+ 
 and your requests go against LE's _staging_ environment that is exactly there for these tests.
 
 
