@@ -851,6 +851,7 @@ static apr_status_t cleanup_challenge_inspector(void *baton, const char *dir, co
     
     (void)value;
     (void)vtype;
+    (void)dir;
     for (used = 0, i = 0; i < ctx->mds->nelts && !used; ++i) {
         md = APR_ARRAY_IDX(ctx->mds, i, const md_t *);
         used = !strcmp(name, md->name);
@@ -872,7 +873,8 @@ apr_status_t md_reg_cleanup_challenges(md_reg_t *reg, apr_pool_t *p, apr_pool_t 
 {
     apr_status_t rv;
     cleanup_challenge_ctx ctx;
-    
+
+    (void)p;
     ctx.reg = reg;
     ctx.p = ptemp;
     ctx.mds = mds;

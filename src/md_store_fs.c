@@ -784,6 +784,7 @@ static apr_status_t insp_name(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     inspect_ctx *ctx = baton;
     
     (void)ftype;
+    (void)p;
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting name at: %s/%s", dir, name);
     return ctx->inspect(ctx->baton, dir, name, 0, NULL, ptemp);
 }
