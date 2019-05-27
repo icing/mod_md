@@ -28,24 +28,6 @@ typedef struct md_drive_ctx md_drive_ctx;
 apr_status_t md_start_watching(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p);
 
 
-typedef struct md_drive_job_t md_drive_job_t;
-
-struct md_drive_job_t {
-    const char *name;      /* Name of the MD this job is about */     
-    apr_time_t next_run;   /* Time this job wants to be processed next */
-    int finished;          /* true iff the job finished successfully */
-    apr_time_t valid_from; /* at which time the finished job results become valid */
-    int notified;          /* true iff the user has been notified that results are valid now */
-    int error_runs;        /* Number of errored runs of an unfinished job */
-    int last_status;       /* Status of last run */
-    const char *last_message; /* Message from last run */
-    int dirty;             /* transient flag if job needs saving */    
-};
-
-apr_status_t md_drive_job_load(md_drive_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
-
-void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job);
-
 
 
 #endif /* mod_md_md_drive_h */

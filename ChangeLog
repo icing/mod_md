@@ -1,3 +1,7 @@
+ * New handle "md-status" that can be configured to return the state of all MDs in JSON format.
+
+v2.0.0
+----------------------------------------------------------------------------------------------------
  * Updating the documentation by pulling the wiki into README.md and making the necessary
    additions and edits.
  * If a MDomain is removed, all its challenge store information is purged as well. Test

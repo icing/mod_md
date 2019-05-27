@@ -76,8 +76,8 @@ class TestAuto:
         conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True)
         conf.install()
         assert TestEnv.apache_restart() == 0
-
         assert TestEnv.await_completion([ domain ] )
+        
         self._check_md_cert( dns_list )
         cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         assert domain in cert.get_san_list()

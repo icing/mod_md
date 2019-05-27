@@ -97,6 +97,8 @@
 		B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
 		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
+		B298D5C2229BE6FC00245316 /* md_status.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_status.h; sourceTree = "<group>"; };
+		B298D5C3229BE6FC00245316 /* md_status.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_status.c; sourceTree = "<group>"; };
 		B2A93D122292D7A400BC6339 /* httpd.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd.conf.in; sourceTree = "<group>"; };
 		B2A93D132297E14600BC6339 /* test_0910_cleanups.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0910_cleanups.py; sourceTree = "<group>"; };
 		B2B330051F39E1D300579179 /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
@@ -442,6 +444,8 @@
 				B240521F1EF9145000E36701 /* md_log.h */,
 				B24052211EF9145000E36701 /* md_reg.c */,
 				B24052221EF9145000E36701 /* md_reg.h */,
+				B298D5C3229BE6FC00245316 /* md_status.c */,
+				B298D5C2229BE6FC00245316 /* md_status.h */,
 				B2B81EBE1F0F981C00E35CA3 /* md_store_fs.c */,
 				B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */,
 				B2B81EC01F0F998F00E35CA3 /* md_store.c */,

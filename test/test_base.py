@@ -525,8 +525,6 @@ class TestEnv:
     @classmethod
     def get_md_status(cls, domain, timeout=60):
         stat = TestEnv.get_json_content(domain, "/.httpd/certificate-status")
-        #if stat:
-        #    print "md status: %s" % (stat)
         return stat
 
     @classmethod
@@ -538,7 +536,7 @@ class TestEnv:
                 return False
             for name in names:
                 stat = TestEnv.get_md_status(name, timeout)
-                if not stat:
+                if stat == None:
                     print "not managed by md: %s" % (name)
                     return False
 
@@ -646,6 +644,9 @@ class HttpdConf(object):
                                     "  MDCertificateAgreement %s\n\n"
                                     "  <Location \"/server-status\">\n"
                                     "     SetHandler server-status\n"
+                                    "  </Location>\n"
+                                    "  <Location \"/md-status\">\n"
+                                    "     SetHandler md-status\n"
                                     "  </Location>\n"
                                     )
                                    % (acmeUrl, acmeTos))

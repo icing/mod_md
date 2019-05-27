@@ -41,6 +41,7 @@ A2LIB_OBJECTS = \
     md_jws.c \
     md_log.c \
     md_reg.c \
+    md_status.c \
     md_store.c \
     md_store_fs.c \
     md_util.c
@@ -60,6 +61,7 @@ A2LIB_HFILES = \
     md_jws.h \
     md_log.h \
     md_reg.h \
+    md_status.h \
     md_store.h \
     md_store_fs.h \
     md_util.h \

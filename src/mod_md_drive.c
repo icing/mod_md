@@ -33,6 +33,7 @@
 #include "md_crypt.h"
 #include "md_http.h"
 #include "md_json.h"
+#include "md_status.h"
 #include "md_store.h"
 #include "md_store_fs.h"
 #include "md_log.h"
@@ -47,72 +48,6 @@
 #include "mod_md_config.h"
 #include "mod_md_status.h"
 #include "mod_md_drive.h"
-
-/**************************************************************************************************/
-/* drive job persistence */
-
-static void md_drive_job_from_json(md_drive_job_t *job, const md_json_t *json, apr_pool_t *p)
-{
-    const char *s;
-    /* not good, this is malloced from a temp pool */
-    /*job->name = md_json_gets(json, MD_KEY_NAME, NULL);*/
-    job->finished = md_json_getb(json, MD_KEY_FINISHED, NULL);
-    s = md_json_dups(p, json, MD_KEY_NEXT_RUN, NULL);
-    if (s && *s) job->next_run = apr_date_parse_rfc(s);
-    s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
-    if (s && *s) job->valid_from = apr_date_parse_rfc(s);
-    job->notified = md_json_getb(json, MD_KEY_NOTIFIED, NULL);
-    job->error_runs = (int)md_json_getl(json, MD_KEY_ERRORS, NULL);
-    job->last_status = (int)md_json_getl(json, MD_KEY_LAST, MD_KEY_STATUS, NULL);
-    job->last_message = md_json_dups(p, json, MD_KEY_LAST, MD_KEY_MESSAGE, NULL);
-}
-
-void md_drive_job_to_json(md_json_t *json, const md_drive_job_t *job)
-{
-    char ts[APR_RFC822_DATE_LEN];
-
-    md_json_sets(job->name, json, MD_KEY_NAME, NULL);
-    md_json_setb(job->finished, json, MD_KEY_FINISHED, NULL);
-    if (job->next_run > 0) {
-        apr_rfc822_date(ts, job->next_run);
-        md_json_sets(ts, json, MD_KEY_NEXT_RUN, NULL);
-    }
-    if (job->valid_from > 0) {
-        apr_rfc822_date(ts, job->valid_from);
-        md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
-    }
-    md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
-    md_json_setl(job->error_runs, json, MD_KEY_ERRORS, NULL);
-    md_json_setl(job->last_status, json, MD_KEY_LAST, MD_KEY_STATUS, NULL);
-    md_json_sets(job->last_message, json, MD_KEY_LAST, MD_KEY_MESSAGE, NULL);
-}
-
-apr_status_t md_drive_job_load(md_drive_job_t *job, md_reg_t *reg, apr_pool_t *p)
-{
-    md_store_t *store = md_reg_store_get(reg);
-    md_json_t *jprops;
-    apr_status_t rv;
-    
-    rv = md_store_load_json(store, MD_SG_STAGING, job->name, MD_FN_JOB, &jprops, p);
-    if (APR_SUCCESS == rv) {
-        md_drive_job_from_json(job, jprops, p);
-        job->dirty = 0;
-    }
-    return rv;
-}
-
-static apr_status_t md_drive_job_save(md_drive_job_t *job, md_reg_t *reg, apr_pool_t *p)
-{
-    md_store_t *store = md_reg_store_get(reg);
-    md_json_t *jprops;
-    apr_status_t rv;
-    
-    jprops = md_json_create(p);
-    md_drive_job_to_json(jprops, job);
-    rv = md_store_save_json(store, p, MD_SG_STAGING, job->name, MD_FN_JOB, jprops, 1);
-    if (APR_SUCCESS == rv) job->dirty = 0;
-    return rv;
-}
 
 /**************************************************************************************************/
 /* watchdog based impl. */
@@ -132,7 +67,7 @@ struct md_drive_ctx {
     apr_array_header_t *jobs;
 };
 
-static apr_status_t process_drive_job(md_drive_ctx *dctx, md_drive_job_t *job, apr_pool_t *ptemp)
+static apr_status_t process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool_t *ptemp)
 {
     apr_time_t delay, next_run;
     const md_t *md;
@@ -140,7 +75,7 @@ static apr_status_t process_drive_job(md_drive_ctx *dctx, md_drive_job_t *job, a
     md_drive_result result;
     apr_status_t rv;
 
-    md_drive_job_load(job, dctx->mc->reg, ptemp);
+    md_status_job_load(job, dctx->mc->reg, ptemp);
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
     if (apr_time_now() < job->next_run) return APR_EAGAIN;
     
@@ -222,7 +157,7 @@ leave:
         job->dirty = 1;
     }
     if (job->dirty) {
-        apr_status_t rv2 = md_drive_job_save(job, dctx->mc->reg, ptemp);
+        apr_status_t rv2 = md_status_job_save(job, dctx->mc->reg, ptemp);
         ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, dctx->s, "%s: saving job props", job->name);
     }
     return rv;
@@ -230,7 +165,7 @@ leave:
 
 static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
 {
-    md_drive_job_t *job;
+    md_status_job_t *job;
     const char *names = "";
     int i, n;
     apr_time_t now;
@@ -241,7 +176,7 @@ static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
     n = 0;
     now = apr_time_now();
     for (i = 0; i < dctx->jobs->nelts; ++i) {
-        job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
+        job = APR_ARRAY_IDX(dctx->jobs, i, md_status_job_t *);
         if (job->finished && !job->notified && now >= job->valid_from) {
             names = apr_psprintf(ptemp, "%s%s%s", names, n? " " : "", job->name);
             ++n;
@@ -277,10 +212,10 @@ static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)
         /* mark jobs as notified and persist this. Note, the next run may be
          * in another child process */
         for (i = 0, n = 0; i < dctx->jobs->nelts; ++i) {
-            job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
+            job = APR_ARRAY_IDX(dctx->jobs, i, md_status_job_t *);
             if (job->finished && !job->notified && now >= job->valid_from) {
                 job->notified = 1;
-                md_drive_job_save(job, dctx->mc->reg, ptemp);
+                md_status_job_save(job, dctx->mc->reg, ptemp);
             }
         }
     }
@@ -299,7 +234,7 @@ static apr_time_t next_run_default(void)
 static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
     md_drive_ctx *dctx = baton;
-    md_drive_job_t *job;
+    md_status_job_t *job;
     apr_time_t next_run, wait_time;
     int i;
     
@@ -323,7 +258,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
              * regular runs. */
             next_run = next_run_default();
             for (i = 0; i < dctx->jobs->nelts; ++i) {
-                job = APR_ARRAY_IDX(dctx->jobs, i, md_drive_job_t *);
+                job = APR_ARRAY_IDX(dctx->jobs, i, md_status_job_t *);
                 
                 if (apr_time_now() >= job->next_run) {
                     process_drive_job(dctx, job, ptemp);
@@ -361,7 +296,7 @@ apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     apr_status_t rv;
     const char *name;
     md_t *md;
-    md_drive_job_t *job;
+    md_status_job_t *job;
     int i;
     
     /* We use mod_watchdog to run a single thread in one of the child processes
@@ -412,7 +347,7 @@ apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     dctx->s = s;
     dctx->mc = mc;
     
-    dctx->jobs = apr_array_make(dctx->p, mc->watched_names->nelts, sizeof(md_drive_job_t *));
+    dctx->jobs = apr_array_make(dctx->p, mc->watched_names->nelts, sizeof(md_status_job_t *));
     for (i = 0; i < mc->watched_names->nelts; ++i) {
         name = APR_ARRAY_IDX(mc->watched_names, i, const char *);
         md = md_get_by_name(mc->mds, name);
@@ -420,11 +355,11 @@ apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
         
         job = apr_pcalloc(dctx->p, sizeof(*job));
         job->name = md->name;
-        APR_ARRAY_PUSH(dctx->jobs, md_drive_job_t*) = job;
+        APR_ARRAY_PUSH(dctx->jobs, md_status_job_t*) = job;
         ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,  
                      "md(%s): state=%d, created drive job", name, md->state);
         
-        md_drive_job_load(job, mc->reg, dctx->p);
+        md_status_job_load(job, mc->reg, dctx->p);
         if (job->error_runs) {
             /* Server has just restarted. If we encounter an MD job with errors
              * on a previous driving, we purge its STAGING area.

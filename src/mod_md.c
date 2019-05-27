@@ -1243,6 +1243,7 @@ static void md_hooks(apr_pool_t *pool)
     /* Status request handlers and contributors */
     ap_hook_post_read_request(md_http_cert_status, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ap, status_hook, md_status_hook, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_handler(md_status_handler, NULL, NULL, APR_HOOK_MIDDLE);
 
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);

@@ -1055,3 +1055,22 @@ apr_status_t md_json_http_get(md_json_t **pjson, apr_pool_t *pool,
     *pjson = NULL;
     return rv;
 }
+
+
+apr_status_t md_json_copy_to(md_json_t *dest, const md_json_t *src, ...)
+{
+    json_t *j;
+    va_list ap;
+    apr_status_t rv = APR_SUCCESS;
+    
+    va_start(ap, src);
+    j = jselect(src, ap);
+    va_end(ap);
+
+    if (j) {
+        va_start(ap, src);
+        rv = jselect_set(j, dest, ap);
+        va_end(ap);
+    }
+    return rv;
+}

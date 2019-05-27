@@ -150,6 +150,7 @@ struct md_t {
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"
 #define MD_KEY_LAST             "last"
 #define MD_KEY_LOCATION         "location"
+#define MD_KEY_MDS              "managed-domains"
 #define MD_KEY_MESSAGE          "message"
 #define MD_KEY_MUST_STAPLE      "must-staple"
 #define MD_KEY_NAME             "name"

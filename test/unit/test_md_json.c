@@ -300,6 +300,36 @@ START_TEST(objects)
 }
 END_TEST
 
+START_TEST(copies)
+{
+    md_json_t *json = md_json_create(g_pool);
+    md_json_t *jc, *jb = md_json_create(g_pool), *dest = md_json_create(g_pool);
+    const char *s;
+    
+    md_json_setb(1, json, "boolean", NULL);
+    md_json_copy_to(dest, json, "boolean", NULL); 
+    ck_assert_int_eq( md_json_getb(dest, "boolean", NULL), 1 );
+    
+    md_json_setl(1, json, "long", NULL);
+    md_json_copy_to(dest, json, "long", NULL);
+    ck_assert_int_eq( md_json_getl(dest, "long", NULL), 1 );
+    
+    md_json_setn(1, json, "double", NULL);
+    md_json_copy_to(dest, json, "double", NULL); 
+    ck_assert_double_eq_tol( md_json_getn(dest, "double", NULL), 1.0, 0.001 );
+
+    md_json_sets("text", json, "string", NULL);
+    md_json_copy_to(dest, json, "string", NULL); 
+    ck_assert_str_eq( md_json_gets(dest, "string", NULL), "text");
+ 
+    md_json_sets("test2", jb, "string2", NULL);
+    ck_assert_int_eq( md_json_setj(jb, json, "object", NULL), 0 );
+    md_json_copy_to(dest, json, "object", NULL);
+    jc = md_json_getj(dest, "object", NULL);
+    ck_assert_ptr_nonnull( jc );
+}
+END_TEST
+
 START_TEST(json_writep_returns_NULL_for_corrupted_json_struct)
 {
     md_json_t *json = md_json_create(g_pool);
@@ -334,6 +364,7 @@ TCase *md_json_test_case(void)
     tcase_add_test(testcase, string_arrays);
     tcase_add_test(testcase, json_arrays);
     tcase_add_test(testcase, objects);
+    tcase_add_test(testcase, copies);
 
     tcase_add_test(testcase, json_writep_returns_NULL_for_corrupted_json_struct);
 
