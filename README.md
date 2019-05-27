@@ -42,9 +42,17 @@ LoadModule md_module modules/mod_md.so
 ```
 and restart ```httpd```.
 
+## Windows
+
+[@nono303](https://github.com/nono303) has builds available at his [github repository](https://github.com/nono303/mod_md).
+
 ## Ubuntu
 
-If you do not already build your Apache httdp yourself, you can get a prebuilt, current 2.4.x release via the  PPA by @oerdnj, see [here](https://launchpad.net/~ondrej/+archive/ubuntu/apache2/+packages). This already contains a patched ```mod_ssl```. 
+Version 2-x status: unknown, see #124.
+
+### Version 1-x:
+
+If you do not already build your Apache httdp yourself, you can get a prebuilt, current 2.4.x release via the  PPA by @oerdnj, see [here](https://launchpad.net/~ondrej/+archive/ubuntu/apache2/+packages). 
 
 What you need to do to get the PPA installed is basically:
 
@@ -82,20 +90,7 @@ enable the module and restart:
 
 ## FreeBSD
 
-Add the Apache httpd patch as EXTRA_PATCHES to your make.conf file (default /etc/make.conf) as per the instructions in the `www/mod_md-devel` pkg-message 
-
-```
-.if ${.CURDIR:M*/www/apache24}
-EXTRA_PATCHES+=../mod_md-devel/files/extra-patch-mod_ssl
-.endif
-```
-
-Rebuild and install the `www/apache24` port.
-Build and install the `www/mod_md-devel` port.
-
-## Windows
-
-[@nono303](https://github.com/nono303) has builds available at his [github repository](https://github.com/nono303/mod_md).
+Version 2-x status: unknown, see #124.
 
 
 # Upgrading
