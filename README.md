@@ -120,6 +120,68 @@ life easier for people to find out if everything is all right or what went wrong
 
 If there is an error with an MD it will be shown here as well. This let's you assess problems without digging through your server logs.
 
+### In JSON
+
+There is also a new `md-status` handler available to give you the information from `server-status` in JSON format. You configure it as
+
+```
+<Location "/md-status">
+  SetHandler md-status
+</Location>
+```
+on your server. As with `server-status` you will want to add authoriztation for this! 
+
+If you just want to check the JSON status of one domain, append that to your status url:
+
+```
+> curl https://<yourhost>/md-status/another-domain.org
+{
+  "name": "another-domain.org",
+  "domains": [
+    "another-domain.org",
+    "www.another-domain.org"
+  ],
+  ...
+```
+
+
+### certificate-status
+
+There is an experimental handler added by mod_md that gives information about current and
+upcoming certificates on a domain. You invoke it like this:
+
+```
+> curl https://eissing.org/.httpd/certificate-status
+{
+  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
+  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
+  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
+}
+```
+
+This is information available to everyone already as part of your TLS connections, so this does
+not leak. Also, it does not show which other domains are on the server. It just allows an easier,
+scripted access.
+
+When a new certificate has been obtained, but is not activated yet, this will show:
+
+```
+{
+  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
+  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
+  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
+  "staging": {
+    "validFrom": "Tue, 21 May 2019 11:53:59 GMT",
+    "expires": "Mon, 19 Aug 2019 11:53:59 GMT",
+    "serial": "FFC16E5FEFBE90805AC153D70EF9E8D3873A",
+    "cert": "LS0tLS1...VRFLS0tLS0K"
+  }
+```
+And ```cert``` will give the whole certificate in base64url encoding. Again, once the server reload, this certificate will be send to anyone opening a TLS conncection to this domain. No privacy is lost in announcing this beforehand. Instead, security might be gained: if you see someong getting a new certificate for your domain (as visible in the [new CT Log](https://letsencrypt.org/2019/05/15/introducing-oak-ct-log.html)), you can contact your Apache and check if it was the one responsible.
+
+(Caveat: the path for this resource might still move based on user input and/if other servers might be interested in picking this up.)
+
+
 
 # Using Lets Encrypt
 
@@ -567,41 +629,6 @@ MDCertificateAgreement accepted
 ```
 and it will do the right thing.
 
-## certificate-status
-
-There is an experimental handler added by mod_md that gives information about current and
-upcoming certificates on a domain. You invoke it like this:
-
-```
-> curl https://eissing.org/.httpd/certificate-status
-{
-  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
-  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
-  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
-}
-```
-
-This is information available to everyone already as part of your TLS connections, so this does
-not leak. Also, it does not show which other domains are on the server. It just allows an easier,
-scripted access.
-
-When a new certificate has been obtained, but is not activated yet, this will show:
-
-```
-{
-  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
-  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
-  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
-  "staging": {
-    "validFrom": "Tue, 21 May 2019 11:53:59 GMT",
-    "expires": "Mon, 19 Aug 2019 11:53:59 GMT",
-    "serial": "FFC16E5FEFBE90805AC153D70EF9E8D3873A",
-    "cert": "LS0tLS1...VRFLS0tLS0K"
-  }
-```
-And ```cert``` will give the whole certificate in base64url encoding. Again, once the server reload, this certificate will be send to anyone opening a TLS conncection to this domain. No privacy is lost in announcing this beforehand. Instead, security might be gained: if you see someong getting a new certificate for your domain (as visible in the [new CT Log](https://letsencrypt.org/2019/05/15/introducing-oak-ct-log.html)), you can contact your Apache and check if it was the one responsible.
-
-(Caveat: the path for this resource might still move based on user input and/if other servers might be interested in picking this up.)
 
 ## Initial Parameter Check
 

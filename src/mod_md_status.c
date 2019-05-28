@@ -510,6 +510,8 @@ int md_status_handler(request_rec *r)
     apr_array_header_t *mds;
     md_json_t *jstatus;
     apr_bucket_brigade *bb;
+    const md_t *md;
+    const char *name;
 
     if (strcmp(r->handler, "md-status")) {
         return DECLINED;
@@ -525,16 +527,28 @@ int md_status_handler(request_rec *r)
         return HTTP_NOT_IMPLEMENTED;
     }
     
-    mds = apr_array_copy(r->pool, mc->mds);
-    qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
-    
-    md_status_get_json(&jstatus, mds, mc->reg, r->pool);
+    jstatus = NULL;
+    if (r->path_info && r->path_info[0] == '/' && r->path_info[1] != '\0') {
+        name = r->path_info + 1;
+        md = md_get_by_name(mc->mds, name);
+        if (!md) md = md_get_by_domain(mc->mds, name);
+        if (!md) return HTTP_NOT_FOUND;
+        md_status_get_md_json(&jstatus, md, mc->reg, r->pool);
+    }
+    else {
+        mds = apr_array_copy(r->pool, mc->mds);
+        qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
+        md_status_get_json(&jstatus, mds, mc->reg, r->pool);
+    }
 
-    apr_table_set(r->headers_out, "Content-Type", "application/json"); 
-    bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
-    md_json_writeb(jstatus, MD_JSON_FMT_INDENT, bb);
-    ap_pass_brigade(r->output_filters, bb);
-    apr_brigade_cleanup(bb);
-    
-    return DONE;
+    if (jstatus) {
+        apr_table_set(r->headers_out, "Content-Type", "application/json"); 
+        bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
+        md_json_writeb(jstatus, MD_JSON_FMT_INDENT, bb);
+        ap_pass_brigade(r->output_filters, bb);
+        apr_brigade_cleanup(bb);
+        
+        return DONE;
+    }
+    return DECLINED;
 }

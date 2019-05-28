@@ -1,4 +1,6 @@
- * New handle "md-status" that can be configured to return the state of all MDs in JSON format.
+ * New handler "md-status" that can be configured to return the state of all MDs in JSON format.
+ * Append the name or domain of an MD to the "md-status" url path and get the JSON of just
+   that MD.
 
 v2.0.0
 ----------------------------------------------------------------------------------------------------
