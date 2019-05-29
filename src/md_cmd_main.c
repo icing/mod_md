@@ -28,6 +28,7 @@
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_store_fs.h"
@@ -133,13 +134,16 @@ static const md_cmd_t *find_cmd(const md_cmd_t **cmds, const char *name)
 static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_getopt_t *os;
-    const char *optarg, *error;
+    const char *optarg;
     int opt;
     apr_status_t rv = APR_SUCCESS;
+    md_result_t *result;
 
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, 
                   "start processing cmd %s", cmd->name); 
 
+    result = md_result_make(ctx->p, APR_SUCCESS);
+    
     apr_getopt_init(&os, ctx->p, ctx->argc, ctx->argv);
     while ((rv = apr_getopt_long(os, cmd->opts, &opt, &optarg)) == APR_SUCCESS) {
         if (!cmd->opt_fn) {
@@ -199,10 +203,9 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                     ctx->ca_url, ctx->base_dir);
             return rv;
         }
-        rv = md_acme_setup(ctx->acme, &error);
+        rv = md_acme_setup(ctx->acme, result);
         if (rv != APR_SUCCESS) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "contacting %s: %s", 
-                          ctx->ca_url, error);
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "%s", result->detail);
             return rv;
         }
     }

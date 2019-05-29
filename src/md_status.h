@@ -19,6 +19,7 @@
 
 struct md_json_t;
 struct md_reg_t;
+struct md_result_t;
 
 apr_status_t md_status_get_md_json(struct md_json_t **pjson, const md_t *md, 
                                    struct md_reg_t *reg, apr_pool_t *p);
@@ -35,8 +36,7 @@ struct md_status_job_t {
     apr_time_t valid_from; /* at which time the finished job results become valid */
     int notified;          /* true iff the user has been notified that results are valid now */
     int error_runs;        /* Number of errored runs of an unfinished job */
-    int last_status;       /* Status of last run */
-    const char *last_message; /* Message from last run */
+    struct md_result_t *last_result; /* Result from last run */
     int dirty;             /* transient flag if job needs saving */    
 };
 
@@ -50,7 +50,7 @@ apr_status_t md_status_job_loadj(md_json_t **pjson, const char *name,
  */
 apr_status_t md_status_job_load(md_status_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
 
-void md_status_job_to_json(md_json_t *json, const md_status_job_t *job);
+void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, apr_pool_t *p);
 
 apr_status_t md_status_job_save(md_status_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
 

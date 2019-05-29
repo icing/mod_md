@@ -29,6 +29,7 @@
 #include "md_jws.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_util.h"
@@ -93,8 +94,7 @@ out:
 /**************************************************************************************************/
 /* ACMEv2 renewal */
 
-apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, 
-                                   md_drive_result *result)
+apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, md_result_t *result)
 {
     apr_status_t rv = APR_SUCCESS;
     
@@ -102,7 +102,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d,
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: (ACMEv2) need certificate", d->md->name);
     
     /* Chose (or create) and ACME account to use */
-    if (APR_SUCCESS != (rv = md_acme_drive_set_acct(d, result))) goto out;
+    if (APR_SUCCESS != (rv = md_acme_drive_set_acct(d, result))) goto leave;
 
     if (APR_SUCCESS == rv && md_array_is_empty(ad->certs)) {
         
@@ -119,15 +119,13 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d,
          *   * INVALID and otherwise: fail renewal, delete local order
          */
 
-        result->message = "Setup new order.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Setup new order.");
         if (APR_SUCCESS != (rv = ad_setup_order(d))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
-                          ad->md->name);
-            goto out;
+            md_result_set(result, rv, NULL);
+            goto leave;
         }
         
+        md_result_activity_setn(result, "Update order from CA."); 
         rv = md_acme_order_update(ad->order, ad->acme, d->p);
         if (APR_STATUS_IS_ENOENT(rv)) {
             /* order is no longer known at the ACME server */
@@ -135,72 +133,70 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d,
             md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
         }
         else if (APR_SUCCESS != rv) {
-            goto out;
+            md_result_set(result, rv, NULL);
+            goto leave;
         }
 
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: setup order", d->md->name);
-        if (APR_SUCCESS != (rv = ad_setup_order(d))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
-                          ad->md->name);
-            goto out;
+        if (!ad->order) {
+            md_result_activity_setn(result, "Setup new order.");
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+                          "%s: setup order", d->md->name);
+            if (APR_SUCCESS != (rv = ad_setup_order(d))) {
+                md_result_set(result, rv, NULL);
+                goto leave;
+            }
         }
 
-        result->message = "Starting challenge.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Starting challenge.");
         ad->phase = "start challenges";
         if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
                                                                 ad->ca_challenges,
                                                                 d->store, d->md, d->env, d->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
-                          ad->md->name);
-            goto out;
+            md_result_set(result, rv, NULL);
+            goto leave;
         }
         
-        result->message = "Monitoring challenge status.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Monitoring challenge status.");
         ad->phase = "monitor challenges";
         if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
                                                               ad->authz_monitor_timeout, d->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
-                          ad->md->name);
-            goto out;
+            md_result_set(result, rv, NULL);
+            goto leave;
         }
         
         if (APR_SUCCESS != (rv = md_acme_order_await_ready(ad->order, ad->acme, d->md, 
-                                                           ad->authz_monitor_timeout, d->p))) goto out; 
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
-                      "%s: order status: %d", d->md->name, ad->order->status); 
+                                                           ad->authz_monitor_timeout, d->p))) {
+            md_result_set(result, rv, NULL);
+            goto leave;
+        } 
 
-        result->message = "Challenge succeeded, finalizing order.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Challenge succeeded, finalizing order.");
         ad->phase = "finalize order";
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d, result))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: finalize order", ad->md->name);
-            goto out;
+            md_result_set(result, rv, NULL);
+            goto leave;
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: finalized order", d->md->name);
         
+        md_result_activity_setn(result, "Finalized, waiting for order to become valid."); 
         if (APR_SUCCESS != (rv = md_acme_order_await_valid(ad->order, ad->acme, d->md, 
                                                            ad->authz_monitor_timeout, d->p))) {
-            result->message = "Finalized, waiting for order to become valid.";
-            goto out;
+            md_result_set(result, rv, NULL);
+            goto leave;
         }
         if (!ad->order->certificate) {
-            rv = APR_EINVAL;
-            result->message = "Order valid, but certifiate url is missing.";
+            md_result_set(result, APR_EINVAL, "Order valid, but certifiate url is missing.");
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, d->p, 
-                          "md[%s]: %s", d->md->name, result->message);
-            goto out;
+                          "md[%s]: %s", d->md->name, result->detail);
+            goto leave;
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
                       "%s: order status: %d, certificate at %s", d->md->name, 
                       ad->order->status, ad->order->certificate); 
     }
-out:    
-    return rv;
+leave:    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, result->status, d->p, 
+                  "md[%s]: %s", ad->md->name, result->detail);
+    return result->status;
 }
 

@@ -119,6 +119,7 @@ struct md_t {
 
 #define MD_KEY_ACCOUNT          "account"
 #define MD_KEY_ACME_TLS_1       "acme-tls/1"
+#define MD_KEY_ACTIVITY         "activity"
 #define MD_KEY_AGREEMENT        "agreement"
 #define MD_KEY_AUTHORIZATIONS   "authorizations"
 #define MD_KEY_BITS             "bits"
@@ -159,6 +160,7 @@ struct md_t {
 #define MD_KEY_ORDERS           "orders"
 #define MD_KEY_PERMANENT        "permanent"
 #define MD_KEY_PKEY             "privkey"
+#define MD_KEY_PROBLEM          "problem"
 #define MD_KEY_PROTO            "proto"
 #define MD_KEY_REGISTRATION     "registration"
 #define MD_KEY_RENEW            "renew"
@@ -246,7 +248,7 @@ md_t *md_get_by_dns_overlap(struct apr_array_header_t *mds, const md_t *md);
  * Find the managed domain in the list that, for the given md, 
  * has the same name, or the most number of overlaps in domains
  */
-md_t *md_find_closest_match(apr_array_header_t *mds, const md_t *md);
+md_t *md_find_closest_match(struct apr_array_header_t *mds, const md_t *md);
 
 /**
  * Create and empty md record, structures initialized.

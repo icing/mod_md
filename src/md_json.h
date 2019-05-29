@@ -51,8 +51,8 @@ md_json_t *md_json_copy(apr_pool_t *pool, md_json_t *json);
 md_json_t *md_json_clone(apr_pool_t *pool, md_json_t *json);
 
 
-int md_json_has_key(md_json_t *json, ...);
-int md_json_is(md_json_type_t type, md_json_t *json, ...);
+int md_json_has_key(const md_json_t *json, ...);
+int md_json_is(const md_json_type_t type, md_json_t *json, ...);
 
 /* boolean manipulation */
 int md_json_getb(const md_json_t *json, ...);
@@ -74,6 +74,7 @@ apr_status_t md_json_sets(const char *s, md_json_t *json, ...);
 
 /* json manipulation */
 md_json_t *md_json_getj(md_json_t *json, ...);
+const md_json_t *md_json_getcj(const md_json_t *json, ...);
 apr_status_t md_json_setj(md_json_t *value, md_json_t *json, ...);
 apr_status_t md_json_addj(md_json_t *value, md_json_t *json, ...);
 

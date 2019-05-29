@@ -30,6 +30,7 @@
 #include "md_http.h"
 #include "md_log.h"
 #include "md_store.h"
+#include "md_result.h"
 #include "md_util.h"
 #include "md_version.h"
 
@@ -327,24 +328,24 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
 {
     apr_status_t rv;
     md_acme_t *acme = req->acme;
-    const char *body = NULL, *error;
+    const char *body = NULL;
+    md_result_t *result;
 
     assert(acme->url);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->p, 
                   "sending req: %s %s", req->method, req->url);
+    result = md_result_make(req->p, APR_SUCCESS);
+    
     if (strcmp("GET", req->method) && strcmp("HEAD", req->method)) {
         if (acme->version == MD_ACME_VERSION_UNKNOWN) {
-            if (APR_SUCCESS != (rv = md_acme_setup(acme, &error))) {
-                return rv;
-            }
+            rv = md_acme_setup(acme, result);
+            if (APR_SUCCESS != rv) goto leave;
         }
-        if (!acme->nonce) {
-            if (APR_SUCCESS != (rv = acme->new_nonce_fn(acme))) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, req->p, 
-                              "error retrieving new nonce from ACME server");
-                return rv;
-            }
+        if (!acme->nonce && (APR_SUCCESS != (rv = acme->new_nonce_fn(acme)))) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, req->p, 
+                          "error retrieving new nonce from ACME server");
+            goto leave;
         }
         
         apr_table_set(req->prot_hdrs, "nonce", acme->nonce);
@@ -355,51 +356,49 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     }
     
     rv = req->on_init? req->on_init(req, req->baton) : APR_SUCCESS;
+    if (APR_SUCCESS != rv) goto leave;
     
-    if ((rv == APR_SUCCESS) && req->req_json) {
+    if (req->req_json) {
         body = md_json_writep(req->req_json, req->p, MD_JSON_FMT_INDENT);
         if (!body) {
-            rv = APR_EINVAL;
+            rv = APR_EINVAL; goto leave;
         }
     }
 
-    if (rv == APR_SUCCESS) {
-        if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p, 
-                          "req: %s %s, body:\n%s", req->method, req->url, body);
-        }
-        else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->p, 
-                          "req: %s %s", req->method, req->url);
-        }
-        
-        if (!strcmp("GET", req->method)) {
-            rv = md_http_GET(req->acme->http, req->url, NULL, on_response, req);
-        }
-        else if (!strcmp("POST", req->method)) {
-            rv = md_http_POSTd(req->acme->http, req->url, NULL, "application/jose+json",  
-                               body, body? strlen(body) : 0, on_response, req);
-        }
-        else if (!strcmp("HEAD", req->method)) {
-            rv = md_http_HEAD(req->acme->http, req->url, NULL, on_response, req);
-        }
-        else {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, req->p, 
-                          "HTTP method %s against: %s", req->method, req->url);
-            rv = APR_ENOTIMPL;
-        }
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->p, "req sent");
-        
-        if (APR_EAGAIN == rv && req->max_retries > 0) {
-            --req->max_retries;
-            return md_acme_req_send(req);
-        }
-        req = NULL;
+    if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p, 
+                      "req: %s %s, body:\n%s", req->method, req->url, body);
     }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->p, 
+                      "req: %s %s", req->method, req->url);
+    }
+    
+    if (!strcmp("GET", req->method)) {
+        rv = md_http_GET(req->acme->http, req->url, NULL, on_response, req);
+    }
+    else if (!strcmp("POST", req->method)) {
+        rv = md_http_POSTd(req->acme->http, req->url, NULL, "application/jose+json",  
+                           body, body? strlen(body) : 0, on_response, req);
+    }
+    else if (!strcmp("HEAD", req->method)) {
+        rv = md_http_HEAD(req->acme->http, req->url, NULL, on_response, req);
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, req->p, 
+                      "HTTP method %s against: %s", req->method, req->url);
+        rv = APR_ENOTIMPL;
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->p, "req sent");
+    
+    if (APR_EAGAIN == rv && req->max_retries > 0) {
+        --req->max_retries;
+        rv = md_acme_req_send(req);
+    }
+    req = NULL;
 
-    if (req) {
-        md_acme_req_done(req);
-    }
+leave:
+    if (req) md_acme_req_done(req);
     return rv;
 }
 
@@ -599,14 +598,13 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
 }
 
 
-apr_status_t md_acme_setup(md_acme_t *acme, const char **perror)
+apr_status_t md_acme_setup(md_acme_t *acme, md_result_t *result)
 {
     apr_status_t rv;
     md_json_t *json;
     const char *s;
     
     assert(acme->url);
-    *perror = NULL;
     acme->version = MD_ACME_VERSION_UNKNOWN;
     
     if (!acme->http && APR_SUCCESS != (rv = md_http_create(&acme->http, acme->p,
@@ -619,7 +617,7 @@ apr_status_t md_acme_setup(md_acme_t *acme, const char **perror)
     
     rv = md_acme_get_json(&json, acme, acme->url, acme->p);
     if (APR_SUCCESS != rv) {
-        *perror = apr_psprintf(acme->p, 
+        md_result_printf(result, rv, 
             "Unsuccessful in contacting ACME server at <%s>. If this problem persists, "
             "please check your network connectivity from your Apache server to the "
             "ACME server. Also, older servers might have trouble verifying the certificates "
@@ -627,7 +625,7 @@ apr_status_t md_acme_setup(md_acme_t *acme, const char **perror)
             "curl command. Sometimes, the ACME server might be down for maintenance, "
             "so failing to contact it is not an immediate problem. Apache will "
             "continue retrying this.", acme->url);
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "%s", *perror);
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, acme->p, "%s", result->detail);
         goto out;
     }
     
@@ -663,11 +661,11 @@ apr_status_t md_acme_setup(md_acme_t *acme, const char **perror)
     }
     
     if (MD_ACME_VERSION_UNKNOWN == acme->version) {
-        *perror = apr_psprintf(acme->p, 
+        md_result_printf(result, APR_EINVAL,
             "Unable to understand ACME server response from <%s>. "
             "Wrong ACME protocol version or link?", acme->url); 
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "%s", *perror);
-        rv = APR_EINVAL;
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "%s", result->detail);
+        rv = result->status;
     }
 out:
     return rv;

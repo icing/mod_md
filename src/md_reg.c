@@ -28,6 +28,7 @@
 #include "md_crypt.h"
 #include "md_log.h"
 #include "md_json.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_util.h"
@@ -893,7 +894,7 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     md_reg_t *reg = baton;
     const md_t *md;
     md_proto_driver_t *driver, **pdriver;
-    md_drive_result *result;
+    md_result_t *result;
     apr_table_t *env;
     
     (void)p;
@@ -901,7 +902,7 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     pdriver = va_arg(ap, md_proto_driver_t **);
     md = va_arg(ap, const md_t *);
     env = va_arg(ap, apr_table_t *);
-    result = va_arg(ap, md_drive_result *); 
+    result = va_arg(ap, md_result_t *); 
     va_end(ap);
     
     *pdriver = driver = apr_pcalloc(p, sizeof(*driver));
@@ -916,50 +917,46 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     driver->can_https = reg->can_https;
 
     if (!md->ca_proto) {
-        result->message = apr_psprintf(p, "CA protocol is not defined"); 
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md[%s]: %s", md->name, result->message);
-        result->rv = APR_EGENERAL; goto leave;
+        md_result_printf(result, APR_EGENERAL, "CA protocol is not defined"); 
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "md[%s]: %s", md->name, result->detail);
+        goto leave;
     }
     
     driver->proto = apr_hash_get(reg->protos, md->ca_proto, (apr_ssize_t)strlen(md->ca_proto));
     if (!driver->proto) {
-        result->message = apr_psprintf(p, "unknown CA protocol '%s'", md->ca_proto); 
-        result->rv = APR_EGENERAL; goto leave;
+        md_result_printf(result, APR_EGENERAL, "Unknown CA protocol '%s'", md->ca_proto); 
+        goto leave;
     }
-    
-    result->rv = driver->proto->init(driver, result);
+    result->status = driver->proto->init(driver, result);
 
 leave:
-    if (APR_SUCCESS != result->rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, result->rv, p, "md[%s]: %s", md->name, 
-                      result->message? result->message : "<see error log for details>");
+    if (APR_SUCCESS != result->status) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, result->status, p, "md[%s]: %s", md->name, 
+                      result->detail? result->detail : "<see error log for details>");
     }
-    else md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: init done", md->name);
-    return result->rv;
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: init done", md->name);
+    }
+    return result->status;
 }
 
 static apr_status_t run_test_init(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     const md_t *md;
     apr_table_t *env;
-    md_drive_result *result;
+    md_result_t *result;
     md_proto_driver_t *driver;
-    apr_status_t rv;
     
     (void)p;
     md = va_arg(ap, const md_t *);
     env = va_arg(ap, apr_table_t *);
-    result = va_arg(ap, md_drive_result *); 
+    result = va_arg(ap, md_result_t *); 
 
-    rv = run_init(baton, ptemp, &driver, md, env, result, NULL);
-    if (result->message) {
-        result->message = apr_pstrdup(p, result->message);
-    }
-    return rv;
+    return run_init(baton, ptemp, &driver, md, env, result, NULL);
 }
 
 apr_status_t md_reg_test_init(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
-                              md_drive_result *result, apr_pool_t *p)
+                              md_result_t *result, apr_pool_t *p)
 {
     return md_util_pool_vdo(run_test_init, reg, p, md, env, result, NULL);
 }
@@ -971,13 +968,13 @@ static apr_status_t run_renew(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     md_proto_driver_t *driver;
     apr_table_t *env;
     apr_status_t rv;
-    md_drive_result *result;
+    md_result_t *result;
     
     (void)p;
     md = va_arg(ap, const md_t *);
     env = va_arg(ap, apr_table_t *);
     reset = va_arg(ap, int); 
-    result = va_arg(ap, md_drive_result *); 
+    result = va_arg(ap, md_result_t *); 
 
     rv = run_init(baton, ptemp, &driver, md, env, result, NULL);
     if (APR_SUCCESS == rv) { 
@@ -985,15 +982,12 @@ static apr_status_t run_renew(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
         driver->reset = reset;
         rv = driver->proto->renew(driver, result);
     }
-    if (result->message) {
-        result->message = apr_pstrdup(p, result->message);
-    }
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: staging done", md->name);
     return rv;
 }
 
 apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md, apr_table_t *env, 
-                          int reset, md_drive_result *result, apr_pool_t *p)
+                          int reset, md_result_t *result, apr_pool_t *p)
 {
     return md_util_pool_vdo(run_renew, reg, p, md, env, reset, result, NULL);
 }
@@ -1003,7 +997,7 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     md_reg_t *reg = baton;
     const md_t *md;
     md_proto_driver_t *driver;
-    md_drive_result result;
+    md_result_t *result;
     apr_table_t *env;
     apr_status_t rv;
     
@@ -1017,13 +1011,14 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     md = va_arg(ap, const md_t *);
     env =  va_arg(ap, apr_table_t *);
     
+    result = md_result_make(ptemp, APR_SUCCESS);
     if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, md->name, NULL, ptemp))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, "%s: nothing staged", md->name);
         return APR_ENOENT;
     }
     
-    rv = run_init(baton, ptemp, &driver, md, env, &result, NULL);
-    if (APR_SUCCESS == rv) {
+    rv = run_init(baton, ptemp, &driver, md, env, result, NULL);
+    if (APR_SUCCESS == result->status) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);
         
         if (APR_SUCCESS == (rv = driver->proto->preload(driver, MD_SG_TMP))) {

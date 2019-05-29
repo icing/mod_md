@@ -28,6 +28,7 @@
 #include "md_crypt.h"
 #include "md_log.h"
 #include "md_store.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_util.h"
 #include "md_status.h"
@@ -93,11 +94,12 @@ static void md_status_job_from_json(md_status_job_t *job, const md_json_t *json,
     if (s && *s) job->valid_from = apr_date_parse_rfc(s);
     job->notified = md_json_getb(json, MD_KEY_NOTIFIED, NULL);
     job->error_runs = (int)md_json_getl(json, MD_KEY_ERRORS, NULL);
-    job->last_status = (int)md_json_getl(json, MD_KEY_LAST, MD_KEY_STATUS, NULL);
-    job->last_message = md_json_dups(p, json, MD_KEY_LAST, MD_KEY_MESSAGE, NULL);
+    if (md_json_has_key(json, MD_KEY_LAST, NULL)) {
+        job->last_result = md_result_from_json(md_json_getcj(json, MD_KEY_LAST, NULL), p);
+    }
 }
 
-void md_status_job_to_json(md_json_t *json, const md_status_job_t *job)
+void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
 
@@ -113,8 +115,9 @@ void md_status_job_to_json(md_json_t *json, const md_status_job_t *job)
     }
     md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
     md_json_setl(job->error_runs, json, MD_KEY_ERRORS, NULL);
-    md_json_setl(job->last_status, json, MD_KEY_LAST, MD_KEY_STATUS, NULL);
-    md_json_sets(job->last_message, json, MD_KEY_LAST, MD_KEY_MESSAGE, NULL);
+    if (job->last_result) {
+        md_json_setj(md_result_to_json(job->last_result, p), json, MD_KEY_LAST, NULL);
+    }
 }
 
 apr_status_t md_status_job_loadj(md_json_t **pjson, const char *name, 
@@ -145,7 +148,7 @@ apr_status_t md_status_job_save(md_status_job_t *job, md_reg_t *reg, apr_pool_t 
     apr_status_t rv;
     
     jprops = md_json_create(p);
-    md_status_job_to_json(jprops, job);
+    md_status_job_to_json(jprops, job, p);
     rv = md_store_save_json(store, p, MD_SG_STAGING, job->name, MD_FN_JOB, jprops, 1);
     if (APR_SUCCESS == rv) job->dirty = 0;
     return rv;
@@ -169,7 +172,8 @@ void  md_status_take_stock(md_status_stock_t *stock, apr_array_header_t *mds,
                     memset(&job, 0, sizeof(job));
                     job.name = md->name;
                     if (APR_SUCCESS == md_status_job_load(&job, reg, p)) {
-                        if (job.error_runs > 0 || job.last_status != APR_SUCCESS) {
+                        if (job.error_runs > 0 
+                            || (job.last_result && job.last_result->status != APR_SUCCESS)) {
                             stock->errored_count++;
                         }
                         else if (job.finished) {

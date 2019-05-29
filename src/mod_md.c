@@ -41,6 +41,7 @@
 #include "md_store.h"
 #include "md_store_fs.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_util.h"
 #include "md_version.h"
@@ -656,10 +657,10 @@ static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     return rv;
 }
 
-static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, server_rec *s)
+static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *ptemp, server_rec *s)
 {
     const md_t *md;
-    md_drive_result result;
+    md_result_t *result;
     apr_status_t rv;
     int i;
     
@@ -667,30 +668,32 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, server_rec *s)
      * - all MDs in drive mode 'ALWAYS'
      * - all MDs in drive mode 'AUTO' that are not in 'unused_names'
      */
+    result = md_result_make(ptemp, APR_SUCCESS);
     apr_array_clear(mc->watched_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
         rv = APR_SUCCESS;
         
+        md_result_set(result, APR_SUCCESS, NULL); 
         if (md->state == MD_S_ERROR) {
-            result.message = "in error state, unable to drive forward. This "
+            md_result_set(result, APR_EGENERAL, 
+                "in error state, unable to drive forward. This "
                 "indicates an incomplete or inconsistent configuration. "
-                "Please check the log for warnings in this regard.";
-            rv = APR_EGENERAL;
+                "Please check the log for warnings in this regard.");
         }
         else if (md->state == MD_S_COMPLETE && !md->expires) {
-            result.message = "is complete but has no expiration date. This "
-                "means it will never be renewed and should not happen.";
-            rv = APR_EGENERAL;
+            md_result_set(result, APR_EGENERAL, 
+                "is complete but has no expiration date. This "
+                "means it will never be renewed and should not happen.");
         }
         else {
-            rv = md_reg_test_init(mc->reg, md, mc->env, &result, p);
+            rv = md_reg_test_init(mc->reg, md, mc->env, result, p);
         }
             
-        if (APR_SUCCESS != rv && result.message) {
-            apr_hash_set(mc->init_errors, md->name, APR_HASH_KEY_STRING, result.message);
+        if (APR_SUCCESS != result->status && result->detail) {
+            apr_hash_set(mc->init_errors, md->name, APR_HASH_KEY_STRING, apr_pstrdup(p, result->detail));
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO() 
-                         "md[%s]: %s", md->name, result.message);
+                         "md[%s]: %s", md->name, result->detail);
             continue;
         }
         
@@ -796,7 +799,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     /*7*/
     if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
     /*8*/
-    init_watched_names(mc, p, s);
+    init_watched_names(mc, p, ptemp, s);
     /*9*/
     md_reg_cleanup_challenges(mc->reg, p, ptemp, mc->mds);
     

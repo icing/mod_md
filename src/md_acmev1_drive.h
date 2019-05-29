@@ -18,10 +18,10 @@
 
 struct md_acme_driver_t;
 struct md_proto_driver_t;
-struct md_drive_result;
+struct md_result_t;
 
 apr_status_t md_acmev1_drive_renew(struct md_acme_driver_t *ad, 
                                    struct md_proto_driver_t *d, 
-                                   struct md_drive_result *result);
+                                   struct md_result_t *result);
 
 #endif /* md_acmev1_drive_h */

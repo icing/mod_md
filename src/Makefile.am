@@ -40,6 +40,7 @@ A2LIB_OBJECTS = \
     md_json.c \
     md_jws.c \
     md_log.c \
+    md_result.c \
     md_reg.c \
     md_status.c \
     md_store.c \
@@ -60,6 +61,7 @@ A2LIB_HFILES = \
     md_json.h \
     md_jws.h \
     md_log.h \
+    md_result.h \
     md_reg.h \
     md_status.h \
     md_store.h \

@@ -29,6 +29,7 @@ struct md_acme_acct_t;
 struct md_acmev2_acct_t;
 struct md_proto_t;
 struct md_store_t;
+struct md_result_t;
 
 #define MD_PROTO_ACME               "ACME"
 
@@ -147,7 +148,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
  * 
  * @param acme    the ACME server to contact
  */
-apr_status_t md_acme_setup(md_acme_t *acme, const char **perror);
+apr_status_t md_acme_setup(md_acme_t *acme, struct md_result_t *result);
 
 /**************************************************************************************************/
 /* account handling */

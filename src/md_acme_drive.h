@@ -18,7 +18,7 @@
 
 struct apr_array_header_t;
 struct md_acme_order_t;
-struct md_drive_result;
+struct md_result_t;
 
 typedef struct md_acme_driver_t {
     md_proto_driver_t *driver;
@@ -28,15 +28,12 @@ typedef struct md_acme_driver_t {
     int complete;
 
     md_pkey_t *privkey;              /* the new private key */
-    apr_array_header_t *pubcert;     /* the new certificate + chain certs */
-    
     apr_array_header_t *certs;       /* the certifiacte chain, starting with the new one */
     const char *next_up_link;        /* where the next chain cert is */
     
     md_acme_t *acme;
     md_t *md;
     struct apr_array_header_t *domains;
-    const md_creds_t *ncreds;
     
     apr_array_header_t *ca_challenges;
     struct md_acme_order_t *order;
@@ -48,9 +45,9 @@ typedef struct md_acme_driver_t {
 } md_acme_driver_t;
 
 apr_status_t md_acme_drive_set_acct(struct md_proto_driver_t *d, 
-                                    struct md_drive_result *result);
+                                    struct md_result_t *result);
 apr_status_t md_acme_drive_setup_certificate(struct md_proto_driver_t *d, 
-                                             struct md_drive_result *result);
+                                             struct md_result_t *result);
 apr_status_t md_acme_drive_cert_poll(struct md_proto_driver_t *d, int only_once);
 
 #endif /* md_acme_drive_h */

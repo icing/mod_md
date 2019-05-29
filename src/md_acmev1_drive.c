@@ -29,6 +29,7 @@
 #include "md_jws.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_util.h"
@@ -134,8 +135,7 @@ leave:
     return rv;
 }
 
-apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, 
-                                   md_drive_result *result)
+apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, md_result_t *result)
 {
     apr_status_t rv = APR_SUCCESS;
     const char *required;
@@ -160,66 +160,50 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d,
          * driven further */
         ad->md->state = MD_S_MISSING_INFORMATION;
         md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
-        result->message = apr_psprintf(d->p,
-            "the CA requires you to accept the terms-of-service "
-            "as specified in <%s>. "
-            "Please read the document that you find at that URL and, "
-            "if you agree to the conditions, configure "
-            "\"MDCertificateAgreement accepted\" "
+        md_result_printf(result, rv, 
+            "the CA requires you to accept the terms-of-service as specified in <%s>. "
+            "Please read the document that you find at that URL and, if you agree to "
+            "the conditions, configure \"MDCertificateAgreement accepted\" "
             "in your Apache. Then (graceful) restart the server to activate.", 
             required);
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "md[%s]: %s", 
-                      ad->md->name, result->message); 
         goto leave;
     }
     else if (APR_SUCCESS != rv) goto leave;
     
     if (md_array_is_empty(ad->certs)) {
-        result->message = "Setup new order.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Setup order resource.");
         if (APR_SUCCESS != (rv = ad_setup_order(d))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
-                          ad->md->name);
+            md_result_set(result, rv, NULL);
             goto leave;
         }
         
-        result->message = "Starting challenge.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Starting challenge.");
         ad->phase = "start challenges";
         if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
                                                                 ad->ca_challenges,
                                                                 d->store, d->md, d->env, d->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
-                          ad->md->name);
+            md_result_set(result, rv, NULL);
             goto leave;
         }
         
-        result->message = "Monitoring challenge status.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Monitoring challenge status.");
         ad->phase = "monitor challenges";
         if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
                                                               ad->authz_monitor_timeout, d->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
-                          ad->md->name);
+            md_result_set(result, rv, NULL);
             goto leave;
         }
         
-        result->message = "Challenge succeeded, finalizing order.";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "md[%s]: %s", d->md->name, result->message);
+        md_result_activity_setn(result, "Challenge succeeded, finalizing order.");
         ad->phase = "finalize order";
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d, result))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
-                          ad->md->name);
+            md_result_set(result, rv, NULL);
             goto leave;
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: certificate setup", d->md->name);
     }
 leave:    
-    result->rv = rv;
-    return rv;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, result->status, d->p, 
+                  "md[%s]: %s", ad->md->name, result->detail);
+    return result->status;
 }
 

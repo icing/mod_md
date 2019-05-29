@@ -22,6 +22,7 @@ struct apr_array_header_t;
 struct md_store_t;
 struct md_pkey_t;
 struct md_cert_t;
+struct md_result_t;
 
 /**
  * A registry for managed domains with a md_store_t as persistence.
@@ -171,15 +172,8 @@ struct md_proto_driver_t {
 
 };
 
-typedef struct md_drive_result md_drive_result;
-struct md_drive_result {
-    apr_status_t rv;
-    apr_time_t valid_from;
-    const char *message;
-};
-
-typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, md_drive_result *result);
-typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver, md_drive_result *result);
+typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, struct md_result_t *result);
+typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver, struct md_result_t *result);
 typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, md_store_group_t group);
 
 struct md_proto_t {
@@ -196,7 +190,7 @@ struct md_proto_t {
  * A message return is allocated fromt the given pool.
  */
 apr_status_t md_reg_test_init(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
-                              md_drive_result *result, apr_pool_t *p);
+                              struct md_result_t *result, apr_pool_t *p);
 
 /**
  * Obtain new credentials for the given managed domain in STAGING.
@@ -205,7 +199,7 @@ apr_status_t md_reg_test_init(md_reg_t *reg, const md_t *md, struct apr_table_t 
  */
 apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md, 
                           struct apr_table_t *env, int reset, 
-                          md_drive_result *result, apr_pool_t *p);
+                          struct md_result_t *result, apr_pool_t *p);
 
 /**
  * Load a new set of credentials for the managed domain from STAGING - if it exists. 

@@ -246,7 +246,7 @@ static apr_status_t jselect_set_new(json_t *val, md_json_t *json, va_list ap)
     return APR_SUCCESS;
 }
 
-int md_json_has_key(md_json_t *json, ...)
+int md_json_has_key(const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -261,7 +261,7 @@ int md_json_has_key(md_json_t *json, ...)
 /**************************************************************************************************/
 /* type things */
 
-int md_json_is(md_json_type_t jtype, md_json_t *json, ...)
+int md_json_is(const md_json_type_t jtype, md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;
@@ -399,6 +399,25 @@ apr_status_t md_json_sets(const char *value, md_json_t *json, ...)
 /* json itself */
 
 md_json_t *md_json_getj(md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+    
+    if (j) {
+        if (j == json->j) {
+            return json;
+        }
+        json_incref(j);
+        return json_create(json->p, j);
+    }
+    return NULL;
+}
+
+const md_json_t *md_json_getcj(const md_json_t *json, ...)
 {
     json_t *j;
     va_list ap;

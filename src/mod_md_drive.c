@@ -37,6 +37,7 @@
 #include "md_store.h"
 #include "md_store_fs.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_util.h"
 #include "md_version.h"
@@ -67,28 +68,27 @@ struct md_drive_ctx {
     apr_array_header_t *jobs;
 };
 
-static apr_status_t process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool_t *ptemp)
+static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool_t *ptemp)
 {
     apr_time_t delay, next_run;
     const md_t *md;
+    md_result_t *result;
     char ts[APR_RFC822_DATE_LEN];
-    md_drive_result result;
-    apr_status_t rv;
+    apr_status_t rv = APR_SUCCESS;
 
     md_status_job_load(job, dctx->mc->reg, ptemp);
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
-    if (apr_time_now() < job->next_run) return APR_EAGAIN;
+    if (apr_time_now() < job->next_run) return;
     
     next_run = 0; /* 0 is default and means at the regular intervals */
-    rv = job->last_status;
-    result.message = job->last_message;
+    result = md_result_make(ptemp, APR_SUCCESS);
     
     md = md_get_by_name(dctx->mc->mds, job->name);
     AP_DEBUG_ASSERT(md);
     if (md->state == MD_S_MISSING_INFORMATION) {
         /* Missing information, this will not change until configuration
          * is changed and server reloaded. */
-        rv = APR_INCOMPLETE;
+        md_result_set(result, APR_INCOMPLETE, "The MD is missing necessary information.");
         ++job->error_runs;
         job->dirty = 1;
         goto leave;
@@ -108,23 +108,17 @@ static apr_status_t process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, 
          * Only returns SUCCESS when the renewal is complete, e.g. STAGING as a
          * complete set of new credentials.
          */
-        rv = md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, &result, ptemp);
+        rv = md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, result, ptemp);
         job->dirty = 1;
         
-        if (APR_SUCCESS == rv) {
+        if (APR_SUCCESS == result->status) {
             job->finished = 1;
-            job->valid_from = result.valid_from;
+            job->valid_from = result->ready_at;
             job->error_runs = 0;
-
-            apr_rfc822_date(ts, job->valid_from);
-            ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10051) 
-                         "%s: has been renewed successfully and should be activated at %s"
-                         " (this requires a server restart latest in %s)", 
-                         job->name, ts, md_print_duration(ptemp, job->valid_from - apr_time_now()));
         }
         else {
-            ap_log_error( APLOG_MARK, APLOG_ERR, rv, dctx->s, APLOGNO(10056) 
-                         "processing %s", job->name);
+            ap_log_error( APLOG_MARK, APLOG_ERR, result->status, dctx->s, APLOGNO(10056) 
+                         "processing %s: %s", job->name, result->detail);
             ++job->error_runs;
             job->dirty = 1;
             /* back off duration, depending on the errors we encounter in a row */
@@ -151,16 +145,14 @@ leave:
         job->next_run = next_run;
         job->dirty = 1;
     }
-    if (rv != job->last_status || result.message != job->last_message) {
-        job->last_status = rv;
-        job->last_message = result.message;
+    if (result && md_result_cmp(result, job->last_result)) {
+        job->last_result = result;
         job->dirty = 1;
     }
     if (job->dirty) {
         apr_status_t rv2 = md_status_job_save(job, dctx->mc->reg, ptemp);
         ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, dctx->s, "%s: saving job props", job->name);
     }
-    return rv;
 }
 
 static void send_notifications(md_drive_ctx *dctx, apr_pool_t *ptemp)

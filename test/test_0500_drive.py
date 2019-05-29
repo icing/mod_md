@@ -78,7 +78,7 @@ class TestDrive :
             )['rv'] == 0
         run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
-        assert re.search("unknown CA protocol", run["stderr"])
+        assert re.search("Unknown CA protocol", run["stderr"])
 
     # --------- driving OK ---------
 
