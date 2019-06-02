@@ -187,6 +187,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
     apr_time_t expires = 0, valid_from = 0;
     apr_status_t rv;
     const char *serial = NULL;
+    const char *fingerprint = NULL;
     int i;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
@@ -203,6 +204,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
             valid_from = md_cert_get_not_before(creds->cert);
             expires = md_cert_get_not_after(creds->cert);
             serial = md_cert_get_serial_number(creds->cert, p);
+            md_cert_to_sha256_fingerprint(&fingerprint, creds->cert, p);
             if (!md_cert_covers_md(creds->cert, md)) {
                 state = MD_S_INCOMPLETE;
                 md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
@@ -251,6 +253,7 @@ out:
     md->valid_from = valid_from;
     md->expires = expires;
     md->cert_serial = serial;
+    md->cert_sha256_fingerprint = fingerprint;
     if (save_changes && APR_SUCCESS == rv) {
         return md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
     }

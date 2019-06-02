@@ -58,7 +58,7 @@
 static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
-    const char *cert64;
+    const char *finger;
     apr_status_t rv = APR_SUCCESS;
     
     apr_rfc822_date(ts, md_cert_get_not_before(cert));
@@ -66,8 +66,8 @@ static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_poo
     apr_rfc822_date(ts, md_cert_get_not_after(cert));
     md_json_sets(ts, json, MD_KEY_EXPIRES, NULL);
     md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
-    if (APR_SUCCESS != (rv = md_cert_to_base64url(&cert64, cert, p))) goto leave;
-    md_json_sets(cert64, json, MD_KEY_CERT, NULL);
+    if (APR_SUCCESS != (rv = md_cert_to_sha256_fingerprint(&finger, cert, p))) goto leave;
+    md_json_sets(finger, json, MD_KEY_SHA256_FINGERPRINT, NULL);
 
 leave:
     return rv;
@@ -120,6 +120,10 @@ int md_http_cert_status(request_rec *r)
     if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL)) {
         md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL), 
                      resp, MD_KEY_SERIAL, NULL);
+    }
+    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL), 
+                     resp, MD_KEY_SHA256_FINGERPRINT, NULL);
     }
     
     if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {

@@ -142,17 +142,13 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
     return APR_SUCCESS;
 }
 
-typedef struct {
-    char *data;
-    apr_size_t len;
-} buffer_rec;
-
 static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p) 
 {
-    buffer_rec *buf = baton;
+    md_data *buf = baton;
+    apr_size_t wlen;
     
     (void)p;
-    return apr_file_write_full(f, buf->data, buf->len, &buf->len);
+    return apr_file_write_full(f, buf->data, buf->len, &wlen);
 }
 
 apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p)
@@ -377,7 +373,7 @@ apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p,
     return rv;
 }
 
-static apr_status_t pkey_to_buffer(buffer_rec *buffer, md_pkey_t *pkey, apr_pool_t *p,
+static apr_status_t pkey_to_buffer(md_data *buf, md_pkey_t *pkey, apr_pool_t *p,
                                    const char *pass, apr_size_t pass_len)
 {
     BIO *bio = BIO_new(BIO_s_mem());
@@ -416,10 +412,9 @@ static apr_status_t pkey_to_buffer(buffer_rec *buffer, md_pkey_t *pkey, apr_pool
 
     i = BIO_pending(bio);
     if (i > 0) {
-        buffer->data = apr_palloc(p, (apr_size_t)i + 1);
-        i = BIO_read(bio, buffer->data, i);
-        buffer->data[i] = '\0';
-        buffer->len = (apr_size_t)i;
+        buf->data = apr_palloc(p, (apr_size_t)i);
+        i = BIO_read(bio, (char*)buf->data, i);
+        buf->len = (apr_size_t)i;
     }
     BIO_free(bio);
     return APR_SUCCESS;
@@ -429,7 +424,7 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
                            const char *pass_phrase, apr_size_t pass_len,
                            const char *fname, apr_fileperms_t perms)
 {
-    buffer_rec buffer;
+    md_data buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p, pass_phrase, pass_len))) {
@@ -575,56 +570,47 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
     return rv;
 }
 
-static apr_status_t sha256_digest(unsigned char **pdigest, size_t *pdigest_len,
-                                  apr_pool_t *p, const char *d, size_t dlen)
+static apr_status_t sha256_digest(md_data **pdigest, apr_pool_t *p, const md_data *buf)
 {
     EVP_MD_CTX *ctx = NULL;
-    unsigned char *buffer;
+    md_data *digest;
     apr_status_t rv = APR_ENOMEM;
-    unsigned int blen;
+    unsigned int dlen;
+
+    digest = apr_palloc(p, sizeof(*digest));
+    if (!digest) goto leave;
+    digest->data = apr_pcalloc(p, EVP_MAX_MD_SIZE);
+    if (!digest->data) goto leave;
     
-    buffer = apr_pcalloc(p, EVP_MAX_MD_SIZE);
-    if (buffer) {
-        ctx = EVP_MD_CTX_create();
-        if (ctx) {
-            rv = APR_ENOTIMPL;
-            if (EVP_DigestInit_ex(ctx, EVP_sha256(), NULL)) {
-                rv = APR_EGENERAL;
-                if (EVP_DigestUpdate(ctx, d, dlen)) {
-                    if (EVP_DigestFinal(ctx, buffer, &blen)) {
-                        rv = APR_SUCCESS;
-                    }
+    ctx = EVP_MD_CTX_create();
+    if (ctx) {
+        rv = APR_ENOTIMPL;
+        if (EVP_DigestInit_ex(ctx, EVP_sha256(), NULL)) {
+            rv = APR_EGENERAL;
+            if (EVP_DigestUpdate(ctx, (unsigned char*)buf->data, buf->len)) {
+                if (EVP_DigestFinal(ctx, (unsigned char*)digest->data, &dlen)) {
+                    digest->len = dlen;
+                    rv = APR_SUCCESS;
                 }
             }
         }
-        
-        if (ctx) {
-            EVP_MD_CTX_destroy(ctx);
-        }
     }
-    
-    if (APR_SUCCESS == rv) {
-        *pdigest = buffer;
-        *pdigest_len = blen;
+leave:
+    if (ctx) {
+        EVP_MD_CTX_destroy(ctx);
     }
-    else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "digest"); 
-        *pdigest = NULL;
-        *pdigest_len = 0;
-    }
+    *pdigest = (APR_SUCCESS == rv)? digest : NULL;
     return rv;
 }
 
-apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
-                                      const char *d, size_t dlen)
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, const md_data *d)
 {
     const char *digest64 = NULL;
-    unsigned char *buffer;
-    size_t blen;
+    md_data *digest;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = sha256_digest(&buffer, &blen, p, d, dlen))) {
-        if (NULL == (digest64 = md_util_base64url_encode((const char*)buffer, blen, p))) {
+    if (APR_SUCCESS == (rv = sha256_digest(&digest, p, d))) {
+        if (NULL == (digest64 = md_util_base64url_encode(digest->data, digest->len, p))) {
             rv = APR_EGENERAL;
         }
     }
@@ -651,28 +637,38 @@ static const char * const hex_const[] = {
     "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff", 
 };
 
-apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
-                                        const char *d, size_t dlen)
+static apr_status_t data_to_hex(const char **phex, char separator,
+                                apr_pool_t *p, const md_data *data)
 {
-    char *dhex = NULL, *cp;
+    char *hex, *cp;
     const char * x;
-    unsigned char *buffer;
-    size_t blen;
-    apr_status_t rv;
     unsigned int i;
     
-    if (APR_SUCCESS == (rv = sha256_digest(&buffer, &blen, p, d, dlen))) {
-        cp = dhex = apr_pcalloc(p,  2 * blen + 1);
-        if (!dhex) {
-            rv = APR_EGENERAL;
-        }
-        for (i = 0; i < blen; ++i, cp += 2) {
-            x = hex_const[buffer[i]];
-            cp[0] = x[0];
-            cp[1] = x[1];
-        }
+    cp = hex = apr_pcalloc(p, ((2 + (separator? 1 : 0)) * data->len) + 1);
+    if (!hex) {
+        *phex = NULL;
+        return APR_ENOMEM;
     }
-    *pdigesthex = dhex;
+    for (i = 0; i < data->len; ++i) {
+        x = hex_const[(unsigned char)data->data[i]];
+        if (i && separator) *cp++ = separator;
+        *cp++ = x[0];
+        *cp++ = x[1];
+    }
+    *phex = hex;
+    return APR_SUCCESS;
+}
+
+apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
+                                        const md_data *data)
+{
+    md_data *digest;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = sha256_digest(&digest, p, data))) {
+        return data_to_hex(pdigesthex, 0, p, digest);
+    }
+    *pdigesthex = NULL;
     return rv;
 }
 
@@ -876,7 +872,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
     return rv;
 }
 
-static apr_status_t cert_to_buffer(buffer_rec *buffer, md_cert_t *cert, apr_pool_t *p)
+static apr_status_t cert_to_buffer(md_data *buffer, md_cert_t *cert, apr_pool_t *p)
 {
     BIO *bio = BIO_new(BIO_s_mem());
     int i;
@@ -894,9 +890,8 @@ static apr_status_t cert_to_buffer(buffer_rec *buffer, md_cert_t *cert, apr_pool
 
     i = BIO_pending(bio);
     if (i > 0) {
-        buffer->data = apr_palloc(p, (apr_size_t)i + 1);
-        i = BIO_read(bio, buffer->data, i);
-        buffer->data[i] = '\0';
+        buffer->data = apr_palloc(p, (apr_size_t)i);
+        i = BIO_read(bio, (char*)buffer->data, i);
         buffer->len = (apr_size_t)i;
     }
     BIO_free(bio);
@@ -906,7 +901,7 @@ static apr_status_t cert_to_buffer(buffer_rec *buffer, md_cert_t *cert, apr_pool
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
                            const char *fname, apr_fileperms_t perms)
 {
-    buffer_rec buffer;
+    md_data buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
@@ -917,7 +912,7 @@ apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p,
 
 apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p)
 {
-    buffer_rec buffer;
+    md_data buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
@@ -925,6 +920,31 @@ apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t
         return APR_SUCCESS;
     }
     *ps64 = NULL;
+    return rv;
+}
+
+apr_status_t md_cert_to_sha256_digest(md_data **pdigest, md_cert_t *cert, apr_pool_t *p)
+{
+    md_data buffer;
+    apr_status_t rv;
+    
+    if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
+        return sha256_digest(pdigest, p, &buffer);
+    }
+    *pdigest = NULL;
+    return rv;
+}
+
+apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, md_cert_t *cert, apr_pool_t *p)
+{
+    md_data *digest;
+    apr_status_t rv;
+    
+    rv = md_cert_to_sha256_digest(&digest, cert, p);
+    if (APR_SUCCESS == rv) {
+        return data_to_hex(pfinger, ':', p, digest);
+    }
+    *pfinger = NULL;
     return rv;
 }
 

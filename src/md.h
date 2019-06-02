@@ -109,6 +109,7 @@ struct md_t {
     apr_time_t valid_from;          /* When the credentials start to be valid. 0 if unknown */
     apr_time_t expires;             /* When the credentials expire. 0 if unknown */
     const char *cert_serial;        /* if != NULL, serial number of the certificate in hex notation */
+    const char *cert_sha256_fingerprint; /* if != NULL, SHA256 fingerprint in : separated hex */
     int can_acme_tls_1;             /* MD has at least one vhost which allows ALPN protocol "acme-tls/1" */
     
     const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
@@ -169,6 +170,7 @@ struct md_t {
 #define MD_KEY_REQUIRE_HTTPS    "require-https"
 #define MD_KEY_RESOURCE         "resource"
 #define MD_KEY_SERIAL           "serial"
+#define MD_KEY_SHA256_FINGERPRINT  "sha256-fingerprint"
 #define MD_KEY_STATE            "state"
 #define MD_KEY_STATUS           "status"
 #define MD_KEY_STORE            "store"

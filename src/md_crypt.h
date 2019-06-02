@@ -25,6 +25,13 @@ struct md_http_response_t;
 struct md_cert_t;
 struct md_pkey_t;
 
+
+typedef struct md_data md_data;
+struct md_data {
+    const char *data;
+    apr_size_t len;
+};
+
 /**************************************************************************************************/
 /* random */
 
@@ -32,10 +39,11 @@ apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* digests */
-apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
-                                      const char *d, size_t dlen);
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, const md_data *data);
 apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
-                                        const char *d, size_t dlen);
+                                        const md_data *data);
+
+#define MD_DATA_SET_STR(d, s)       do { (d)->data = (s); (d)->len = strlen(s); } while(0)
 
 /**************************************************************************************************/
 /* private keys */
@@ -131,6 +139,9 @@ apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert,
 
 apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool_t *p);
+
+apr_status_t md_cert_to_sha256_digest(md_data **pdigest, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, md_cert_t *cert, apr_pool_t *p);
 
 const char *md_cert_get_serial_number(md_cert_t *cert, apr_pool_t *p);
 

@@ -287,6 +287,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
             md->ca_challenges = md_array_str_clone(p, src->ca_challenges);
         }
         if (src->cert_serial) md->cert_serial = apr_pstrdup(p, src->cert_serial);
+        if (src->cert_sha256_fingerprint) md->cert_sha256_fingerprint = apr_pstrdup(p, src->cert_sha256_fingerprint);
         md->can_acme_tls_1 = src->can_acme_tls_1;
     }    
     return md;   
@@ -313,6 +314,7 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
         n->ca_challenges = apr_array_copy(p, base->ca_challenges);
     }
     n->cert_serial = add->cert_serial? add->cert_serial : base->cert_serial;
+    n->cert_sha256_fingerprint = add->cert_sha256_fingerprint? add->cert_sha256_fingerprint : base->cert_sha256_fingerprint;
     return n;
 }
 
@@ -374,6 +376,9 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         if (md->cert_serial) {
             md_json_sets(md->cert_serial, json, MD_KEY_CERT, MD_KEY_SERIAL, NULL);
         }
+        if (md->cert_serial) {
+            md_json_sets(md->cert_sha256_fingerprint, json, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
+        }
         md_json_setb(md->can_acme_tls_1 > 0, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         return json;
     }
@@ -433,7 +438,8 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             md->require_https = MD_REQUIRE_PERMANENT;
         }
         md->must_staple = (int)md_json_getb(json, MD_KEY_MUST_STAPLE, NULL);
-        md->cert_serial = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_SERIAL, NULL);            
+        md->cert_serial = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_SERIAL, NULL);
+        md->cert_sha256_fingerprint  = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);            
         md->can_acme_tls_1 = (int)md_json_getb(json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         
         return md;

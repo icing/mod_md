@@ -322,6 +322,7 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
     const char *acme_id, *token;
     apr_status_t rv;
     int notify_server;
+    md_data data;
     MD_CHK_VARS;
     
     (void)env;
@@ -343,7 +344,8 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
          * The server will need to answer a TLS connection with SNI == authz->domain
          * and ALPN procotol "acme-tls/1" with this certificate.
          */
-        rv = md_crypt_sha256_digest_hex(&token, p, cha->key_authz, strlen(cha->key_authz));
+        MD_DATA_SET_STR(&data, cha->key_authz);
+        rv = md_crypt_sha256_digest_hex(&token, p, &data);
         if (APR_SUCCESS != rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 cert",
                           authz->domain);
@@ -389,6 +391,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     apr_status_t rv;
     int exit_code, notify_server;
     authz_req_ctx ctx;
+    md_data data;
     MD_CHK_VARS;
     
     (void)store;
@@ -406,7 +409,8 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
         goto out;
     }
     
-    rv = md_crypt_sha256_digest64(&token, p, cha->key_authz, strlen(cha->key_authz));
+    MD_DATA_SET_STR(&data, cha->key_authz);
+    rv = md_crypt_sha256_digest64(&token, p, &data);
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create dns-01 token",
                       authz->domain);

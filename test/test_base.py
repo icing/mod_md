@@ -543,7 +543,7 @@ class TestEnv:
                 if 'staging' in stat:
                     staging = stat['staging']
                     renewals[name] = True
-                    if 'cert' in staging:
+                    if 'sha256-fingerprint' in staging:
                         if (not must_renew) or (name in renewals):
                             names.remove(name)                        
                     

@@ -1,3 +1,5 @@
+ * Adding SHA256 fingerprint to certificate-status for renewed certificate.
+
 v2.0.1
 ----------------------------------------------------------------------------------------------------
  * New handler "md-status" that can be configured to return the state of all MDs in JSON format.

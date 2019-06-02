@@ -116,10 +116,7 @@ class TestAuto:
         # staged certificates are now visible on the status resources
         status = TestEnv.get_md_status( domainA )
         assert 'staging' in status
-        assert 'cert' in status['staging']
-        status = TestEnv.get_md_status( domainA )
-        assert 'staging' in status
-        assert 'cert' in status['staging']
+        assert 'sha256-fingerprint' in status['staging']
         # restart and activate
         assert TestEnv.apache_restart() == 0
         # check: SSL is running OK
