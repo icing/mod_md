@@ -661,7 +661,6 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
 {
     const md_t *md;
     md_result_t *result;
-    apr_status_t rv;
     int i;
     
     /* Calculate the list of MD names which we need to watch:
@@ -672,7 +671,6 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
     apr_array_clear(mc->watched_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
-        rv = APR_SUCCESS;
         
         md_result_set(result, APR_SUCCESS, NULL); 
         if (md->state == MD_S_ERROR) {
@@ -687,7 +685,7 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
                 "means it will never be renewed and should not happen.");
         }
         else {
-            rv = md_reg_test_init(mc->reg, md, mc->env, result, p);
+            md_reg_test_init(mc->reg, md, mc->env, result, p);
         }
             
         if (APR_SUCCESS != result->status && result->detail) {
