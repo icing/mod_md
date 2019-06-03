@@ -111,7 +111,7 @@ apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p,
 
 /**
  * Get the credentials available for the managed domain md. Returns APR_ENOENT
- * when none is available. The returned values are immutable. 
+ * when the complete set is not available. The returned values are immutable. 
  */
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
                               md_store_group_t group, const md_t *md, apr_pool_t *p);

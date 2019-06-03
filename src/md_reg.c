@@ -191,52 +191,47 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
     int i;
 
     if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
+        valid_from = md_cert_get_not_before(creds->cert);
+        valid_until = md_cert_get_not_after(creds->cert);
+        serial = md_cert_get_serial_number(creds->cert, p);
+        md_cert_to_sha256_fingerprint(&fingerprint, creds->cert, p);
+        if (!md_cert_covers_md(creds->cert, md)) {
+            state = MD_S_INCOMPLETE;
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+                          "md{%s}: incomplete, cert no longer covers all domains, "
+                          "needs sign up for a new certificate", md->name);
+            goto out;
+        }
+        if (!md->must_staple != !md_cert_must_staple(creds->cert)) {
+            state = MD_S_INCOMPLETE;
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+                          "md{%s}: OCSP Stapling is%s requested, but certificate "
+                          "has it%s enabled. Need to get a new certificate.", md->name,
+                          md->must_staple? "" : " not", 
+                          !md->must_staple? "" : " not");
+            goto out;
+        }
+        
+        for (i = 1; i < creds->pubcert->nelts; ++i) {
+            cert = APR_ARRAY_IDX(creds->pubcert, i, const md_cert_t *);
+            if (!md_cert_is_valid_now(cert)) {
+                state = MD_S_ERROR;
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                              "md{%s}: error, the certificate itself is valid, however the %d. "
+                              "certificate in the chain is not valid now (clock wrong?).", 
+                              md->name, i);
+                goto out;
+            }
+        } 
+        
+        state = MD_S_COMPLETE;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: is complete", md->name);
+    }
+    else if (APR_STATUS_IS_ENOENT(rv)) {
         state = MD_S_INCOMPLETE;
-        if (!creds->privkey) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                          "md{%s}: incomplete, without private key", md->name);
-        }
-        else if (!creds->cert) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                          "md{%s}: incomplete, has key but no certificate", md->name);
-        }
-        else {
-            valid_from = md_cert_get_not_before(creds->cert);
-            valid_until = md_cert_get_not_after(creds->cert);
-            serial = md_cert_get_serial_number(creds->cert, p);
-            md_cert_to_sha256_fingerprint(&fingerprint, creds->cert, p);
-            if (!md_cert_covers_md(creds->cert, md)) {
-                state = MD_S_INCOMPLETE;
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
-                              "md{%s}: incomplete, cert no longer covers all domains, "
-                              "needs sign up for a new certificate", md->name);
-                goto out;
-            }
-            if (!md->must_staple != !md_cert_must_staple(creds->cert)) {
-                state = MD_S_INCOMPLETE;
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
-                              "md{%s}: OCSP Stapling is%s requested, but certificate "
-                              "has it%s enabled. Need to get a new certificate.", md->name,
-                              md->must_staple? "" : " not", 
-                              !md->must_staple? "" : " not");
-                goto out;
-            }
-
-            for (i = 1; i < creds->pubcert->nelts; ++i) {
-                cert = APR_ARRAY_IDX(creds->pubcert, i, const md_cert_t *);
-                if (!md_cert_is_valid_now(cert)) {
-                    state = MD_S_ERROR;
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                                  "md{%s}: error, the certificate itself is valid, however the %d. "
-                                  "certificate in the chain is not valid now (clock wrong?).", 
-                                  md->name, i);
-                    goto out;
-                }
-            } 
-
-            state = MD_S_COMPLETE;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: is complete", md->name);
-        }
+        rv = APR_SUCCESS;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                      "md{%s}: incomplete, credentials not all there", md->name);
     }
 
 out:    
@@ -408,19 +403,27 @@ static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md_reg_t *reg = baton;
     apr_status_t rv = APR_SUCCESS;
     md_t *md, *mine;
+    int do_check;
     
     md = va_arg(ap, md_t *);
+    do_check = va_arg(ap, int);
+
     mine = md_clone(ptemp, md);
-    if (APR_SUCCESS == (rv = check_values(reg, ptemp, md, MD_UPD_ALL))
-        && APR_SUCCESS == (rv = state_init(reg, ptemp, mine, 0))
-        && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, mine, 1))) {
-    }
+    if (do_check && APR_SUCCESS != (rv = check_values(reg, ptemp, md, MD_UPD_ALL))) goto leave;
+    if (APR_SUCCESS != (rv = state_init(reg, ptemp, mine, 0))) goto leave;
+    rv = md_save(reg->store, p, MD_SG_DOMAINS, mine, 1);
+leave:
     return rv;
+}
+
+static apr_status_t add_md(md_reg_t *reg, md_t *md, apr_pool_t *p, int do_checks)
+{
+    return md_util_pool_vdo(p_md_add, reg, p, md, do_checks, NULL);
 }
 
 apr_status_t md_reg_add(md_reg_t *reg, md_t *md, apr_pool_t *p)
 {
-    return md_util_pool_vdo(p_md_add, reg, p, md, NULL);
+    return add_md(reg, md, p, 1);
 }
 
 static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
@@ -544,11 +547,6 @@ apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_i
 /**************************************************************************************************/
 /* certificate related */
 
-static int ok_or_noent(apr_status_t rv) 
-{
-    return (APR_SUCCESS == rv || APR_ENOENT == rv);
-}
-
 static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
@@ -564,32 +562,32 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     group = (md_store_group_t)va_arg(ap, int);
     md = va_arg(ap, const md_t *);
     
-    if (ok_or_noent(rv = md_pkey_load(reg->store, group, md->name, &privkey, p))
-        && ok_or_noent(rv = md_pubcert_load(reg->store, group, md->name, &pubcert, p))) {
-        rv = APR_SUCCESS;
-            
-        creds = apr_pcalloc(p, sizeof(*creds));
-        creds->privkey = privkey;
-        if (pubcert && pubcert->nelts > 0) {
-            creds->pubcert = pubcert;
-            creds->cert = APR_ARRAY_IDX(pubcert, 0, md_cert_t *);
-        }
-        if (creds->cert) {
-            switch ((cert_state = md_cert_state_get(creds->cert))) {
-                case MD_CERT_VALID:
-                    creds->expired = 0;
-                    break;
-                case MD_CERT_EXPIRED:
-                    creds->expired = 1;
-                    break;
-                default:
-                    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, ptemp, 
-                                  "md %s has unexpected cert state: %d", md->name, cert_state);
-                    rv = APR_ENOTIMPL;
-                    break;
-            }
-        }
+    rv = md_pkey_load(reg->store, group, md->name, &privkey, p);
+    if (APR_SUCCESS != rv) goto leave;
+    rv = md_pubcert_load(reg->store, group, md->name, &pubcert, p);
+    if (APR_SUCCESS != rv) goto leave;
+    if (pubcert && pubcert->nelts== 0) {
+        rv = APR_ENOENT; goto leave;
     }
+            
+    creds = apr_pcalloc(p, sizeof(*creds));
+    creds->privkey = privkey;
+    creds->pubcert = pubcert;
+    creds->cert = APR_ARRAY_IDX(pubcert, 0, md_cert_t *);
+    switch ((cert_state = md_cert_state_get(creds->cert))) {
+        case MD_CERT_VALID:
+            creds->expired = 0;
+            break;
+        case MD_CERT_EXPIRED:
+            creds->expired = 1;
+            break;
+        default:
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, ptemp, 
+                          "md %s has unexpected cert state: %d", md->name, cert_state);
+            rv = APR_ENOTIMPL;
+            break;
+    }
+leave:
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;
     return rv;
 }
@@ -836,7 +834,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     md->ca_url = MD_ACME_DEF_URL;
                     md->ca_proto = MD_PROTO_ACME; 
                 }
-                rv = md_reg_add(reg, md, ptemp);
+                rv = add_md(reg, md, ptemp, 0);
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "new md %s added", md->name);
             }
         }
