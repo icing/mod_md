@@ -172,4 +172,6 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
                                       const char *acme_id, md_pkey_t *pkey, 
                                       apr_interval_time_t valid_for, apr_pool_t *p);
 
+apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, md_cert_t *cert);
+
 #endif /* md_crypt_h */

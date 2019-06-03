@@ -246,12 +246,12 @@ out:
     }
     
     if (save_changes && md->state == state
-        && md->valid_from == valid_from && md->expires == expires) {
+        && md->valid_from == valid_from && md->valid_until == expires) {
         save_changes = 0;
     }
     md->state = state;
     md->valid_from = valid_from;
-    md->expires = expires;
+    md->valid_until = expires;
     md->cert_serial = serial;
     md->cert_sha256_fingerprint = fingerprint;
     if (save_changes && APR_SUCCESS == rv) {

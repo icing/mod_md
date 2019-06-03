@@ -681,7 +681,7 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
                 "indicates an incomplete or inconsistent configuration. "
                 "Please check the log for warnings in this regard.");
         }
-        else if (md->state == MD_S_COMPLETE && !md->expires) {
+        else if (md->state == MD_S_COMPLETE && !md->valid_until) {
             md_result_set(result, APR_EGENERAL, 
                 "is complete but has no expiration date. This "
                 "means it will never be renewed and should not happen.");

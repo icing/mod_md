@@ -1,3 +1,4 @@
+ * Certificate validity now appears as "valid-from"/"valid-until" pair.
  * Adding SHA256 fingerprint to certificate-status for renewed certificate.
 
 v2.0.1

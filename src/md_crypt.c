@@ -925,13 +925,20 @@ apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t
 
 apr_status_t md_cert_to_sha256_digest(md_data **pdigest, md_cert_t *cert, apr_pool_t *p)
 {
-    md_data buffer;
-    apr_status_t rv;
+    md_data *digest;
+    unsigned int dlen;
+    apr_status_t rv = APR_ENOMEM;
     
-    if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
-        return sha256_digest(pdigest, p, &buffer);
-    }
-    *pdigest = NULL;
+    digest = apr_palloc(p, sizeof(*digest));
+    if (!digest) goto leave;
+    digest->data = apr_pcalloc(p, EVP_MAX_MD_SIZE);
+    if (!digest->data) goto leave;
+
+    X509_digest(cert->x509, EVP_sha256(), (unsigned char*)digest->data, &dlen);
+    digest->len = dlen;
+    rv = APR_SUCCESS;
+leave:
+    *pdigest = (APR_SUCCESS == rv)? digest : NULL;
     return rv;
 }
 
@@ -1502,4 +1509,38 @@ out:
     }
     *pcert = (APR_SUCCESS == rv)? cert : NULL;
     return rv;
+}
+
+#define MD_OID_CT_SCTS_NUM          "1.3.6.1.4.1.11129.2.4.5"
+#define MD_OID_CT_SCTS_SNAME        "CT-SCTs"
+#define MD_OID_CT_SCTS_LNAME        "CT Certificate SCTs" 
+
+static int get_ct_scts_nid(void)
+{
+    int nid = OBJ_txt2nid(MD_OID_CT_SCTS_NUM);
+    if (NID_undef == nid) {
+        nid = OBJ_create(MD_OID_CT_SCTS_NUM, 
+                         MD_OID_CT_SCTS_SNAME, MD_OID_CT_SCTS_LNAME);
+    }
+    return nid;
+}
+
+apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, md_cert_t *cert)
+{
+    int nid, i;
+    X509_EXTENSION *ext;
+    
+    (void)p;
+    (void)scts;
+    nid = get_ct_scts_nid();
+    if (NID_undef == nid) return APR_EINVAL;
+
+    i = -1;
+    while (1) {
+        i = X509_get_ext_by_NID(cert->x509, nid, i);
+        if (i < 0) break;
+        ext = X509_get_ext(cert->x509, i);
+        
+    }
+    return APR_ENOTIMPL;
 }

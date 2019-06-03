@@ -132,10 +132,10 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
                          job->name, job->error_runs, md_print_duration(ptemp, delay));
         }
     }
-    else if (md->expires > 0) {
+    else if (md->valid_until > 0) {
         /* Renew is not necessary yet, leave job->next_run as 0 since 
          * that keeps the default schedule of running twice a day. */
-        apr_rfc822_date(ts, md->expires);
+        apr_rfc822_date(ts, md->valid_until);
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
                      "md(%s): no need to renew yet, cert expires %s", job->name, ts);
     }

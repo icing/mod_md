@@ -64,7 +64,7 @@ static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_poo
     apr_rfc822_date(ts, md_cert_get_not_before(cert));
     md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
     apr_rfc822_date(ts, md_cert_get_not_after(cert));
-    md_json_sets(ts, json, MD_KEY_EXPIRES, NULL);
+    md_json_sets(ts, json, MD_KEY_VALID_UNTIL, NULL);
     md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
     if (APR_SUCCESS != (rv = md_cert_to_sha256_fingerprint(&finger, cert, p))) goto leave;
     md_json_sets(finger, json, MD_KEY_SHA256_FINGERPRINT, NULL);
@@ -115,8 +115,14 @@ int md_http_cert_status(request_rec *r)
 
     resp = md_json_create(r->pool);
     
-    md_json_copy_to(resp, mdj, MD_KEY_EXPIRES, NULL);
-    md_json_copy_to(resp, mdj, MD_KEY_VALID_FROM, NULL);
+    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL), 
+                     resp, MD_KEY_VALID_UNTIL, NULL);
+    }
+    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL), 
+                     resp, MD_KEY_VALID_FROM, NULL);
+    }
     if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL)) {
         md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL), 
                      resp, MD_KEY_SERIAL, NULL);
@@ -264,7 +270,7 @@ static void si_val_expires(status_ctx *ctx, md_json_t *mdj, const status_info *i
     apr_time_t t;
     
     (void)info;
-    s = md_json_dups(ctx->p, mdj, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
+    s = md_json_dups(ctx->p, mdj, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL);
     if (s) {
         t = apr_date_parse_rfc(s);
         si_val_date(ctx, t);
@@ -386,7 +392,7 @@ const status_info status_infos[] = {
     { "Domains", MD_KEY_DOMAINS, NULL },
     { "Status", MD_KEY_STATUS, si_val_status },
     { "Valid", MD_KEY_VALID_FROM, si_val_valid_from },
-    { "Expires", MD_KEY_EXPIRES, si_val_expires },
+    { "Expires", MD_KEY_VALID_UNTIL, si_val_expires },
     { "Renew", MD_KEY_DRIVE_MODE, si_val_drive_mode },
     { "Configuration", MD_KEY_MUST_STAPLE, si_val_props },
     { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },

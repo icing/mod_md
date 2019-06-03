@@ -731,12 +731,12 @@ ready:
      * to 24 hours after new cert is valid (if there is enough time left), so
      * that cients with skewed clocks do not see a problem. */
     now = apr_time_now();
-    if (d->md->state == MD_S_COMPLETE && d->md->expires > now) {            
+    if (d->md->state == MD_S_COMPLETE && d->md->valid_until > now) {            
         apr_interval_time_t delay_activation;
          
         delay_activation = apr_time_from_sec(MD_SECS_PER_DAY);
-        if (delay_activation > (d->md->expires - now)) {
-            delay_activation = (d->md->expires - now);
+        if (delay_activation > (d->md->valid_until - now)) {
+            delay_activation = (d->md->valid_until - now);
         }
         md_result_delay_set(result, result->ready_at + delay_activation);
     }

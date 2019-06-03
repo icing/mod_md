@@ -212,23 +212,23 @@ int md_should_renew(const md_t *md)
         case MD_S_EXPIRED_DEPRECATED:
         case MD_S_COMPLETE:
             now = apr_time_now();
-            if (md->expires <= now) {
+            if (md->valid_until <= now) {
                 return 1;
             }
-            else if (md->expires > 0) {
+            else if (md->valid_until > 0) {
                 double renew_win,  life;
                 apr_interval_time_t left;
                 
                 renew_win = (double)md->renew_window;
                 if (md->renew_norm > 0 
                     && md->renew_norm > renew_win
-                    && md->expires > md->valid_from) {
+                    && md->valid_until > md->valid_from) {
                     /* Calc renewal days as fraction of cert lifetime - if known */
-                    life = (double)(md->expires - md->valid_from); 
+                    life = (double)(md->valid_until - md->valid_from); 
                     renew_win = life * renew_win / (double)md->renew_norm;
                 }
                 
-                left = md->expires - now;
+                left = md->valid_until - now;
                 if (left <= renew_win) {
                     return 1;
                 }                
@@ -341,9 +341,9 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         md_json_setl(md->drive_mode, json, MD_KEY_DRIVE_MODE, NULL);
-        if (md->expires > 0) {
-            apr_rfc822_date(ts, md->expires);
-            md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
+        if (md->valid_until > 0) {
+            apr_rfc822_date(ts, md->valid_until);
+            md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL);
         }
         if (md->valid_from > 0) {
             apr_rfc822_date(ts, md->valid_from);
@@ -405,9 +405,9 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->drive_mode = (int)md_json_getl(json, MD_KEY_DRIVE_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         md->transitive = (int)md_json_getl(json, MD_KEY_TRANSITIVE, NULL);
-        s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_EXPIRES, NULL);
+        s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL);
         if (s && *s) {
-            md->expires = apr_date_parse_rfc(s);
+            md->valid_until = apr_date_parse_rfc(s);
         }
         s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
         if (s && *s) {

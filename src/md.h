@@ -107,7 +107,7 @@ struct md_t {
 
     md_state_t state;               /* state of this MD */
     apr_time_t valid_from;          /* When the credentials start to be valid. 0 if unknown */
-    apr_time_t expires;             /* When the credentials expire. 0 if unknown */
+    apr_time_t valid_until;         /* When the credentials expire. 0 if unknown */
     const char *cert_serial;        /* if != NULL, serial number of the certificate in hex notation */
     const char *cert_sha256_fingerprint; /* if != NULL, SHA256 fingerprint in : separated hex */
     int can_acme_tls_1;             /* MD has at least one vhost which allows ALPN protocol "acme-tls/1" */
@@ -180,7 +180,8 @@ struct md_t {
 #define MD_KEY_TYPE             "type"
 #define MD_KEY_URL              "url"
 #define MD_KEY_URI              "uri"
-#define MD_KEY_VALID_FROM       "validFrom"
+#define MD_KEY_VALID_FROM       "valid-from"
+#define MD_KEY_VALID_UNTIL      "valid-until"
 #define MD_KEY_VALUE            "value"
 #define MD_KEY_VERSION          "version"
 
