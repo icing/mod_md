@@ -388,14 +388,19 @@ static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *i
 
 static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
-    const char *fingerprint;
+    const char *fingerprint, *serial;
     
     (void)info;
     fingerprint = md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
+    serial = md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL);
     if (fingerprint) {
         apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<a href=\"https://crt.sh?q=%s\">crt.sh</a>", 
+                           "<a href=\"https://censys.io/certificates/%s\">censys.io</a> ", 
                            fingerprint);
+    }
+    if (serial) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, 
+                           "<a href=\"https://crt.sh?q=%s\">crt.sh</a> ", serial);
     }
 }
 

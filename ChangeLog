@@ -1,5 +1,8 @@
+ * Adding an experimental "check" column to server-status with links to known certificate
+   checker sites.
  * Certificate validity now appears as "valid-from"/"valid-until" pair.
  * Adding SHA256 fingerprint to certificate-status for renewed certificate.
+ * md-status handler fixed to work on nested path locations as well.
 
 v2.0.1
 ----------------------------------------------------------------------------------------------------
