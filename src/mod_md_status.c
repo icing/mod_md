@@ -386,6 +386,19 @@ static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *i
     }
 }
 
+static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    const char *fingerprint;
+    
+    (void)info;
+    fingerprint = md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
+    if (fingerprint) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, 
+                           "<a href=\"https://crt.sh?q=%s\">crt.sh</a>", 
+                           fingerprint);
+    }
+}
+
 const status_info status_infos[] = {
     { "Name", MD_KEY_NAME, NULL },
     { "Domains", MD_KEY_DOMAINS, NULL },
@@ -393,6 +406,7 @@ const status_info status_infos[] = {
     { "Valid", MD_KEY_VALID_FROM, si_val_valid_from },
     { "Expires", MD_KEY_VALID_UNTIL, si_val_expires },
     { "Renew", MD_KEY_DRIVE_MODE, si_val_drive_mode },
+    { "check", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Configuration", MD_KEY_MUST_STAPLE, si_val_props },
     { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },
 };
