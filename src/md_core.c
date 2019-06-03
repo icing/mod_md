@@ -376,7 +376,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         if (md->cert_serial) {
             md_json_sets(md->cert_serial, json, MD_KEY_CERT, MD_KEY_SERIAL, NULL);
         }
-        if (md->cert_serial) {
+        if (md->cert_sha256_fingerprint) {
             md_json_sets(md->cert_sha256_fingerprint, json, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
         }
         md_json_setb(md->can_acme_tls_1 > 0, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);

@@ -949,7 +949,7 @@ apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, md_cert_t *cert
     
     rv = md_cert_to_sha256_digest(&digest, cert, p);
     if (APR_SUCCESS == rv) {
-        return data_to_hex(pfinger, ':', p, digest);
+        return data_to_hex(pfinger, 0, p, digest);
     }
     *pfinger = NULL;
     return rv;
