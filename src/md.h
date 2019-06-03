@@ -311,14 +311,6 @@ struct md_creds_t {
     int expired;
 };
 
-/* TODO: not sure this is a good idea, testing some readability and debuggabiltiy of
- * cascaded apr_status_t checks. */
-#define MD_CHK_VARS                 const char *md_chk_
-#define MD_LAST_CHK                 md_chk_
-#define MD_CHK_STEP(c, status, s)   (md_chk_ = s, (void)md_chk_, status == (rv = (c)))
-#define MD_CHK(c, status)           MD_CHK_STEP(c, status, #c)
-#define MD_IS_ERR(c, err)           (md_chk_ = #c, APR_STATUS_IS_##err((rv = (c))))
-#define MD_CHK_SUCCESS(c)           MD_CHK(c, APR_SUCCESS)
-#define MD_OK(c)                    MD_CHK_SUCCESS(c)
+#define MD_OK(c)                    (APR_SUCCESS == (rv = c))
 
 #endif /* mod_md_md_h */

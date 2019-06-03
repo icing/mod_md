@@ -184,7 +184,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
     md_state_t state = MD_S_UNKNOWN;
     const md_creds_t *creds;
     const md_cert_t *cert;
-    apr_time_t expires = 0, valid_from = 0;
+    apr_time_t valid_until = 0, valid_from = 0;
     apr_status_t rv;
     const char *serial = NULL;
     const char *fingerprint = NULL;
@@ -202,7 +202,7 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
         }
         else {
             valid_from = md_cert_get_not_before(creds->cert);
-            expires = md_cert_get_not_after(creds->cert);
+            valid_until = md_cert_get_not_after(creds->cert);
             serial = md_cert_get_serial_number(creds->cert, p);
             md_cert_to_sha256_fingerprint(&fingerprint, creds->cert, p);
             if (!md_cert_covers_md(creds->cert, md)) {
@@ -246,12 +246,12 @@ out:
     }
     
     if (save_changes && md->state == state
-        && md->valid_from == valid_from && md->valid_until == expires) {
+        && md->valid_from == valid_from && md->valid_until == valid_until) {
         save_changes = 0;
     }
     md->state = state;
     md->valid_from = valid_from;
-    md->valid_until = expires;
+    md->valid_until = valid_until;
     md->cert_serial = serial;
     md->cert_sha256_fingerprint = fingerprint;
     if (save_changes && APR_SUCCESS == rv) {
@@ -429,12 +429,13 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     apr_status_t rv = APR_SUCCESS;
     const char *name;
     const md_t *md, *updates;
-    int fields;
+    int fields, do_checks;
     md_t *nmd;
     
     name = va_arg(ap, const char *);
     updates = va_arg(ap, const md_t *);
     fields = va_arg(ap, int);
+    do_checks = va_arg(ap, int);
     
     if (NULL == (md = md_reg_get(reg, name, ptemp))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, APR_ENOENT, ptemp, "md %s", name);
@@ -443,7 +444,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "update md %s", name);
     
-    if (APR_SUCCESS != (rv = check_values(reg, ptemp, updates, fields))) {
+    if (do_checks && APR_SUCCESS != (rv = check_values(reg, ptemp, updates, fields))) {
         return rv;
     }
     
@@ -516,10 +517,17 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     return rv;
 }
 
+static apr_status_t update_md(md_reg_t *reg, apr_pool_t *p, 
+                              const char *name, const md_t *md, 
+                              int fields, int do_checks)
+{
+    return md_util_pool_vdo(p_md_update, reg, p, name, md, fields, do_checks, NULL);
+}
+
 apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p, 
                            const char *name, const md_t *md, int fields)
 {
-    return md_util_pool_vdo(p_md_update, reg, p, name, md, fields, NULL);
+    return update_md(reg, p, name, md, fields, 1);
 }
 
 apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_id) 
@@ -643,6 +651,10 @@ apr_status_t md_reg_set_props(md_reg_t *reg, apr_pool_t *p, int can_http, int ca
     }
     return APR_SUCCESS;
 }
+
+static apr_status_t update_md(md_reg_t *reg, apr_pool_t *p, 
+                              const char *name, const md_t *md, 
+                              int fields, int do_checks);
  
 /**
  * Procedure:
@@ -728,7 +740,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                             md_reg_remove(reg, ptemp, omd->name, 1); /* best effort */
                         }
                         else {
-                            rv = md_reg_update(reg, ptemp, omd->name, omd, MD_UPD_DOMAINS);
+                            rv = update_md(reg, ptemp, omd->name, omd, MD_UPD_DOMAINS, 0);
                         }
                     }
                 }
@@ -813,7 +825,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 }
                 
                 if (fields) {
-                    rv = md_reg_update(reg, ptemp, smd->name, smd, fields);
+                    rv = update_md(reg, ptemp, smd->name, smd, fields, 0);
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md %s updated", smd->name);
                 }
             }

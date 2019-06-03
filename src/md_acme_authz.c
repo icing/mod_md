@@ -149,7 +149,6 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_p
     const char *s, *err;
     md_log_level_t log_level;
     apr_status_t rv;
-    MD_CHK_VARS;
     
     assert(acme);
     assert(acme->http);
@@ -161,7 +160,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_p
     err = "unable to parse response";
     log_level = MD_LOG_ERR;
     
-    if (MD_OK(md_acme_get_json(&json, acme, authz->url, p))
+    if (APR_SUCCESS == (rv = md_acme_get_json(&json, acme, authz->url, p))
         && (s = md_json_gets(json, MD_KEY_STATUS, NULL))) {
             
         authz->domain = md_json_gets(json, MD_KEY_IDENTIFIER, MD_KEY_VALUE, NULL); 
@@ -252,14 +251,13 @@ static apr_status_t setup_key_authz(md_acme_authz_cha_t *cha, md_acme_authz_t *a
 {
     const char *thumb64, *key_authz;
     apr_status_t rv;
-    MD_CHK_VARS;
     
     (void)authz;
     assert(cha);
     assert(cha->token);
     
     *pchanged = 0;
-    if (MD_OK(md_jws_pkey_thumb(&thumb64, p, acme->acct_key))) {
+    if (APR_SUCCESS == (rv = md_jws_pkey_thumb(&thumb64, p, acme->acct_key))) {
         key_authz = apr_psprintf(p, "%s.%s", cha->token, thumb64);
         if (cha->key_authz) {
             if (strcmp(key_authz, cha->key_authz)) {
@@ -283,11 +281,10 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     const char *data;
     apr_status_t rv;
     int notify_server;
-    MD_CHK_VARS;
     
     (void)key_spec;
     (void)env;
-    if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
+    if (APR_SUCCESS != (rv = setup_key_authz(cha, authz, acme, p, &notify_server))) {
         goto out;
     }
     
@@ -323,10 +320,9 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
     apr_status_t rv;
     int notify_server;
     md_data data;
-    MD_CHK_VARS;
     
     (void)env;
-    if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
+    if (APR_SUCCESS != (rv = setup_key_authz(cha, authz, acme, p, &notify_server))) {
         goto out;
     }
     rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_CERT,
@@ -353,14 +349,14 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
         }
         
         acme_id = apr_psprintf(p, "critical,DER:04:20:%s", token);
-        if (!MD_OK(md_cert_make_tls_alpn_01(&cha_cert, authz->domain, acme_id, cha_key, 
+        if (APR_SUCCESS != (rv = md_cert_make_tls_alpn_01(&cha_cert, authz->domain, acme_id, cha_key, 
                                             apr_time_from_sec(7 * MD_SECS_PER_DAY), p))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 cert",
                           authz->domain);
             goto out;
         }
         
-        if (MD_OK(md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_PKEY,
+        if (APR_SUCCESS == (rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_PKEY,
                                 MD_SV_PKEY, (void*)cha_key, 0))) {
             rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_CERT,
                                MD_SV_CERT, (void*)cha_cert, 0);
@@ -392,7 +388,6 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     int exit_code, notify_server;
     authz_req_ctx ctx;
     md_data data;
-    MD_CHK_VARS;
     
     (void)store;
     (void)key_spec;
@@ -405,7 +400,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
         goto out;
     }
     
-    if (!MD_OK(setup_key_authz(cha, authz, acme, p, &notify_server))) {
+    if (APR_SUCCESS != (rv = setup_key_authz(cha, authz, acme, p, &notify_server))) {
         goto out;
     }
     

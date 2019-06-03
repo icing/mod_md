@@ -124,7 +124,6 @@ static apr_status_t rename_pkey(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
 {
     const char *from, *to;
     apr_status_t rv = APR_SUCCESS;
-    MD_CHK_VARS;
     
     (void)baton;
     (void)ftype;
@@ -145,13 +144,12 @@ static apr_status_t mk_pubcert(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     apr_array_header_t *chain, *pubcert;
     const char *fname, *fpubcert;
     apr_status_t rv = APR_SUCCESS;
-    MD_CHK_VARS;
     
     (void)baton;
     (void)ftype;
     (void)p;
     if (   MD_OK(md_util_path_merge(&fpubcert, ptemp, dir, MD_FN_PUBCERT, NULL))
-        && MD_IS_ERR(md_chain_fload(&pubcert, ptemp, fpubcert), ENOENT)
+        && APR_STATUS_IS_ENOENT(rv = md_chain_fload(&pubcert, ptemp, fpubcert))
         && MD_OK(md_util_path_merge(&fname, ptemp, dir, name, NULL))
         && MD_OK(md_cert_fload(&cert, ptemp, fname))
         && MD_OK(md_util_path_merge(&fname, ptemp, dir, "chain.pem", NULL))) {
@@ -198,7 +196,6 @@ static apr_status_t read_store_file(md_store_fs_t *s_fs, const char *fname,
     const char *key64, *key;
     apr_status_t rv;
     double store_version;
-    MD_CHK_VARS;
     
     if (MD_OK(md_json_readf(&json, p, fname))) {
         store_version = md_json_getn(json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
@@ -251,7 +248,6 @@ static apr_status_t setup_store_file(void *baton, apr_pool_t *p, apr_pool_t *pte
     md_store_fs_t *s_fs = baton;
     const char *fname;
     apr_status_t rv;
-    MD_CHK_VARS;
 
     (void)ap;
     s_fs->plain_pkey[MD_SG_DOMAINS] = 1;
@@ -266,7 +262,7 @@ read:
         rv = read_store_file(s_fs, fname, p, ptemp);
     }
     else if (APR_STATUS_IS_ENOENT(rv)
-        && MD_IS_ERR(init_store_file(s_fs, fname, p, ptemp), EEXIST)) {
+        && APR_STATUS_IS_EEXIST(rv = init_store_file(s_fs, fname, p, ptemp))) {
         goto read;
     }
     return rv;
@@ -276,7 +272,6 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
 {
     md_store_fs_t *s_fs;
     apr_status_t rv = APR_SUCCESS;
-    MD_CHK_VARS;
     
     s_fs = apr_pcalloc(p, sizeof(*s_fs));
 
@@ -306,7 +301,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
 
     s_fs->base = apr_pstrdup(p, path);
     
-    if (MD_IS_ERR(md_util_is_dir(s_fs->base, p), ENOENT)
+    if (APR_STATUS_IS_ENOENT(rv = md_util_is_dir(s_fs->base, p))
         && MD_OK(apr_dir_make_recursive(s_fs->base, s_fs->def_perms.dir, p))) {
         rv = apr_file_perms_set(s_fs->base, MD_FPROT_D_UALL_WREAD);
         if (APR_STATUS_IS_ENOTIMPL(rv)) {
@@ -449,7 +444,6 @@ static apr_status_t pfs_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md_store_group_t group;
     void **pvalue;
     apr_status_t rv;
-    MD_CHK_VARS;
     
     group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char *);
@@ -480,7 +474,6 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
 {
     const perms_t *perms;
     apr_status_t rv;
-    MD_CHK_VARS;
     
     perms = gperms(s_fs, group);
 
@@ -510,7 +503,6 @@ static apr_status_t pfs_is_newer(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
     apr_finfo_t inf1, inf2;
     int *pnewer;
     apr_status_t rv;
-    MD_CHK_VARS;
     
     (void)p;
     group1 = (md_store_group_t)va_arg(ap, int);
@@ -557,7 +549,6 @@ static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     const perms_t *perms;
     const char *pass;
     apr_size_t pass_len;
-    MD_CHK_VARS;
     
     group = (md_store_group_t)va_arg(ap, int);
     name = va_arg(ap, const char*);
@@ -615,7 +606,6 @@ static apr_status_t pfs_remove(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
     int force;
     apr_finfo_t info;
     md_store_group_t group;
-    MD_CHK_VARS;
     
     (void)p;
     group = (md_store_group_t)va_arg(ap, int);
@@ -676,7 +666,6 @@ static apr_status_t pfs_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     const char *dir, *name, *groupname;
     md_store_group_t group;
     apr_status_t rv;
-    MD_CHK_VARS;
     
     (void)p;
     group = (md_store_group_t)va_arg(ap, int);
@@ -742,7 +731,6 @@ static apr_status_t insp_dir(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     inspect_ctx *ctx = baton;
     apr_status_t rv;
     const char *fpath;
-    MD_CHK_VARS;
  
     (void)ftype;
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "inspecting dir at: %s/%s", dir, name);
@@ -818,7 +806,6 @@ static apr_status_t pfs_move(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md_store_group_t from, to;
     int archive;
     apr_status_t rv;
-    MD_CHK_VARS;
     
     (void)p;
     from = (md_store_group_t)va_arg(ap, int);
