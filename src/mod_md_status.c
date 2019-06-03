@@ -342,7 +342,6 @@ static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *i
     int finished, errors;
     apr_time_t t;
     const char *s, *name;
-    int n;
     
     (void)info;
     name = md_json_gets(mdj, MD_KEY_NAME, NULL);  
@@ -371,8 +370,8 @@ static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *i
         } 
         else {
             apr_brigade_puts(ctx->bb, NULL, NULL, "ongoing");
-            if ((n = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL)) > 0) {
-                apr_brigade_printf(ctx->bb, NULL, NULL, ", %d errored attempts", n); 
+            if ((errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL)) > 0) {
+                apr_brigade_printf(ctx->bb, NULL, NULL, ", %d errored attempts", errors); 
             }
             if (md_json_has_key(mdj, MD_KEY_RENEWAL, MD_KEY_NEXT_RUN, NULL)) {
                 s = md_json_dups(ctx->p, mdj,  MD_KEY_RENEWAL, MD_KEY_NEXT_RUN, NULL);
