@@ -153,8 +153,8 @@ upcoming certificates on a domain. You invoke it like this:
 ```
 > curl https://eissing.org/.httpd/certificate-status
 {
-  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
-  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
+  "valid-from": "Mon, 01 Apr 2019 06:47:43 GMT",
+  "valid-until": "Sun, 30 Jun 2019 06:47:43 GMT",
   "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
 }
 ```
@@ -167,12 +167,12 @@ When a new certificate has been obtained, but is not activated yet, this will sh
 
 ```
 {
-  "validFrom": "Mon, 01 Apr 2019 06:47:43 GMT",
-  "expires": "Sun, 30 Jun 2019 06:47:43 GMT",
+  "valid-from": "Mon, 01 Apr 2019 06:47:43 GMT",
+  "valid-until": "Sun, 30 Jun 2019 06:47:43 GMT",
   "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
   "staging": {
-    "validFrom": "Tue, 21 May 2019 11:53:59 GMT",
-    "expires": "Mon, 19 Aug 2019 11:53:59 GMT",
+    "valid-from": "Tue, 21 May 2019 11:53:59 GMT",
+    "valid-until": "Mon, 19 Aug 2019 11:53:59 GMT",
     "serial": "FFC16E5FEFBE90805AC153D70EF9E8D3873A",
     "cert": "LS0tLS1...VRFLS0tLS0K"
   }
