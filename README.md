@@ -155,7 +155,8 @@ upcoming certificates on a domain. You invoke it like this:
 {
   "valid-from": "Mon, 01 Apr 2019 06:47:43 GMT",
   "valid-until": "Sun, 30 Jun 2019 06:47:43 GMT",
-  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
+  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7",
+  "sha256-fingerprint" : "xx:yy:zz:..."
 }
 ```
 
@@ -170,11 +171,13 @@ When a new certificate has been obtained, but is not activated yet, this will sh
   "valid-from": "Mon, 01 Apr 2019 06:47:43 GMT",
   "valid-until": "Sun, 30 Jun 2019 06:47:43 GMT",
   "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
+  "sha256-fingerprint" : "xx:yy:zz:..."
   "staging": {
     "valid-from": "Tue, 21 May 2019 11:53:59 GMT",
     "valid-until": "Mon, 19 Aug 2019 11:53:59 GMT",
     "serial": "FFC16E5FEFBE90805AC153D70EF9E8D3873A",
     "cert": "LS0tLS1...VRFLS0tLS0K"
+    "sha256-fingerprint" : "aa:bb:cc:..."
   }
 ```
 And ```cert``` will give the whole certificate in base64url encoding. Again, once the server reload, this certificate will be send to anyone opening a TLS conncection to this domain. No privacy is lost in announcing this beforehand. Instead, security might be gained: if you see someong getting a new certificate for your domain (as visible in the [new CT Log](https://letsencrypt.org/2019/05/15/introducing-oak-ct-log.html)), you can contact your Apache and check if it was the one responsible.
