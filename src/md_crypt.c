@@ -644,7 +644,7 @@ static apr_status_t data_to_hex(const char **phex, char separator,
     const char * x;
     unsigned int i;
     
-    cp = hex = apr_pcalloc(p, ((2 + (separator? 1 : 0)) * data->len) + 1);
+    cp = hex = apr_pcalloc(p, ((separator? 3 : 2) * data->len) + 1);
     if (!hex) {
         *phex = NULL;
         return APR_ENOMEM;
@@ -1532,6 +1532,7 @@ apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, md_cer
     
     (void)p;
     (void)scts;
+    (void)ext;
     nid = get_ct_scts_nid();
     if (NID_undef == nid) return APR_EINVAL;
 
