@@ -74,7 +74,6 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
     const md_t *md;
     md_result_t *result;
     char ts[APR_RFC822_DATE_LEN];
-    apr_status_t rv = APR_SUCCESS;
 
     md_status_job_load(job, dctx->mc->reg, ptemp);
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
@@ -108,7 +107,7 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
          * Only returns SUCCESS when the renewal is complete, e.g. STAGING as a
          * complete set of new credentials.
          */
-        rv = md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, result, ptemp);
+        md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, result, ptemp);
         job->dirty = 1;
         
         if (APR_SUCCESS == result->status) {
