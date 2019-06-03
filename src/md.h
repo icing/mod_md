@@ -116,6 +116,7 @@ struct md_t {
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
     
+    const char *configured_name;    /* name this MD was configured with, if different */
 };
 
 #define MD_KEY_ACCOUNT          "account"

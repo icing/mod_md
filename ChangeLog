@@ -1,3 +1,8 @@
+v2.0.2
+----------------------------------------------------------------------------------------------------
+ * Fixing configuration startup (e.g. dry run) to sync with the store again. This let's
+   us find renamed MDs and use its correct paths. With wrong paths, mod_ssl gets unhappy
+   and logs errors (see #125).
  * Adding an experimental "check" column to server-status with links to known certificate
    checker sites.
  * Certificate validity now appears as "valid-from"/"valid-until" pair.

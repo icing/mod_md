@@ -763,13 +763,13 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
      * 1. find out if we know where http: and https: requests will arrive
      * 2. apply the now complete configuration setttings to the MDs
      * 3. Link MDs to the server_recs they are used in. Detect unused MDs.
-     * 4. on a dry run, this is all we do
-     * 5. Update the store with the MDs. Change domain names, create new MDs, etc.
+     * 4. Update the store with the MDs. Change domain names, create new MDs, etc.
      *    Basically all MD properties that are configured directly.
      *    WARNING: this may change the name of an MD. If an MD loses the first
      *    of its domain names, it first gets the new first one as name. The 
      *    store will find the old settings and "recover" the previous name.
-     * 6. Load any staged data from previous driving.
+     * 5. Load any staged data from previous driving.
+     * 6. on a dry run, this is all we do
      * 7. Read back the MD properties that reflect the existance and aspect of
      *    credentials that are in the store (or missing there). 
      *    Expiry times, MD state, etc.
@@ -785,15 +785,15 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     /*3*/
     if (APR_SUCCESS != (rv = link_mds_to_servers(mc, s, p, ptemp))) goto leave;
     /*4*/
-    if (dry_run) goto leave;
-    /*5*/
     if (APR_SUCCESS != (rv = md_reg_sync(mc->reg, p, ptemp, mc->mds))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
                      "synching %d mds to registry", mc->mds->nelts);
         goto leave;
     }
-    /*6*/
+    /*5*/
     load_staged_data(mc, s, p);
+    /*6*/
+    if (dry_run) goto leave;
     /*7*/
     if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
     /*8*/

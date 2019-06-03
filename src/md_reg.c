@@ -667,7 +667,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     apr_status_t rv;
 
     ctx.p = ptemp;
-    ctx.store_mds = apr_array_make(ptemp,100, sizeof(md_t *));
+    ctx.store_mds = apr_array_make(ptemp, 100, sizeof(md_t *));
     rv = read_store_mds(reg, &ctx);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
@@ -685,8 +685,11 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
             if (smd) {
                 fields = 0;
                 
-                /* Once stored, we keep the name */
+                /* Did the name change? This happens when the order of names in configuration
+                 * changes or when the first name is removed. Use the name from the store, but
+                 * remember the original one. We try to align this later on. */
                 if (strcmp(md->name, smd->name)) {
+                    md->configured_name = md->name;
                     md->name = apr_pstrdup(p, smd->name);
                 }
                 
