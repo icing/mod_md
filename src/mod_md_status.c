@@ -551,11 +551,14 @@ int md_status_handler(request_rec *r)
     }
     
     jstatus = NULL;
+    md = NULL;
     if (r->path_info && r->path_info[0] == '/' && r->path_info[1] != '\0') {
-        name = r->path_info + 1;
+        name = strrchr(r->path_info, '/') + 1;
         md = md_get_by_name(mc->mds, name);
         if (!md) md = md_get_by_domain(mc->mds, name);
-        if (!md) return HTTP_NOT_FOUND;
+    }
+    
+    if (md) {
         md_status_get_md_json(&jstatus, md, mc->reg, r->pool);
     }
     else {
