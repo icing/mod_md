@@ -518,8 +518,13 @@ class TestEnv:
         return result['jout'] if 'jout' in result else None
 
     @classmethod
-    def get_md_status(cls, domain, timeout=60):
+    def get_certificate_status(cls, domain, timeout=60):
         stat = TestEnv.get_json_content(domain, "/.httpd/certificate-status")
+        return stat
+
+    @classmethod
+    def get_md_status(cls, domain, timeout=60):
+        stat = TestEnv.get_json_content(domain, "/md-status/%s" % (domain))
         return stat
 
     @classmethod
@@ -530,7 +535,7 @@ class TestEnv:
             if time.time() >= try_until:
                 return False
             for name in names:
-                stat = TestEnv.get_md_status(name, timeout)
+                stat = TestEnv.get_certificate_status(name, timeout)
                 if stat == None:
                     print "not managed by md: %s" % (name)
                     return False
@@ -550,7 +555,7 @@ class TestEnv:
 
     @classmethod
     def is_staging(cls, name, timeout=60):
-        stat = TestEnv.get_md_status(name, timeout)
+        stat = TestEnv.get_certificate_status(name, timeout)
         return 'staging' in stat
 
     @classmethod
@@ -637,12 +642,6 @@ class HttpdConf(object):
         open(self.path, "a").write(("  MDCertificateAuthority %s\n"
                                     "  MDCertificateProtocol ACME\n"
                                     "  MDCertificateAgreement %s\n\n"
-                                    "  <Location \"/server-status\">\n"
-                                    "     SetHandler server-status\n"
-                                    "  </Location>\n"
-                                    "  <Location \"/md-status\">\n"
-                                    "     SetHandler md-status\n"
-                                    "  </Location>\n"
                                     )
                                    % (acmeUrl, acmeTos))
 

@@ -958,9 +958,9 @@ apr_interval_time_t md_config_get_interval(const md_srv_conf_t *sc, md_config_va
 {
     switch (var) {
         case MD_CONFIG_RENEW_NORM:
-            return (sc->renew_norm != DEF_VAL)? sc->renew_norm : defconf.renew_norm;
+            return (sc->renew_norm >= 0)? sc->renew_norm : defconf.renew_norm;
         case MD_CONFIG_RENEW_WINDOW:
-            return (sc->renew_window != DEF_VAL)? sc->renew_window : defconf.renew_window;
+            return (sc->renew_window >= 0)? sc->renew_window : defconf.renew_window;
         default:
             return 0;
     }

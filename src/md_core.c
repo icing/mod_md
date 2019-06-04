@@ -419,10 +419,11 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             s = md_json_gets(json, MD_KEY_RENEW_WINDOW, NULL);
             if (s && strchr(s, '%')) {
                 int percent = atoi(s);
-                if (0 < percent && percent < 100) {
-                    md->renew_norm = MD_TIME_RENEW_NORM;
-                    md->renew_window = (long)(md->renew_norm * percent / 100L);
+                md->renew_norm = MD_TIME_RENEW_NORM;
+                if (percent <= 0 || percent >= 100) {
+                    percent = 33;
                 }
+                md->renew_window = (long)(md->renew_norm * percent / 100L);
             }
         }
         if (md_json_has_key(json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL)) {

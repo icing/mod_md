@@ -80,7 +80,7 @@ class TestAuto:
         conf.install()
         # restart, gets cert, should still be the same cert as it remains valid
         assert TestEnv.apache_restart() == 0
-        status = TestEnv.get_md_status( domain )
+        status = TestEnv.get_certificate_status( domain )
         assert status['serial'] == cert1.get_serial() 
         
         # change the MD so that we need a new cert
@@ -93,7 +93,7 @@ class TestAuto:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
         # should no longer the same cert
-        status = TestEnv.get_md_status( domain )
+        status = TestEnv.get_certificate_status( domain )
         assert status['serial'] != cert1.get_serial() 
         self._check_md_cert( dns_list )
         # should have a 2 accounts now

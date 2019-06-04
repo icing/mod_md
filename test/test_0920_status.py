@@ -66,7 +66,7 @@ class TestAuto:
         # we started without a valid certificate, so we expect /.httpd/certificate-status
         # to not give information about one and - since we waited for the ACME signup
         # to complete - to give information in 'staging' about the new cert.
-        status = TestEnv.get_md_status( domain )
+        status = TestEnv.get_certificate_status( domain )
         assert not 'sha256-fingerprint' in status
         assert not 'valid-until' in status
         assert not 'valid-from' in status
@@ -77,7 +77,7 @@ class TestAuto:
         # restart and activate
         # once activated, the staging must be gone and attributes exist for the active cert
         assert TestEnv.apache_restart() == 0
-        status = TestEnv.get_md_status( domain )
+        status = TestEnv.get_certificate_status( domain )
         assert not 'staging' in status
         assert 'sha256-fingerprint' in status
         assert 'valid-until' in status
@@ -98,7 +98,7 @@ class TestAuto:
         staged_cert = os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pubcert.pem') 
         real_cert = os.path.join('data', 'test_920', '002.pubcert')
         assert copyfile(real_cert, staged_cert) == None
-        status = TestEnv.get_md_status( domain )
+        status = TestEnv.get_certificate_status( domain )
         # status shows the copied cert's properties as staged
         assert 'staging' in status
         assert 'Thu, 29 Aug 2019 16:06:35 GMT' == status['staging']['valid-until']

@@ -35,5 +35,12 @@ MDPortMap 80:@HTTP_PORT@ 443:@HTTPS_PORT@
     </Proxy> 
 </VirtualHost>
 
+<Location "/server-status">
+    SetHandler server-status
+</Location>
+<Location "/md-status">
+    SetHandler md-status
+</Location>
+
 
 Include "conf/test.conf"

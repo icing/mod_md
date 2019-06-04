@@ -521,7 +521,7 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "permanent"
 
-    def test_310_308(self):
+    def test_310_309(self):
         # test case: change OCSP stapling settings on existing md
         # setup: nothing set
         TestEnv.install_test_conf("one_md");
@@ -535,6 +535,13 @@ class TestConf:
         TestEnv.install_test_conf("staple_off");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
+
+    def test_310_310(self):
+        # non-default renewal setting
+        TestEnv.install_test_conf("renewal_40");
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_md_status("testdomain.org")
+        assert stat["renew-window"] == "40%"
 
 
     # --------- status reset on critical store changes ---------

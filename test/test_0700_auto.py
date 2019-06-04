@@ -338,7 +338,7 @@ class TestAuto:
         self._check_md_cert( dns_list )
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         # compare with what md reports as status
-        stat = TestEnv.get_md_status(domain);
+        stat = TestEnv.get_certificate_status(domain);
         assert stat['serial'] == cert1.get_serial()
 
         # create self-signed cert, with critical remaining valid duration -> drive again
@@ -346,12 +346,12 @@ class TestAuto:
         cert3 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert3.get_serial() == '1B61'
         assert TestEnv.apache_restart() == 0
-        stat = TestEnv.get_md_status(domain);
+        stat = TestEnv.get_certificate_status(domain);
         assert stat['serial'] == cert3.get_serial()
 
         # cert should renew and be different afterwards
         assert TestEnv.await_completion( [ domain ], must_renew=True )
-        stat = TestEnv.get_md_status(domain);
+        stat = TestEnv.get_certificate_status(domain);
         assert stat['serial'] != cert3.get_serial()
         
     #-----------------------------------------------------------------------------------------------
@@ -471,7 +471,7 @@ class TestAuto:
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, new_list )
-        status = TestEnv.get_md_status( nameA )
+        status = TestEnv.get_certificate_status( nameA )
         assert status['serial'] == certA.get_serial() 
 
     #-----------------------------------------------------------------------------------------------
@@ -527,7 +527,7 @@ class TestAuto:
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
         self._check_md_names( nameX, new_list )
-        status = TestEnv.get_md_status( nameA )
+        status = TestEnv.get_certificate_status( nameA )
         assert status['serial'] == certA.get_serial() 
 
     #-----------------------------------------------------------------------------------------------
