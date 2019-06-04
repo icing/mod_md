@@ -9,6 +9,7 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
 
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
+  - [Lets Encrypt Migration](#lets-encrypt-migration)
   - [Monitoring](#monitoring)
   - [Using Lets Encrypt](#using-lets-encrypt)
   - [Simple Usage](#simple-usage)
@@ -45,6 +46,10 @@ and restart ```httpd```.
 ## Windows
 
 [@nono303](https://github.com/nono303) has builds available at his [github repository](https://github.com/nono303/mod_md).
+
+## Fedora
+
+The plan in Fedora is to include v2.x of mod_md with Fedora 31, which is due to be released end of summer 2019.
 
 ## Ubuntu
 
@@ -95,13 +100,29 @@ Version 2-x status: unknown, see #124.
 
 # Upgrading
 
-Upgrading from `mod_md` v1.1.x to v2.x requires no action by you. The module will do any necessary data conversions and configuration settings have remaing compatible. Your domains should, after an upgrade, run as before without new certificate being renewed.
+Upgrading from `mod_md` v1.1.x to v2.x requires no action by you. The module will do any necessary data conversions and configuration settings have remaing compatible. Your domains should, after an upgrade, run as before without certificate being renewed - unless they are due for renewal anyway.
 
 _Downgrading_ is ***not*** supported. There is not guarantuee that you can go back without any problems. When in doubt, make a backup of your `mod_md` store in the file system before upgrading.
 
-The Let's Encrypt endpoint (the ACME version) of your MDs will remain unchanged - unless you specify otherwise. If you have a global setting for ```MDCertificateAuthority``` in Apache, it will always be observed. However, if you use the default (do not specify anything) new MDs will use ACMEv2 from then on.
+## Lets Encrypt Migration
 
-You can get a good overview of what is used where as described in the [chapter about monitoring](#monitoring).
+Beginning of May 2019, Let's Encrypt [announced their end-of-life plans for ACMEv1](https://community.letsencrypt.org/t/end-of-life-plan-for-acmev1/88430). Please read this carefully if you use their certificates.
+
+The gist is:
+ 1. End of 2019, they will no longer allow new accounts to be created on ACMEv1
+ 1. Summer 2020, they will no longer allow new domains to sign up.
+ 1. Beginning of 2021, they will disrupt the service periodically to wake up people dragging their feet.
+
+What does that mean for users of `mod_md`?
+
+First of all, if you are on version 1.x, you need to upgrade to v2.x of the module. ***No upgrade will overwrite any of your existing, explicit configurations.*** The key word here is ***explicit***: If you specify values in your configuration for `MDCertificateAuthority`, the module will use this as you wrote it.
+
+If you have ***not*** configured this, version 2.x of `mod_md` will choose the ACMEv2 protocol with Let's Encrypt *for all upcoming renewals*! If you do not want this, you should configure `MDCertificateAuthority` yourself. You can now easily see, which configuration is used for your domains in the [new monitoring features](#monitoring).
+
+(There was some back-and-forth about the question, if the module should do this automatic switch-over. People with special network setups can be hurt by this. Maybe their servers need special configurations to reach the ACMEv2 host of Let's Encrypt. But for the vast majority of people, this migration should just work. And many people will not read this documentation anyway and only start googling when things stopped working. Knowing that things will come to a stop in 2021, it seems better to start the migration with a high chance of success than supressing it with a certainty of failure.)
+
+
+
 
 # Monitoring
 
@@ -214,12 +235,7 @@ While most users will not have to care about this, there is a feature only avail
 |LE|[ACMEv2](https://acme-v02.api.letsencrypt.org/directory)|  yes      | yes (dns-01)| ports 80+443, DNS| 90 days| [50/domain/week](https://letsencrypt.org/docs/rate-limits/) |
 | Others? |
 
-If you do not specify in `mod_md` which CA to use, the module will select ACMEv2 for new MDs. If you want _all_ your domains to use this, you can configure:
-
-```
-MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
-```
-explicitly. This may be useful during [upgrading](#upgrading). Or you can enforce the older protocol for all by:
+If you do not specify in `mod_md` which CA to use, the module will select ACMEv2. If you do not want this, you can enforce the older protocol for by:
 
 ```
 MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
@@ -228,10 +244,10 @@ You can also set this per domain:
 
 ```
 <MDomainSet aaa.mydomain.net>
-  MDCertificateAuthority https://acme-v02.api.letsencrypt.org/directory
+  MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
 </mDomainSet
 ```
-which ensure that, whatever you set globally, this domain will use ACMEv2 with LE.
+which ensure that, whatever you set globally, this domain will use ACMEv1 with LE. For more information about this migration, see [upgrading](#upgrading).
 
 
 ### Other CAs

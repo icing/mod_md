@@ -1,3 +1,7 @@
+ * IMPORTANT: upgrade behaviour changed. MDs that have not `MDCertificateAuthority` configured
+   explicitly all get the new ACMEv2 default endpoint of Let's Encrypt. See README.md chapter
+   about upgrading for the background of this.
+ * Added chapter about the upcoming end-of-life changes for ACMEv1 at LetsEncrypt.
  * Extracting certificate transparency SCT (the signature from CT logs) from a staged
    certificate and displaying these on /.httpd/certificate-status. A monitoring client 
    may use this to verify the signatures against the CT logs, even though the log may not

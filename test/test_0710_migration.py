@@ -169,8 +169,7 @@ class TestAuto:
 
     #-----------------------------------------------------------------------------------------------
     # create an MD with ACMEv1, let them get a cert, remove the explicit 
-    # MDCertificateAuthority config and expect the old value to be preserved
-    # without any errors/warnings after restart.
+    # MDCertificateAuthority config and expect the new default to kick in.
     # 
     def test_710_003(self):
         domain = "a-test710-003-" + TestAuto.dns_uniq
@@ -220,9 +219,9 @@ class TestAuto:
         
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.apache_err_count()
-        # the existing MD kept his CA url
-        self._check_md_ca(domain, ca_url)
-        # the new MD got the new default
+        # the existing MD was migrated to new CA url
+        self._check_md_ca(domain,  TestEnv.ACME_URL_DEFAULT)
+        # the new MD got the new default anyway
         self._check_md_ca(domainb, TestEnv.ACME_URL_DEFAULT)
 
         

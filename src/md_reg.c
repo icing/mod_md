@@ -743,17 +743,10 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     }
                 }
 
-                /* If no CA url/proto is configured for the MD, take the existing
-                 * one, if set */
+                /* If no CA url/proto is configured for the MD, take the default */
                 if (!md->ca_url) {
-                    if (smd->ca_url) {
-                        md->ca_url = apr_pstrdup(p, smd->ca_url);
-                        md->ca_proto = smd->ca_proto? apr_pstrdup(p, smd->ca_proto) : NULL; 
-                    }
-                    else {
-                        md->ca_url = MD_ACME_DEF_URL;
-                        md->ca_proto = MD_PROTO_ACME; 
-                    }
+                    md->ca_url = MD_ACME_DEF_URL;
+                    md->ca_proto = MD_PROTO_ACME; 
                 }
                 
                 if (MD_SVAL_UPDATE(md, smd, ca_url)) {
