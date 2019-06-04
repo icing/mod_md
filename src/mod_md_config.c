@@ -180,8 +180,10 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->drive_mode != DEF_VAL) md->drive_mode = from->drive_mode;
     if (from->must_staple != DEF_VAL) md->must_staple = from->must_staple;
     if (from->pkey_spec) md->pkey_spec = from->pkey_spec;
-    if (from->renew_norm != DEF_VAL) md->renew_norm = from->renew_norm;
-    if (from->renew_window != DEF_VAL) md->renew_window = from->renew_window;
+    if (from->renew_window != DEF_VAL) {
+        md->renew_norm = from->renew_norm;
+        md->renew_window = from->renew_window;
+    }
 
     if (from->ca_url) md->ca_url = from->ca_url;
     if (from->ca_proto) md->ca_proto = from->ca_proto;
@@ -219,7 +221,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->drive_mode = (add->drive_mode != DEF_VAL)? add->drive_mode : base->drive_mode;
     nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
     nsc->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
-    nsc->renew_window = (add->renew_norm != DEF_VAL)? add->renew_norm : base->renew_norm;
+    nsc->renew_norm = (add->renew_norm != DEF_VAL)? add->renew_norm : base->renew_norm;
     nsc->renew_window = (add->renew_window != DEF_VAL)? add->renew_window : base->renew_window;
 
     nsc->ca_url = add->ca_url? add->ca_url : base->ca_url;

@@ -538,6 +538,10 @@ class TestConf:
 
     def test_310_310(self):
         # non-default renewal setting
+        TestEnv.install_test_conf("renewal_0");
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_md_status("testdomain.org")
+        assert stat["renew-window"] == "0%"
         TestEnv.install_test_conf("renewal_40");
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_md_status("testdomain.org")

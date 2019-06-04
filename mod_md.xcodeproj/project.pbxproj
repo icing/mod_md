@@ -98,6 +98,7 @@
 		B26A4BD822A5107F00D002BC /* test_0920_status.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0920_status.py; sourceTree = "<group>"; };
 		B26A4BDA22A65FFB00D002BC /* 002.pubcert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = 002.pubcert; sourceTree = "<group>"; };
 		B26A4BDB22A6BDAA00D002BC /* renewal_40.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = renewal_40.conf; sourceTree = "<group>"; };
+		B26A4BDC22A6C8D300D002BC /* renewal_0.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = renewal_0.conf; sourceTree = "<group>"; };
 		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
 		B298D5C2229BE6FC00245316 /* md_status.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_status.h; sourceTree = "<group>"; };
@@ -265,6 +266,7 @@
 				75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */,
 				B2B81EC11F0FAC2000E35CA3 /* other_base.conf */,
 				B26A4BDB22A6BDAA00D002BC /* renewal_40.conf */,
+				B26A4BDC22A6C8D300D002BC /* renewal_0.conf */,
 			);
 			path = test_conf_store;
 			sourceTree = "<group>";
