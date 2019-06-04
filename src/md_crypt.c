@@ -57,6 +57,17 @@
 #define MD_USE_OPENSSL_PRE_1_1_API (OPENSSL_VERSION_NUMBER < 0x10100000L)
 #endif
 
+#if defined(LIBRESSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x10100000L) 
+/* Missing from LibreSSL and only available since OpenSSL v1.1.x */
+#ifndef OPENSSL_NO_CT
+#define OPENSSL_NO_CT
+#endif
+#endif
+
+#ifndef OPENSSL_NO_CT
+#include <openssl/ct.h>
+#endif
+
 static int initialized;
 
 struct md_pkey_t {
@@ -618,47 +629,6 @@ apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, con
     return rv;
 }
 
-static const char * const hex_const[] = {
-    "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f", 
-    "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f", 
-    "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f", 
-    "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f", 
-    "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "4a", "4b", "4c", "4d", "4e", "4f", 
-    "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "5a", "5b", "5c", "5d", "5e", "5f", 
-    "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f", 
-    "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "7a", "7b", "7c", "7d", "7e", "7f", 
-    "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "8a", "8b", "8c", "8d", "8e", "8f", 
-    "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "9a", "9b", "9c", "9d", "9e", "9f", 
-    "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "aa", "ab", "ac", "ad", "ae", "af", 
-    "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "ba", "bb", "bc", "bd", "be", "bf", 
-    "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "ca", "cb", "cc", "cd", "ce", "cf", 
-    "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "da", "db", "dc", "dd", "de", "df", 
-    "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef", 
-    "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff", 
-};
-
-static apr_status_t data_to_hex(const char **phex, char separator,
-                                apr_pool_t *p, const md_data *data)
-{
-    char *hex, *cp;
-    const char * x;
-    unsigned int i;
-    
-    cp = hex = apr_pcalloc(p, ((separator? 3 : 2) * data->len) + 1);
-    if (!hex) {
-        *phex = NULL;
-        return APR_ENOMEM;
-    }
-    for (i = 0; i < data->len; ++i) {
-        x = hex_const[(unsigned char)data->data[i]];
-        if (i && separator) *cp++ = separator;
-        *cp++ = x[0];
-        *cp++ = x[1];
-    }
-    *phex = hex;
-    return APR_SUCCESS;
-}
-
 apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
                                         const md_data *data)
 {
@@ -666,7 +636,7 @@ apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p,
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = sha256_digest(&digest, p, data))) {
-        return data_to_hex(pdigesthex, 0, p, digest);
+        return md_data_to_hex(pdigesthex, 0, p, digest);
     }
     *pdigesthex = NULL;
     return rv;
@@ -949,7 +919,7 @@ apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, md_cert_t *cert
     
     rv = md_cert_to_sha256_digest(&digest, cert, p);
     if (APR_SUCCESS == rv) {
-        return data_to_hex(pfinger, 0, p, digest);
+        return md_data_to_hex(pfinger, 0, p, digest);
     }
     *pfinger = NULL;
     return rv;
@@ -1511,7 +1481,7 @@ out:
     return rv;
 }
 
-#define MD_OID_CT_SCTS_NUM          "1.3.6.1.4.1.11129.2.4.5"
+#define MD_OID_CT_SCTS_NUM          "1.3.6.1.4.1.11129.2.4.2"
 #define MD_OID_CT_SCTS_SNAME        "CT-SCTs"
 #define MD_OID_CT_SCTS_LNAME        "CT Certificate SCTs" 
 
@@ -1525,23 +1495,54 @@ static int get_ct_scts_nid(void)
     return nid;
 }
 
+const char *md_nid_get_sname(int nid)
+{
+    return OBJ_nid2sn(nid);
+}
+
+const char *md_nid_get_lname(int nid)
+{
+    return OBJ_nid2ln(nid);
+}
+
 apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, md_cert_t *cert)
 {
-    int nid, i;
-    X509_EXTENSION *ext;
+#ifndef OPENSSL_NO_CT
+    int nid, i, idx, critical;
+    STACK_OF(SCT) *sct_list;
+    SCT *sct_handle;
+    md_sct *sct;
+    size_t len;
+    const char *data;
     
-    (void)p;
-    (void)scts;
-    (void)ext;
     nid = get_ct_scts_nid();
-    if (NID_undef == nid) return APR_EINVAL;
+    if (NID_undef == nid) return APR_ENOTIMPL;
 
-    i = -1;
+    idx = -1;
     while (1) {
-        i = X509_get_ext_by_NID(cert->x509, nid, i);
-        if (i < 0) break;
-        ext = X509_get_ext(cert->x509, i);
-        
+        sct_list = X509_get_ext_d2i(cert->x509, nid, &critical, &idx);
+        if (sct_list) {
+            for (i = 0; i < sk_SCT_num(sct_list); i++) {
+               sct_handle = sk_SCT_value(sct_list, i);
+                if (sct_handle) {
+                    sct = apr_pcalloc(p, sizeof(*sct));
+                    sct->version = SCT_get_version(sct_handle);
+                    sct->timestamp = apr_time_from_msec(SCT_get_timestamp(sct_handle));
+                    len = SCT_get0_log_id(sct_handle, (unsigned char**)&data);
+                    sct->logid = md_data_create(p, data, len);
+                    sct->signature_type_nid = SCT_get_signature_nid(sct_handle);
+                    len = SCT_get0_signature(sct_handle,  (unsigned char**)&data);
+                    sct->signature = md_data_create(p, data, len);
+                    
+                    APR_ARRAY_PUSH(scts, md_sct*) = sct;
+                }
+            }
+        }
+        if (idx < 0) break;
     }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "ct_sct, found %d SCT extensions", scts->nelts);
+    return APR_SUCCESS;
+#else
     return APR_ENOTIMPL;
+#endif
 }

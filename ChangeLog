@@ -1,3 +1,8 @@
+ * Extracting certificate transparency SCT (the signature from CT logs) from a staged
+   certificate and displaying these on /.httpd/certificate-status. A monitoring client 
+   may use this to verify the signatures against the CT logs, even though the log may not
+   yet show the certificate (maximum merge delay seems to be at 24 hours on most logs). 
+
 v2.0.2
 ----------------------------------------------------------------------------------------------------
  * Fixing configuration startup (e.g. dry run) to sync with the store again. This let's

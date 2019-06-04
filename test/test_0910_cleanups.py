@@ -64,7 +64,7 @@ class TestAuto:
         conf.install()
 
         # create valid/invalid challenges subdirs
-        challenges_dir = TestEnv.path_challenges()
+        challenges_dir = TestEnv.store_challenges()
         dirs_before = [ "aaa", "bbb", domain, "zzz" ]
         for name in dirs_before:
             os.makedirs(os.path.join( challenges_dir, name ))

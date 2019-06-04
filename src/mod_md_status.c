@@ -58,8 +58,12 @@
 static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
-    const char *finger;
+    const char *finger, *hex;
     apr_status_t rv = APR_SUCCESS;
+    apr_array_header_t *scts;
+    int i;
+    const md_sct *sct;
+    md_json_t *sctj;
     
     apr_rfc822_date(ts, md_cert_get_not_before(cert));
     md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
@@ -69,6 +73,24 @@ static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_poo
     if (APR_SUCCESS != (rv = md_cert_to_sha256_fingerprint(&finger, cert, p))) goto leave;
     md_json_sets(finger, json, MD_KEY_SHA256_FINGERPRINT, NULL);
 
+    scts = apr_array_make(p, 5, sizeof(const md_sct*));
+    if (APR_SUCCESS == md_cert_get_ct_scts(scts, p, cert)) {
+        for (i = 0; i < scts->nelts; ++i) {
+            sct = APR_ARRAY_IDX(scts, i, const md_sct*);
+            sctj = md_json_create(p);
+            
+            apr_rfc822_date(ts, sct->timestamp);
+            md_json_sets(ts, sctj, "signed", NULL);
+            md_json_setl(sct->version, sctj, MD_KEY_VERSION, NULL);
+            md_data_to_hex(&hex, 0, p, sct->logid);
+            md_json_sets(hex, sctj, "logid", NULL);
+            md_data_to_hex(&hex, 0, p, sct->signature);
+            md_json_sets(hex, sctj, "signature", NULL);
+            md_json_sets(md_nid_get_sname(sct->signature_type_nid), sctj, "signature-type", NULL);
+            md_json_addj(sctj, json, "scts", NULL);
+        }
+    }
+    
 leave:
     return rv;
 }

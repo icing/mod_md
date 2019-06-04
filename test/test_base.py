@@ -298,38 +298,33 @@ class TestEnv:
         return os.path.join(TestEnv.STORE_DIR, 'accounts', acct, 'account.pem')
 
     @classmethod
-    def path_challenges( cls ) : 
+    def store_domains( cls ) :
+        return os.path.join(TestEnv.STORE_DIR, 'domains')
+
+    @classmethod
+    def store_archives( cls ) :
+        return os.path.join(TestEnv.STORE_DIR, 'archive')
+
+    @classmethod
+    def store_stagings( cls ) :
+        return os.path.join(TestEnv.STORE_DIR, 'staging')
+
+    @classmethod
+    def store_challenges( cls ) :
         return os.path.join(TestEnv.STORE_DIR, 'challenges')
+    
+    @classmethod
+    def store_domain_file( cls, domain, filename ) :
+        return os.path.join(TestEnv.store_domains(), domain, filename)
 
     @classmethod
-    def path_domain_dir( cls, domain, archiveVersion=0, staging=False ) :
-        if archiveVersion == 0:
-            return os.path.join( TestEnv.STORE_DIR, 'domains', domain )
-        elif staging == True:
-            return os.path.join( TestEnv.STORE_DIR, 'staging', domain )
-        else:
-            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion) )
-
+    def store_archived_file( cls, domain, version, filename ) :
+        return os.path.join(TestEnv.store_archives(), "%s.%d" % (domain, version), filename)
+     
     @classmethod
-    def path_domain( cls, domain, archiveVersion=0, staging=False ) :
-        return os.path.join( cls.path_domain_dir( domain, archiveVersion, staging), 'md.json')
-
-    @classmethod
-    def path_domain_pubcert( cls, domain, archiveVersion=0, staging=False ) :
-        if archiveVersion == 0:
-            return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'pubcert.pem')
-        elif staging == True:
-            return os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pubcert.pem')
-        else:
-            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'pubcert.pem')
-
-    @classmethod
-    def path_domain_privkey( cls, domain, archiveVersion=0 ) :
-        if archiveVersion == 0:
-            return os.path.join( TestEnv.STORE_DIR, 'domains', domain, 'privkey.pem')
-        else:
-            return os.path.join( TestEnv.STORE_DIR, 'archive', domain + '.' + str(archiveVersion), 'privkey.pem')
-
+    def store_staged_file( cls, domain, filename ) :
+        return os.path.join(TestEnv.store_stagings(), domain, filename)
+     
     @classmethod
     def path_fallback_cert( cls, domain ) :
         return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'fallback-cert.pem')
@@ -605,22 +600,22 @@ class TestEnv:
         assert md
         acct = md['ca']['account']
         assert acct
-        cls.check_file_access( cls.path_store_json(),                           0600 )
+        cls.check_file_access( cls.path_store_json(), 0600 )
         # domains
-        cls.check_file_access( os.path.join( cls.STORE_DIR, 'domains' ),        0700 )
-        cls.check_file_access( os.path.join( cls.STORE_DIR, 'domains', domain ),0700 )
-        cls.check_file_access( cls.path_domain_privkey( domain ),               0600 )
-        cls.check_file_access( cls.path_domain_pubcert( domain ),               0600 )
-        cls.check_file_access( cls.path_domain( domain ),                       0600 )
+        cls.check_file_access( cls.store_domains(), 0700 )
+        cls.check_file_access( os.path.join( cls.store_domains(), domain ), 0700 )
+        cls.check_file_access( cls.store_domain_file( domain, 'privkey.pem' ), 0600 )
+        cls.check_file_access( cls.store_domain_file( domain, 'pubcert.pem' ), 0600 )
+        cls.check_file_access( cls.store_domain_file( domain, 'md.json' ), 0600 )
         # archive
-        cls.check_file_access( cls.path_domain( domain, archiveVersion=1 ),     0600 )
+        cls.check_file_access( cls.store_archived_file( domain, 1, 'md.json' ), 0600 )
         # accounts
-        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts' ),       0755 )
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts' ), 0755 )
         cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts', acct ), 0755 )
-        cls.check_file_access( cls.path_account( acct ),                        0644 )
-        cls.check_file_access( cls.path_account_key( acct ),                    0644 )
+        cls.check_file_access( cls.path_account( acct ), 0644 )
+        cls.check_file_access( cls.path_account_key( acct ), 0644 )
         # staging
-        cls.check_file_access( os.path.join( cls.STORE_DIR, 'staging' ),        0755 )
+        cls.check_file_access( cls.store_stagings(), 0755 )
 
 # -----------------------------------------------
 # --
@@ -705,11 +700,11 @@ class HttpdConf(object):
         self.start_vhost(port, name, aliasList, docRoot, withSSL, certPath, keyPath)
         self.end_vhost()
 
-    def start_vhost(self, port, name, aliasList, docRoot="htdocs", 
+    def start_vhost(self, port, domain, aliasList, docRoot="htdocs", 
                   withSSL=True, certPath=None, keyPath=None):
         f = open(self.path, "a") 
         f.write("<VirtualHost *:%s>\n" % port)
-        f.write("    ServerName %s\n" % name)
+        f.write("    ServerName %s\n" % domain)
         if len(aliasList) > 0:
             for alias in aliasList:
                 f.write("    ServerAlias %s\n" % alias )
@@ -717,8 +712,8 @@ class HttpdConf(object):
         if withSSL:
             f.write("    SSLEngine on\n")
             if self.writeCertFiles:
-                certPath = certPath if certPath else TestEnv.path_domain_pubcert(name)
-                keyPath = keyPath if keyPath else TestEnv.path_domain_privkey(name)
+                certPath = certPath if certPath else  TestEnv.store_domain_file(domain, 'pubcert.pem')
+                keyPath = keyPath if keyPath else TestEnv.store_domain_file(domain, 'privkey.pem')
                 f.write(("    SSLCertificateFile %s\n"
                          "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
                   
@@ -739,11 +734,11 @@ class CertUtil(object):
 
     @classmethod
     def create_self_signed_cert( cls, nameList, validDays, serial=1000 ):
-        name = nameList[0]
-        certFilePath = TestEnv.path_domain_pubcert(name)
-        keyFilePath = TestEnv.path_domain_privkey(name)
+        domain = nameList[0]
+        certFilePath =  TestEnv.store_domain_file(domain, 'pubcert.pem')
+        keyFilePath = TestEnv.store_domain_file(domain, 'privkey.pem')
 
-        ddir = TestEnv.path_domain_dir(name)
+        ddir = os.path.join(TestEnv.store_domains(), domain)
         if not os.path.exists(ddir):
             os.makedirs(ddir)
 
@@ -761,7 +756,7 @@ class CertUtil(object):
         cert.get_subject().ST = "NRW"
         cert.get_subject().L = "Muenster"
         cert.get_subject().O = "greenbytes GmbH"
-        cert.get_subject().CN = name
+        cert.get_subject().CN = domain
         cert.set_serial_number(serial)
         cert.gmtime_adj_notBefore( validDays["notBefore"] * SEC_PER_DAY)
         cert.gmtime_adj_notAfter( validDays["notAfter"] * SEC_PER_DAY)

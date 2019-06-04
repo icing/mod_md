@@ -67,51 +67,51 @@ class TestRegAdd :
     def test_120_002(self):
         # test case: validate md state in store
         # check: md without pkey/cert -> INCOMPLETE
-        name = "not-forbidden.org"
-        assert TestEnv.a2md(["add", name])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        domain = "not-forbidden.org"
+        assert TestEnv.a2md(["add", domain])['rv'] == 0
+        assert TestEnv.a2md([ "update", domain, "contacts", "admin@" + domain ])['rv'] == 0
+        assert TestEnv.a2md([ "update", domain, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
+        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # check: valid pkey/cert -> COMPLETE
-        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.path_domain_privkey(name))
-        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_pubcert(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.store_domain_file(domain, 'privkey.pem'))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.store_domain_file(domain, 'pubcert.pem'))
+        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: expired cert -> EXPIRED
-        copyfile(self._path_conf_ssl("expired_pkey.pem"), TestEnv.path_domain_privkey(name))
-        copyfile(self._path_conf_ssl("expired_cert.pem"), TestEnv.path_domain_pubcert(name))
-        out = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        copyfile(self._path_conf_ssl("expired_pkey.pem"), TestEnv.store_domain_file(domain, 'privkey.pem'))
+        copyfile(self._path_conf_ssl("expired_cert.pem"), TestEnv.store_domain_file(domain, 'pubcert.pem'))
+        out = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
         assert out['state'] == TestEnv.MD_S_INCOMPLETE
         assert out['renew'] == True
 
     def test_120_003(self):
         # test case: broken cert file
         #setup: prepare md in store
-        name = "not-forbidden.org"
-        assert TestEnv.a2md(["add", name])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
+        domain = "not-forbidden.org"
+        assert TestEnv.a2md(["add", domain])['rv'] == 0
+        assert TestEnv.a2md([ "update", domain, "contacts", "admin@" + domain ])['rv'] == 0
+        assert TestEnv.a2md([ "update", domain, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         # check: valid pkey/cert -> COMPLETE
-        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.path_domain_privkey(name))
-        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_pubcert(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.store_domain_file(domain, 'privkey.pem'))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.store_domain_file(domain, 'pubcert.pem'))
+        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: replace cert by broken file -> ERROR
-        copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_pubcert(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
+        copyfile(self._path_conf_ssl("valid_cert.req"),TestEnv.store_domain_file(domain, 'pubcert.pem'))
+        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
     def test_120_004(self):
         # test case: broken private key file
         #setup: prepare md in store
-        name = "not-forbidden.org"
-        assert TestEnv.a2md(["add", name])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
-        assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
+        domain = "not-forbidden.org"
+        assert TestEnv.a2md(["add", domain])['rv'] == 0
+        assert TestEnv.a2md([ "update", domain, "contacts", "admin@" + domain ])['rv'] == 0
+        assert TestEnv.a2md([ "update", domain, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         # check: valid pkey/cert -> COMPLETE
-        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.path_domain_privkey(name))
-        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.path_domain_pubcert(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.store_domain_file(domain, 'privkey.pem'))
+        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.store_domain_file(domain, 'pubcert.pem'))
+        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check: replace private key by broken file -> ERROR
-        copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.path_domain_privkey(name))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
+        copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.store_domain_file(domain, 'privkey.pem'))
+        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
     # --------- _utils_ ---------
 

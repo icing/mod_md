@@ -69,7 +69,7 @@ class TestAuto:
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
 
     #-----------------------------------------------------------------------------------------------
@@ -91,7 +91,7 @@ class TestAuto:
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
         assert self.get_ocsp_response(domain) == "no response sent" 
 
@@ -113,7 +113,7 @@ class TestAuto:
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
 
         # toggle MDMustStaple off, expect a cert that has it disabled
@@ -128,7 +128,7 @@ class TestAuto:
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
     
         # toggle MDMustStaple on again, expect a cert that has it enabled
@@ -143,7 +143,7 @@ class TestAuto:
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
 
     #-----------------------------------------------------------------------------------------------
@@ -165,7 +165,7 @@ class TestAuto:
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
         assert self.get_verify_response(domain) == "0 (ok)" 
         # enable once we implement ocsp stapling support
@@ -174,12 +174,12 @@ class TestAuto:
     # --------- _utils_ ---------
 
     def _check_md_cert(self, dns_list):
-        name = dns_list[0]
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        domain = dns_list[0]
+        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert os.path.isfile( TestEnv.path_domain_privkey(name) )
-        assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
+        assert os.path.isfile( TestEnv.store_domain_file(domain, 'privkey.pem') )
+        assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
 
     def get_client_status(self, domain):
         return TestEnv.run( [ "openssl", "s_client", "-status", 

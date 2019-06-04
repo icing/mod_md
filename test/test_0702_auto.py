@@ -81,7 +81,7 @@ class TestAuto:
         assert domain in cert.get_san_list()
 
         # challenges should have been removed
-        TestEnv.check_dir_empty( TestEnv.path_challenges() )
+        TestEnv.check_dir_empty( TestEnv.store_challenges() )
 
         # file system needs to have correct permissions
         TestEnv.check_file_permissions( domain )
@@ -140,11 +140,11 @@ class TestAuto:
         conf.add_admin( "admin@" + domain )
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
 
         # create docRoot folder
@@ -213,8 +213,8 @@ class TestAuto:
         conf.add_drive_mode( "manual" )
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
 
         # create docRoot folder
@@ -249,8 +249,8 @@ class TestAuto:
         conf.add_ca_challenges([ "invalid-01", "invalid-02" ])
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
 
         # create docRoot folder
@@ -336,14 +336,14 @@ class TestAuto:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         self._check_md_cert( dns_list )
-        cert1 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         # compare with what md reports as status
         stat = TestEnv.get_md_status(domain);
         assert stat['serial'] == cert1.get_serial()
 
         # create self-signed cert, with critical remaining valid duration -> drive again
         CertUtil.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 2  }, serial=7029)
-        cert3 = CertUtil( TestEnv.path_domain_pubcert(domain) )
+        cert3 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert3.get_serial() == '1B75'
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_md_status(domain);
@@ -436,11 +436,11 @@ class TestAuto:
         conf.add_admin( "admin@" + domain )
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
 
         # restart (-> drive), check that MD was synched and completes
@@ -462,11 +462,11 @@ class TestAuto:
         conf.add_admin( "admin@" + domain )
         conf.add_md( new_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
         # restart, check that host still works and kept the cert
         assert TestEnv.apache_restart() == 0
@@ -492,11 +492,11 @@ class TestAuto:
         conf.add_admin( "admin@" + domain )
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
 
         # restart (-> drive), check that MD was synched and completes
@@ -518,11 +518,11 @@ class TestAuto:
         conf.add_admin( "admin@" + domain )
         conf.add_md( new_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.add_vhost( TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
         # restart, check that host still works and have new cert
         assert TestEnv.apache_restart() == 0
@@ -549,11 +549,11 @@ class TestAuto:
         conf.add_md( [ name1 ] )
         conf.add_md( [ name2 ] )
         conf.add_vhost( TestEnv.HTTPS_PORT, name1, aliasList=[], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.add_vhost( TestEnv.HTTPS_PORT, name2, aliasList=[], docRoot="htdocs/b", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
 
         # restart (-> drive), check that MD was synched and completes
@@ -575,8 +575,8 @@ class TestAuto:
         conf._add_line( "MDMembers auto" )
         conf.add_md( [ name1 ] )
         conf.add_vhost( TestEnv.HTTPS_PORT, name1, aliasList=[ name2 ], docRoot="htdocs/a", 
-                        withSSL=True, certPath=TestEnv.path_domain_pubcert( domain ), 
-                        keyPath=TestEnv.path_domain_privkey( domain ) )
+                        withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                        keyPath=TestEnv.store_domain_file(domain, 'privkey.pem') )
         conf.install()
         assert TestEnv.apache_restart() == 0
         self._check_md_names( name1, [ name1, name2 ] )
@@ -657,11 +657,11 @@ class TestAuto:
         assert md['domains'] == dns_list
 
     def _check_md_cert(self, dns_list):
-        name = dns_list[0]
-        md = self._get_md(name)
+        domain = dns_list[0]
+        md = self._get_md(domain)
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert os.path.isfile( TestEnv.path_domain_privkey(name) )
-        assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
+        assert os.path.isfile( TestEnv.store_domain_file(domain, 'privkey.pem') )
+        assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
 
 

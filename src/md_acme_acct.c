@@ -293,9 +293,8 @@ static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_
     else {
         *pacct = NULL;
         rv = APR_ENOENT;
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, p, "acct_find: none found"); 
     }
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                  "acct_find %s", (*pacct)? (*pacct)->url : "NULL"); 
     return rv;
 }
 

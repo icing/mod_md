@@ -24,13 +24,8 @@ struct md_t;
 struct md_http_response_t;
 struct md_cert_t;
 struct md_pkey_t;
+struct md_data;
 
-
-typedef struct md_data md_data;
-struct md_data {
-    const char *data;
-    apr_size_t len;
-};
 
 /**************************************************************************************************/
 /* random */
@@ -39,9 +34,10 @@ apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* digests */
-apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, const md_data *data);
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
+                                      const struct md_data *data);
 apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
-                                        const md_data *data);
+                                        const struct md_data *data);
 
 #define MD_DATA_SET_STR(d, s)       do { (d)->data = (s); (d)->len = strlen(s); } while(0)
 
@@ -140,7 +136,7 @@ apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert,
 apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool_t *p);
 
-apr_status_t md_cert_to_sha256_digest(md_data **pdigest, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_sha256_digest(struct md_data **pdigest, md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, md_cert_t *cert, apr_pool_t *p);
 
 const char *md_cert_get_serial_number(md_cert_t *cert, apr_pool_t *p);
@@ -173,5 +169,21 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
                                       apr_interval_time_t valid_for, apr_pool_t *p);
 
 apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, md_cert_t *cert);
+
+
+/**************************************************************************************************/
+/* X509 certificate transparency */
+
+const char *md_nid_get_sname(int nid);
+const char *md_nid_get_lname(int nid);
+
+typedef struct md_sct md_sct;
+struct md_sct {
+    int version;
+    apr_time_t timestamp;
+    struct md_data *logid;
+    int signature_type_nid;
+    struct md_data *signature;
+};
 
 #endif /* md_crypt_h */

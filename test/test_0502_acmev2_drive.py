@@ -96,11 +96,11 @@ class TestDrive :
         self._check_account_key( name )
 
         # check archive content
-        assert json.loads( open( TestEnv.path_domain(name, archiveVersion=1 )).read() ) == prevMd
+        assert json.loads( open(TestEnv.store_archived_file(name, 1, 'md.json')).read() ) == prevMd
         # check file system permissions:
         TestEnv.check_file_permissions( name )
         # check: challenges removed
-        TestEnv.check_dir_empty( TestEnv.path_challenges() )
+        TestEnv.check_dir_empty( TestEnv.store_challenges() )
         # check how the challenge resources are answered in sevceral combinations 
         result = TestEnv.get_meta(domain, "/.well-known/acme-challenge", False)
         assert result['rv'] == 0
@@ -112,7 +112,7 @@ class TestDrive :
         assert result['rv'] == 0
         assert result['http_status'] == 404
         assert result['rv'] == 0
-        cdir = os.path.join( TestEnv.path_challenges(), domain )
+        cdir = os.path.join( TestEnv.store_challenges(), domain )
         os.makedirs(cdir)
         open( os.path.join( cdir, 'acme-http-01.txt'), "w" ).write("content-of-123")
         result = TestEnv.get_meta(domain, "/.well-known/acme-challenge/123", False)
@@ -183,23 +183,23 @@ class TestDrive :
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        orig_cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        orig_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
 
         # drive again
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
         assert cert.get_serial() == orig_cert.get_serial()
 
         # drive --force
         assert TestEnv.a2md( [ "-vv", "drive", "--force", name ] )['rv'] == 0
         self._check_md_cert([ name ])
-        cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
         assert cert.get_serial() != orig_cert.get_serial()
         # check: previous cert was archived
-        cert = CertUtil(TestEnv.path_domain_pubcert( name, archiveVersion=2 ))
+        cert = CertUtil(TestEnv.store_archived_file( name, 2, 'pubcert.pem'))
         assert cert.get_serial() == orig_cert.get_serial()
 
     def test_502_108(self):
@@ -387,14 +387,14 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
-        old_cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        old_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "domains", name, "test." + domain ])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         # check new cert
         self._check_md_cert([ name, "test." + domain ])
-        new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        new_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert old_cert.get_serial() != new_cert.get_serial()
 
     @pytest.mark.parametrize("renewWindow,testDataList", [
@@ -424,7 +424,7 @@ class TestDrive :
         assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
-        cert1 = CertUtil(TestEnv.path_domain_pubcert(name))
+        cert1 = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
 
         # replace cert by self-signed one -> check md status
@@ -432,7 +432,7 @@ class TestDrive :
         for tc in testDataList:
             print "TRACE: create self-signed cert: %s" % tc["valid"]
             CertUtil.create_self_signed_cert( [name], tc["valid"])
-            cert2 = CertUtil(TestEnv.path_domain_pubcert(name))
+            cert2 = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
             assert cert2.get_serial() != cert1.get_serial()
             md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
             assert md["renew"] == tc["renew"], \
@@ -462,7 +462,7 @@ class TestDrive :
             "Expected drive to succeed for MDPrivateKeys {} {}".format(keyType, keyParams)
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check cert key length
-        cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert cert.get_key_length() == expKeyLength
 
     # test_502_203 removed, as ToS agreement is not really checked in ACMEv2
@@ -478,13 +478,13 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
-        old_cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        old_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # setup: remove one domain
         assert TestEnv.a2md([ "update", name, "domains"] + [ name, "test." + domain ])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         # compare cert serial
-        new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        new_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert old_cert.get_serial() == new_cert.get_serial()
 
     def test_502_301(self):
@@ -496,13 +496,13 @@ class TestDrive :
         assert TestEnv.apache_start() == 0
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
-        old_cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        old_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # setup: add second domain
         assert TestEnv.a2md([ "update", name, "contacts", "test@" + domain ])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         # compare cert serial
-        new_cert = CertUtil(TestEnv.path_domain_pubcert(name))
+        new_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert old_cert.get_serial() == new_cert.get_serial()
 
     # --------- network problems ---------
@@ -538,8 +538,8 @@ class TestDrive :
         open(os.path.join(docRoot, name), "w").write(content)
 
     def _check_md_cert(self, dnsList):
-        name = dnsList[0]
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        domain = dnsList[0]
+        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
 
@@ -548,12 +548,12 @@ class TestDrive :
         # md_store = json.loads( open( TestEnv.path_store_json(), 'r' ).read() )
         # encryptKey = md_store['key']
         # print "key (%s): %s" % ( type(encryptKey), encryptKey )
-        CertUtil.validate_privkey(TestEnv.path_domain_privkey(name))
-        cert = CertUtil( TestEnv.path_domain_pubcert(name) )
-        cert.validate_cert_matches_priv_key( TestEnv.path_domain_privkey(name) )
+        CertUtil.validate_privkey(TestEnv.store_domain_file(domain, 'privkey.pem'))
+        cert = CertUtil(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
+        cert.validate_cert_matches_priv_key( TestEnv.store_domain_file(domain, 'privkey.pem') )
 
         # check SANs and CN
-        assert cert.get_cn() == name
+        assert cert.get_cn() == domain
         # compare sets twice in opposite directions: SAN may not respect ordering
         sanList = cert.get_san_list()
         assert len(sanList) == len(dnsList)

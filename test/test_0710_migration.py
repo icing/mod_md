@@ -228,21 +228,21 @@ class TestAuto:
         
     # --------- _utils_ ---------
 
-    def _check_md_names(self, name, dns_list):
-        md = TestEnv.a2md([ "-j", "list", name ])['jout']['output'][0]
-        assert md['name'] == name
+    def _check_md_names(self, domain, dns_list):
+        md = TestEnv.a2md([ "-j", "list", domain ])['jout']['output'][0]
+        assert md['name'] == domain
         assert md['domains'] == dns_list
 
 
     def _check_md_cert(self, dns_list):
-        name = dns_list[0]
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        domain = dns_list[0]
+        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert os.path.isfile( TestEnv.path_domain_privkey(name) )
-        assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
+        assert os.path.isfile( TestEnv.store_domain_file(domain, 'privkey.pem') )
+        assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
 
-    def _check_md_ca(self, name, url):
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+    def _check_md_ca(self, domain, url):
+        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
         # check ca url
         assert url == md['ca']['url']
 

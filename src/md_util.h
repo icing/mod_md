@@ -33,6 +33,20 @@ apr_status_t md_util_pool_do(md_util_action *cb, void *baton, apr_pool_t *p);
 apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, ...); 
 
 /**************************************************************************************************/
+/* data chunks */
+
+typedef struct md_data md_data;
+struct md_data {
+    const char *data;
+    apr_size_t len;
+};
+
+md_data *md_data_create(apr_pool_t *p, const char *data, apr_size_t len);
+
+apr_status_t md_data_to_hex(const char **phex, char separator,
+                            apr_pool_t *p, const md_data *data);
+
+/**************************************************************************************************/
 /* string related */
 char *md_util_str_tolower(char *s);
 

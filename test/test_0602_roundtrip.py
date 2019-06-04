@@ -137,11 +137,11 @@ class TestRoundtrip:
 
         # - append vhost to config
         conf.add_vhost(TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a", 
-                       withSSL=True, certPath=TestEnv.path_domain_pubcert(domain), 
-                       keyPath=TestEnv.path_domain_privkey(domain))
+                       withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                       keyPath=TestEnv.store_domain_file(domain, 'privkey.pem'))
         conf.add_vhost(TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b", 
-                       withSSL=True, certPath=TestEnv.path_domain_pubcert(domain), 
-                       keyPath=TestEnv.path_domain_privkey(domain))
+                       withSSL=True, certPath=TestEnv.store_domain_file(domain, 'pubcert.pem'), 
+                       keyPath=TestEnv.store_domain_file(domain, 'privkey.pem'))
         conf.install()
         
         # - create docRoot folder
@@ -171,10 +171,10 @@ class TestRoundtrip:
         assert md['domains'] == dnsList
 
     def _check_md_cert(self, dnsList):
-        name = dnsList[0]
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+        domain = dnsList[0]
+        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
         # check tos agreement, cert url
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert os.path.isfile( TestEnv.path_domain_privkey(name) )
-        assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
+        assert os.path.isfile( TestEnv.store_domain_file(domain, 'privkey.pem') )
+        assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
 
