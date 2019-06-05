@@ -24,6 +24,7 @@ struct md_acme_acct_t;
 struct md_json_t;
 struct md_store_t;
 struct md_pkey_spec_t;
+struct md_result_t;
 
 typedef struct md_acme_challenge_t md_acme_challenge_t;
 
@@ -71,7 +72,8 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, struct md_acme_t *acme, 
                                    struct md_store_t *store, apr_array_header_t *challenges, 
                                    struct md_pkey_spec_t *key_spec, struct apr_table_t *env,  
-                                   apr_pool_t *p, const char **setup_token);
+                                   apr_pool_t *p, const char **setup_token,
+                                   struct md_result_t *result);
 
 apr_status_t md_acme_authz_teardown(struct md_store_t *store, const char *setup_token, 
                                     struct apr_table_t *env, apr_pool_t *p);

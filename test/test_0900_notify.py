@@ -31,22 +31,13 @@ def teardown_module(module):
     assert TestEnv.apache_stop() == 0
 
 
-class TestAuto:
-
-    @classmethod
-    def setup_class(cls):
-        time.sleep(1)
-        cls.dns_uniq = "%d.org" % time.time()
-        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
-
+class TestNotify:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.apache_err_reset();
         TestEnv.clear_store()
-        TestEnv.install_test_conf();
-        self.test_n = re.match("test_(.+)", method.__name__).group(1)
-        self.test_domain =  ("%s-" % self.test_n) + TestAuto.dns_uniq
+        self.test_domain = TestEnv.get_method_domain(method)
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -58,16 +49,16 @@ class TestAuto:
     # test case: signup with configured notify cmd that is invalid
     #
     def test_9001(self):
-        domain = ("%s-" % self.test_n) + TestAuto.dns_uniq
+        domain = self.test_domain
         
         # generate config with two MDs
         dnsList = [ domain, "www." + domain ]
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_notify_cmd( "blablabla" )
         conf.add_drive_mode( "auto" )
         conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ])
         conf.install()
 
         # restart, and retrieve cert
@@ -77,18 +68,18 @@ class TestAuto:
         assert (1, 0) == TestEnv.apache_err_total()
 
     def test_9010(self):
-        domain = ("%s-" % self.test_n) + TestAuto.dns_uniq
+        domain = self.test_domain
         ncmd = ("%s/notify.py" % TestEnv.TESTROOT)
         nlog = ("%s/notify.log" % TestEnv.GEN_DIR)
         
         # generate config with two MDs
         dnsList = [ domain, "www." + domain ]
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_notify_cmd( "%s %s" % (ncmd, nlog) )
         conf.add_drive_mode( "auto" )
         conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ])
         conf.install()
 
         # restart, and retrieve cert
@@ -101,18 +92,18 @@ class TestAuto:
         assert ("['%s', '%s', '%s']" % (ncmd, nlog, domain)) == nlines[0]
 
     def test_9011(self):
-        domain = ("%s-" % self.test_n) + TestAuto.dns_uniq
+        domain = self.test_domain
         ncmd = ("%s/notify.py" % TestEnv.TESTROOT)
         nlog = ("%s/notify.log" % TestEnv.GEN_DIR)
         
         # generate config with two MDs
         dnsList = [ domain, "www." + domain ]
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_notify_cmd( "%s %s test_9011" % (ncmd, nlog) )
         conf.add_drive_mode( "auto" )
         conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ])
         conf.install()
 
         # restart, and retrieve cert

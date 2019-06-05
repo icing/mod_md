@@ -72,6 +72,8 @@ class TestEnv:
         cls.ACME_SERVER_DOWN = False
         cls.ACME_SERVER_OK = False
 
+        cls.DOMAIN_SUFFIX = "%d.org" % time.time()
+
         cls.set_store_dir_default()
         cls.set_acme('acmev2')
         cls.clear_store()
@@ -114,6 +116,10 @@ class TestEnv:
         if cls.httpd_is_at_least("2.5.0"):
             dir = os.path.join("state", dir)
         cls.set_store_dir(dir)
+
+    @classmethod
+    def get_method_domain( cls, method ) :
+        return "%s-%s" % (re.sub(r'[_]', '-', method.__name__), TestEnv.DOMAIN_SUFFIX)
 
     # --------- cmd execution ---------
 
@@ -342,6 +348,53 @@ class TestEnv:
     def list_accounts( cls ) :
         return os.listdir( os.path.join( TestEnv.STORE_DIR, 'accounts' ) )
     
+    @classmethod
+    def check_md(cls, domain, dnsList=None, state=-1, ca=None, protocol=None, agreement=None, contacts=None):
+        path = cls.store_domain_file(domain, 'md.json')
+        with open( path ) as f:
+            md = json.load(f)
+        assert md
+        if dnsList:
+            assert md['domains'] == dnsList
+        if state >= 0:
+            assert md['state'] == state
+        if ca:
+            assert md['ca']['url'] == ca
+        if protocol:
+            assert md['ca']['proto'] == protocol
+        if agreement:
+            assert md['ca']['agreement'] == agreement
+        if contacts:
+            assert md['contacts'] == contacts
+
+
+    @classmethod
+    def check_md_complete(cls, domain):
+        md = cls.get_md_status(domain)
+        assert md
+        assert md['state'] == TestEnv.MD_S_COMPLETE
+        assert os.path.isfile( TestEnv.store_domain_file(domain, 'privkey.pem') )
+        assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
+
+    @classmethod
+    def check_md_credentials(cls, domain, dnsList):
+        # check private key, validate certificate, etc
+        CertUtil.validate_privkey( cls.store_domain_file(domain, 'privkey.pem') )
+        cert = CertUtil(  cls.store_domain_file(domain, 'pubcert.pem') )
+        cert.validate_cert_matches_priv_key( cls.store_domain_file(domain, 'privkey.pem') )
+        # check SANs and CN
+        assert cert.get_cn() == domain
+        # compare lists twice in opposite directions: SAN may not respect ordering
+        sanList = cert.get_san_list()
+        assert len(sanList) == len(dnsList)
+        assert set(sanList).issubset(dnsList)
+        assert set(dnsList).issubset(sanList)
+        # check valid dates interval
+        notBefore = cert.get_not_before()
+        notAfter = cert.get_not_after()
+        assert notBefore < datetime.now(notBefore.tzinfo)
+        assert notAfter > datetime.now(notAfter.tzinfo)
+
     # --------- control apache ---------
 
     @classmethod
@@ -524,7 +577,7 @@ class TestEnv:
 
     @classmethod
     def get_md_status(cls, domain, timeout=60):
-        stat = TestEnv.get_json_content(domain, "/md-status/%s" % (domain))
+        stat = TestEnv.get_json_content("localhost", "/md-status/%s" % (domain))
         return stat
 
     @classmethod
@@ -535,21 +588,22 @@ class TestEnv:
             if time.time() >= try_until:
                 return False
             for name in names:
-                stat = TestEnv.get_certificate_status(name, timeout)
-                if stat == None:
+                md = TestEnv.get_md_status(name, timeout)
+                if md == None:
                     print "not managed by md: %s" % (name)
                     return False
 
-                if 'staging' in stat:
-                    staging = stat['staging']
+                if 'renewal' in md:
+                    renewal = md['renewal']
                     renewals[name] = True
-                    if 'sha256-fingerprint' in staging:
+                    if 'finished' in renewal and renewal['finished'] == True:
                         if (not must_renew) or (name in renewals):
                             names.remove(name)                        
                     
             if len(names) != 0:
                 time.sleep(0.1)
         if restart:
+            time.sleep(0.1)
             return cls.apache_restart() == 0
         return True
 
@@ -576,28 +630,18 @@ class TestEnv:
         return True
 
     @classmethod
-    def await_error(cls, names, timeout=60):
+    def await_error(cls, domain, timeout=60):
         try_until = time.time() + timeout
-        while len(names) > 0:
+        while True:
             if time.time() >= try_until:
                 return False
-            allChanged = True
-            for name in names:
-                # check status in md.json
-                md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
+            md = cls.get_md_status(domain)
+            if md:
                 if md['state'] == TestEnv.MD_S_ERROR:
-                    names.remove(name)
-                else:
-                    path_job = TestEnv.path_job( name )
-                    if os.path.isfile( path_job ):
-                        with open( path_job ) as f:
-                            job = json.load(f)
-                        if job['errors'] > 0:
-                            names.remove(name)
-
-            if len(names) != 0:
-                time.sleep(0.1)
-        return True
+                    return md
+                if 'renewal' in md and 'errors' in md['renewal'] and md['renewal']['errors'] > 0:
+                    return md
+            time.sleep(0.1)
 
     @classmethod
     def check_file_permissions( cls, domain ):
@@ -630,20 +674,15 @@ class TestEnv:
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, path, writeCertFiles=False, acmeUrl=None, acmeTos=None):
-        self.path = path
-        self.writeCertFiles = writeCertFiles
-        if acmeUrl == None:
-            acmeUrl = TestEnv.ACME_URL
-        if acmeTos == None:
-            acmeTos = TestEnv.ACME_TOS
+    def __init__(self, name="test.conf"):
+        self.path = os.path.join(TestEnv.GEN_DIR, name)
         if os.path.isfile(self.path):
             os.remove(self.path)
-        open(self.path, "a").write(("  MDCertificateAuthority %s\n"
-                                    "  MDCertificateProtocol ACME\n"
-                                    "  MDCertificateAgreement %s\n\n"
-                                    )
-                                   % (acmeUrl, acmeTos))
+        open(self.path, "a").write((
+            "MDCertificateAuthority %s\n"
+            "MDCertificateAgreement %s\n") % 
+            (TestEnv.ACME_URL, 'accepted')
+        );
 
     def clear(self):
         if os.path.isfile(self.path):
@@ -694,27 +733,19 @@ class HttpdConf(object):
     def add_dns01_cmd(self, cmd):
         self._add_line("  MDChallengeDns01 %s\n" % cmd)
 
-    def add_vhost(self, port, name, aliasList, docRoot="htdocs", 
-                  withSSL=True, certPath=None, keyPath=None):
-        self.start_vhost(port, name, aliasList, docRoot, withSSL, certPath, keyPath)
+    def add_vhost(self, port, domain, aliasList=[], docRoot="htdocs"):
+        self.start_vhost(port, domain, aliasList, docRoot)
         self.end_vhost()
 
-    def start_vhost(self, port, domain, aliasList, docRoot="htdocs", 
-                  withSSL=True, certPath=None, keyPath=None):
+    def start_vhost(self, port, domain, aliasList=[], docRoot="htdocs"):
         f = open(self.path, "a") 
         f.write("<VirtualHost *:%s>\n" % port)
         f.write("    ServerName %s\n" % domain)
-        if len(aliasList) > 0:
-            for alias in aliasList:
-                f.write("    ServerAlias %s\n" % alias )
+        for alias in aliasList:
+            f.write("    ServerAlias %s\n" % alias )
         f.write("    DocumentRoot %s\n\n" % docRoot)
-        if withSSL:
+        if TestEnv.HTTPS_PORT == port:
             f.write("    SSLEngine on\n")
-            if self.writeCertFiles:
-                certPath = certPath if certPath else  TestEnv.store_domain_file(domain, 'pubcert.pem')
-                keyPath = keyPath if keyPath else TestEnv.store_domain_file(domain, 'privkey.pem')
-                f.write(("    SSLCertificateFile %s\n"
-                         "    SSLCertificateKeyFile %s\n") % (certPath, keyPath))
                   
     def end_vhost(self):
         self._add_line("</VirtualHost>\n\n")

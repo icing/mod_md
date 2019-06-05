@@ -86,7 +86,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
     apr_status_t rv = APR_SUCCESS;
     int update_md = 0, update_acct = 0;
     
-    md_result_activity_setn(result, "selecting account");
+    md_result_activity_printf(result, "Selecting account to use for %s.", d->md->name);
     md_acme_clear_acct(ad->acme);
     
     /* Do we have a staged (modified) account? */
@@ -125,6 +125,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
     
     if (!ad->acme->acct) {
         /* No account staged, no suitable found in store, register a new one */
+        md_result_activity_printf(result, "Creating new ACME account for %s.", d->md->name);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: creating new account", 
                       d->proto->protocol);
         
@@ -235,7 +236,7 @@ static apr_status_t get_cert(void *baton, int attempt)
     (void)attempt;
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "retrieving cert from %s",
                   ad->order->certificate);
-    return md_acme_GET(ad->acme, ad->order->certificate, NULL, NULL, on_add_cert, d);
+    return md_acme_GET(ad->acme, ad->order->certificate, NULL, NULL, on_add_cert, NULL, d);
 }
 
 apr_status_t md_acme_drive_cert_poll(md_proto_driver_t *d, int only_once)
@@ -295,9 +296,9 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
     }
     ad->order->certificate = apr_pstrdup(d->p, location);
     if (APR_SUCCESS != (rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, 
-                                                ad->md->name, ad->order, 0))) { 
+                                                d->md->name, ad->order, 0))) { 
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
-                      "%s: saving cert url %s", ad->md->name, location);
+                      "%s: saving cert url %s", d->md->name, location);
         return rv;
     }
     
@@ -347,36 +348,35 @@ apr_status_t md_acme_drive_setup_certificate(md_proto_driver_t *d, md_result_t *
     md_pkey_t *privkey;
     apr_status_t rv;
 
-    md_result_activity_setn(result, "Setting up certificate private key.");
+    md_result_activity_printf(result, "Creating private key for %s.", d->md->name);
     
-    rv = md_pkey_load(d->store, MD_SG_STAGING, ad->md->name, &privkey, d->p);
+    rv = md_pkey_load(d->store, MD_SG_STAGING, d->md->name, &privkey, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
         if (APR_SUCCESS == (rv = md_pkey_gen(&privkey, d->p, d->md->pkey_spec))) {
-            rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, ad->md->name, privkey, 1);
+            rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, d->md->name, privkey, 1);
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate privkey", ad->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate privkey", d->md->name);
     }
-    if (APR_SUCCESS != rv) goto out;
+    if (APR_SUCCESS != rv) goto leave;
     
-    md_result_activity_setn(result, "Creating CSR.");
-    rv = md_cert_req_create(&ad->csr_der_64, ad->md->name, ad->domains, 
+    md_result_activity_printf(result, "Creating CSR for %s.", d->md->name);
+    rv = md_cert_req_create(&ad->csr_der_64, d->md->name, ad->domains, 
                             ad->md->must_staple, privkey, d->p);
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR", ad->md->name);
-    if (APR_SUCCESS != rv) goto out;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR", d->md->name);
+    if (APR_SUCCESS != rv) goto leave;
 
-    md_result_activity_setn(result, "Submitting CSR to ACME server.");
+    md_result_activity_printf(result, "Submitting CSR to CA for %s.", d->md->name);
     switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
         case 1:
-            rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, d);
+            rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, NULL, d);
             break;
         default:
             assert(ad->order->finalize);
-            rv = md_acme_POST(ad->acme, ad->order->finalize, on_init_csr_req, NULL, csr_req, d);
+            rv = md_acme_POST(ad->acme, ad->order->finalize, on_init_csr_req, NULL, csr_req, NULL, d);
             break;
     }
-    if (APR_SUCCESS != rv) goto out;
-
-out:
+leave:
+    md_acme_report_result(ad->acme, rv, result);
     return rv;
 }
 
@@ -419,7 +419,7 @@ static apr_status_t get_chain(void *baton, int attempt)
 
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
                           "next chain cert at  %s", ad->next_up_link);
-            rv = md_acme_GET(ad->acme, ad->next_up_link, NULL, NULL, on_add_chain, d);
+            rv = md_acme_GET(ad->acme, ad->next_up_link, NULL, NULL, on_add_chain, NULL, d);
             
             if (APR_SUCCESS == rv && nelts == ad->certs->nelts) {
                 break;
@@ -592,6 +592,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     /* When not explicitly told to reset, we check the existing data. If
      * it is incomplete or old, we trigger the reset for a clean start. */
     if (!reset_staging) {
+        md_result_activity_printf(result, "Checking staging area for %s.", d->md->name);
         rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
         if (APR_SUCCESS == rv) {
             /* So, we have a copy in staging, but is it a recent or an old one? */
@@ -606,6 +607,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
     
     if (reset_staging) {
+        md_result_activity_printf(result, "Resetting staging area for %s.", d->md->name);
         /* reset the staging area for this domain */
         rv = md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, 
@@ -619,6 +621,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
         ad->order = NULL;
     }
     
+    md_result_activity_printf(result, "Assessing current status of %s.", d->md->name);
     if (ad->md && ad->md->state == MD_S_MISSING_INFORMATION) {
         /* ToS agreement is missing. It makes no sense to drive this MD further */
         md_result_printf(result, APR_INCOMPLETE, 
@@ -627,6 +630,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
     
     if (ad->md) {
+        md_result_activity_printf(result, "Assessing staged information for %s.", d->md->name);
         /* staging present. does it already contain all we need? */
         rv = md_reg_creds_get(&staged_creds, d->reg, MD_SG_STAGING, d->md, d->p);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked creds", d->md->name);
@@ -642,6 +646,8 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
 
     /* Need to renew */
+    md_result_activity_printf(result, "Contacting ACME server for %s at %s.", 
+                              d->md->name, d->md->ca_url);
     if (APR_SUCCESS != (rv = md_acme_create(&ad->acme, d->p, d->md->ca_url, d->proxy_url))) {
         md_result_printf(result, rv, "setup ACME communications");
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "md[%s]: %s", 
@@ -655,6 +661,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
     
     if (!ad->md || strcmp(ad->md->ca_url, d->md->ca_url)) {
+        md_result_activity_printf(result, "Resetting staging for %s.", d->md->name);
         /* re-initialize staging */
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: setup staging", d->md->name);
         md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
@@ -673,10 +680,11 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
     if (md_array_is_empty(ad->certs)) {
         /* have we created this already? */
-        md_pubcert_load(d->store, MD_SG_STAGING, ad->md->name, &ad->certs, d->p);
+        md_pubcert_load(d->store, MD_SG_STAGING, d->md->name, &ad->certs, d->p);
     }
     
     if (md_array_is_empty(ad->certs)) {
+        md_result_activity_printf(result, "Driving ACME protocol for renewal of %s.", d->md->name);
         /* The process of setting up challenges and verifying domain
          * names differs between ACME versions. */
         switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
@@ -697,17 +705,18 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
     
     if (md_array_is_empty(ad->certs) || ad->next_up_link) {
+        md_result_activity_printf(result, "Retrieving certificate chain for %s.", d->md->name);
         ad->phase = "retrieve certificate chain";
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                       "%s: retrieving certificate chain", d->md->name);
         rv = ad_chain_retrieve(d);
         if (APR_SUCCESS != rv) {
-            md_result_printf(result, rv, "Retrieving new certificate chain.");
+            md_result_printf(result, rv, "Unable to retrive certificate chain.");
             goto out;
         }
         
         if (!md_array_is_empty(ad->certs)) {
-            rv = md_pubcert_save(d->store, d->p, MD_SG_STAGING, ad->md->name, ad->certs, 0);
+            rv = md_pubcert_save(d->store, d->p, MD_SG_STAGING, d->md->name, ad->certs, 0);
             if (APR_SUCCESS != rv) {
                 md_result_printf(result, rv, "Saving new certificate chain.");
                 goto out;
@@ -720,6 +729,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
 
 ready:
+    md_result_activity_printf(result, "Renewal is complete for %s.", d->md->name);
     /* we should have the complete cert chain now */
     assert(!md_array_is_empty(ad->certs));
     assert(ad->certs->nelts > 1);

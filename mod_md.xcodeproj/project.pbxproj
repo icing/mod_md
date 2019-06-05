@@ -99,6 +99,10 @@
 		B26A4BDA22A65FFB00D002BC /* 002.pubcert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = 002.pubcert; sourceTree = "<group>"; };
 		B26A4BDB22A6BDAA00D002BC /* renewal_40.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = renewal_40.conf; sourceTree = "<group>"; };
 		B26A4BDC22A6C8D300D002BC /* renewal_0.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = renewal_0.conf; sourceTree = "<group>"; };
+		B26A4BDE22A7B8C100D002BC /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
+		B26A4BDF22A7B8C100D002BC /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
+		B26A4BE022A7B8C100D002BC /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
+		B26A4BE122A7B8C100D002BC /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
 		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
 		B298D5C2229BE6FC00245316 /* md_status.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_status.h; sourceTree = "<group>"; };
@@ -225,9 +229,10 @@
 		B262F6CD1EFCFE1100D396A1 /* data */ = {
 			isa = PBXGroup;
 			children = (
-				B26A4BD922A65FFB00D002BC /* test_920 */,
-				B2FB5A441F57097000856773 /* store_migrate */,
+				B26A4BDD22A7B8C100D002BC /* ssl */,
 				B2B81EC81F13830600E35CA3 /* ssl */,
+				B2FB5A441F57097000856773 /* store_migrate */,
+				B26A4BD922A65FFB00D002BC /* test_920 */,
 				B262F6CE1EFCFE1100D396A1 /* test_conf_store */,
 				B262F6D21EFCFE1100D396A1 /* test_conf_validate */,
 				B262F6DF1EFCFE1100D396A1 /* test_drive */,
@@ -326,6 +331,17 @@
 				B26A4BDA22A65FFB00D002BC /* 002.pubcert */,
 			);
 			path = test_920;
+			sourceTree = "<group>";
+		};
+		B26A4BDD22A7B8C100D002BC /* ssl */ = {
+			isa = PBXGroup;
+			children = (
+				B26A4BDE22A7B8C100D002BC /* expired_cert.pem */,
+				B26A4BDF22A7B8C100D002BC /* expired_pkey.pem */,
+				B26A4BE022A7B8C100D002BC /* req_exts.conf */,
+				B26A4BE122A7B8C100D002BC /* req_template.conf */,
+			);
+			path = ssl;
 			sourceTree = "<group>";
 		};
 		B298D5CB229E8AA600245316 /* mod_md_lib */ = {

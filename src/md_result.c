@@ -38,6 +38,13 @@ md_result_t *md_result_make(apr_pool_t *p, apr_status_t status)
     return result;
 }
 
+void md_result_reset(md_result_t *result)
+{
+    apr_pool_t *p = result->p;
+    memset(result, 0, sizeof(*result));
+    result->p = p;
+}
+
 void md_result_activity_set(md_result_t *result, const char *activity)
 {
     result->activity = activity? apr_pstrdup(result->p, activity) : NULL;
@@ -48,6 +55,15 @@ void md_result_activity_setn(md_result_t *result, const char *activity)
     result->activity = activity;
 }
 
+void md_result_activity_printf(md_result_t *result, const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    result->activity = apr_pvsprintf(result->p, fmt, ap);
+    va_end(ap);
+}
+
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail)
 {
     result->status = status;
@@ -55,17 +71,15 @@ void md_result_set(md_result_t *result, apr_status_t status, const char *detail)
     if (detail) {
         result->detail = apr_pstrdup(result->p, detail);
     }
-    else if (result->activity) {
-        result->detail = apr_psprintf(result->p, "While %s", result->activity);
-    }
-    else {
+    else if (APR_SUCCESS == status) {
         result->detail = NULL;
     }
 }
 
-void md_result_problem_set(md_result_t *result, const char *problem, const char *detail)
+void md_result_problem_set(md_result_t *result, apr_status_t status,
+                           const char *problem, const char *detail)
 {
-    result->status = APR_EGENERAL;
+    result->status = status;
     result->problem = apr_pstrdup(result->p, problem);
     result->detail = apr_pstrdup(result->p, detail);
 }
@@ -108,6 +122,11 @@ struct md_json_t *md_result_to_json(const md_result_t *result, apr_pool_t *p)
    
     json = md_json_create(p);
     md_json_setl(result->status, json, MD_KEY_STATUS, NULL);
+    if (result->status > 0) {
+        char buffer[HUGE_STRING_LEN];
+        apr_strerror(result->status, buffer, sizeof(buffer));
+        md_json_sets(buffer, json, "status-description", NULL);
+    }
     if (result->problem) md_json_sets(result->problem, json, MD_KEY_PROBLEM, NULL);
     if (result->detail) md_json_sets(result->detail, json, MD_KEY_DETAIL, NULL);
     if (result->activity) md_json_sets(result->activity, json, MD_KEY_ACTIVITY, NULL);
@@ -137,4 +156,13 @@ int md_result_cmp(const md_result_t *r1, const md_result_t *r2)
     if ((n = str_cmp(r1->detail, r2->detail))) return n;
     if ((n = str_cmp(r1->activity, r2->activity))) return n;
     return (int)(r1->ready_at - r2->ready_at);
+}
+
+void md_result_assign(md_result_t *dest, const md_result_t *src)
+{
+   dest->status = src->status;
+   dest->problem = src->problem? apr_pstrdup(dest->p, src->problem) : NULL; 
+   dest->detail = src->detail? apr_pstrdup(dest->p, src->detail) : NULL; 
+   dest->activity = src->activity? apr_pstrdup(dest->p, src->activity) : NULL; 
+   dest->ready_at = src->ready_at;
 }

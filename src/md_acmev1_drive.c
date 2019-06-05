@@ -51,7 +51,7 @@
  * - check if there already is a valid AUTHZ resource
  * - if ot, create an AUTHZ resource with challenge data 
  */
-static apr_status_t ad_setup_order(md_proto_driver_t *d)
+static apr_status_t ad_setup_order(md_proto_driver_t *d, md_result_t *result)
 {
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
@@ -109,29 +109,28 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
         }
     }
     
-    /* Do we have authz urls for all domains? */
+    /* Do we have authz urls for all domains? If not, register a new one */
     for (i = 0; i < ad->domains->nelts && APR_SUCCESS == rv; ++i) {
         const char *domain = APR_ARRAY_IDX(ad->domains, i, const char *);
     
         if (md_array_str_index(domains_covered, domain, 0, 0) < 0) {
-            /* create new one */
+            md_result_activity_printf(result, "Creating authz resource for %s", domain);
             rv = md_acme_authz_register(&authz, ad->acme, domain, d->p);
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: created authz for %s", 
-                          md->name, domain);
-            if (APR_SUCCESS == rv) {
-                rv = md_acme_order_add(ad->order, authz->url);
-                changed = 1;
-            }
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: created authz for %s (last problem: %s)", 
+                          md->name, domain, ad->acme->last->problem);
+            if (APR_SUCCESS != rv) goto leave;
+            rv = md_acme_order_add(ad->order, authz->url);
+            changed = 1;
         }
     }
     
-    /* Save any changes */
-    if (APR_SUCCESS == rv && changed) {
+    if (changed) {
         rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, md->name, ad->order, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: saved", md->name);
     }
     
 leave:
+    md_acme_report_result(ad->acme, rv, result);
     return rv;
 }
 
@@ -171,22 +170,21 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
     else if (APR_SUCCESS != rv) goto leave;
     
     if (md_array_is_empty(ad->certs)) {
-        md_result_activity_setn(result, "Setup order resource.");
-        if (APR_SUCCESS != (rv = ad_setup_order(d))) {
-            md_result_set(result, rv, NULL);
+        md_result_activity_printf(result, "Setup order resource for %s.", ad->md->name);
+        if (APR_SUCCESS != (rv = ad_setup_order(d, result))) {
             goto leave;
         }
         
-        md_result_activity_setn(result, "Starting challenge.");
+        md_result_activity_printf(result, "Starting challenges for %s.", ad->md->name);
         ad->phase = "start challenges";
         if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
                                                                 ad->ca_challenges,
-                                                                d->store, d->md, d->env, d->p))) {
-            md_result_set(result, rv, NULL);
+                                                                d->store, d->md, d->env, 
+                                                                d->p, result))) {
             goto leave;
         }
         
-        md_result_activity_setn(result, "Monitoring challenge status.");
+        md_result_activity_printf(result, "Monitoring challenge status for %s.", ad->md->name);
         ad->phase = "monitor challenges";
         if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
                                                               ad->authz_monitor_timeout, d->p))) {
@@ -194,7 +192,7 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
             goto leave;
         }
         
-        md_result_activity_setn(result, "Challenge succeeded, finalizing order.");
+        md_result_activity_printf(result, "Finalizing order for %s.", ad->md->name);
         ad->phase = "finalize order";
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d, result))) {
             md_result_set(result, rv, NULL);

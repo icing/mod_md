@@ -31,12 +31,15 @@ struct md_result_t {
 };
 
 md_result_t *md_result_make(apr_pool_t *p, apr_status_t status);
+void md_result_reset(md_result_t *result);
 
 void md_result_activity_set(md_result_t *result, const char *activity);
 void md_result_activity_setn(md_result_t *result, const char *activity);
+void md_result_activity_printf(md_result_t *result, const char *fmt, ...);
 
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail);
-void md_result_problem_set(md_result_t *result, const char *problem, const char *detail);
+void md_result_problem_set(md_result_t *result, apr_status_t status, 
+                           const char *problem, const char *detail);
 
 void md_result_printf(md_result_t *result, apr_status_t status, const char *fmt, ...);
 
@@ -46,5 +49,7 @@ md_result_t*md_result_from_json(const struct md_json_t *json, apr_pool_t *p);
 struct md_json_t *md_result_to_json(const md_result_t *result, apr_pool_t *p);
 
 int md_result_cmp(const md_result_t *r1, const md_result_t *r2);
+
+void md_result_assign(md_result_t *dest, const md_result_t *src);
 
 #endif /* mod_md_md_result_h */

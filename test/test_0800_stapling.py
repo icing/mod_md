@@ -31,22 +31,13 @@ def teardown_module(module):
     assert TestEnv.apache_stop() == 0
 
 
-class TestAuto:
-
-    @classmethod
-    def setup_class(cls):
-        time.sleep(1)
-        cls.dns_uniq = "%d.org" % time.time()
-        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
-
+class TestStapling:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.apache_err_reset();
         TestEnv.clear_store()
-        TestEnv.install_test_conf();
-        self.test_n = re.match("test_(.+)", method.__name__).group(1)
-        self.test_domain =  ("%s-" % self.test_n) + TestAuto.dns_uniq
+        self.test_domain = TestEnv.get_method_domain(method)
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -58,17 +49,17 @@ class TestAuto:
         domain = self.test_domain
         dns_list = [ domain ]
 
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
         conf.install()
 
         # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
-        self._check_md_cert( dns_list )
+        TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
 
@@ -79,18 +70,18 @@ class TestAuto:
         domain = self.test_domain
         dns_list = [ domain ]
 
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_must_staple( "off" )
         conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
         conf.install()
 
         # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
-        self._check_md_cert( dns_list )
+        TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
         assert self.get_ocsp_response(domain) == "no response sent" 
@@ -102,47 +93,47 @@ class TestAuto:
         domain = self.test_domain
         dns_list = [ domain ]
 
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_must_staple( "on" )
         conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
         conf.install()
 
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
-        self._check_md_cert( dns_list )
+        TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
 
         # toggle MDMustStaple off, expect a cert that has it disabled
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_must_staple( "off" )
         conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
         conf.install()
 
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
-        self._check_md_cert( dns_list )
+        TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
     
         # toggle MDMustStaple on again, expect a cert that has it enabled
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_must_staple( "on" )
         conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
         conf.install()
 
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
-        self._check_md_cert( dns_list )
+        TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
 
@@ -153,18 +144,18 @@ class TestAuto:
         domain = self.test_domain
         dns_list = [ domain ]
 
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_must_staple( "on" )
         conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[], withSSL=True )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
         conf.install()
 
         # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
-        self._check_md_cert( dns_list )
+        TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
         assert self.get_verify_response(domain) == "0 (ok)" 
@@ -172,14 +163,6 @@ class TestAuto:
         # assert self.get_ocsp_response(domain) == "successful (0x0)" 
 
     # --------- _utils_ ---------
-
-    def _check_md_cert(self, dns_list):
-        domain = dns_list[0]
-        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
-        # check tos agreement, cert url
-        assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert os.path.isfile( TestEnv.store_domain_file(domain, 'privkey.pem') )
-        assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
 
     def get_client_status(self, domain):
         return TestEnv.run( [ "openssl", "s_client", "-status", 

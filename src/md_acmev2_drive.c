@@ -51,7 +51,7 @@
  * Either we have an order stored in the STAGING area, or we need to create a 
  * new one at the ACME server.
  */
-static apr_status_t ad_setup_order(md_proto_driver_t *d)
+static apr_status_t ad_setup_order(md_proto_driver_t *d, md_result_t *result)
 {
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
@@ -88,6 +88,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     }
     
 out:
+    md_acme_report_result(ad->acme, rv, result);
     return rv;
 }
 
@@ -119,13 +120,11 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
          *   * INVALID and otherwise: fail renewal, delete local order
          */
 
-        md_result_activity_setn(result, "Setup new order.");
-        if (APR_SUCCESS != (rv = ad_setup_order(d))) {
-            md_result_set(result, rv, NULL);
+        md_result_activity_printf(result, "Setup order for %s.", ad->md->name);
+        if (APR_SUCCESS != (rv = ad_setup_order(d, result))) {
             goto leave;
         }
         
-        md_result_activity_setn(result, "Update order from CA."); 
         rv = md_acme_order_update(ad->order, ad->acme, d->p);
         if (APR_STATUS_IS_ENOENT(rv)) {
             /* order is no longer known at the ACME server */
@@ -138,25 +137,24 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
         }
 
         if (!ad->order) {
-            md_result_activity_setn(result, "Setup new order.");
+            md_result_activity_printf(result, "Creating new order for %s.", ad->md->name);
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                           "%s: setup order", d->md->name);
-            if (APR_SUCCESS != (rv = ad_setup_order(d))) {
-                md_result_set(result, rv, NULL);
+            if (APR_SUCCESS != (rv = ad_setup_order(d, result))) {
                 goto leave;
             }
         }
 
-        md_result_activity_setn(result, "Starting challenge.");
+        md_result_activity_printf(result, "Starting challenges for domains in %s.", ad->md->name);
         ad->phase = "start challenges";
         if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
                                                                 ad->ca_challenges,
-                                                                d->store, d->md, d->env, d->p))) {
-            md_result_set(result, rv, NULL);
+                                                                d->store, d->md, d->env, 
+                                                                d->p, result))) {
             goto leave;
         }
         
-        md_result_activity_setn(result, "Monitoring challenge status.");
+        md_result_activity_printf(result, "Monitoring challenges for domains in %s.", ad->md->name);
         ad->phase = "monitor challenges";
         if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
                                                               ad->authz_monitor_timeout, d->p))) {
@@ -170,7 +168,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
             goto leave;
         } 
 
-        md_result_activity_setn(result, "Challenge succeeded, finalizing order.");
+        md_result_activity_printf(result, "Finalizing order for %s.", ad->md->name);
         ad->phase = "finalize order";
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d, result))) {
             md_result_set(result, rv, NULL);
@@ -178,7 +176,8 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: finalized order", d->md->name);
         
-        md_result_activity_setn(result, "Finalized, waiting for order to become valid."); 
+        md_result_activity_printf(result, "Waiting for finalized order to become valid for %s.", 
+                                  ad->md->name);
         if (APR_SUCCESS != (rv = md_acme_order_await_valid(ad->order, ad->acme, d->md, 
                                                            ad->authz_monitor_timeout, d->p))) {
             md_result_set(result, rv, NULL);

@@ -27,18 +27,13 @@ def teardown_module(module):
     print("teardown_module:%s" % module.__name__)
     assert TestEnv.apache_stop() == 0
 
-class TestDrive :
-
-    @classmethod
-    def setup_class(cls):
-        time.sleep(1)
-        cls.dns_uniq = "%d.org" % time.time()
-        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
+class TestDrivev2:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.clear_store()
         TestEnv.install_test_conf()
+        self.test_domain = TestEnv.get_method_domain(method)
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -47,7 +42,7 @@ class TestDrive :
 
     def test_502_000(self):
         # test case: md without contact info
-        domain = "test502-000-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
         run = TestEnv.a2md( [ "drive", name ] )
@@ -56,7 +51,7 @@ class TestDrive :
 
     def test_502_001(self):
         # test case: md with contact, but without TOS
-        domain = "test502-001-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
         assert TestEnv.a2md( 
@@ -71,7 +66,7 @@ class TestDrive :
     
     def test_502_003(self):
         # test case: md with unknown protocol FOO
-        domain = "test502-003-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.a2md(
@@ -85,14 +80,14 @@ class TestDrive :
 
     def test_502_100(self):
         # test case: md with one domain
-        domain = "test502-100-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
         # drive
         prevMd = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert TestEnv.a2md( [ "-v", "drive", "-c", "http-01", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+        TestEnv.check_md_credentials(name, [ name ])
         self._check_account_key( name )
 
         # check archive content
@@ -122,20 +117,20 @@ class TestDrive :
 
     def test_502_101(self):
         # test case: md with 2 domains
-        domain = "test502-101-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name, "test." + domain ])
         assert TestEnv.apache_start() == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", "-c", "http-01", name ] )['rv'] == 0
-        self._check_md_cert([ name, "test." + domain ])
+        TestEnv.check_md_credentials(name, [ name, "test." + domain ])
 
     # test_502_102 removed, as accounts without ToS are not allowed in ACMEv2
 
     def test_502_103(self):
         # test case: md with one domain, ACME account and TOS agreement on server
         # setup: create md
-        domain = "test502-103-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + domain ])['rv'] == 0
@@ -148,14 +143,14 @@ class TestDrive :
         assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+        TestEnv.check_md_credentials(name, [ name ])
 
     # test_502_104 removed, order are created differently in ACMEv2
 
     def test_502_105(self):
         # test case: md with one domain, local TOS agreement and ACME account that is deleted (!) on server
         # setup: create md
-        domain = "test502-105-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -171,30 +166,30 @@ class TestDrive :
         run = TestEnv.a2md( [ "drive", name ] )
         print run["stderr"]
         assert run['rv'] == 0
-        self._check_md_cert([ name ])
+        TestEnv.check_md_credentials(name, [ name ])
 
     def test_502_107(self):
         # test case: drive again on COMPLETE md, then drive --force
         # setup: prepare md in store
-        domain = "test502-107-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+        TestEnv.check_md_credentials(name, [ name ])
         orig_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
 
         # drive again
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+        TestEnv.check_md_credentials(name, [ name ])
         cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
         assert cert.get_serial() == orig_cert.get_serial()
 
         # drive --force
         assert TestEnv.a2md( [ "-vv", "drive", "--force", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+        TestEnv.check_md_credentials(name, [ name ])
         cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
         assert cert.get_serial() != orig_cert.get_serial()
@@ -204,7 +199,7 @@ class TestDrive :
 
     def test_502_108(self):
         # test case: drive via HTTP proxy
-        domain = "test502-108-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_restart() == 0
@@ -216,19 +211,19 @@ class TestDrive :
 
         # drive it, working proxy url -> SUCCESS
         assert TestEnv.a2md( [ "-p", "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT), "drive", name ] )['rv'] == 0
-        self._check_md_cert([ name ])
+        TestEnv.check_md_credentials(name, [ name ])
 
     def test_502_109(self):
         # test case: redirect on SSL-only domain
         # setup: prepare config
-        domain = "test502-109-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
-        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[], docRoot="htdocs/test", withSSL=False)
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[], docRoot="htdocs/test", withSSL=True)
+        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[], docRoot="htdocs/test")
+        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[], docRoot="htdocs/test")
         conf.install()
         # setup: create resource files
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "test"), "name.txt", name)
@@ -279,15 +274,15 @@ class TestDrive :
     def test_502_110(self):
         # test case: SSL-only domain, override headers generated by mod_md 
         # setup: prepare config
-        domain = "test502-110-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_require_ssl("permanent")
         conf.add_md( [name] )
-        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[], withSSL=False)
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[], withSSL=True)
+        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[])
+        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[])
         conf.install()
         assert TestEnv.apache_restart() == 0
         # drive it
@@ -320,15 +315,15 @@ class TestDrive :
     def test_502_111(self):
         # test case: vhost with parallel HTTP/HTTPS, check mod_alias redirects
         # setup: prepare config
-        domain = "test502-111-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
         conf._add_line("  LogLevel alias:debug")
-        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[], withSSL=False)
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[], withSSL=True)
+        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[])
+        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[])
         conf.install()
         assert TestEnv.apache_restart() == 0
         # drive it
@@ -359,13 +354,13 @@ class TestDrive :
 
     def test_502_120(self):
         # test case: NP dereference reported by Daniel Caminada <daniel.caminada@ergon.ch>
-        domain = "test502-120-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[], withSSL=True)
+        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[])
         conf.install()
         assert TestEnv.apache_restart() == 0
         r = TestEnv.run( [ "openssl", "s_client",  
@@ -381,7 +376,7 @@ class TestDrive :
     def test_502_200(self):
         # test case: add dns name on existing valid md
         # setup: create md in store
-        domain = "test502-200-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -393,7 +388,7 @@ class TestDrive :
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         # check new cert
-        self._check_md_cert([ name, "test." + domain ])
+        TestEnv.check_md_credentials(name, [ name, "test." + domain ])
         new_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert old_cert.get_serial() != new_cert.get_serial()
 
@@ -412,9 +407,9 @@ class TestDrive :
     def test_502_201(self, renewWindow, testDataList):
         # test case: trigger cert renew when entering renew window 
         # setup: prepare COMPLETE md
-        domain = "test502-201-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_renew_window( renewWindow )
@@ -447,9 +442,9 @@ class TestDrive :
     def test_502_202(self, keyType, keyParams, expKeyLength):
         # test case: specify RSA key length and verify resulting cert key 
         # setup: prepare md
-        domain = "test502-202-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf( TestDrive.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_private_key(keyType, keyParams)
@@ -472,7 +467,7 @@ class TestDrive :
     def test_502_300(self):
         # test case: remove one domain name from existing valid md
         # setup: create md in store
-        domain = "test502-300-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name, "test." + domain, "xxx." + domain ])
         assert TestEnv.apache_start() == 0
@@ -490,7 +485,7 @@ class TestDrive :
     def test_502_301(self):
         # test case: change contact info on existing valid md
         # setup: create md in store
-        domain = "test502-301-" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.apache_start() == 0
@@ -509,7 +504,7 @@ class TestDrive :
 
     def test_502_400(self):
         # test case: server not reachable
-        domain = "test502-400" + TestDrive.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
         assert TestEnv.a2md(
@@ -536,35 +531,6 @@ class TestDrive :
         if not os.path.exists(docRoot):
             os.makedirs(docRoot)
         open(os.path.join(docRoot, name), "w").write(content)
-
-    def _check_md_cert(self, dnsList):
-        domain = dnsList[0]
-        md = TestEnv.a2md([ "list", domain ])['jout']['output'][0]
-        # check tos agreement, cert url
-        assert md['state'] == TestEnv.MD_S_COMPLETE
-
-        # check private key, validate certificate
-        # TODO: find storage-independent way to read local certificate
-        # md_store = json.loads( open( TestEnv.path_store_json(), 'r' ).read() )
-        # encryptKey = md_store['key']
-        # print "key (%s): %s" % ( type(encryptKey), encryptKey )
-        CertUtil.validate_privkey(TestEnv.store_domain_file(domain, 'privkey.pem'))
-        cert = CertUtil(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
-        cert.validate_cert_matches_priv_key( TestEnv.store_domain_file(domain, 'privkey.pem') )
-
-        # check SANs and CN
-        assert cert.get_cn() == domain
-        # compare sets twice in opposite directions: SAN may not respect ordering
-        sanList = cert.get_san_list()
-        assert len(sanList) == len(dnsList)
-        assert set(sanList).issubset(dnsList)
-        assert set(dnsList).issubset(sanList)
-        # check valid dates interval
-        notBefore = cert.get_not_before()
-        notAfter = cert.get_not_after()
-        assert notBefore < datetime.now(notBefore.tzinfo)
-        assert notAfter > datetime.now(notAfter.tzinfo)
-
 
     RE_MSG_OPENSSL_BAD_DECRYPT = re.compile('.*\'bad decrypt\'.*')
 

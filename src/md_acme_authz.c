@@ -32,6 +32,7 @@
 #include "md_http.h"
 #include "md_log.h"
 #include "md_jws.h"
+#include "md_result.h"
 #include "md_store.h"
 #include "md_util.h"
 
@@ -120,7 +121,7 @@ apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *
     authz_req_ctx_init(&ctx, acme, domain, NULL, p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "create new authz");
-    rv = md_acme_POST(acme, acme->api.v1.new_authz, on_init_authz, authz_created, NULL, &ctx);
+    rv = md_acme_POST(acme, acme->api.v1.new_authz, on_init_authz, authz_created, NULL, NULL, &ctx);
     
     *pauthz = (APR_SUCCESS == rv)? ctx.authz : NULL;
     return rv;
@@ -303,7 +304,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
          * so it may (re)try verification */        
         authz_req_ctx_init(&ctx, acme, NULL, authz, p);
         ctx.challenge = cha;
-        rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
+        rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, NULL, &ctx);
     }
 out:
     return rv;
@@ -371,7 +372,7 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
          * so it may (re)try verification */        
         authz_req_ctx_init(&ctx, acme, NULL, authz, p);
         ctx.challenge = cha;
-        rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
+        rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, NULL, &ctx);
     }
 out:    
     return rv;
@@ -432,7 +433,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: dns-01 setup succeeded", authz->domain);
     authz_req_ctx_init(&ctx, acme, NULL, authz, p);
     ctx.challenge = cha;
-    rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, &ctx);
+    rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, NULL, &ctx);
     
 out:    
     return rv;
@@ -526,7 +527,8 @@ static apr_status_t find_type(void *baton, size_t index, md_json_t *json)
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
                                    apr_array_header_t *challenges, md_pkey_spec_t *key_spec,
-                                   apr_table_t *env, apr_pool_t *p, const char **psetup_token)
+                                   apr_table_t *env, apr_pool_t *p, const char **psetup_token,
+                                   md_result_t *result)
 {
     apr_status_t rv;
     int i;
@@ -549,8 +551,8 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
      *   from useing wildcard domains when dns is not available. etc.
      * - if there was an overlap, but no setup was successfull, report that. We
      *   will retry this, maybe the failure is temporary (e.g. command to setup DNS
-     
      */
+    md_result_activity_printf(result, "Selecting challenge type for domain %s", authz->domain);
     rv = APR_ENOTIMPL;
     challenge_setup = NULL;
     for (i = 0; i < challenges->nelts && !fctx.accepted; ++i) {
@@ -582,20 +584,21 @@ out:
         rv = APR_EINVAL;
         fctx.offered = apr_array_make(p, 5, sizeof(const char*));
         md_json_itera(collect_offered, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                      "%s: the server offers no ACME challenge that is configured "
-                      "for this MD. The server offered '%s' and available for this "
-                      "MD are: '%s' (via %s).",
-                      authz->domain, 
+        md_result_printf(result, rv, "None of offered challenge types are supported. "
+                      "The server offered '%s' and available are: '%s'.",
                       apr_array_pstrcat(p, fctx.offered, ' '),
-                      apr_array_pstrcat(p, challenges, ' '),
-                      authz->url);
-        return rv;
+                      apr_array_pstrcat(p, challenges, ' '));
+        result->problem = "challenge-mismatch";
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: %s", authz->domain, result->detail);
     }
     else if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                      "%s: none of the offered challenges could be set up successfully",
-                      authz->domain);
+        fctx.offered = apr_array_make(p, 5, sizeof(const char*));
+        md_json_itera(collect_offered, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
+        md_result_printf(result, rv, "None of the offered challenge types %s could be "
+                         "setup successfully. Please check the log for errors.",
+                         apr_array_pstrcat(p, fctx.offered, ' '));
+        result->problem = "challenge-setup-failure";
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: %s", authz->domain, result->detail);
     }
     return rv;
 }

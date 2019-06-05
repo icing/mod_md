@@ -469,7 +469,7 @@ apr_status_t md_acme_acct_update(md_acme_t *acme)
     }
     ctx.acme = acme;
     ctx.p = acme->p;
-    return md_acme_POST(acme, acme->acct->url, on_init_acct_upd, acct_upd, NULL, &ctx);
+    return md_acme_POST(acme, acme->acct->url, on_init_acct_upd, acct_upd, NULL, NULL, &ctx);
 }
 
 apr_status_t md_acme_acct_validate(md_acme_t *acme, md_store_t *store, apr_pool_t *p)
@@ -600,7 +600,7 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_
     }
     
     if (APR_SUCCESS != (rv = acct_make(&acme->acct,  p, acme->url, contacts))) goto out;
-    rv = md_acme_POST_new_account(acme,  on_init_acct_new, acct_upd, NULL, &ctx);
+    rv = md_acme_POST_new_account(acme,  on_init_acct_new, acct_upd, NULL, NULL, &ctx);
     if (APR_SUCCESS == rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, 
                       "registered new account %s", acme->acct->url);
@@ -647,7 +647,7 @@ apr_status_t md_acme_acct_deactivate(md_acme_t *acme, apr_pool_t *p)
                   acct->url, acct->ca_url);
     ctx.acme = acme;
     ctx.p = p;
-    return md_acme_POST(acme, acct->url, on_init_acct_del, acct_upd, NULL, &ctx);
+    return md_acme_POST(acme, acct->url, on_init_acct_del, acct_upd, NULL, NULL, &ctx);
 }
 
 /**************************************************************************************************/
@@ -684,7 +684,7 @@ apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *agreement
     
     ctx.acme = acme;
     ctx.p = p;
-    return md_acme_POST(acme, acme->acct->url, on_init_agree_tos, acct_upd, NULL, &ctx);
+    return md_acme_POST(acme, acme->acct->url, on_init_agree_tos, acct_upd, NULL, NULL, &ctx);
 }
 
 apr_status_t md_acme_check_agreement(md_acme_t *acme, apr_pool_t *p, 

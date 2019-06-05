@@ -32,6 +32,7 @@
 #include "md_http.h"
 #include "md_log.h"
 #include "md_jws.h"
+#include "md_result.h"
 #include "md_store.h"
 #include "md_util.h"
 
@@ -323,7 +324,7 @@ apr_status_t md_acme_order_register(md_acme_order_t **porder, md_acme_t *acme, a
     
     assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
     ORDER_CTX_INIT(&ctx, p, NULL, acme, name, domains);
-    rv = md_acme_POST(acme, acme->api.v2.new_order, on_init_order_register, on_order_upd, NULL, &ctx);
+    rv = md_acme_POST(acme, acme->api.v2.new_order, on_init_order_register, on_order_upd, NULL, NULL, &ctx);
     *porder = (APR_SUCCESS == rv)? ctx.order : NULL;
     return rv;
 }
@@ -334,7 +335,7 @@ apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, apr_p
     
     assert(MD_ACME_VERSION_MAJOR(acme->version) > 1);
     ORDER_CTX_INIT(&ctx, p, order, acme, NULL, NULL);
-    return md_acme_GET(acme, order->url, NULL, on_order_upd, NULL, &ctx);
+    return md_acme_GET(acme, order->url, NULL, on_order_upd, NULL, NULL, &ctx);
 }
 
 static apr_status_t await_ready(void *baton, int attempt)
@@ -428,13 +429,15 @@ apr_status_t md_acme_order_finalize(md_acme_order_t *order, md_acme_t *acme,
 apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *acme, 
                                             apr_array_header_t *challenge_types,
                                             md_store_t *store, const md_t *md, 
-                                            apr_table_t *env, apr_pool_t *p)
+                                            apr_table_t *env, apr_pool_t *p,
+                                            md_result_t *result)
 {
     apr_status_t rv = APR_SUCCESS;
     md_acme_authz_t *authz;
     const char *url, *setup_token;
     int i;
     
+    md_result_activity_printf(result, "Checking authz resources for %s", md->name);
     for (i = 0; i < order->authz_urls->nelts; ++i) {
         url = APR_ARRAY_IDX(order->authz_urls, i, const char*);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: check AUTHZ at %s", md->name, url);
@@ -451,7 +454,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
                 
             case MD_ACME_AUTHZ_S_PENDING:
                 rv = md_acme_authz_respond(authz, acme, store, challenge_types, 
-                                           md->pkey_spec, env, p, &setup_token);
+                                           md->pkey_spec, env, p, &setup_token, result);
                 if (APR_SUCCESS != rv) {
                     goto out;
                 }
@@ -461,6 +464,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
                 
             default:
                 rv = APR_EINVAL;
+                md_result_set(result, rv, NULL);
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: unexpected AUTHZ state %d at %s", 
                               authz->domain, authz->state, url);
              goto out;
