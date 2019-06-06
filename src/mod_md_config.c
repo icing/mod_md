@@ -27,6 +27,7 @@
 
 #include "md.h"
 #include "md_crypt.h"
+#include "md_log.h"
 #include "md_util.h"
 #include "mod_md_private.h"
 #include "mod_md_config.h"
@@ -587,7 +588,11 @@ static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const ch
         switch (percentage_parse(value, &percent)) {
             case APR_SUCCESS:
                 config->renew_norm = MD_TIME_RENEW_NORM;
-                config->renew_window = (long)(config->renew_norm * percent / 100L);
+                config->renew_window = apr_time_from_sec((apr_time_sec(config->renew_norm) * percent / 100L));
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, cmd->pool, 
+                              "configured renewal norm=%ld, window=%ld", 
+                              (long)apr_time_sec(config->renew_norm), 
+                              (long)apr_time_sec(config->renew_window));
                 return NULL;
             case APR_BADARG:
                 return "MDRenewWindow as percent must be less than 100";

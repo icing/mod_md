@@ -1,3 +1,8 @@
+v2.0.3
+----------------------------------------------------------------------------------------------------
+ * Fixed an integer overrun for renewal window configuration on 32bit systems that caused
+   renewal windows to drop to 0, e.g. renewal when expired. This only happened when
+   MDRenewWindow was explicitly configured.
  * JSON format of /.httpd/certificate-status slightly altered. See README.md for details.
  * ACME errors and problems in challenge selection that point to configuration mistakes
    are now visible in the md-status handler.

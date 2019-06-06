@@ -776,9 +776,6 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 }
                 if (MD_VAL_UPDATE(md, smd, renew_window) 
                     || MD_VAL_UPDATE(md, smd, renew_norm)) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
-                                  "%s: update renew norm=%ld, window=%ld", 
-                                  smd->name, (long)md->renew_norm, (long)md->renew_window);
                     smd->renew_norm = md->renew_norm;
                     smd->renew_window = md->renew_window;
                     fields |= MD_UPD_RENEW_WINDOW;

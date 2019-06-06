@@ -350,9 +350,13 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
         }
         if (md->renew_norm > 0) {
-            int precent = (int)(apr_time_sec(md->renew_window) * 100L 
-                                / apr_time_sec(md->renew_norm)); 
-            md_json_sets(apr_psprintf(p, "%d%%", precent), json, MD_KEY_RENEW_WINDOW, NULL);
+            int percent = (int)(((long)apr_time_sec(md->renew_window)) * 100L 
+                                / ((long)apr_time_sec(md->renew_norm))); 
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, 
+                          "md{%s}: md_to_json, renewal, percent=%d, win=%ld, norm=%ld", 
+                          md->name, percent, (long)apr_time_sec(md->renew_window),
+                          (long)apr_time_sec(md->renew_norm));
+            md_json_sets(apr_psprintf(p, "%d%%", percent), json, MD_KEY_RENEW_WINDOW, NULL);
         }
         else {
             md_json_sets(md_duration_format(p, md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
@@ -424,9 +428,9 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
                 if (percent <= 0 || percent >= 100) {
                     percent = 33;
                 }
-                md->renew_window = (long)(md->renew_norm * percent / 100L);
+                md->renew_window = apr_time_from_sec(apr_time_sec(md->renew_norm) * percent / 100L);
             }
-            else {
+            else if (s) {
                 md_duration_parse(&md->renew_window, s, "d");
             }
         }
