@@ -105,4 +105,5 @@ const char *md_config_gets(const md_srv_conf_t *config, md_config_var_t var);
 int md_config_geti(const md_srv_conf_t *config, md_config_var_t var);
 apr_interval_time_t md_config_get_interval(const md_srv_conf_t *config, md_config_var_t var);
 
+
 #endif /* md_config_h */

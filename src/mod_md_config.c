@@ -545,41 +545,6 @@ static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const c
     return NULL;
 }
 
-static apr_status_t duration_parse(const char *value, apr_interval_time_t *ptimeout, 
-                                   const char *def_unit)
-{
-    char *endp;
-    long funits = 1;
-    apr_status_t rv;
-    apr_int64_t n;
-    
-    n = apr_strtoi64(value, &endp, 10);
-    if (errno) {
-        return errno;
-    }
-    if (!endp || !*endp) {
-        if (strcmp(def_unit, "d") == 0) {
-            def_unit = "s";
-            funits = MD_SECS_PER_DAY;
-        }
-    }
-    else if (endp == value) {
-        return APR_EINVAL;
-    }
-    else if (*endp == 'd') {
-        *ptimeout = apr_time_from_sec(n * MD_SECS_PER_DAY);
-        return APR_SUCCESS;
-    }
-    else {
-        def_unit = endp;
-    }
-    rv = ap_timeout_parameter_parse(value, ptimeout, def_unit);
-    if (APR_SUCCESS == rv && funits > 1) {
-        *ptimeout *= funits;
-    }
-    return rv;
-}
-
 static apr_status_t percentage_parse(const char *value, int *ppercent)
 {
     char *endp;
@@ -613,7 +578,7 @@ static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const ch
     }
 
     /* Inspired by http_core.c */
-    if (duration_parse(value, &timeout, "d") == APR_SUCCESS) {
+    if (md_duration_parse(&timeout, value, "d") == APR_SUCCESS) {
         config->renew_norm = 0;
         config->renew_window = timeout;
         return NULL;
@@ -967,3 +932,4 @@ apr_interval_time_t md_config_get_interval(const md_srv_conf_t *sc, md_config_va
             return 0;
     }
 }
+

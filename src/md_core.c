@@ -350,11 +350,12 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
         }
         if (md->renew_norm > 0) {
-            md_json_sets(apr_psprintf(p, "%ld%%", (long)(md->renew_window * 100L / md->renew_norm)), 
-                                      json, MD_KEY_RENEW_WINDOW, NULL);
+            int precent = (int)(apr_time_sec(md->renew_window) * 100L 
+                                / apr_time_sec(md->renew_norm)); 
+            md_json_sets(apr_psprintf(p, "%d%%", precent), json, MD_KEY_RENEW_WINDOW, NULL);
         }
         else {
-            md_json_setl((long)apr_time_sec(md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
+            md_json_sets(md_duration_format(p, md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
         }
         md_json_setb(md_should_renew(md), json, MD_KEY_RENEW, NULL);
         if (md->ca_challenges && md->ca_challenges->nelts > 0) {
@@ -424,6 +425,9 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
                     percent = 33;
                 }
                 md->renew_window = (long)(md->renew_norm * percent / 100L);
+            }
+            else {
+                md_duration_parse(&md->renew_window, s, "d");
             }
         }
         if (md_json_has_key(json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL)) {

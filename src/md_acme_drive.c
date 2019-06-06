@@ -757,7 +757,7 @@ ready:
         md_result_printf(result, APR_SUCCESS, 
             "The certificate for the managed domain has been renewed successfully and can "
             "be used from %s on. A graceful server restart in %s is recommended.",
-            ts, md_print_duration(d->p, result->ready_at - now));
+            ts, md_duration_print(d->p, result->ready_at - now));
     }
     else {
         md_result_printf(result, APR_SUCCESS, 

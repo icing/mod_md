@@ -202,6 +202,21 @@ apr_status_t md_util_try(md_util_try_fn *fn, void *baton, int ignore_errs,
 #define MD_SECS_PER_HOUR      (60*60)
 #define MD_SECS_PER_DAY       (24*MD_SECS_PER_HOUR)
 
-const char *md_print_duration(apr_pool_t *p, apr_interval_time_t duration);
+/**
+ * Print a human readable form of the give duration in days/hours/min/sec 
+ */
+const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration);
+
+/**
+ * Print a machine readable form of the give duration that can be parsed back 
+ */
+const char *md_duration_format(apr_pool_t *p, apr_interval_time_t duration);
+
+/**
+ * Parse a machine readable string duration in the form of NN[unit], where
+ * unit is d/h/mi/s/ms with the default given should the unit not be specified.
+ */
+apr_status_t md_duration_parse(apr_interval_time_t *ptimeout, const char *value, 
+                               const char *def_unit);
 
 #endif /* md_util_h */

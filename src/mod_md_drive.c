@@ -128,7 +128,7 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
             job->next_run = apr_time_now() + delay;
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
                          "%s: encountered error for the %d. time, next run in %s",
-                         job->name, job->error_runs, md_print_duration(ptemp, delay));
+                         job->name, job->error_runs, md_duration_print(ptemp, delay));
         }
     }
     else if (md->valid_until > 0) {
@@ -263,7 +263,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             wait_time = next_run - apr_time_now();
             if (APLOGdebug(dctx->s)) {
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10107)
-                             "next run in %s", md_print_duration(ptemp, wait_time));
+                             "next run in %s", md_duration_print(ptemp, wait_time));
             }
             wd_set_interval(dctx->watchdog, wait_time, dctx, run_watchdog);
             break;

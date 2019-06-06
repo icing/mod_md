@@ -97,8 +97,6 @@
 		B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
 		B26A4BD822A5107F00D002BC /* test_0920_status.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0920_status.py; sourceTree = "<group>"; };
 		B26A4BDA22A65FFB00D002BC /* 002.pubcert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = 002.pubcert; sourceTree = "<group>"; };
-		B26A4BDB22A6BDAA00D002BC /* renewal_40.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = renewal_40.conf; sourceTree = "<group>"; };
-		B26A4BDC22A6C8D300D002BC /* renewal_0.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = renewal_0.conf; sourceTree = "<group>"; };
 		B26A4BDE22A7B8C100D002BC /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		B26A4BDF22A7B8C100D002BC /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
 		B26A4BE022A7B8C100D002BC /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
@@ -270,8 +268,6 @@
 				B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */,
 				75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */,
 				B2B81EC11F0FAC2000E35CA3 /* other_base.conf */,
-				B26A4BDB22A6BDAA00D002BC /* renewal_40.conf */,
-				B26A4BDC22A6C8D300D002BC /* renewal_0.conf */,
 			);
 			path = test_conf_store;
 			sourceTree = "<group>";

@@ -324,7 +324,7 @@ static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *i
                 s = md_json_dups(ctx->p, mdj,  MD_KEY_RENEWAL, MD_KEY_VALID_FROM, NULL);
                 t = apr_date_parse_rfc(s);
                 apr_brigade_puts(ctx->bb, NULL, NULL, (apr_time_now() >= t)?
-                                 ", since: " : ", valid at: ");
+                                 ", since: " : ", at: ");
                 si_val_time(ctx, t);
             }
         } 

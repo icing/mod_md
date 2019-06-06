@@ -12,6 +12,7 @@ from datetime import datetime
 from httplib import HTTPConnection
 from shutil import copyfile
 from test_base import TestEnv
+from test_base import HttpdConf
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -165,7 +166,7 @@ class TestConf:
         # test case: renew window - 14 days
         TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
 
     def test_310_113a(self):
         # test case: renew window - 10 percent
@@ -204,7 +205,7 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
 
     def test_310_119(self):
         # test case: set RSA key length 2048
@@ -314,7 +315,7 @@ class TestConf:
         TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
 
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
@@ -454,12 +455,12 @@ class TestConf:
         TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
         md = TestEnv.a2md(["list"])['jout']['output'][0]
-        assert md['renew-window'] == 14 * SEC_PER_DAY
+        assert md['renew-window'] == '14d'
 
         TestEnv.install_test_conf("renew_10");
         assert TestEnv.apache_restart() == 0
         md = TestEnv.a2md(["list"])['jout']['output'][0]
-        assert md['renew-window'] == 10 * SEC_PER_DAY
+        assert md['renew-window'] == '10d'
 
         TestEnv.install_test_conf("renew_10p");
         assert TestEnv.apache_restart() == 0
@@ -534,16 +535,23 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
 
-    def test_310_310(self):
+    @pytest.mark.parametrize("window", [
+        ("0%"), ("33d"), ("40%")
+    ])
+    def test_310_310(self, window):
         # non-default renewal setting
-        TestEnv.install_test_conf("renewal_0");
+        domain = self.test_domain
+        conf = HttpdConf()
+        conf.add_admin("admin@" + domain)
+        conf.start_md( [domain])
+        conf.add_drive_mode("manual")
+        conf.add_renew_window(window)
+        conf.end_md()
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ domain ])
+        conf.install()
         assert TestEnv.apache_restart() == 0
-        stat = TestEnv.get_md_status("testdomain.org")
-        assert stat["renew-window"] == "0%"
-        TestEnv.install_test_conf("renewal_40");
-        assert TestEnv.apache_restart() == 0
-        stat = TestEnv.get_md_status("testdomain.org")
-        assert stat["renew-window"] == "40%"
+        stat = TestEnv.get_md_status(domain)
+        assert stat["renew-window"] == window
 
 
     # --------- status reset on critical store changes ---------
