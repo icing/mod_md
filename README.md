@@ -193,19 +193,35 @@ When a new certificate has been obtained, but is not activated yet, this will sh
   "valid-until": "Sun, 30 Jun 2019 06:47:43 GMT",
   "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
   "sha256-fingerprint" : "xx:yy:zz:..."
-  "staging": {
+  "renewal": {
     "valid-from": "Tue, 21 May 2019 11:53:59 GMT",
     "valid-until": "Mon, 19 Aug 2019 11:53:59 GMT",
     "serial": "FFC16E5FEFBE90805AC153D70EF9E8D3873A",
-    "cert": "LS0tLS1...VRFLS0tLS0K"
     "sha256-fingerprint" : "aa:bb:cc:..."
   }
 ```
-And ```cert``` will give the whole certificate in base64url encoding. Again, once the server reload, this certificate will be send to anyone opening a TLS conncection to this domain. No privacy is lost in announcing this beforehand. Instead, security might be gained: if you see someong getting a new certificate for your domain (as visible in the [new CT Log](https://letsencrypt.org/2019/05/15/introducing-oak-ct-log.html)), you can contact your Apache and check if it was the one responsible.
+with `renewal` giving the properties of the new certificate, once it has been obtained. This can
+be exposed publicly as well, since - once the server is reloaded, it is part of every TLS connection.
 
-(Caveat: the path for this resource might still move based on user input and/if other servers might be interested in picking this up.)
+If `mod_md` is linked with an OpenSSL v1.1.x or higher, it also exposes [certificate transparency](https://www.certificate-transparency.org) information for the new certificate. This would look like this:
 
+```
+  "renewal": {
+    ...
+    "scts": [
+      { "logid": "747eda8331ad331091219cce254f4270c2bffd5e422008c6373579e6107bcc56",
+        "signed": 'Fri, 31 May 2019 17:06:35 GMT',
+        "signature" : "<more hex>",
+        "signature-type" : "<algorithm name>"
+      }, {
+        ...
+      }
+    ]
+```
+These `scts` are signatures of Certificate Transparency Logs (CTLogs). The `logid` is the identifier
+of the CTLog (source to identify the particular log are [given here](https://www.certificate-transparency.org/known-logs). The CTLog has a public key which allows verification of this signature. The purpose of this logging is [explained in detail at the certificate transparency site](https://www.certificate-transparency.org/what-is-ct).
 
+In short, they allow anyone to monitor these CTLogs and detect certificates more easily that should not have been issued. For example, you own the domain `mydomain.com` and monitor the trusted CTLogs for certificates that contain domain names for your domain. Seeing such a new certificate, you can check your servers if they already use it, or have it in `renewal`. If neither is the case, the certificate was not requested by your server and maybe someone tricked a CA into creating it. 
 
 # Using Lets Encrypt
 

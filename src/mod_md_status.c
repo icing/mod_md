@@ -55,51 +55,9 @@
 #define APACHE_PREFIX               "/.httpd/"
 #define MD_STATUS_RESOURCE          APACHE_PREFIX"certificate-status"
 
-static apr_status_t json_add_cert_info(md_json_t *json, md_cert_t *cert, apr_pool_t *p)
-{
-    char ts[APR_RFC822_DATE_LEN];
-    const char *finger, *hex;
-    apr_status_t rv = APR_SUCCESS;
-    apr_array_header_t *scts;
-    int i;
-    const md_sct *sct;
-    md_json_t *sctj;
-    
-    apr_rfc822_date(ts, md_cert_get_not_before(cert));
-    md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
-    apr_rfc822_date(ts, md_cert_get_not_after(cert));
-    md_json_sets(ts, json, MD_KEY_VALID_UNTIL, NULL);
-    md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
-    if (APR_SUCCESS != (rv = md_cert_to_sha256_fingerprint(&finger, cert, p))) goto leave;
-    md_json_sets(finger, json, MD_KEY_SHA256_FINGERPRINT, NULL);
-
-    scts = apr_array_make(p, 5, sizeof(const md_sct*));
-    if (APR_SUCCESS == md_cert_get_ct_scts(scts, p, cert)) {
-        for (i = 0; i < scts->nelts; ++i) {
-            sct = APR_ARRAY_IDX(scts, i, const md_sct*);
-            sctj = md_json_create(p);
-            
-            apr_rfc822_date(ts, sct->timestamp);
-            md_json_sets(ts, sctj, "signed", NULL);
-            md_json_setl(sct->version, sctj, MD_KEY_VERSION, NULL);
-            md_data_to_hex(&hex, 0, p, sct->logid);
-            md_json_sets(hex, sctj, "logid", NULL);
-            md_data_to_hex(&hex, 0, p, sct->signature);
-            md_json_sets(hex, sctj, "signature", NULL);
-            md_json_sets(md_nid_get_sname(sct->signature_type_nid), sctj, "signature-type", NULL);
-            md_json_addj(sctj, json, "scts", NULL);
-        }
-    }
-    
-leave:
-    return rv;
-}
-
 int md_http_cert_status(request_rec *r)
 {
-    apr_array_header_t *certs;
-    md_cert_t *cert_staged;
-    md_json_t *resp, *j, *mdj;
+    md_json_t *resp, *j, *mdj, *certj;
     const md_srv_conf_t *sc;
     const md_t *md;
     apr_bucket_brigade *bb;
@@ -155,36 +113,16 @@ int md_http_cert_status(request_rec *r)
     }
     
     if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
-        j = md_json_create(r->pool);
-        md_json_setj(j, resp, "staging", NULL);
-        
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
-                      "status for MD: %s is renewing", md->name);
-
-        cert_staged = NULL;
-        rv = md_pubcert_load(md_reg_store_get(sc->mc->reg), MD_SG_STAGING, md->name, &certs, r->pool);
-        if (APR_SUCCESS == rv && certs->nelts > 0) {
-            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
-                          "md(%s): adding staged certificate info", md->name);
-            cert_staged = APR_ARRAY_IDX(certs, 0, md_cert_t *);
-            json_add_cert_info(j, cert_staged, r->pool);
-        }
-        else if (APR_STATUS_IS_ENOENT(rv)) {
-            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, rv, r,
-                          "md(%s): no certificate yet", md->name);
-        }
-        else {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
-                          "loading staged certificates for %s", md->name);
-            return HTTP_INTERNAL_SERVER_ERROR;
-        }
+        /* copy over the information we want to make public about this:
+         *  - when not finished, add an empty object to indicate something is going on
+         *  - when a certificate is staged, add the information from that */
+        certj = md_json_getj(mdj, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
+        j = certj? certj : md_json_create(r->pool);; 
+        md_json_setj(j, resp, MD_KEY_RENEWAL, NULL);
     }
     
-    ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
-                  "sending status for MD: %s", md->name);
-
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "md[%s]: sending status", md->name);
     apr_table_set(r->headers_out, "Content-Type", "application/json"); 
-
     bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
     md_json_writeb(resp, MD_JSON_FMT_INDENT, bb);
     ap_pass_brigade(r->output_filters, bb);

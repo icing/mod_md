@@ -33,11 +33,80 @@
 #include "md_util.h"
 #include "md_status.h"
 
+/**************************************************************************************************/
+/* certificate status information */
+
+static apr_status_t status_get_cert_json(md_json_t **pjson, md_cert_t *cert, apr_pool_t *p)
+{
+    char ts[APR_RFC822_DATE_LEN];
+    const char *finger, *hex;
+    apr_status_t rv = APR_SUCCESS;
+    apr_array_header_t *scts;
+    int i;
+    const md_sct *sct;
+    md_json_t *sctj, *json;
+    
+    json = md_json_create(p);
+    apr_rfc822_date(ts, md_cert_get_not_before(cert));
+    md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
+    apr_rfc822_date(ts, md_cert_get_not_after(cert));
+    md_json_sets(ts, json, MD_KEY_VALID_UNTIL, NULL);
+    md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
+    if (APR_SUCCESS != (rv = md_cert_to_sha256_fingerprint(&finger, cert, p))) goto leave;
+    md_json_sets(finger, json, MD_KEY_SHA256_FINGERPRINT, NULL);
+
+    scts = apr_array_make(p, 5, sizeof(const md_sct*));
+    if (APR_SUCCESS == md_cert_get_ct_scts(scts, p, cert)) {
+        for (i = 0; i < scts->nelts; ++i) {
+            sct = APR_ARRAY_IDX(scts, i, const md_sct*);
+            sctj = md_json_create(p);
+            
+            apr_rfc822_date(ts, sct->timestamp);
+            md_json_sets(ts, sctj, "signed", NULL);
+            md_json_setl(sct->version, sctj, MD_KEY_VERSION, NULL);
+            md_data_to_hex(&hex, 0, p, sct->logid);
+            md_json_sets(hex, sctj, "logid", NULL);
+            md_data_to_hex(&hex, 0, p, sct->signature);
+            md_json_sets(hex, sctj, "signature", NULL);
+            md_json_sets(md_nid_get_sname(sct->signature_type_nid), sctj, "signature-type", NULL);
+            md_json_addj(sctj, json, "scts", NULL);
+        }
+    }
+leave:
+    *pjson = (APR_SUCCESS == rv)? json : NULL;
+    return rv;
+}
+
+/**************************************************************************************************/
+/* md status information */
+
+static apr_status_t get_staging_cert_json(md_json_t **pjson, apr_pool_t *p, 
+                                          md_reg_t *reg, const md_t *md)
+{ 
+    md_json_t *json = NULL;
+    apr_array_header_t *certs;
+    md_cert_t *cert;
+    apr_status_t rv = APR_SUCCESS;
+    
+    rv = md_pubcert_load(md_reg_store_get(reg), MD_SG_STAGING, md->name, &certs, p);
+    if (APR_STATUS_IS_ENOENT(rv) || certs->nelts == 0) {
+        rv = APR_SUCCESS;
+        goto leave;
+    }
+    else if (APR_SUCCESS != rv) {
+        goto leave;
+    }
+    cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);
+    rv = status_get_cert_json(&json, cert, p);
+leave:
+    *pjson = (APR_SUCCESS == rv)? json : NULL;
+    return rv;
+}
 
 apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md, 
                                    md_reg_t *reg, apr_pool_t *p)
 {
-    md_json_t *mdj, *jobj;
+    md_json_t *mdj, *jobj, *certj;
     int renew;
     apr_status_t rv = APR_SUCCESS;
 
@@ -47,11 +116,13 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
     if (renew) {
         rv = md_status_job_loadj(&jobj, md->name, reg, p);
         if (APR_SUCCESS == rv) {
+            rv = get_staging_cert_json(&certj, p, reg, md);
+            if (APR_SUCCESS != rv) goto leave;
+            if (certj) md_json_setj(certj, jobj, MD_KEY_CERT, NULL);
             md_json_setj(jobj, mdj, MD_KEY_RENEWAL, NULL);
         }
         else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;
         else goto leave;
-        
     }
 leave:
     *pjson = (APR_SUCCESS == rv)? mdj : NULL;

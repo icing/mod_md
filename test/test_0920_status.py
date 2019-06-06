@@ -53,20 +53,20 @@ class TestStatus:
         assert TestEnv.await_completion( [ domain ], restart=False )
         # we started without a valid certificate, so we expect /.httpd/certificate-status
         # to not give information about one and - since we waited for the ACME signup
-        # to complete - to give information in 'staging' about the new cert.
+        # to complete - to give information in 'renewal' about the new cert.
         status = TestEnv.get_certificate_status( domain )
         assert not 'sha256-fingerprint' in status
         assert not 'valid-until' in status
         assert not 'valid-from' in status
-        assert 'staging' in status
-        assert 'valid-until' in status['staging']
-        assert 'valid-from' in status['staging']
-        assert 'sha256-fingerprint' in status['staging']
+        assert 'renewal' in status
+        assert 'valid-until' in status['renewal']
+        assert 'valid-from' in status['renewal']
+        assert 'sha256-fingerprint' in status['renewal']
         # restart and activate
         # once activated, the staging must be gone and attributes exist for the active cert
         assert TestEnv.apache_restart() == 0
         status = TestEnv.get_certificate_status( domain )
-        assert not 'staging' in status
+        assert not 'renewal' in status
         assert 'sha256-fingerprint' in status
         assert 'valid-until' in status
         assert 'valid-from' in status
@@ -88,13 +88,13 @@ class TestStatus:
         assert copyfile(real_cert, staged_cert) == None
         status = TestEnv.get_certificate_status( domain )
         # status shows the copied cert's properties as staged
-        assert 'staging' in status
-        assert 'Thu, 29 Aug 2019 16:06:35 GMT' == status['staging']['valid-until']
-        assert 'Fri, 31 May 2019 16:06:35 GMT' == status['staging']['valid-from']
-        assert '03039C464D454EDE79FCD2CAE859F668F269' ==  status['staging']['serial'] 
-        assert 'sha256-fingerprint' in status['staging']
-        assert len(status['staging']['scts']) == 2
-        assert status['staging']['scts'][0]['logid'] == '747eda8331ad331091219cce254f4270c2bffd5e422008c6373579e6107bcc56'
-        assert status['staging']['scts'][0]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
-        assert status['staging']['scts'][1]['logid'] == '293c519654c83965baaa50fc5807d4b76fbf587a2972dca4c30cf4e54547f478'
-        assert status['staging']['scts'][1]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
+        assert 'renewal' in status
+        assert 'Thu, 29 Aug 2019 16:06:35 GMT' == status['renewal']['valid-until']
+        assert 'Fri, 31 May 2019 16:06:35 GMT' == status['renewal']['valid-from']
+        assert '03039C464D454EDE79FCD2CAE859F668F269' ==  status['renewal']['serial'] 
+        assert 'sha256-fingerprint' in status['renewal']
+        assert len(status['renewal']['scts']) == 2
+        assert status['renewal']['scts'][0]['logid'] == '747eda8331ad331091219cce254f4270c2bffd5e422008c6373579e6107bcc56'
+        assert status['renewal']['scts'][0]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
+        assert status['renewal']['scts'][1]['logid'] == '293c519654c83965baaa50fc5807d4b76fbf587a2972dca4c30cf4e54547f478'
+        assert status['renewal']['scts'][1]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'

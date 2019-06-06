@@ -1,3 +1,4 @@
+ * JSON format of /.httpd/certificate-status slightly altered. See README.md for details.
  * ACME errors and problems in challenge selection that point to configuration mistakes
    are now visible in the md-status handler.
  * Testsuite cleanup amd use of new md-status handler to verify progress.

@@ -608,9 +608,9 @@ class TestEnv:
         return True
 
     @classmethod
-    def is_staging(cls, name, timeout=60):
+    def is_renewing(cls, name, timeout=60):
         stat = TestEnv.get_certificate_status(name, timeout)
-        return 'staging' in stat
+        return 'renewal' in stat
 
     @classmethod
     def await_renew_state(cls, names, timeout=60):

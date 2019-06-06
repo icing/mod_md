@@ -104,9 +104,10 @@ class TestAutov2:
         # await drive completion, do not restart
         assert TestEnv.await_completion( [ domainA, domainB ], restart=False )
         # staged certificates are now visible on the status resources
-        status = TestEnv.get_certificate_status( domainA )
-        assert 'staging' in status
-        assert 'sha256-fingerprint' in status['staging']
+        status = TestEnv.get_md_status( domainA )
+        assert 'renewal' in status
+        assert 'cert' in status['renewal']
+        assert 'sha256-fingerprint' in status['renewal']['cert']
         # restart and activate
         assert TestEnv.apache_restart() == 0
         # check: SSL is running OK
@@ -354,7 +355,7 @@ class TestAutov2:
         conf.install()
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(domain, dns_list)
-        assert not TestEnv.is_staging( domain )
+        assert not TestEnv.is_renewing( domain )
 
         # now the same with a 80 mapped to a supported port 
         conf = HttpdConf()
@@ -385,7 +386,7 @@ class TestAutov2:
         conf.install()
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(domain, dns_list)
-        assert not TestEnv.is_staging( domain )
+        assert not TestEnv.is_renewing( domain )
 
         # now the same with a 80 mapped to a supported port 
         conf = HttpdConf()
@@ -598,7 +599,7 @@ class TestAutov2:
         TestEnv.check_md(domain, dns_list)
         md = self._get_md(domain)
         assert False == md["proto"]["acme-tls/1"]
-        assert not TestEnv.is_staging( domain )
+        assert not TestEnv.is_renewing( domain )
         
 
     # --------- _utils_ ---------

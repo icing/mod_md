@@ -347,7 +347,7 @@ class TestAutov1:
         conf.install()
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(domain, dns_list)
-        assert not TestEnv.is_staging( domain )
+        assert not TestEnv.is_renewing( domain )
 
         # now the same with a 80 mapped to a supported port 
         conf = HttpdConf()
@@ -377,7 +377,7 @@ class TestAutov1:
         conf.install()
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(domain, dns_list)
-        assert not TestEnv.is_staging( domain )
+        assert not TestEnv.is_renewing( domain )
 
         # now the same with a 443 mapped to a supported port 
         conf = HttpdConf()
