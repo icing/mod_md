@@ -7,6 +7,11 @@ This repository contains `mod_md`, a module for Apache httpd that adds support f
 
 Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1.1.x. For a documentation of that version, [head over to the Apache documentation](https://httpd.apache.org/docs/2.4/mod/mod_md.html).
 
+  - [HowTos](#howtos)
+    * [Add a new `https:` Host](#howto-add-a-host)
+    * [Migrate an existing Host](#howto-migrate-a-host)
+    * [Live with `http:`](#howto-living-with-http-)
+    * [Life without `http:`](#howto-life-without-http-)
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
   - [Lets Encrypt Migration](#lets-encrypt-migration)
@@ -21,6 +26,18 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
   - [Dipping the Toe](#dipping-the-toe)
   - [File Storage](#file-storage)
   - [Configuration Directives](#directives)
+
+# HowTos
+
+## HowTo: Add a Host
+
+## HowTo: Migrate a Host
+
+## HowTo: Living with http:
+
+## HowTo: Life without http:
+
+
 
 # Installation
 
