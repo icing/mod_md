@@ -100,7 +100,7 @@ The module will use this name to find all hosts that belong to it and take care 
 
 During startup, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
 
-Now, when you open `https://mydomain.com/ in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considurations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
+Now, when you open `https://mydomain.com/` in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considurations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
 
 In the meantime, right after the Apache has started, `mod_md` will contact Let's Encrypt and request a certificate for your. This usually takes less than a minute. There are several ways to check the progress of this ([see Monitoring](#monitoring) for more about this), but for this first time you should maybe look into the server's error log.
 
