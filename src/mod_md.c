@@ -1176,7 +1176,6 @@ static int md_require_https_maybe(request_rec *r)
                     s = apr_uri_unparse(r->pool, &uri, APR_URI_UNP_OMITUSERINFO);
                     if (s && *s) {
                         apr_table_setn(r->headers_out, "Location", s);
-                        apr_table_setn(r->headers_out, "sorry-about", "that");
                         return status;
                     }
                 }
@@ -1215,7 +1214,7 @@ static void md_hooks(apr_pool_t *pool)
     ap_hook_child_init(md_child_init, NULL, mod_ssl, APR_HOOK_MIDDLE);
 
     /* answer challenges *very* early, before any configured authentication may strike */
-    ap_hook_post_read_request(md_require_https_maybe, NULL, NULL, APR_HOOK_FIRST);
+    ap_hook_post_read_request(md_require_https_maybe, mod_ssl, NULL, APR_HOOK_MIDDLE);
     ap_hook_post_read_request(md_http_challenge_pr, NULL, NULL, APR_HOOK_MIDDLE);
 
     ap_hook_protocol_propose(md_protocol_propose, NULL, NULL, APR_HOOK_MIDDLE);
@@ -1223,7 +1222,7 @@ static void md_hooks(apr_pool_t *pool)
     ap_hook_protocol_get(md_protocol_get, NULL, NULL, APR_HOOK_MIDDLE);
 
     /* Status request handlers and contributors */
-    ap_hook_post_read_request(md_http_cert_status, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_post_read_request(md_http_cert_status, NULL, mod_ssl, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ap, status_hook, md_status_hook, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(md_status_handler, NULL, NULL, APR_HOOK_MIDDLE);
 
