@@ -75,6 +75,7 @@ class TestAutov2:
 
         # file system needs to have correct permissions
         TestEnv.check_file_permissions( domain )
+        time.sleep(3600)
 
     #-----------------------------------------------------------------------------------------------
     # test case: same as test_7001, but with two parallel managed domains

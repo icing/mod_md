@@ -7,11 +7,11 @@ This repository contains `mod_md`, a module for Apache httpd that adds support f
 
 Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1.1.x. For a documentation of that version, [head over to the Apache documentation](https://httpd.apache.org/docs/2.4/mod/mod_md.html).
 
-  - [HowTos](#howtos)
-    * [Add a new `https:` Host](#howto-add-a-host)
-    * [Migrate an existing Host](#howto-migrate-a-host)
-    * [Live with `http:`](#howto-living-with-http-)
-    * [Life without `http:`](#howto-life-without-http-)
+  - [HowTos:](#howtos)
+    * [Add a new `https:` Host](#how-to-add-a-host)
+    * [Migrate an existing Host](#how-to-migrate-a-host)
+    * [Live with `http:`](#how-to-live-with-http-)
+    * [Live without `http:`](#how-to-live-without-http-)
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
   - [Lets Encrypt Migration](#lets-encrypt-migration)
@@ -29,13 +29,33 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
 
 # HowTos
 
-## HowTo: Add a Host
+This is a list of recipes on how you can use `mod_md` in your Apache configuration. This assumes that you are somewhat familiar with Apache's configuration directives `Listen`, `VirtualHost`, `SSLEngine` and friends. It also assumes that your Apache is running, has the basic modules loaded. You can see a document in your browser (maybe only on `http:` for now).
 
-## HowTo: Migrate a Host
+### What to Check
 
-## HowTo: Living with http:
+Your Apache is working and listens on port 80. It runs on a machine you can connect to. You want it to serve `https:`. And it should be _real_ `https:` with a certificate from Let's Encrypt and it should show a green lock (or whatever is the fashion nowadays) in browers. 
 
-## HowTo: Life without http:
+Well, there are some prerequisites for that:
+
+ * Do you have a domain name that your server should respond to? Let's call this `mydomain.com` for simplicity from now on.
+ * Can you open `http://mydomain.com/` in a browser and get something back from your server?
+ * Can you also do that from the internet? (When in doubt, switch off WLAN on your phone and open the browser from there)
+
+This sounds good. You have a running setup for `http:`. In case you're not aware, `http:` runs on port 80. Somewhere in your Apache configuration there is a line like
+
+```
+Listen 80
+```
+`https:` listens on port 443. So, either this is already the case, or you need to add another `Listen` line for this. If you cannot immediately find it: some installations have it in another file that gets included.
+
+## How to Add a Host
+
+
+## How to Migrate a Host
+
+## How to Live with http:
+
+## How to Live without http:
 
 
 

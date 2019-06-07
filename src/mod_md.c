@@ -1176,6 +1176,7 @@ static int md_require_https_maybe(request_rec *r)
                     s = apr_uri_unparse(r->pool, &uri, APR_URI_UNP_OMITUSERINFO);
                     if (s && *s) {
                         apr_table_setn(r->headers_out, "Location", s);
+                        apr_table_setn(r->headers_out, "sorry-about", "that");
                         return status;
                     }
                 }
