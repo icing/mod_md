@@ -8,10 +8,12 @@ This repository contains `mod_md`, a module for Apache httpd that adds support f
 Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1.1.x. For a documentation of that version, [head over to the Apache documentation](https://httpd.apache.org/docs/2.4/mod/mod_md.html).
 
   - [HowTos:](#howtos)
-    * [Add a new `https:` Host](#how-to-add-a-host)
+    * [Add a new `https:` Host](#how-to-add-a-new-host)
+    * [Add `https:` to a `http:` Host](#how-to-add-https-to-a-host)
     * [Migrate an existing Host](#how-to-migrate-a-host)
     * [Live with `http:`](#how-to-live-with-http-)
     * [Live without `http:`](#how-to-live-without-http-)
+    * [Analye and fix problems](#how-to-fix-problems)
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
   - [Lets Encrypt Migration](#lets-encrypt-migration)
@@ -46,10 +48,74 @@ This sounds good. You have a running setup for `http:`. In case you're not aware
 ```
 Listen 80
 ```
-`https:` listens on port 443. So, either this is already the case, or you need to add another `Listen` line for this. If you cannot immediately find it: some installations have it in another file that gets included.
+`https:` listens on port 443. So, either this is already the case, or you need to add another `Listen` line for this. If you cannot immediately find it: some installations have it in another file that gets included. If it is not there, add it.
 
-## How to Add a Host
+To use `mod_md` you need it loaded into your server. This varies a bit, depending on what installation you use. In debian/ubuntu, for example, there is a command to activate it:
 
+```
+> a2enmod md
+Enabling module md.
+To activate the new configuration, you need to run:
+  service apache2 restart
+```
+There is no harm in doing this again:
+
+```
+> a2enmod md
+Module md already enabled
+```
+Also make sure that `mod_ssl` and `mod_watchdog` are enabled. watchdog is often directly part of the server and not an external module. Then there is no need to enable it.
+
+One last thing. There is usually an email address in your Apache configuration, configured with the `ServerAdmin` directive. Sometimes, it has a meaningless default. It has been mainly used in error responses as "Contact admin@something.com..." so far and people do not really lose sleep about it being an invalid address. Not so any more!
+
+`mod_md` will use that email address when registering your domains at Let's Encrypt. And they will try to contact you with important news, should the need arise. So, make sure this is a real address that you monitor! 
+
+## How to Add a New Host
+
+When you pass the checks from the previous chapter, we can add our `https:` host. As in the checks chapter, we use `mydomain.com` as the name. Exchange this with the domain you actually have.
+
+In the Apache config (or one file included from it), you add now:
+
+```
+MDCertificateAgreement accepted
+MDomain mydomain.com
+
+<VirtualHost *:443>
+  ServerName mydomain.org
+  SSLEngine on
+  DocumentRoot ...path-you-serve-here...
+  ...
+</VirtualHost>
+```
+and then you restart your server.
+
+What did we do here? We made a host that answers on port 443 and we told `mod_ssl` that it should be active here. But we did not specify any certificates! If you look at examples for ssl in Apache on the web, there are always `SSLCertificateFile` and `SSLCertificateKEyFile` used. This is no longer necessary.
+
+And while we left out parts of the SSL configurations that used to be necessary, we added two lines of `mod_md` configuration:
+
+  * `MDCertfificateAgreement`: this needs to appear once in your config. It means that you have read and accepted the Terms of Service from Let's Encrypt. There are some obligations in there that you handle the certificates responsibly. So, yeah, maybe you should have a look at that.
+  * `MDomain`: this is how you declare that a domain should be manged by `mod_md`. 
+
+The module will use this name to find all hosts that belong to it and take care of those. When `mod_ssl` does not find any certificates, because you did not confifugre any, it will ask `mod_md`: "Hey, do you know anything about `mydomain.com`?" And it will answer: "Sure, use these files here for the certificates!"
+
+During startup, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, you server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
+
+Now, when you open `https://mydomain.com/ in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considurations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
+
+In the meantime, right after the Apache has started, `mod_md` will contact Let's Encrypt and request a certificate for your. This usually takes less than a minute. There are several ways to check the progress of this ([see Monitoring](#monitoring) for more about this), but for this first time you should maybe look into the server's error log.
+
+If you find an entry there like:
+
+```
+[Date] [md:notice] [pid nnn] AH10059: The Managed Domain mydomain.com has been setup 
+and changes will be activated on next (graceful) server restart.
+```
+
+If this does not happen, something is not right and [you should read here on how to analyze and fix problems](#how-to-fix-problems). But assuming this worked, you now simply do a reload of the server and `https://mydomain.com/` should work nicely and with a green lock in your browser. ("reload" is just a short name for a "graceful" restart, one that does not interrupt ongoing requests.)
+
+Congratulations!
+
+## How to Add https to a Host
 
 ## How to Migrate a Host
 
@@ -57,7 +123,7 @@ Listen 80
 
 ## How to Live without http:
 
-
+## How to Fix Problems
 
 # Installation
 

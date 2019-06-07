@@ -101,6 +101,7 @@
 		B26A4BDF22A7B8C100D002BC /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
 		B26A4BE022A7B8C100D002BC /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
 		B26A4BE122A7B8C100D002BC /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
+		B26A4BE222AAB30600D002BC /* mod_md_status.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mod_md_status.png; sourceTree = SOURCE_ROOT; };
 		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
 		B298D5C2229BE6FC00245316 /* md_status.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_status.h; sourceTree = "<group>"; };
@@ -379,6 +380,8 @@
 				B2D309A51EBA229F007BECC8 /* INSTALL */,
 				B2D309A61EBA229F007BECC8 /* LICENSE */,
 				B2D309A71EBA229F007BECC8 /* Makefile.am */,
+				B298D5CB229E8AA600245316 /* mod_md_lib */,
+				B26A4BE222AAB30600D002BC /* mod_md_status.png */,
 				B2D309A81EBA229F007BECC8 /* NEWS */,
 				B2FC60771F5D95DD005B7D9E /* patches */,
 				B2D309A91EBA229F007BECC8 /* README */,
@@ -386,7 +389,6 @@
 				B2D31B061EC33CBE007BECC8 /* src */,
 				B2D309EF1EC1AD26007BECC8 /* test */,
 				B2FC60761F59894A005B7D9E /* TODO.md */,
-				B298D5CB229E8AA600245316 /* mod_md_lib */,
 			);
 			path = /Users/sei/projects/mod_cert/mod_cert.xcodeproj;
 			sourceTree = "<absolute>";
