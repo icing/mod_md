@@ -96,9 +96,9 @@ And while we left out parts of the SSL configurations that used to be necessary,
   * `MDCertfificateAgreement`: this needs to appear once in your config. It means that you have read and accepted the Terms of Service from Let's Encrypt. There are some obligations in there that you handle the certificates responsibly. So, yeah, maybe you should have a look at that.
   * `MDomain`: this is how you declare that a domain should be manged by `mod_md`. 
 
-The module will use this name to find all hosts that belong to it and take care of those. When `mod_ssl` does not find any certificates, because you did not confifugre any, it will ask `mod_md`: "Hey, do you know anything about `mydomain.com`?" And it will answer: "Sure, use these files here for the certificates!"
+The module will use this name to find all hosts that belong to it and take care of those. When `mod_ssl` does not find any certificates, because you did not configure any, it will ask `mod_md`: "Hey, do you know anything about `mydomain.com`?" And it will answer: "Sure, use these files here for the certificates!"
 
-During startup, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, you server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
+During startup, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
 
 Now, when you open `https://mydomain.com/ in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considurations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
 
@@ -536,7 +536,7 @@ MDomain www.mydomain.org
 </VirtualHost>
 ```
 
-If you open links like ```https://mydomain/``` right away, your browser might show you an error. This happens because it takes some short amount of time to contact [Let's Encrypt](https://letsencrypt.org) and get a certificate from them that your browser trusts. After that succeeded, you will need to reload your server (mod_md tells you in the server log when this is necessary).
+If you open links like `https://mydomain/` right away, your browser might show you an error. This happens because it takes some short amount of time to contact [Let's Encrypt](https://letsencrypt.org) and get a certificate from them that your browser trusts. After that succeeded, you will need to reload your server (mod_md tells you in the server log when this is necessary).
 
 Assume that this worked (and if not, check [trouble shooting](Trouble) to find out what to do), you now see your site with ```https:``` the same as with ```http:```. If your browser still has some concerns, the reasons for that may be
 
@@ -964,7 +964,7 @@ When in ```auto``` drive mode, the module will check every 12 hours at least wha
 
 ***It will contact no outside server at startup!*** All driving is done when the server is running and serving traffic. There is nothing that delays the startup/restart of your httpd.
 
-If a Managed Domain does not have all information, it will answer all requests with a ```503 Service Unavailable``` - assuming your client even wants to talk to it (it might fall back to another vhost TLS definition, depending how you server is setup).
+If a Managed Domain does not have all information, it will answer all requests with a ```503 Service Unavailable``` - assuming your client even wants to talk to it (it might fall back to another vhost TLS definition, depending how your server is setup).
 
 Expired certificates will continue being used until a replacement is available. So, when your server clock freaks out, nothing gets thrown away automatically. Also, speaking of throwing things away: ```mod_md``` keeps a copy of previous certificates/keys when it renews a domain. You have those files as part of your backups, right?
 
