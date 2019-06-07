@@ -219,10 +219,14 @@ static apr_status_t acmev1_req_init(md_acme_req_t *req, md_json_t *jpayload)
     if (!req->acme->acct) {
         return APR_EINVAL;
     }
-
-    payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
-    if (!payload) {
-        return APR_EINVAL;
+    if (jpayload) {
+        payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
+        if (!payload) {
+            return APR_EINVAL;
+        }
+    }
+    else {
+        payload = "";
     }
 
     payload_len = strlen(payload);
@@ -240,10 +244,14 @@ static apr_status_t acmev2_req_init(md_acme_req_t *req, md_json_t *jpayload)
     if (!req->acme->acct) {
         return APR_EINVAL;
     }
-
-    payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
-    if (!payload) {
-        return APR_EINVAL;
+    if (jpayload) {
+        payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
+        if (!payload) {
+            return APR_EINVAL;
+        }
+    }
+    else {
+        payload = "";
     }
 
     payload_len = strlen(payload);
@@ -337,6 +345,12 @@ out:
     return rv;
 }
 
+static apr_status_t acmev2_GET_as_POST_init(md_acme_req_t *req, void *baton)
+{
+    (void)baton;
+    return md_acme_req_body_init(req, NULL);
+}
+
 static apr_status_t md_acme_req_send(md_acme_req_t *req)
 {
     apr_status_t rv;
@@ -351,6 +365,25 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     md_result_reset(req->acme->last);
     result = md_result_make(req->p, APR_SUCCESS);
     
+    /* Whom are we talking to? */
+    if (acme->version == MD_ACME_VERSION_UNKNOWN) {
+        rv = md_acme_setup(acme, result);
+        if (APR_SUCCESS != rv) goto leave;
+    }
+    
+    if (!strcmp("GET", req->method) && !req->on_init 
+        && MD_ACME_VERSION_MAJOR(acme->version) > 1) {
+        /* See <https://ietf-wg-acme.github.io/acme/draft-ietf-acme-acme.html#rfc.section.6.3>
+         * and <https://mailarchive.ietf.org/arch/msg/acme/sotffSQ0OWV-qQJodLwWYWcEVKI>
+         * and <https://community.letsencrypt.org/t/acme-v2-scheduled-deprecation-of-unauthenticated-resource-gets/74380>
+         * We implement this change in ACMEv2 and higher as keeping the md_acme_GET() methods,
+         * but switching them to POSTs with a empty, JWS signed, body when we call
+         * our HTTP client. */
+        req->method = "POST";
+        req->on_init = acmev2_GET_as_POST_init;
+    }
+    
+    /* Besides GET/HEAD, we always need a fresh nonce */
     if (strcmp("GET", req->method) && strcmp("HEAD", req->method)) {
         if (acme->version == MD_ACME_VERSION_UNKNOWN) {
             rv = md_acme_setup(acme, result);
@@ -629,13 +662,99 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     return rv;
 }
 
+typedef struct {
+    md_acme_t *acme;
+    md_result_t *result;
+} update_dir_ctx;
+
+static apr_status_t update_directory(const md_http_response_t *res)
+{
+    md_http_request_t *req = res->req;
+    md_acme_t *acme = ((update_dir_ctx *)req->baton)->acme;
+    md_result_t *result = ((update_dir_ctx *)req->baton)->result;
+    apr_status_t rv = res->rv;
+    md_json_t *json;
+    const char *s;
+    
+    if (APR_SUCCESS != rv) goto leave;
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, req->pool, "directory lookup response: %d", res->status);
+    if (res->status == 503) {
+        md_result_printf(result, APR_EAGAIN,
+            "The ACME server at <%s> reports that Service is Unavailable (503). This "
+            "may happen during maintenance for short periods of time.", acme->url); 
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, req->pool, "%s", result->detail);
+        rv = result->status;
+        goto leave;
+    }
+    else if (res->status < 200 || res->status >= 300) {
+        md_result_printf(result, APR_EAGAIN,
+            "The ACME server at <%s> responded with HTTP status %d. This "
+            "is unusual. Please verify that the URL is correct and that you can indeed "
+            "make request from the server to it by other means, e.g. invoking curl/wget.", 
+            acme->url, res->status); 
+        goto leave;
+    }
+    
+    rv = md_json_read_http(&json, req->pool, res);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, req->pool, "reading JSON body");
+        goto leave;
+    }
+    
+    if (md_log_is_level(acme->p, MD_LOG_TRACE2)) {
+        s = md_json_writep(json, req->pool, MD_JSON_FMT_INDENT);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->pool,
+                      "response: %s", s ? s : "<failed to serialize!>");
+    }
+    
+    /* What have we got? */
+    if ((s = md_json_dups(acme->p, json, "new-authz", NULL))) {
+        acme->api.v1.new_authz = s;
+        acme->api.v1.new_cert = md_json_dups(acme->p, json, "new-cert", NULL);
+        acme->api.v1.new_reg = md_json_dups(acme->p, json, "new-reg", NULL);
+        acme->api.v1.revoke_cert = md_json_dups(acme->p, json, "revoke-cert", NULL);
+        if (acme->api.v1.new_authz && acme->api.v1.new_cert 
+            && acme->api.v1.new_reg && acme->api.v1.revoke_cert) {
+            acme->version = MD_ACME_VERSION_1;
+        }
+        acme->ca_agreement = md_json_dups(acme->p, json, "meta", "terms-of-service", NULL);
+        acme->new_nonce_fn = acmev1_new_nonce;
+        acme->req_init_fn = acmev1_req_init;
+        acme->post_new_account_fn = acmev1_POST_new_account;
+    }
+    else if ((s = md_json_dups(acme->p, json, "newAccount", NULL))) {
+        acme->api.v2.new_account = s;
+        acme->api.v2.new_order = md_json_dups(acme->p, json, "newOrder", NULL);
+        acme->api.v2.revoke_cert = md_json_dups(acme->p, json, "revokeCert", NULL);
+        acme->api.v2.key_change = md_json_dups(acme->p, json, "keyChange", NULL);
+        acme->api.v2.new_nonce = md_json_dups(acme->p, json, "newNonce", NULL);
+        if (acme->api.v2.new_account && acme->api.v2.new_order 
+            && acme->api.v2.revoke_cert && acme->api.v2.key_change
+            && acme->api.v2.new_nonce) {
+            acme->version = MD_ACME_VERSION_2;
+        }
+        acme->ca_agreement = md_json_dups(acme->p, json, "meta", "termsOfService", NULL);
+        acme->new_nonce_fn = acmev2_new_nonce;
+        acme->req_init_fn = acmev2_req_init;
+        acme->post_new_account_fn = acmev2_POST_new_account;
+    }
+    
+    if (MD_ACME_VERSION_UNKNOWN == acme->version) {
+        md_result_printf(result, APR_EINVAL,
+            "Unable to understand ACME server response from <%s>. "
+            "Wrong ACME protocol version or link?", acme->url); 
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, req->pool, "%s", result->detail);
+        rv = result->status;
+    }
+leave:
+    return rv;
+}
 
 apr_status_t md_acme_setup(md_acme_t *acme, md_result_t *result)
 {
     apr_status_t rv;
-    md_json_t *json;
-    const char *s;
-    
+    update_dir_ctx ctx;
+   
     assert(acme->url);
     acme->version = MD_ACME_VERSION_UNKNOWN;
     
@@ -647,8 +766,12 @@ apr_status_t md_acme_setup(md_acme_t *acme, md_result_t *result)
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "get directory from %s", acme->url);
     
-    rv = md_acme_get_json(&json, acme, acme->url, acme->p);
-    if (APR_SUCCESS != rv) {
+    ctx.acme = acme;
+    ctx.result = result;
+    rv = md_http_GET(acme->http, acme->url, NULL, update_directory, &ctx);
+    
+    if (APR_SUCCESS != rv && APR_SUCCESS == result->status) {
+        /* If the result reports no error, we never got a response from the server */
         md_result_printf(result, rv, 
             "Unsuccessful in contacting ACME server at <%s>. If this problem persists, "
             "please check your network connectivity from your Apache server to the "
@@ -658,48 +781,7 @@ apr_status_t md_acme_setup(md_acme_t *acme, md_result_t *result)
             "so failing to contact it is not an immediate problem. Apache will "
             "continue retrying this.", acme->url);
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, acme->p, "%s", result->detail);
-        goto out;
     }
-    
-    if ((s = md_json_gets(json, "new-authz", NULL))) {
-        acme->api.v1.new_authz = s;
-        acme->api.v1.new_cert = md_json_gets(json, "new-cert", NULL);
-        acme->api.v1.new_reg = md_json_gets(json, "new-reg", NULL);
-        acme->api.v1.revoke_cert = md_json_gets(json, "revoke-cert", NULL);
-        if (acme->api.v1.new_authz && acme->api.v1.new_cert 
-            && acme->api.v1.new_reg && acme->api.v1.revoke_cert) {
-            acme->version = MD_ACME_VERSION_1;
-        }
-        acme->ca_agreement = md_json_gets(json, "meta", "terms-of-service", NULL);
-        acme->new_nonce_fn = acmev1_new_nonce;
-        acme->req_init_fn = acmev1_req_init;
-        acme->post_new_account_fn = acmev1_POST_new_account;
-    }
-    else if ((s = md_json_gets(json, "newAccount", NULL))) {
-        acme->api.v2.new_account = s;
-        acme->api.v2.new_order = md_json_gets(json, "newOrder", NULL);
-        acme->api.v2.revoke_cert = md_json_gets(json, "revokeCert", NULL);
-        acme->api.v2.key_change = md_json_gets(json, "keyChange", NULL);
-        acme->api.v2.new_nonce = md_json_gets(json, "newNonce", NULL);
-        if (acme->api.v2.new_account && acme->api.v2.new_order 
-            && acme->api.v2.revoke_cert && acme->api.v2.key_change
-            && acme->api.v2.new_nonce) {
-            acme->version = MD_ACME_VERSION_2;
-        }
-        acme->ca_agreement = md_json_gets(json, "meta", "termsOfService", NULL);
-        acme->new_nonce_fn = acmev2_new_nonce;
-        acme->req_init_fn = acmev2_req_init;
-        acme->post_new_account_fn = acmev2_POST_new_account;
-    }
-    
-    if (MD_ACME_VERSION_UNKNOWN == acme->version) {
-        md_result_printf(result, APR_EINVAL,
-            "Unable to understand ACME server response from <%s>. "
-            "Wrong ACME protocol version or link?", acme->url); 
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, acme->p, "%s", result->detail);
-        rv = result->status;
-    }
-out:
     return rv;
 }
 

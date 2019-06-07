@@ -634,7 +634,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
         /* staging present. does it already contain all we need? */
         rv = md_reg_creds_get(&staged_creds, d->reg, MD_SG_STAGING, d->md, d->p);
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked creds", d->md->name);
-        if (APR_SUCCESS != rv || !staged_creds->privkey || !staged_creds->pubcert) {
+        if (APR_SUCCESS != rv || !staged_creds->privkey || !staged_creds->pub->cert) {
             staged_creds = NULL;
         }
     }

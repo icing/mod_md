@@ -303,12 +303,16 @@ int md_should_renew(const md_t *md);
 /**************************************************************************************************/
 /* domain credentials */
 
+typedef struct md_pubcert_t md_pubcert_t;
+struct md_pubcert_t {
+    struct apr_array_header_t *certs;    /* complete md_cert* chain */
+    struct md_cert_t *cert;              /* the first cert from index 0 */
+};
+
 typedef struct md_creds_t md_creds_t;
 struct md_creds_t {
     struct md_pkey_t *privkey;
-    struct apr_array_header_t *pubcert;    /* complete md_cert* chain */
-    struct md_cert_t *cert;
-    int expired;
+    md_pubcert_t *pub;
 };
 
 #define MD_OK(c)                    (APR_SUCCESS == (rv = c))

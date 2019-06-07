@@ -110,8 +110,15 @@ apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p,
                            const char *name, const md_t *md, int fields);
 
 /**
- * Get the credentials available for the managed domain md. Returns APR_ENOENT
- * when the complete set is not available. The returned values are immutable. 
+ * Get the public certificate chain of the managed domain md. Returns APR_ENOENT
+ * when is is not available. 
+ */
+apr_status_t md_reg_pubcert_get(const md_pubcert_t **ppubcert, md_reg_t *reg, 
+                              md_store_group_t group, const md_t *md, apr_pool_t *p);
+
+/**
+ * Get the credentials (pubcert + privkey) for the managed domain md. Returns APR_ENOENT
+ * when the complete set is not available. 
  */
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
                               md_store_group_t group, const md_t *md, apr_pool_t *p);

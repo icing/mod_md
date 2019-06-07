@@ -182,7 +182,7 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
 static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_changes)
 {
     md_state_t state = MD_S_UNKNOWN;
-    const md_creds_t *creds;
+    const md_pubcert_t *pub;
     const md_cert_t *cert;
     apr_time_t valid_until = 0, valid_from = 0;
     apr_status_t rv;
@@ -190,19 +190,19 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
     const char *fingerprint = NULL;
     int i;
 
-    if (APR_SUCCESS == (rv = md_reg_creds_get(&creds, reg, MD_SG_DOMAINS, md, p))) {
-        valid_from = md_cert_get_not_before(creds->cert);
-        valid_until = md_cert_get_not_after(creds->cert);
-        serial = md_cert_get_serial_number(creds->cert, p);
-        md_cert_to_sha256_fingerprint(&fingerprint, creds->cert, p);
-        if (!md_cert_covers_md(creds->cert, md)) {
+    if (APR_SUCCESS == (rv = md_reg_pubcert_get(&pub, reg, MD_SG_DOMAINS, md, p))) {
+        valid_from = md_cert_get_not_before(pub->cert);
+        valid_until = md_cert_get_not_after(pub->cert);
+        serial = md_cert_get_serial_number(pub->cert, p);
+        md_cert_to_sha256_fingerprint(&fingerprint, pub->cert, p);
+        if (!md_cert_covers_md(pub->cert, md)) {
             state = MD_S_INCOMPLETE;
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
                           "md{%s}: incomplete, cert no longer covers all domains, "
                           "needs sign up for a new certificate", md->name);
             goto out;
         }
-        if (!md->must_staple != !md_cert_must_staple(creds->cert)) {
+        if (!md->must_staple != !md_cert_must_staple(pub->cert)) {
             state = MD_S_INCOMPLETE;
             md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
                           "md{%s}: OCSP Stapling is%s requested, but certificate "
@@ -212,8 +212,8 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_
             goto out;
         }
         
-        for (i = 1; i < creds->pubcert->nelts; ++i) {
-            cert = APR_ARRAY_IDX(creds->pubcert, i, const md_cert_t *);
+        for (i = 1; i < pub->certs->nelts; ++i) {
+            cert = APR_ARRAY_IDX(pub->certs, i, const md_cert_t *);
             if (!md_cert_is_valid_now(cert)) {
                 state = MD_S_ERROR;
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
@@ -547,39 +547,32 @@ apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_i
 /**************************************************************************************************/
 /* certificate related */
 
-static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+static apr_status_t pubcert_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_reg_t *reg = baton;
-    md_pkey_t *privkey;
-    apr_array_header_t *pubcert;
-    md_creds_t *creds, **pcreds;
+    apr_array_header_t *certs;
+    md_pubcert_t *pubcert, **ppubcert;
     const md_t *md;
     md_cert_state_t cert_state;
     md_store_group_t group;
     apr_status_t rv;
     
-    pcreds = va_arg(ap, md_creds_t **);
+    ppubcert = va_arg(ap, md_pubcert_t **);
     group = (md_store_group_t)va_arg(ap, int);
     md = va_arg(ap, const md_t *);
     
-    rv = md_pkey_load(reg->store, group, md->name, &privkey, p);
+    rv = md_pubcert_load(reg->store, group, md->name, &certs, p);
     if (APR_SUCCESS != rv) goto leave;
-    rv = md_pubcert_load(reg->store, group, md->name, &pubcert, p);
-    if (APR_SUCCESS != rv) goto leave;
-    if (pubcert && pubcert->nelts== 0) {
+    if (certs && certs->nelts == 0) {
         rv = APR_ENOENT; goto leave;
     }
             
-    creds = apr_pcalloc(p, sizeof(*creds));
-    creds->privkey = privkey;
-    creds->pubcert = pubcert;
-    creds->cert = APR_ARRAY_IDX(pubcert, 0, md_cert_t *);
-    switch ((cert_state = md_cert_state_get(creds->cert))) {
+    pubcert = apr_pcalloc(p, sizeof(*pubcert));
+    pubcert->certs = certs;
+    pubcert->cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);
+    switch ((cert_state = md_cert_state_get(pubcert->cert))) {
         case MD_CERT_VALID:
-            creds->expired = 0;
-            break;
         case MD_CERT_EXPIRED:
-            creds->expired = 1;
             break;
         default:
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, ptemp, 
@@ -588,17 +581,37 @@ static apr_status_t creds_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va
             break;
     }
 leave:
-    *pcreds = (APR_SUCCESS == rv)? creds : NULL;
+    *ppubcert = (APR_SUCCESS == rv)? pubcert : NULL;
+    return rv;
+}
+
+apr_status_t md_reg_pubcert_get(const md_pubcert_t **ppubcert, md_reg_t *reg, 
+                              md_store_group_t group, const md_t *md, apr_pool_t *p)
+{
+    apr_status_t rv;
+    md_pubcert_t *pubcert;
+    
+    rv = md_util_pool_vdo(pubcert_load, reg, p, &pubcert, group, md, NULL);
+    *ppubcert = (APR_SUCCESS == rv)? pubcert : NULL;
     return rv;
 }
 
 apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
                               md_store_group_t group, const md_t *md, apr_pool_t *p)
 {
-    apr_status_t rv = APR_SUCCESS;
+    apr_status_t rv;
+    md_pubcert_t *pubcert;
+    md_pkey_t *privkey;
     md_creds_t *creds;
     
-    rv = md_util_pool_vdo(creds_load, reg, p, &creds, group, md, NULL);
+    rv = md_util_pool_vdo(pubcert_load, reg, p, &pubcert, group, md, NULL);
+    if (APR_SUCCESS != rv) goto leave;
+    rv = md_pkey_load(reg->store, group, md->name, &privkey, p);
+    if (APR_SUCCESS != rv) goto leave;
+    creds = apr_pcalloc(p, sizeof(*creds));
+    creds->privkey = privkey;
+    creds->pub = pubcert;
+leave:
     *pcreds = (APR_SUCCESS == rv)? creds : NULL;
     return rv;
 }

@@ -55,7 +55,7 @@ struct md_mod_conf_t {
     const char *hsts_header;           /* computed HTST header to use or NULL */
     apr_array_header_t *unused_names;  /* post config, names of all MDs not assigned to a vhost */
     apr_array_header_t *watched_names; /* post config, names of all MDs that we need to watch */
-    struct apr_hash_t *init_errors;    /* init errors reported with md name as key */
+    struct apr_hash_t *init_errors;    /* init errors reported with MD name as key */
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
     struct apr_table_t *env;           /* environment for operation */

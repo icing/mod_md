@@ -98,20 +98,10 @@ class TestRegAdd :
         copyfile(self._path_conf_ssl("valid_cert.req"),TestEnv.store_domain_file(domain, 'pubcert.pem'))
         assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
 
-    def test_120_004(self):
-        # test case: broken private key file
-        #setup: prepare md in store
-        domain = "not-forbidden.org"
-        assert TestEnv.a2md(["add", domain])['rv'] == 0
-        assert TestEnv.a2md([ "update", domain, "contacts", "admin@" + domain ])['rv'] == 0
-        assert TestEnv.a2md([ "update", domain, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
-        # check: valid pkey/cert -> COMPLETE
-        copyfile(self._path_conf_ssl("valid_pkey.pem"), TestEnv.store_domain_file(domain, 'privkey.pem'))
-        copyfile(self._path_conf_ssl("valid_cert.pem"), TestEnv.store_domain_file(domain, 'pubcert.pem'))
-        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
-        # check: replace private key by broken file -> ERROR
-        copyfile(self._path_conf_ssl("valid_cert.req"), TestEnv.store_domain_file(domain, 'privkey.pem'))
-        assert TestEnv.a2md([ "list", domain ])['jout']['output'][0]['state'] == TestEnv.MD_S_ERROR
+    # REMOVED: we no longer verify private keys at startup and leave that to the
+    #          user of the key, e.g. mod_ssl. It is the ultimate arbiter of this.
+    #def test_120_004(self):
+    # test case: broken private key file
 
     # --------- _utils_ ---------
 
