@@ -289,6 +289,11 @@ apr_status_t md_util_is_file(const char *path, apr_pool_t *pool)
     return rv;
 }
 
+int md_file_exists(const char *fname, apr_pool_t *p)
+{
+    return (fname && *fname && APR_SUCCESS == md_util_is_file(fname, p));
+}
+
 apr_status_t md_util_path_merge(const char **ppath, apr_pool_t *p, ...)
 {
     const char *segment, *path;

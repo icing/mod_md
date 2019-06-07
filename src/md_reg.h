@@ -31,11 +31,10 @@ struct md_result_t;
 typedef struct md_reg_t md_reg_t;
 
 /**
- * Initialize the registry, using the pool and loading any existing information
- * from the store.
+ * Create the MD registry, using the pool and store.
  */
-apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *pm, struct md_store_t *store,
-                         const char *proxy_url);
+apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *pm, struct md_store_t *store,
+                           const char *proxy_url);
 
 struct md_store_t *md_reg_store_get(md_reg_t *reg);
 
@@ -117,14 +116,12 @@ apr_status_t md_reg_pubcert_get(const md_pubcert_t **ppubcert, md_reg_t *reg,
                               md_store_group_t group, const md_t *md, apr_pool_t *p);
 
 /**
- * Get the credentials (pubcert + privkey) for the managed domain md. Returns APR_ENOENT
- * when the complete set is not available. 
+ * Get the filenames of private key and pubcert of the MD - if they exist.
+ * @return APR_ENOENT if one or both do not exist.
  */
-apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
-                              md_store_group_t group, const md_t *md, apr_pool_t *p);
-
-apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
-                                   const char **pkeyfile, const char **pcertfile);
+apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile,
+                                   md_reg_t *reg, md_store_group_t group, 
+                                   const md_t *md, apr_pool_t *p);
 
 /**
  * Synchronise the give master mds with the store.

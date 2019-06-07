@@ -371,7 +371,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
         if (APR_SUCCESS != rv) goto leave;
     }
     
-    if (!strcmp("GET", req->method) && !req->on_init 
+    if (!strcmp("GET", req->method) && !req->on_init && !req->req_json 
         && MD_ACME_VERSION_MAJOR(acme->version) > 1) {
         /* See <https://ietf-wg-acme.github.io/acme/draft-ietf-acme-acme.html#rfc.section.6.3>
          * and <https://mailarchive.ietf.org/arch/msg/acme/sotffSQ0OWV-qQJodLwWYWcEVKI>

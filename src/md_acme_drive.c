@@ -579,7 +579,6 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     int reset_staging = d->reset;
     apr_status_t rv = APR_SUCCESS;
     apr_time_t now;
-    const md_creds_t *staged_creds = NULL;
     char ts[APR_RFC822_DATE_LEN];
 
     if (md_log_is_level(d->p, MD_LOG_DEBUG)) {
@@ -630,21 +629,15 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
     
     if (ad->md) {
-        md_result_activity_printf(result, "Assessing staged information for %s.", d->md->name);
-        /* staging present. does it already contain all we need? */
-        rv = md_reg_creds_get(&staged_creds, d->reg, MD_SG_STAGING, d->md, d->p);
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: checked creds", d->md->name);
-        if (APR_SUCCESS != rv || !staged_creds->privkey || !staged_creds->pub->cert) {
-            staged_creds = NULL;
+        const char *keyfile, *certfile;
+
+        rv = md_reg_get_cred_files(&keyfile, &certfile, d->reg, MD_SG_STAGING, d->md, d->p);
+        if (APR_SUCCESS == rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: all data staged", d->md->name);
+            goto ready;
         }
     }
     
-    /* Find out where we're at with this managed domain */
-    if (staged_creds) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: all data staged", d->md->name);
-        goto ready;
-    }
-
     /* Need to renew */
     md_result_activity_printf(result, "Contacting ACME server for %s at %s.", 
                               d->md->name, d->md->ca_url);

@@ -68,8 +68,8 @@ static apr_status_t load_props(md_reg_t *reg, apr_pool_t *p)
     return rv;
 }
 
-apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *p, struct md_store_t *store,
-                         const char *proxy_url)
+apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *p, struct md_store_t *store,
+                           const char *proxy_url)
 {
     md_reg_t *reg;
     apr_status_t rv;
@@ -383,18 +383,6 @@ md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, a
     return ctx.md;
 }
 
-apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
-                                   const char **pkeyfile, const char **pcertfile)
-{
-    apr_status_t rv;
-    
-    rv = md_store_get_fname(pkeyfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PRIVKEY, p);
-    if (APR_SUCCESS == rv) {
-        rv = md_store_get_fname(pcertfile, reg->store, MD_SG_DOMAINS, md->name, MD_FN_PUBCERT, p);
-    }
-    return rv;
-}
-
 /**************************************************************************************************/
 /* manipulation */
 
@@ -596,24 +584,19 @@ apr_status_t md_reg_pubcert_get(const md_pubcert_t **ppubcert, md_reg_t *reg,
     return rv;
 }
 
-apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
-                              md_store_group_t group, const md_t *md, apr_pool_t *p)
+apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile,
+                                   md_reg_t *reg, md_store_group_t group, 
+                                   const md_t *md, apr_pool_t *p)
 {
     apr_status_t rv;
-    md_pubcert_t *pubcert;
-    md_pkey_t *privkey;
-    md_creds_t *creds;
     
-    rv = md_util_pool_vdo(pubcert_load, reg, p, &pubcert, group, md, NULL);
-    if (APR_SUCCESS != rv) goto leave;
-    rv = md_pkey_load(reg->store, group, md->name, &privkey, p);
-    if (APR_SUCCESS != rv) goto leave;
-    creds = apr_pcalloc(p, sizeof(*creds));
-    creds->privkey = privkey;
-    creds->pub = pubcert;
-leave:
-    *pcreds = (APR_SUCCESS == rv)? creds : NULL;
-    return rv;
+    rv = md_store_get_fname(pkeyfile, reg->store, group, md->name, MD_FN_PRIVKEY, p);
+    if (APR_SUCCESS != rv) return rv;
+    if (!md_file_exists(*pkeyfile, p)) return APR_ENOENT;
+    rv = md_store_get_fname(pcertfile, reg->store, group, md->name, MD_FN_PUBCERT, p);
+    if (APR_SUCCESS != rv) return rv;
+    if (!md_file_exists(*pcertfile, p)) return APR_ENOENT;
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/

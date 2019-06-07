@@ -204,17 +204,6 @@ out:
     return rv;
 }
 
-static apr_status_t setup_reg(md_mod_conf_t *mc, apr_pool_t *p, server_rec *s)
-{
-    md_store_t *store;
-    apr_status_t rv;
-    
-    if (APR_SUCCESS == (rv = setup_store(&store, mc, p, s))) {
-        rv = md_reg_init(&mc->reg, p, store, mc->proxy_url);
-    }
-    return rv;
-}
-
 /**************************************************************************************************/
 /* post config handling */
 
@@ -718,6 +707,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     md_mod_conf_t *mc;
     apr_status_t rv = APR_SUCCESS;
     int dry_run = 0, log_level = APLOG_DEBUG;
+    md_store_t *store;
 
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
     if (data == NULL) {
@@ -750,7 +740,8 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     mc = sc->mc;
     mc->dry_run = dry_run;
 
-    if (APR_SUCCESS != (rv = setup_reg(mc, p, s))) {
+    if (APR_SUCCESS != (rv = setup_store(&store, mc, p, s))
+        || APR_SUCCESS != (rv = md_reg_create(&mc->reg, p, store, mc->proxy_url))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072)
                      "setup md registry");
         goto leave;
@@ -911,11 +902,6 @@ static apr_status_t setup_fallback_cert(md_store_t *store, const md_t *md,
     return rv;
 }
 
-static int fexists(const char *fname, apr_pool_t *p)
-{
-    return (*fname && APR_SUCCESS == md_util_is_file(fname, p));
-}
-
 static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
                                        const char **pkeyfile, const char **pcertfile)
 {
@@ -966,33 +952,30 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
         return APR_ENOENT;
     }
     
-    if (APR_SUCCESS != (rv = md_reg_get_cred_files(reg, md, p, pkeyfile, pcertfile))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110) 
-                     "retrieving credentials for MD %s", md->name);
-        return rv;
-    }
-    
-    if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
+    rv = md_reg_get_cred_files(pkeyfile, pcertfile, reg, MD_SG_DOMAINS, md, p);
+    if (APR_STATUS_IS_ENOENT(rv)) {
         /* Provide temporary, self-signed certificate as fallback, so that
          * clients do not get obscure TLS handshake errors or will see a fallback
          * virtual host that is not intended to be served here. */
         store = md_reg_store_get(reg);
         assert(store);    
         
-        md_store_get_fname(pkeyfile, store, MD_SG_DOMAINS, 
-                           md->name, MD_FN_FALLBACK_PKEY, p);
-        md_store_get_fname(pcertfile, store, MD_SG_DOMAINS, 
-                           md->name, MD_FN_FALLBACK_CERT, p);
-        if (!fexists(*pkeyfile, p) || !fexists(*pcertfile, p)) { 
+        md_store_get_fname(pkeyfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_PKEY, p);
+        md_store_get_fname(pcertfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_CERT, p);
+        if (!md_file_exists(*pkeyfile, p) || !md_file_exists(*pcertfile, p)) { 
             if (APR_SUCCESS != (rv = setup_fallback_cert(store, md, s, p))) {
                 return rv;
             }
         }
-        
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10116)  
                      "%s: providing fallback certificate for server %s", 
                      md->name, s->server_hostname);
         return APR_EAGAIN;
+    }
+    else if (APR_SUCCESS != rv) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110) 
+                     "retrieving credentials for MD %s", md->name);
+        return rv;
     }
     
     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10077) 

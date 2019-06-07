@@ -1,3 +1,4 @@
+ * 
  * All GET requests against an ACMEv2 endpoint (except directory and nonce retrievals), are
    now made as POST with an empty, JWS signed body. See 
    <https://community.letsencrypt.org/t/acme-v2-scheduled-deprecation-of-unauthenticated-resource-gets/74380>
