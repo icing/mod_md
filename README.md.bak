@@ -13,7 +13,7 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
     * [Migrate an existing Host](#how-to-migrate-a-host)
     * [Live with `http:`](#how-to-live-with-http-)
     * [Live without `http:`](#how-to-live-without-http-)
-    * [Analyze and fix problems](#how-to-fix-problems)
+    * [Analye and fix problems](#how-to-fix-problems)
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
   - [Lets Encrypt Migration](#lets-encrypt-migration)
@@ -35,7 +35,7 @@ This is a list of recipes on how you can use `mod_md` in your Apache configurati
 
 ### Prerequisites
 
-Your Apache is working and listens on port 80. It runs on a machine you can connect to. You want it to serve `https:`. And it should be _real_ `https:` with a certificate from Let's Encrypt and it should show a green lock (or whatever is the fashion nowadays) in browsers. 
+Your Apache is working and listens on port 80. It runs on a machine you can connect to. You want it to serve `https:`. And it should be _real_ `https:` with a certificate from Let's Encrypt and it should show a green lock (or whatever is the fashion nowadays) in browers. 
 
 Well, there are some prerequisites for that:
 
@@ -102,9 +102,9 @@ And while we left out parts of the SSL configurations that used to be necessary,
 
 The module will use this name to find all hosts that belong to it and take care of those. When `mod_ssl` does not find any certificates, because you did not configure any, it will ask `mod_md`: "Hey, do you know anything about `mydomain.com`?" And it will answer: "Sure, use these files here for the certificates!"
 
-During start up, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
+During startup, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
 
-Now, when you open `https://mydomain.com/` in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considerations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
+Now, when you open `https://mydomain.com/` in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considurations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
 
 In the meantime, right after the Apache has started, `mod_md` will contact Let's Encrypt and request a certificate for your. This usually takes less than a minute. There are several ways to check the progress of this ([see Monitoring](#monitoring) for more), but for this first time you should maybe look into the server's error log.
 
@@ -152,11 +152,11 @@ MDomain mydomain.com
 </VirtualHost>
 ```
 
-Then you reload your Apache server. It will start up right away, as before, and your `http://mydomain.com/` links will work as they used to. If you open `https://mydomain.com/` in your browser, you will get a security warning. If you tell it to ignore that you will get a `503 Service Unavailable` response.
+Then you reload your Apache server. It will start up right aways, as before, and your `http://mydomain.com/` links will work as they used to. If you open `https://mydomain.com/` in your browser, you will get a security warning. If you tell it to ignore that you will get a `503 Service Unavailable` response.
 
-What is happening? At start up, mod_md generated a self-signed certificate for the new https host to use and switch that host to 503 responses. This made sure that your server started without delay and that your other hosts could start working.
+What is happening? At startup, mod_md generated a self-signed certificate for the new https host to use and switch that host to 503 responses. This made sure that your server started without delay and that your other hosts could start working.
 
-When Apache is done with start up, `mod_md` spins up a background thread that contacts LetsEncrypt and negotiates a certificate for `mydomain.com`. This usually takes a few seconds, but there are several things that may delay this: bad internet connectivity, maintenance at LetsEncrypt, problems with DNS resolutions somewhere, etc.
+When Apache is done with startup, `mod_md` spins up a background thread that contacts LetsEncrypt and negotiates a certificate for `mydomain.com`. This usually takes a few seconds, but there are several things that may delay this: bad internet connectivity, maintenance at LetsEncrypt, problems with DNS resolutions somewhere, etc.
 
 There are several ways to check the progress of this ([see Monitoring](#monitoring) for more), but for this first time you should maybe look into the server's error log.
 
@@ -238,7 +238,7 @@ Reload you Apache. Open `https://mydomain.com` in your browser. It should have a
 
 If you start a new domain nowadays, you probably only make it available via `https:`. But if you have been around for longer, your `http:` links maybe in use by many sites and you want to continue supporting those. However, since `http:` answers are being monitored and tampered with, you most likely want to redirect those to you `https:` equivalents.
 
-There is, for example, `mod_rewrite`, which you can use for this. But `mod_md` also offers a directive:
+There is, for example, `mod_rewrite`, which you can use for this. But `mod_md` als offers a directive:
 
 ```
 MDRequireHttps temporary
@@ -277,7 +277,7 @@ The feedback from people using `mod_md` has been very positive, especially about
 
 And then there are, of course, things that break. E.g. your internet becoming partially unavailable. Google/AWS outages, etc. 
 
-In the presence of always-possible, temporary disasters, auto-renewing your server certificates _in time_ is helpful. `mod_md` will renew certificates when a third of their lifetime is left. Since Let's Encrypt issues certificates valid for 90 days, such certificates are renewed 30 days in advance.
+In the presence of always-possible, temporary desasters, auto-renewing your server certificates _in time_ is helpful. `mod_md` will renew certificates when a third of their lifetime is left. Since Let's Encrypt issues certificates valid for 90 days, such certificates are renewed 30 days in advance.
 
 Besides the Apache error logs, where 'mod_md' also logs problems, there are two ways to monitor your Managed Domains: `server-status` and `md-status`. See [the chapter about Monitoring](#monitoring) for more details.
 
@@ -393,7 +393,7 @@ Version 2-x status: unknown, see #124.
 
 Upgrading from `mod_md` v1.1.x to v2.x requires no action by you. The module will do any necessary data conversions and configuration settings have remaing compatible. Your domains should, after an upgrade, run as before without certificate being renewed - unless they are due for renewal anyway.
 
-_Downgrading_ is ***not*** supported. There is not guarantee that you can go back without any problems. When in doubt, make a backup of your `mod_md` store in the file system before upgrading.
+_Downgrading_ is ***not*** supported. There is not guarantuee that you can go back without any problems. When in doubt, make a backup of your `mod_md` store in the file system before upgrading.
 
 ## Lets Encrypt Migration
 
@@ -410,7 +410,7 @@ First of all, if you are on version 1.x, you need to upgrade to v2.x of the modu
 
 If you have ***not*** configured this, version 2.x of `mod_md` will choose the ACMEv2 protocol with Let's Encrypt *for all upcoming renewals*! If you do not want this, you should configure `MDCertificateAuthority` yourself. You can now easily see, which configuration is used for your domains in the [new monitoring features](#monitoring).
 
-(There was some back-and-forth about the question, if the module should do this automatic switch-over. People with special network setups can be hurt by this. Maybe their servers need special configurations to reach the ACMEv2 host of Let's Encrypt. But for the vast majority of people, this migration should just work. And many people will not read this documentation anyway and only start googling when things stopped working. Knowing that things will come to a stop in 2021, it seems better to start the migration with a high chance of success than suppressing it with a certainty of failure.)
+(There was some back-and-forth about the question, if the module should do this automatic switch-over. People with special network setups can be hurt by this. Maybe their servers need special configurations to reach the ACMEv2 host of Let's Encrypt. But for the vast majority of people, this migration should just work. And many people will not read this documentation anyway and only start googling when things stopped working. Knowing that things will come to a stop in 2021, it seems better to start the migration with a high chance of success than supressing it with a certainty of failure.)
 
 
 
@@ -441,7 +441,7 @@ There is also a new `md-status` handler available to give you the information fr
   SetHandler md-status
 </Location>
 ```
-on your server. As with `server-status` you will want to add authorization for this! 
+on your server. As with `server-status` you will want to add authoriztation for this! 
 
 If you just want to check the JSON status of one domain, append that to your status url:
 
@@ -531,9 +531,9 @@ and you are ready to get certificates from Let's Encrypt.
 
 `mod_md` talks to LE using a protocol name `ACME` (automated certificate management environment). This is, since March 2019, [an internet standard as RFC 8555](https://tools.ietf.org/html/rfc8555). This means is documented, stable and usable by everyone. It may be extended in the future, but this is the base set.
 
-But, chicken and egg, LE was born before there was `ACME` and the protocol they initially designed is now referred to as `ACMEv1` and the from RFC 8555 is named `ACMEv2`. Versions v1.1.x of `mod_md` used the former only, version 2.x now supports both.
+But, chicken and egg, LE was born before there was `ACME` and the protocol they initially designed is now referred to as `ACMEv1` and the from RFC 8555 is named `ACMEv2`. Verions v1.1.x of `mod_md` used the former only, version 2.x now supports both.
 
-While most users will not have to care about this, there is a feature only available in `ACMEv2`: wildcard domains. If your want a certificate that matches something like `*.mydomain.net`, you need to [setup additional things](#wildcard-certificates), among them to use `ACMEv2``.
+While most users will not have to care about this, there is a feature only available in `ACMEv2`: wildcard domains. If your want a certicate that matches something like `*.mydomain.net`, you need to [setup additional things](#wildcard-certificates), among them to use `ACMEv2``.
 
 
 | CA | Protocol| dns names | dns wildcards | Challenges  | Cert Life   | Rate Limit |
@@ -647,9 +647,9 @@ Information on where to find the certificate files and other things, you can loo
 
 # Changing Domains
 
-During the lifetime of your domains, they will require changes. You will add new names, or remove some or even split an MD into several. ```mod_md``` will follow these changes and check, if they require new certificates or can live with the existing ones.
+During the lifetime of your domains, they will require changes. You will add new names, or remove some or even split an MD into several. ```mod_md``` will follow these changes and check, if they require new certificates or can live with the exsting ones.
 
-Keep in mind: if you do not mind a few minutes of downtime, you can always wipe everything by ```mod_md``` from your file system and start anew. There are reasonable limits on how often in the same week Let's Encrypt lets you do this. But it is always an option should you desire a radical redesign of your domains/virtualhost configurations.
+Keep in mind: if you do not mind a few minutes of downtime, you can always wipe everything by ```mod_md``` from your file system and start anew. There are reasonable limits on how often in the same week Let's Encrypt lets you do this. But it is always an option should you desire a radical redesign of your doains/virtualhost configurations.
 
 ### Removing Names
 
@@ -763,7 +763,7 @@ This gives users better performance and improved security as they start using ``
 
 When Let's Encrypt needs to verify that you are really who you claim to be, ***their*** servers contact ***your*** server. They open a connection to you. And they open it on port 80 for `http-01` challenges and on port 443 for `tls-alpn-01` challenges.
 
-The actual challenge used is negotiated. `mod_md` sends our domain names to LE. LE sends a list of challenge options for these back. `mod_md` selects the one it prefers and considers _available_. It does not make sense to choose `http-01` if your Apache does not listen on port 80. Same for `tls-alpn-01` and port 443.
+The acutal challenge used is negotiated. `mod_md` sends our domain names to LE. LE sends a list of challenge options for these back. `mod_md` selects the one it perferes and considers _available_. It does not make sense to choose `http-01` if your Apache does not listen on port 80. Same for `tls-alpn-01` and port 443.
 
 (The third challenge option, `dns-01`, is discussed in the chapter about [wildcard certificate](#wildcard-certificates).
 
@@ -802,7 +802,7 @@ Wildcard certificates are possible with version 2.x of `mod_md``. But they are n
 
 The difficulty here is that Apache cannot do that on its own. (which is also a security benefit, since corrupting a web server is the scenario `dns-01` protects against). As the name implies, `dns-01` requires you to show some specific DNS records for your domain that contain some challenge data. So you need to _write_ your domain's DNS records
 
-If you know how to do that, you can integrated this with `mod_md`. Let's say you have a script for that in `/usr/bin/acme-setup-dns` you configure Apache with:
+If you know how to do that, you can integrated this with `mod_md`. Let's say you have a scipt for that in `/usr/bin/acme-setup-dns` you configure Apache with:
 
 ```
 MDChallengeDns01 /usr/bin/acme-setup-dns
@@ -834,7 +834,7 @@ Alternatively, there are setups where you run your own DNS server, just for the 
 
 As the very, very last resort: reconsider if you really need a wildcard certificate. If you have many subdomains on your server, putting the all into one certificate might not be feasible (or possible) and also not very efficient. The certificate gets send on each new connection, after all.
 
-But maybe slicing your domains into smaller sets is an option. In the past, when you needed to buy certificates and there was a lot of manual labor for it, this was probably unattractive. But with the automation in Apache, this no longer concerns you. 
+But mayby slicing your domains into smaller sets is an option. In the past, when you needed to buy certiciates and there was a lot of manual labor for it, this was probably unattractive. But with the automation in Apache, this no longer concerns you. 
 
 But of course, in some setups, wildcard certificates are the only reasonable approach. You know best!
 
@@ -843,7 +843,7 @@ But of course, in some setups, wildcard certificates are the only reasonable app
 
 If you do not want to dive head first into the world of `mod_md` - fair enough. Take an unimportant domain of yours and make a test of the temperature, see if you like it.
 
-As described in [Simple Usage](#simple-usage), configure this domain and see if it works for you. Maybe you have a very peculiar server setup where not all defaults fit. Maybe you need to configure outgoing proxies. Or you sit behind a port mapper. Or you want to develop and test your DNS script for wildcards. Whatever.
+As described in [Simple Usage](#simple-usage), configure this domain and see if it works for you. Maybe you have a very perculiar server setup where not all defaults fit. Maybe you need to configure outgoing proxies. Or you sit behind a port mapper. Or you want to develop and test your DNS script for wildcards. Whatever.
 
 What is helpful in such tests is to configure another endpoint at Let's Encrypt. This will not result in certificates that are recognized by browsers, but it helps in verifying the the process works. If it does, simply switch to the real ACME endpoints and get the valid certificates then.
 
@@ -889,7 +889,7 @@ md/domains/your_domain.de
   +- pubcert.pem          # the certificate, plus the 'chain', e.g. all intermediate ones
   +- privkey.pem          # the private key, unencrypted
 ```
-All these files belong to the user that _starts_ your server and, on most platforms, are only read/writable by that user. On Ubuntu, this is ```root```. Since you probably heard that the internet is a dangerous place, the Apache ```httpd``` will switch to another user for its traffic serving processes. So, when something bad comes in, it can also use privileges from that user, not ```root```.
+All these files belong to the user that _starts_ your server and, on most platforms, are only read/writeable by that user. On Ubuntu, this is ```root```. Since you probably heard that the internet is a dangerous place, the Apache ```httpd``` will switch to another user for its traffic serving processes. So, when something bad comes in, it can also use privileges from that user, not ```root```.
 
 ```mod_md``` also runs inside those _less privileged_ processes when it talks to outside servers (e.g. Let's Encrypt). That is why certain directories and files get special permissions. Again, on Ubuntu, the lesser user is called ```www-data``` and listings from a ```md``` store look like the following:
 
@@ -903,7 +903,7 @@ drwx------  4 root     root 4096 Aug  3 12:23 domains
 drwxr-xr-x  3 www-data root 4096 Aug  3 12:36 staging
 drwx------  2 root     root 4096 Aug  3 12:23 tmp
 ```
-if you are familiar with ```ls```, you can see that ```challenges``` and ```staging``` belong to user ```www-data``` while all other files and directories belong to ```root```. A mix is ```accounts``` that stays writable only for ```root``` but lets everyone else read.
+if you are familiar with ```ls```, you can see that ```challenges``` and ```staging``` belong to user ```www-data``` while all other files and directories belong to ```root```. A mix is ```accounts``` that stays writeable only for ```root``` but lets everyone else read.
 
 While talking to the ACME servers ```mod_md``` needs to read account data and write challenge data (challenges) and, finally, keys and certificates (staging).
 
@@ -915,7 +915,7 @@ Should you ever find out that there was a mistake, you can find the old director
 
 The _unencrypted_ private keys (the files named ```privkey.pem```) are inside the directory ```domains``` and are only readable by ```root```. The ACME account keys, however, are readable by everyone. But that is ok, since the account keys are stored _encrypted_ (for experts: AES_256_CBC with a 48 byte key). And also the keys stored in ```staging``` are encrypted.
 
-The 48 bytes key to decrypt these is stored in the file ```md_store.json``` which is created when ```mod_md``` initializes the store. ***You do not want to lose that file!*** If you lose it, all the certificates you have in your store become useless - even the archived ones. 
+The 48 bytes key to decrypt these is stored in the file ```md_store.json``` which is created when ```mod_md``` initialises the store. ***You do not want to lose that file!*** If you lose it, all the certificates you have in your store become useless - even the archived ones. 
 
 Which is maybe not as bad as it sounds, since ```mod_md``` will just start all the ACME sign-ups again and get you new ones. However ACME servers have a rate limit and if you sign up too often, the requests get denied. Be warned.
 
@@ -963,13 +963,13 @@ immediately show problems on the status page which formerly where only detected 
 
 ## Job Persistence
 
-All parameters of ongoing renewal jobs are persisted in between attempts. This allows ```mod_md``` to pick up 
+All parameters of ongoing renewal jobs are persisted inbetween attempts. This allows ```mod_md``` to pick up 
 where it was even when you restarted the server.
 
 ## Faster Startup
 
 While mod_md will never stall your server startup - it does renewals afterwards - there were some double 
-checks by mod_md in v1.1.x which are now eliminated. If you have many domains, this might be noticeable.
+checks by mod_md in v1.1.x which are now eliminated. If you have many domains, this might be noticable.
 
 # Directives
 
@@ -1055,7 +1055,7 @@ Currently only ACME (LetsEncrypt) is implemented.
 `MDChallengeDns01 <path to executable>`<BR/>
 Default: `none`
 
-Define a program to be called when the `dns-01` challenge needs to be setup/torn down. The program is given the argument `setup` or `teardown` followed by the domain name. For `setup` the challenge content is additionally given. See [wildcard certificates](#wildcard-certificates) for more explanation.
+Define a program to be called when the `dns-01` challenge needs to be setup/torn down. The program is given the arguemnt `setup` or `teardown` followed by the domain name. For `setup` the challenge conent is additionally given. See [wildcard certificates](#wildcard-certificates) for more explanation.
 
 ## MDDriveMode / Drive Mode
 
@@ -1143,7 +1143,7 @@ or as in
 MDRenewWindow   30s
 ```
 but 30 seconds might be cutting things a little close.<BR/>
-Or you may specify another percentage:
+Or you may specify another precentage:
 ```
 MDRenewWindow   10%
 ```
