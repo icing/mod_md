@@ -131,11 +131,6 @@ static md_mod_conf_t *md_mod_conf_get(apr_pool_t *pool, int create)
         mod_md_config->env = apr_table_make(pool, 10);
         mod_md_config->init_errors = apr_hash_make(pool);
          
-#if AP_MODULE_MAGIC_AT_LEAST(20180906, 2)
-        mod_md_config->base_dir = ap_state_dir_relative(pool,
-                                                        MD_DEFAULT_BASE_DIR);
-#endif
-
         apr_pool_cleanup_register(pool, NULL, cleanup_mod_config, apr_pool_cleanup_null);
     }
     
@@ -853,6 +848,12 @@ apr_status_t md_config_post_config(server_rec *s, apr_pool_t *p)
     if (mc->hsts_max_age > 0) {
         mc->hsts_header = apr_psprintf(p, "max-age=%d", mc->hsts_max_age);
     }
+
+#if AP_MODULE_MAGIC_AT_LEAST(20180906, 2)
+    if (mc->base_dir == NULL) {
+        mc->base_dir = ap_state_dir_relative(p, MD_DEFAULT_BASE_DIR);
+    }
+#endif
     
     return APR_SUCCESS;
 }
