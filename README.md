@@ -1105,11 +1105,11 @@ Define a program to be called when the certificate of a Managed Domain has been 
 
 ***Map external to internal ports***<BR/>
 `MDPortMap map1 [ map2 ]`<BR/>
-Default: `80:80 443:443`
+Default: `http:80 https:443`
 
-With MDPortMap you can tell it which 'Internet port' corresponds to which local port. A map is composed of external:internal port numbers. 
+With MDPortMap you can clarify on which _local_ port `http` and `https` request arrive - should your server set behind a portmapper, such as an internet modem or a firewall. 
 
-If you use `-` for the internal part, the port is not used. For example, your Apache might listen to port 80, but your firewall might block it. `mod_md` needs to know this because it means that Let's Encrypt cannot send `http:` requests to your server.
+If you use `-` for the local port, it indicates that this protocol is not available from the internet. For example, your Apache might listen to port 80, but your firewall might block it. `mod_md` needs to know this because it means that Let's Encrypt cannot send `http:` requests to your server.
 
 ## MDPrivateKeys
 

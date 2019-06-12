@@ -629,11 +629,19 @@ static const char *md_config_set_store_dir(cmd_parms *cmd, void *arg, const char
 static const char *set_port_map(md_mod_conf_t *mc, const char *value)
 {
     int net_port, local_port;
-    char *endp;
+    const char *endp;
 
-    net_port = (int)apr_strtoi64(value, &endp, 10);
-    if (errno) {
-        return "unable to parse first port number";
+    if (!strncmp("http:", value, sizeof("http:") - 1)) {
+        net_port = 80; endp = value + sizeof("http") - 1; 
+    }
+    else if (!strncmp("https:", value, sizeof("https:") - 1)) {
+        net_port = 443; endp = value + sizeof("https") - 1; 
+    }
+    else {
+        net_port = (int)apr_strtoi64(value, (char**)&endp, 10);
+        if (errno) {
+            return "unable to parse first port number";
+        }
     }
     if (!endp || *endp != ':') {
         return "no ':' after first port number";
@@ -643,7 +651,7 @@ static const char *set_port_map(md_mod_conf_t *mc, const char *value)
         local_port = 0;
     }
     else {
-        local_port = (int)apr_strtoi64(endp, &endp, 10);
+        local_port = (int)apr_strtoi64(endp, (char**)&endp, 10);
         if (errno) {
             return "unable to parse second port number";
         }

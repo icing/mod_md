@@ -1,3 +1,5 @@
+ * `MDPortMap` directive now also accepts `http` and `https` as external ports. `http:8888` would 
+   mean that http requests from the internet arrive on local port 8888.
  * Started "how to"s in README.md
  * MDRequireHttps handler now runs after mod_ssl, so that it can report SSL errors before.
  * All GET requests against an ACMEv2 endpoint (except directory and nonce retrievals), are
