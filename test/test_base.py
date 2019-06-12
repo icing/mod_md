@@ -710,9 +710,15 @@ class HttpdConf(object):
         self._add_line("  MDomain %s\n\n" % " ".join(dnsList))
 
     def start_md(self, dnsList):
+        self._add_line("  <MDomain %s>\n" % " ".join(dnsList))
+        
+    def start_md2(self, dnsList):
         self._add_line("  <MDomainSet %s>\n" % " ".join(dnsList))
 
     def end_md(self):
+        self._add_line("  </MDomain>\n")
+
+    def end_md2(self):
         self._add_line("  </MDomainSet>\n")
 
     def add_must_staple(self, mode):

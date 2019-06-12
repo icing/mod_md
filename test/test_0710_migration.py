@@ -178,9 +178,9 @@ class TestMigration:
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_line( "MDCertificateAgreement accepted" )
         conf.add_line( "MDMembers auto" )
-        conf.start_md( [ domain ] )
+        conf.start_md2( [ domain ] )
         conf.add_line( "MDCertificateAuthority %s" % (ca_url) )
-        conf.end_md()
+        conf.end_md2()
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=dnsList[1:])
         conf.install()
         assert TestEnv.apache_restart() == 0
@@ -201,11 +201,11 @@ class TestMigration:
         conf.add_line( "MDMembers auto" )
         conf.start_md( [ domain ] )
         conf.end_md()
-        conf.start_md( [ domainb ] )
+        conf.start_md2( [ domainb ] )
         # this willg get the reald Let's Encrypt URL assigned, turn off
         # auto renewal, so we will not talk to them
         conf.add_line( "MDDriveMode manual" )
-        conf.end_md()
+        conf.end_md2()
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=dnsList[1:])
         conf.add_vhost( TestEnv.HTTPS_PORT, domainb, aliasList=[])
         conf.install()

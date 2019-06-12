@@ -35,7 +35,7 @@
 #define MD_CMD_MD             "MDomain"
 #define MD_CMD_OLD_MD         "ManagedDomain"
 #define MD_CMD_MD_SECTION     "<MDomainSet"
-#define MD_CMD_MD_OLD_SECTION "<ManagedDomain"
+#define MD_CMD_MD2_SECTION    "<MDomain"
 #define MD_CMD_BASE_SERVER    "MDBaseServer"
 #define MD_CMD_CA             "MDCertificateAuthority"
 #define MD_CMD_CAAGREEMENT    "MDCertificateAgreement"
@@ -247,7 +247,7 @@ static int inside_section(cmd_parms *cmd, const char *section) {
 }
 
 static int inside_md_section(cmd_parms *cmd) {
-    return (inside_section(cmd, MD_CMD_MD_SECTION) || inside_section(cmd, MD_CMD_MD_OLD_SECTION));
+    return (inside_section(cmd, MD_CMD_MD_SECTION) || inside_section(cmd, MD_CMD_MD2_SECTION));
 }
 
 static const char *md_section_check(cmd_parms *cmd) {
@@ -809,6 +809,8 @@ const command_rec md_cmds[] = {
                       "A group of server names with one certificate"),
     AP_INIT_RAW_ARGS(  MD_CMD_MD_SECTION, md_config_sec_start, NULL, RSRC_CONF, 
                      "Container for a managed domain with common settings and certificate."),
+    AP_INIT_RAW_ARGS(  MD_CMD_MD2_SECTION, md_config_sec_start, NULL, RSRC_CONF, 
+                     "Short form for <MDomainSet> container."),
     AP_INIT_TAKE_ARGV( MD_CMD_MEMBER, md_config_sec_add_members, NULL, RSRC_CONF, 
                       "Define domain name(s) part of the Managed Domain. Use 'auto' or "
                       "'manual' to enable/disable auto adding names from virtual hosts."),

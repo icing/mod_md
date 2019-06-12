@@ -1,3 +1,4 @@
+ * Adding "<MDomain name>" as a shortcut to "<MDomainSet name>". It just reads that much better.
  * More "how to"s in README.md
  * `MDPortMap` directive now also accepts `http` and `https` as external ports. `http:8888` would 
    mean that http requests from the internet arrive on local port 8888.

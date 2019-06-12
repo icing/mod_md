@@ -432,14 +432,14 @@ Apache will accept this configuration, but - as you will find out - will not req
 
 ## How to Have Individual Settings
 
-If you have more than one Managed Domain, you soon run into the situation where you want different settings for them. You can use `<MDomainSet >` to achieve this:
+If you have more than one Managed Domain, you soon run into the situation where you want different settings for them. You can use `<MDomain >` to achieve this:
 
 ```
 MDomain mydomain.com
 
-<MDomainSet another.org>
+<MDomain another.org>
   MDRequireHttps permanent
-</MDomainSet>
+</MDomain>
 
 <VirtualHost *:443>
   ServerName mydomain.com
@@ -715,9 +715,9 @@ MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
 You can also set this per domain:
 
 ```
-<MDomainSet aaa.mydomain.net>
+<MDomain aaa.mydomain.net>
   MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
-</mDomainSet
+</mDomain
 ```
 which ensure that, whatever you set globally, this domain will use ACMEv1 with LE. For more information about this migration, see [upgrading](#upgrading).
 
@@ -1014,9 +1014,9 @@ The real ACME endpoints of Let's Encrypt have a rate limit of 50 certificates pe
 Just configure:
 
 ```
-<MDomainSet test.mydomain.net>
+<MDomain test.mydomain.net>
   MDCertificateAuthority https://acme-staging-v02.api.letsencrypt.org/directory
-</MDomainSet
+</MDomain>
 ```
  
 and your requests go against LE's _staging_ environment that is exactly there for these tests.
@@ -1175,6 +1175,16 @@ All the configuration settings discussed should be done in the global server con
 ```
 
 This allows you to have one domain from Let's Encrypt and a second from some other provider. Or also Let's Encrypt, but using another protocol (version).
+
+Since version 2.0.4, you can also use the shorter `<MDomain name>` variant. The example would then be:
+
+```
+<MDomain example.org>
+    MDMember www.example.org
+    MDDriveMode manual
+    MDCertificateAuthority   https://someotherca.com/ACME
+</MDomain>
+```
 
 ## MDCAChallenges
 
@@ -1341,9 +1351,9 @@ You can achieve the same with ```mod_alias``` and some ```Redirect``` configurat
 If you set this globally, it applies to all managed domains. If you want it for a specific domain only, use
 
 ```
-<MDomainSet xxx.yyy>
+<MDomain xxx.yyy>
   MDRequireHttps permanent
-</MDomainSet>
+</MDomain>
 ```
 
 You still need to define a VirtualHost for port 80. If that does not exist, no redirects will happen. 
