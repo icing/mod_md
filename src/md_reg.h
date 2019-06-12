@@ -109,11 +109,11 @@ apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p,
                            const char *name, const md_t *md, int fields);
 
 /**
- * Get the public certificate chain of the managed domain md. Returns APR_ENOENT
- * when is is not available. 
+ * Get the chain of public certificates of the managed domain md, starting with the cert
+ * of the domain and going up the issuers. Returns APR_ENOENT when not available. 
  */
-apr_status_t md_reg_pubcert_get(const md_pubcert_t **ppubcert, md_reg_t *reg, 
-                              md_store_group_t group, const md_t *md, apr_pool_t *p);
+apr_status_t md_reg_get_pubcert(const md_pubcert_t **ppubcert, md_reg_t *reg, 
+                                const md_t *md, apr_pool_t *p);
 
 /**
  * Get the filenames of private key and pubcert of the MD - if they exist.
@@ -147,6 +147,11 @@ apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_i
  */
 apr_status_t md_reg_cleanup_challenges(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
                                        apr_array_header_t *mds);
+
+/* Mark all information from group MD_SG_DOMAINS as readonly and deny further write access.
+ * MD_SG_STAGING and MD_SG_CHALLENGES remain writeable. 
+ */
+void md_reg_freeze_domains(md_reg_t *reg);
 
 /**************************************************************************************************/
 /* protocol drivers */

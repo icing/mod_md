@@ -791,6 +791,10 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     /*9*/
     md_reg_cleanup_challenges(mc->reg, p, ptemp, mc->mds);
     
+    /* From here on, the domains in the registry are readonly 
+     * and only staging/challenges may be manipulated */
+    md_reg_freeze_domains(mc->reg);
+    
     if (mc->watched_names->nelts > 0) {
         /*10*/
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
