@@ -1,19 +1,25 @@
 
 # mod_md - Let's Encrypt for Apache
 
-Copyright 2017-2019 greenbytes GmbH
-
 This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). 
 
 Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1.1.x. For a documentation of that version, [head over to the Apache documentation](https://httpd.apache.org/docs/2.4/mod/mod_md.html).
 
-  - [HowTos:](#howtos)
+  - [HowTos](#howtos):
     * [Add a new `https:` Host](#how-to-add-a-new-host)
     * [Add `https:` to a `http:` Host](#how-to-add-https-to-a-host)
-    * [Migrate an existing Host](#how-to-migrate-a-host)
+    * [Migrate an existing `https:` Host](#how-to-migrate-a-host)
+    * [Have many Names for a Host](#how-to-have-many-names-for-a-host)
     * [Live with `http:`](#how-to-live-with-http-)
     * [Live without `http:`](#how-to-live-without-http-)
     * [Analyze and fix problems](#how-to-fix-problems)
+  - Advanced:
+    * [Have one cert for several Hosts](#how-to-one-cert-for-several-hosts)
+    * [Have an Extra Name in a Certificate](#how-to-have-an-extra-name-in-a-cert)
+    * [Have Individual Settings](#how-to-have-individual-settings)
+    * [Backup, Restore or Start Over](#how-to-backup--restore-or-start-over)
+    * [Get a Wildcard Cert](#how-to-get-a-wildcard-cert)
+
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
   - [Lets Encrypt Migration](#lets-encrypt-migration)
@@ -88,7 +94,7 @@ As in all How To chapters, we use `mydomain.com` as the domain name. Exchange th
 MDomain mydomain.com
 
 <VirtualHost *:443>
-  ServerName mydomain.org
+  ServerName mydomain.com
   SSLEngine on
   DocumentRoot ...path-you-serve-here...
   ...
@@ -127,7 +133,7 @@ As in all How To chapters, we use `mydomain.com` as the domain name. Exchange th
 
 ```
 <VirtualHost *:80>
-  ServerName mydomain.org
+  ServerName mydomain.com
   DocumentRoot ...path-you-serve-here...
   ...
 </VirtualHost>
@@ -139,13 +145,13 @@ This is the host that you already have. Now, make a copy of that, change the por
 MDomain mydomain.com
 
 <VirtualHost *:80>
-  ServerName mydomain.org
+  ServerName mydomain.com
   DocumentRoot ...path-you-serve-here...
   ...
 </VirtualHost>
 
 <VirtualHost *:443>
-  ServerName mydomain.org
+  ServerName mydomain.com
   SSLEngine on
   DocumentRoot ...path-you-serve-here...
   ...
@@ -178,7 +184,7 @@ As in all How To chapters, we use `mydomain.com` as the domain name. Exchange th
 
 ```
 <VirtualHost *:443>
-  ServerName mydomain.org
+  ServerName mydomain.com
   SSLEngine on
   SSLCertificateFile /etc/mycertificates/mydomain-certs.pem
   SSLCertificateKeyFile /etc/mycertificates/mydomain-key.pem
@@ -193,7 +199,7 @@ You add one line to this, maybe just before the `VirtualHost`:
 MDomain mydomain.com
 
 <VirtualHost *:443>
-  ServerName mydomain.org
+  ServerName mydomain.com
   SSLEngine on
   SSLCertificateFile /etc/mycertificates/mydomain-certs.pem
   SSLCertificateKeyFile /etc/mycertificates/mydomain-key.pem
@@ -225,7 +231,7 @@ Now remove `SSLCertificateFile` and `SSLCertificateKeyFile` from your host. It s
 MDomain mydomain.com
 
 <VirtualHost *:443>
-  ServerName mydomain.org
+  ServerName mydomain.com
   SSLEngine on
   DocumentRoot ...path-you-serve-here...
   ...
@@ -233,6 +239,56 @@ MDomain mydomain.com
 ```
 
 Reload you Apache. Open `https://mydomain.com` in your browser. It should have a green lock and a certificate from Lets Encrypt now.
+
+## How to Have many Names for a Host
+
+In all examples so far, we used just `ServerName` in every `VirtualHost`. Our Managed Domains just had a single name.
+
+It is very common to have more than one name and use `ServerAlias` to add them. A more typical host looks like this:
+
+```
+MDomain mydomain.com
+
+<VirtualHost *:443>
+  ServerName mydomain.com
+  ServerAlias www.mydomain.com
+  ...
+</VirtualHost>
+```
+
+`mod_md` automatically looks at all domain names in hosts. You do not have to specify that. It will see `www.mydomain.com` and get a certificate that covers both names. It also works the other way around:
+
+```
+MDomain mydomain.com
+
+<VirtualHost *:443>
+  ServerName www.mydomain.com
+  ServerAlias mydomain.com
+  ...
+</VirtualHost>
+```
+
+In general, it is good practise to use the shorter name in `MDomain`. It does not matter if that appears in `ServerName` or `ServerAlias`.
+
+This check is done every time you start or reload Apache. If you add a name to your host, as in:
+
+```
+MDomain mydomain.com
+
+<VirtualHost *:443>
+  ServerName www.mydomain.com
+  ServerAlias mydomain.com
+  ServerAlias forum.mydomain.com
+  ...
+</VirtualHost>
+```
+
+`mod_md` will detect that the existing certificate does not cover `forum.mydomain.com` and contact LetsEncrypt to get a new one.
+
+Should you _remove_ a name from a host, it will also see that. But since the existing certificate is still valid for all the names that are there, it will not renew the certificate. But when renewal is due anyway, it will use the new, shorter list of names.
+
+One more advice: if you remove the name that you use in `MDomain` from a host, the host is no longer found. While there are ways to tricks around this, it is not recommended to go that direction. That is why using the shortest name is best in most cases.
+
 
 ## How to Live with http:
 
@@ -312,6 +368,115 @@ The most common cause is that you request a wildcard certificate, e.g. `*.mydoma
 Another cause: if your server is not reachable on port 80 and you have not configured `acme-tls/1` (see [TLS ALPN Challenges](#tls-alpn-challenges) for details). Again, mod_md is not able to select a challenge for Let's Encrypt to perform.
 
 
+# Advanced HowTos
+
+## How to Have one Cert for Several Hosts
+
+A feature we did not cover so far: you can specify more than one name in `MDomain`:
+
+```
+MDomain mydomain.com another.org
+
+<VirtualHost *:443>
+  ServerName mydomain.com
+  ...
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName another.org
+  ServerAlias www.another.org
+  ...
+</VirtualHost>
+```
+
+This will treat both hosts as belonging to the same Managed Domain. One certificate will be requested from Let's Encrypt and that will cover both names and all connected aliases. 
+
+It depends on the domains and their use if this is a good approach or not. It might help browsers in using the same connection for both (browsers have sophisticated evaluation methods for this, it might not be as straightforward as your think). On the other hand, the more names in your certificate, the larger it is. Since it is sent to clients on every connection, there is overhead.
+
+But, if it makes sense in your setup, this is how you do it with `mod_md`.
+
+## How to Have an Extra Name in a Cert
+
+Certificates are not only used in web servers like Apache. Mail and IMAP servers also make good use of them. Let's Encrypt can make those too, with a little bit of additional config.
+
+If you want a certificate for `mail.mydomain.com` you need to make sure that `http:` and/or `https:` requests for that domain _from the internet_ arrive at your Apache. Maybe, you have a small setup where everything is on the same machine anyway, then there is nothing more to do. Should it be on another ip address, maybe port forwarding can help.
+
+Let's say, you have solved this. You then configure:
+
+```
+MDomain mydomain.com mail.mydomain.com
+
+<VirtualHost *:443>
+  ServerName mydomain.com
+  ...
+</VirtualHost>
+```
+
+The mail domain gets added to the Managed Domain, but it does not need to appear in any host. `mod_md` will get a certificate that covers both names.
+
+Should you want a _separate_ certificate for it, you can make a new MDomain, like:
+
+```
+MDomain mydomain.com
+MDomain mail.mydomain.com
+
+<VirtualHost *:443>
+  ServerName mydomain.com
+  ...
+</VirtualHost>
+```
+
+Apache will accept this configuration, but - as you will find out - will not request a certificate for the mail domain. What is happening?
+
+`mod_md` sees that `mail.mydomain.com` is not used in any host. Therefore, there is no need to have a certificate for it. This is what the module calls the `MDDriveMode` and it is `auto` by default. If you change this to `always`, it will request certificates also for managed domain that appear not to be in use.
+
+## How to Have Individual Settings
+
+If you have more than one Managed Domain, you soon run into the situation where you want different settings for them. You can use `<MDomainSet >` to achieve this:
+
+```
+MDomain mydomain.com
+
+<MDomainSet another.org>
+  MDRequireHttps permanent
+</MDomainSet>
+
+<VirtualHost *:443>
+  ServerName mydomain.com
+  ...
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName another.org
+  ...
+</VirtualHost>
+```
+This will switch on the permanent redirect to `https:` for `another.org` only. You can use this for most configuration directives of `mod_md`: authority url, drive mode, private keys, renew window and challenges.
+
+## How to Backup, Restore or Start Over
+
+`mod_md` stores all data as files underneath the `md` directory - or where ever you configured `MDStoreDir` to be. See [File Storage](#file-storage) for a description of this. If you backup this directory, you will have a copy of all your certificate and keys.
+
+While this is nice, it is worth remembering that the master data is your Apache configuration. The rest is just created by it. This means, if you _only_ restore this `md` directory and _not_ the Apache configuration files, this will be pretty meaningless.
+
+On the other hand, if you restore the configuration and _not_ the `md` directory, your Apache will request all necessary certificates anew and, after a short while, you will be back to where you started. With different, but valid certificates nevertheless.
+
+Therefore, in case of severe troubles, it is an option to throw away the `md` directory and make a restart (if you can live with the interruption of service, of course). You can also delete individual sub directories or even files, if you think there are problems lurking.
+
+One thing to keep in mind, though, is that Let's Encrypt has a rate limit of 50 certificates per domain per week. If you do this too often, it may block requests for a while. But should you wish to experiment freely, try the _staging environment_ as described in "[Dipping the Toe](#dipping-the-toe)".
+
+## How to Get a Wildcard Cert
+
+A wildcard certificate is one like `*.mydomain.com` which is valid for all sub domain of `mydomain.com`. Let's Encrypt has special requirements for those and you need to do some extra lifting to make them work. See the [chapter about wildcard certificates](#wildcard-certificates) for a description.
+
+But do you need a wildcard certificate? Some common reasons are:
+
+ * Your Apache is a reverse proxy for a large number of domains. It terminates the TLS and forwards all requests to a backend, using a single configuration host.
+ * You need a certificate for a lot of domains, but it should be nevertheless small in size. A too large certificate may increase load times for your pages.
+ * You want to make it easy for a browser to reuse the same connection for other domains too. Maybe many domain pages have links to other sub domains and this speeds up loading.
+ * You have many hosts in your Apache and have used one wildcard certificate in the past, because it was the cheapest option with the least hassle. 
+
+It may now be less hassle to have individual Managed Domains with individual certificates. After all, `mod_md` gets them for you and watches expiry times, etc. But there are still good reasons for wildcards. Just consider it from the new, automated angle.
 
 # Installation
 
@@ -602,19 +767,16 @@ MDomain your_domain.de your_other_domain.com even_more.org
 
 <VirtualHost *:443>
     ServerName your_domain.de
-    SSLEngine on
     ...
 </VirtualHost>
 
 <VirtualHost *:443>
     ServerName your_other_domain.com
-    SSLEngine on
     ...
 </VirtualHost>
 
 <VirtualHost *:443>
     ServerName even_more.org
-    SSLEngine on
     ...
 </VirtualHost>
 ```
@@ -689,7 +851,7 @@ Listen 80
 Include global-and-module-stuff.conf
 
 <VirtualHost *:80>
-   ServerName www.mydomain.org
+   ServerName www.mydomain.com
    DocumentRoot "mydomain/htdocs"
    ...
 </VirtualHost>
@@ -708,16 +870,16 @@ Listen 443
 # stuff provided by your default installation
 Include global-and-module-stuff.conf
 
-MDomain www.mydomain.org
+MDomain www.mydomain.com
 
 <VirtualHost *:80>
-   ServerName www.mydomain.org
+   ServerName www.mydomain.com
    DocumentRoot "mydomain/htdocs"
    ...
 </VirtualHost>
 
 <VirtualHost *:443>
-   ServerName www.mydomain.org
+   ServerName www.mydomain.com
    DocumentRoot "mydomain/htdocs"
    SSLEngine on
    ...
@@ -772,7 +934,7 @@ If your server is not reachable on the ports needed, the domain renewal will fai
 OTOH, some servers do not listen on 80/443, but are nevertheless reachable on those ports. The common cause is a firewall/router that does _port mapping_. How should `mod_md` know? Well you need to tell it that:
 
 ```
-    MDPortaMap 80:8001 443:8002
+    MDPortaMap http:8001 https:8002
 ```
 Which says: _"when someone on the internet opens port 80, it arrives at Apache on port 8001"_.
 
@@ -800,7 +962,7 @@ Then, the new challenge type is usable.
 
 Wildcard certificates are possible with version 2.x of `mod_md``. But they are not straight-forward. Let's Encrypt requires the `dns-01` challenge verification for those. No other is considered good enough.
 
-The difficulty here is that Apache cannot do that on its own. (which is also a security benefit, since corrupting a web server is the scenario `dns-01` protects against). As the name implies, `dns-01` requires you to show some specific DNS records for your domain that contain some challenge data. So you need to _write_ your domain's DNS records
+The difficulty here is that Apache cannot do that on its own. (which is also a security benefit, since corrupting a web server or the communication path to it is the scenario `dns-01` protects against). As the name implies, `dns-01` requires you to show some specific DNS records for your domain that contain some challenge data. So you need to _write_ your domain's DNS records
 
 If you know how to do that, you can integrated this with `mod_md`. Let's say you have a script for that in `/usr/bin/acme-setup-dns` you configure Apache with:
 
@@ -809,20 +971,20 @@ MDChallengeDns01 /usr/bin/acme-setup-dns
 ```
 and Apache will call this script when it needs to setup/teardown a DNS challenge record for a domain. 
 
-Assuming you want a certificate for `*.mydomain.net`, mod_md will call:
+Assuming you want a certificate for `*.mydomain.com`, mod_md will call:
 
 ```
-/usr/bin/acme-setup-dns setup mydomain.net challenge-data
+/usr/bin/acme-setup-dns setup mydomain.com challenge-data
 # this needs to remove all existing DNS TXT records for 
-# _acme-challenge.mydomain.net and create a new one with 
+# _acme-challenge.mydomain.com and create a new one with 
 # content "challenge-data"
 ```
 and afterwards it will call
 
 ```
-/usr/bin/acme-setup-dns teardown mydomain.net
+/usr/bin/acme-setup-dns teardown mydomain.com
 # this needs to remove all existing DNS TXT records for 
-# _acme-challenge.mydomain.net
+# _acme-challenge.mydomain.com
 ```
 
 If you DNS provider offers an interface for this, there is probably someone who has already
@@ -1107,7 +1269,7 @@ Define a program to be called when the certificate of a Managed Domain has been 
 `MDPortMap map1 [ map2 ]`<BR/>
 Default: `http:80 https:443`
 
-With MDPortMap you can clarify on which _local_ port `http` and `https` request arrive - should your server set behind a portmapper, such as an internet modem or a firewall. 
+With MDPortMap you can clarify on which _local_ port `http` and `https` request arrive - should your server set behind a port mapper, such as an internet modem or a firewall. 
 
 If you use `-` for the local port, it indicates that this protocol is not available from the internet. For example, your Apache might listen to port 80, but your firewall might block it. `mod_md` needs to know this because it means that Let's Encrypt cannot send `http:` requests to your server.
 
