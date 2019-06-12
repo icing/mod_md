@@ -8,16 +8,16 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
   - [HowTos](#howtos):
     * [Add a new `https:` Host](#how-to-add-a-new-host)
     * [Add `https:` to a `http:` Host](#how-to-add-https-to-a-host)
-    * [Migrate an existing `https:` Host](#how-to-migrate-a-host)
+    * [Migrate an existing `https:` Host](#how-to-migrate-a-https-host)
     * [Have many Names for a Host](#how-to-have-many-names-for-a-host)
-    * [Live with `http:`](#how-to-live-with-http-)
-    * [Live without `http:`](#how-to-live-without-http-)
+    * [Live with `http:`](#how-to-live-with-http)
+    * [Live without `http:`](#how-to-live-without-http)
     * [Analyze and fix problems](#how-to-fix-problems)
   - Advanced:
-    * [Have one cert for several Hosts](#how-to-one-cert-for-several-hosts)
+    * [Have one cert for several Hosts](#how-to-have-one-cert-for-several-hosts)
     * [Have an Extra Name in a Certificate](#how-to-have-an-extra-name-in-a-cert)
     * [Have Individual Settings](#how-to-have-individual-settings)
-    * [Backup, Restore or Start Over](#how-to-backup--restore-or-start-over)
+    * [Backup, Restore or Start Over](#how-to-backup-restore-or-start-over)
     * [Get a Wildcard Cert](#how-to-get-a-wildcard-cert)
 
   - [Installation](#installation)
