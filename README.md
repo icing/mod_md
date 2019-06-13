@@ -19,6 +19,7 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
     * [Have Individual Settings](#how-to-have-individual-settings)
     * [Backup, Restore or Start Over](#how-to-backup-restore-or-start-over)
     * [Get a Wildcard Cert](#how-to-get-a-wildcard-cert)
+    * [Use Other Certificates](#how-to-use-other-certificates)
 
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
@@ -108,7 +109,7 @@ And while we left out parts of the SSL configurations that used to be necessary,
 
 The module will use this name to find all hosts that belong to it and take care of those. When `mod_ssl` does not find any certificates, because you did not configure any, it will ask `mod_md`: "Hey, do you know anything about `mydomain.com`?" And it will answer: "Sure, use these files here for the certificates!"
 
-During start up, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
+During start up, the module will see that there are no certificates yet for `mydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
 
 Now, when you open `https://mydomain.com/` in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considerations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
 
@@ -428,7 +429,7 @@ MDomain mail.mydomain.com
 
 Apache will accept this configuration, but - as you will find out - will not request a certificate for the mail domain. What is happening?
 
-`mod_md` sees that `mail.mydomain.com` is not used in any host. Therefore, there is no need to have a certificate for it. This is what the module calls the `MDDriveMode` and it is `auto` by default. If you change this to `always`, it will request certificates also for managed domain that appear not to be in use.
+`mod_md` sees that `mail.mydomain.com` is not used in any host. Therefore, there is no need to have a certificate for it. This is what the module calls the `MDRenewMode` and it is `auto` by default. If you change this to `always`, it will request certificates also for managed domain that appear not to be in use.
 
 ## How to Have Individual Settings
 
@@ -477,6 +478,48 @@ But do you need a wildcard certificate? Some common reasons are:
  * You have many hosts in your Apache and have used one wildcard certificate in the past, because it was the cheapest option with the least hassle. 
 
 It may now be less hassle to have individual Managed Domains with individual certificates. After all, `mod_md` gets them for you and watches expiry times, etc. But there are still good reasons for wildcards. Just consider it from the new, automated angle.
+
+# How to Use Other Certificates
+
+Since version v2.0.4 you can define Managed Domains for certificates that come from somewhere else. Before, you either configured `mod_ssl` or you had Let's Encrypt certificates via `mod_md`. Now you can mix. If you have a configruation like:
+
+```
+<VirtualHost *:443>
+  ServerName mydomain.com
+  SSLCertificateFile /etc/ssl/my.cert
+  SSLCertificateKeyFile /etc/ssl/my.key
+  ...
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName another.org
+  SSLCertificateFile /etc/ssl/my.cert
+  SSLCertificateKeyFile /etc/ssl/my.key
+  ...
+</VirtualHost>
+```
+
+You can change that to:
+
+```
+<MDomain mydomain.com another.org>
+  MDCertificateFile /etc/ssl/my.cert
+  MDCertificateKeyFile /etc/ssl/my.key
+</MDomain>
+
+<VirtualHost *:443>
+  ServerName mydomain.com
+  ...
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName another.org
+  ...
+</VirtualHost>
+```
+This not only saves you some copy&paste. It also makes all other features of `mod_md` available for these hosts. You can see it in `server-status` and `md_status`. You can manage redirects with `MDRequireHttps`. You can let them take part in the upcoming OCSP Stapling implementation.
+
+Such a domain will not be renewed by `mod_md` - unless you configure `MDRenewMode always` for it. But even then, the files you configured will be used as long as you do not remove them from the configuration.
 
 # Installation
 
@@ -717,7 +760,7 @@ You can also set this per domain:
 ```
 <MDomain aaa.mydomain.net>
   MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
-</mDomain
+</MDomain
 ```
 which ensure that, whatever you set globally, this domain will use ACMEv1 with LE. For more information about this migration, see [upgrading](#upgrading).
 
@@ -895,14 +938,6 @@ Assume that this worked (and if not, check [trouble shooting](Trouble) to find o
 
 The first concern you can address by telling ```mod_ssl``` to apply higher security standards. There are tons of example out there how to do that and even a nice [secure configuration generator](https://mozilla.github.io/server-side-tls/ssl-config-generator/) by Mozilla.
 
-In the Apache httpd trunk (so not back ported to any release, yet), there is a short-hand for this:
-
-```
-SSLPolicy modern
-```
-
-which gives security defaults that a "modern" browser likes to see.
-
 The second cause for browser concerns are remaining ```http:``` resources included in your site. That cannot be altered by configuration changes. You need to look at your html files and change links starting with ```http://mydomain/something``` into just ```/something```. If you html is generated by an app, you'd need to check the documentation of that one on how to fix it.
 
 ## Switch Over
@@ -934,7 +969,7 @@ If your server is not reachable on the ports needed, the domain renewal will fai
 OTOH, some servers do not listen on 80/443, but are nevertheless reachable on those ports. The common cause is a firewall/router that does _port mapping_. How should `mod_md` know? Well you need to tell it that:
 
 ```
-    MDPortaMap http:8001 https:8002
+    MDPortMap http:8001 https:8002
 ```
 Which says: _"when someone on the internet opens port 80, it arrives at Apache on port 8001"_.
 
@@ -1140,9 +1175,11 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCAChallenges](#mdcachallenges)
 * [MDCertificateAgreement](##mdcertificateagreement--terms-of-service)
 * [MDCertificateAuthority](#mdcertificateauthority)
+* [MDCertificateFile](##mdcertificatefile)
+* [MDCertificateKeyFile](##mdcertificatekeyfile)
 * [MDCertificateProtocol](#mdcertificateprotocol)
 * [MDChallengeDns01](#mdchallengedns01)
-* [MDDriveMode](#mddrivemode--drive-mode)
+* [MDRenewMode](#mdrenewemode--renew-mode)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
 * [MDNotifyCmd](#mdnotifycmd)
@@ -1169,7 +1206,7 @@ All the configuration settings discussed should be done in the global server con
 ```
 <MDomainSet example.org>
     MDMember www.example.org
-    MDDriveMode manual
+    MDRenewMode manual
     MDCertificateAuthority   https://someotherca.com/ACME
 </MDomainSet>
 ```
@@ -1181,7 +1218,7 @@ Since version 2.0.4, you can also use the shorter `<MDomain name>` variant. The 
 ```
 <MDomain example.org>
     MDMember www.example.org
-    MDDriveMode manual
+    MDRenewMode manual
     MDCertificateAuthority   https://someotherca.com/ACME
 </MDomain>
 ```
@@ -1229,20 +1266,32 @@ Default: `none`
 
 Define a program to be called when the `dns-01` challenge needs to be setup/torn down. The program is given the argument `setup` or `teardown` followed by the domain name. For `setup` the challenge content is additionally given. See [wildcard certificates](#wildcard-certificates) for more explanation.
 
-## MDDriveMode / Drive Mode
+## MDCertificateFile
+***A static certificate (chain) file for the MDomain***<BR/>
+`MDCertificateFile path-of-the-file`<BR/>
+Default: none
 
-***Controls when `mod_md` will try to obtain/renew certificates***<BR/>
-`MDDriveMode always|auto|manual`<BR/>
-Default: `auto`
-
-```mod_md``` calls it _driving_ a protocol/domain to obtain the certificates. And there are two separate modes, the default being:
+This is the companion to `mod_ssl`'s `SSLCertficateFile`. It behaves exactly the same as this path is handed over to mod_ssl for all `VirtualHost` definitions that are part of the MDomain. It can only by set for a specific MDomain. A typical configuration is:
 
 ```
-MDDriveMode  auto
+<MDomain mydomain.com>
+  MDCertificateFile /etc/ssl/mydomain.com.cert
+  MDCertificateKeyFile /etc/ssl/mydomain.com.pkey
+</MDomain>
 ```
-where, unsurprisingly, ```mod_md``` will do its best to automate everything. The other mode is ```manual``` where mod_md will not contact the CA itself. Instead, you may use the provided command line utility ```a2md``` to perform this - separate from your httpd process.
+This allows you to define Managed Domains independent of Let's Encrypt. This gives you the monitoring and status reporting of `mod_md` and things like `MDRequireHttps` when your certificate comes from somewhere else.
 
-(***Note***: ```auto``` drive mode requires ```mod_watchdog``` to be active in your server.)
+`MDRenewMode auto` (the default) will _not_ cause renewal attempts for such managed domains.
+
+Both files for certificate and key need to be defined.
+
+
+## MDCertificateKeyFile
+***A static private key file for the MDomain***<BR/>
+`MDCertificateKeyFile path-of-the-file`<BR/>
+Default: none
+
+This is the companion to `mod_ssl`'s `SSLCertficateKeyFile`. See `MDCertificateFile` for details on how it can be used to managed domains.
 
 ## MDMember
 
@@ -1297,6 +1346,29 @@ Currently only supports RSA. `param` selects size of the key. Use `RSA 4096` for
 `MDHttpProxy url` 
 
 Use a proxy (on `url`) to connect to the MDCertificateAuthority url. Use if your webserver has no outbound connectivity in combination with your forward proxy.
+
+## MDRenewMode / Renew Mode
+
+***Controls when `mod_md` will try to obtain/renew certificates***<BR/>
+`MDRenewMode always|auto|manual`<BR/>
+Default: `auto`
+
+This controls how ```mod_md``` goes about renewing certificates for Managed Domains. The default is:
+
+```
+MDRenewMode  auto
+```
+where, unsurprisingly, ```mod_md``` will get a new certificate when needed. For a Managed Domain used in a `VirtualHost` this means a good chunk of time before the existing certificate expires. How early that is can be configured with `MDRenewWindow`.
+
+If a Managed Domain is not used by any `VirtualHost`, the `auto` mode will not renew certificates. The same is true if the ManagedDomain has a static certificate file via `MDCertificateFile`.
+
+If you want renewal for such Managed Domains, you should set their renewal mode to `always`. 
+
+Also, when setting renew mode to `manual` you can disable the renewal by `mod_md`.
+
+
+(***Note***: ```auto``` renew mode requires ```mod_watchdog``` to be active in your server.)<BR/>
+(***Note***: this was called ```MDDriveMode``` in earlier versions and that name is still available to not break existing configurations.)
 
 ## MDRenewWindow / When to renew
 

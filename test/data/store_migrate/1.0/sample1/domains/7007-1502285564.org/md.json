@@ -18,6 +18,6 @@
     "expires": "Tue, 07 Nov 2017 12:33:00 GMT"
   },
   "state": 2,
-  "drive-mode": 2,
+  "renew-mode": 2,
   "renew-window": 1209600
 }

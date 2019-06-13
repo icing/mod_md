@@ -168,12 +168,12 @@ static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *in
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-static void si_val_drive_mode(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+static void si_val_renew_mode(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     const char *s;
     switch (md_json_getl(mdj, info->key, NULL)) {
-        case MD_DRIVE_MANUAL: s = "manual"; break;
-        case MD_DRIVE_ALWAYS: s = "always"; break;
+        case MD_RENEW_MANUAL: s = "manual"; break;
+        case MD_RENEW_ALWAYS: s = "always"; break;
         default: s = "auto"; break;
     }
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
@@ -367,7 +367,7 @@ const status_info status_infos[] = {
     { "Status", MD_KEY_STATUS, si_val_status },
     { "Valid", MD_KEY_VALID_FROM, si_val_valid_from },
     { "Expires", MD_KEY_VALID_UNTIL, si_val_expires },
-    { "Renew", MD_KEY_DRIVE_MODE, si_val_drive_mode },
+    { "Renew", MD_KEY_RENEW_MODE, si_val_renew_mode },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Configuration", MD_KEY_MUST_STAPLE, si_val_props },
     { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },

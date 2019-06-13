@@ -142,25 +142,25 @@ class TestConf:
         # test case: default drive mode - auto
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
 
     def test_310_110(self):
         # test case: drive mode manual
         TestEnv.install_test_conf("drive_manual");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 0
 
     def test_310_111(self):
         # test case: drive mode auto
         TestEnv.install_test_conf("drive_auto");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
 
     def test_310_112(self):
         # test case: drive mode always
         TestEnv.install_test_conf("drive_always");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 2
 
     def test_310_113(self):
         # test case: renew window - 14 days
@@ -331,11 +331,11 @@ class TestConf:
         # test case: remove drive mode from conf -> fallback to default (auto)
         TestEnv.install_test_conf(confFile);
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == expCode
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == expCode
 
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
 
     def test_310_208(self):
         # test case: remove challenges from conf -> fallback to default (not set)
@@ -440,15 +440,15 @@ class TestConf:
         # setup: drive mode manual
         TestEnv.install_test_conf("drive_manual");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 0
         # test case: drive mode auto
         TestEnv.install_test_conf("drive_auto");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
         # test case: drive mode always
         TestEnv.install_test_conf("drive_always");
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 2
 
     def test_310_305(self):
         # test case: change config value for renew window, use various syntax alternatives

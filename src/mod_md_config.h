@@ -69,7 +69,7 @@ typedef struct md_srv_conf_t {
     
     int transitive;                    /* != 0 iff VirtualHost names/aliases are auto-added */
     md_require_t require_https;        /* If MDs require https: access */
-    int drive_mode;                    /* mode of obtaining credentials */
+    int renew_mode;                    /* mode of obtaining credentials */
     int must_staple;                   /* certificates should set the OCSP Must Staple extension */
     struct md_pkey_spec_t *pkey_spec;  /* specification for generating private keys */
     apr_interval_time_t renew_norm;    /* If > 0, use as normalizing value for cert lifetime

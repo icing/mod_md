@@ -32,28 +32,8 @@
 #include "mod_md_private.h"
 #include "mod_md_config.h"
 
-#define MD_CMD_MD             "MDomain"
-#define MD_CMD_OLD_MD         "ManagedDomain"
 #define MD_CMD_MD_SECTION     "<MDomainSet"
 #define MD_CMD_MD2_SECTION    "<MDomain"
-#define MD_CMD_BASE_SERVER    "MDBaseServer"
-#define MD_CMD_CA             "MDCertificateAuthority"
-#define MD_CMD_CAAGREEMENT    "MDCertificateAgreement"
-#define MD_CMD_CACHALLENGES   "MDCAChallenges"
-#define MD_CMD_CAPROTO        "MDCertificateProtocol"
-#define MD_CMD_DRIVEMODE      "MDDriveMode"
-#define MD_CMD_MEMBER         "MDMember"
-#define MD_CMD_MEMBERS        "MDMembers"
-#define MD_CMD_MUSTSTAPLE     "MDMustStaple"
-#define MD_CMD_NOTIFYCMD      "MDNotifyCmd"
-#define MD_CMD_PORTMAP        "MDPortMap"
-#define MD_CMD_PKEYS          "MDPrivateKeys"
-#define MD_CMD_PROXY          "MDHttpProxy"
-#define MD_CMD_RENEWWINDOW    "MDRenewWindow"
-#define MD_CMD_REQUIREHTTPS   "MDRequireHttps"
-#define MD_CMD_STOREDIR       "MDStoreDir"
-
-#define MD_CMD_DNS01CMD       "MDChallengeDns01"
 
 #define DEF_VAL     (-1)
 
@@ -94,7 +74,7 @@ static md_srv_conf_t defconf = {
 
     1,
     MD_REQUIRE_OFF,
-    MD_DRIVE_AUTO,
+    MD_RENEW_AUTO,
     0,
     NULL, 
     MD_TIME_RENEW_NORM,       /* Normalized lifetime of a certificate */
@@ -143,7 +123,7 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
 {
     sc->transitive = DEF_VAL;
     sc->require_https = MD_REQUIRE_UNSET;
-    sc->drive_mode = DEF_VAL;
+    sc->renew_mode = DEF_VAL;
     sc->must_staple = DEF_VAL;
     sc->pkey_spec = NULL;
     sc->renew_norm = DEF_VAL;
@@ -158,7 +138,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
 {
     to->transitive = from->transitive;
     to->require_https = from->require_https;
-    to->drive_mode = from->drive_mode;
+    to->renew_mode = from->renew_mode;
     to->must_staple = from->must_staple;
     to->pkey_spec = from->pkey_spec;
     to->renew_norm = from->renew_norm;
@@ -173,7 +153,7 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
 {
     if (from->require_https != MD_REQUIRE_UNSET) md->require_https = from->require_https;
     if (from->transitive != DEF_VAL) md->transitive = from->transitive;
-    if (from->drive_mode != DEF_VAL) md->drive_mode = from->drive_mode;
+    if (from->renew_mode != DEF_VAL) md->renew_mode = from->renew_mode;
     if (from->must_staple != DEF_VAL) md->must_staple = from->must_staple;
     if (from->pkey_spec) md->pkey_spec = from->pkey_spec;
     if (from->renew_window != DEF_VAL) {
@@ -214,7 +194,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
 
     nsc->transitive = (add->transitive != DEF_VAL)? add->transitive : base->transitive;
     nsc->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
-    nsc->drive_mode = (add->drive_mode != DEF_VAL)? add->drive_mode : base->drive_mode;
+    nsc->renew_mode = (add->renew_mode != DEF_VAL)? add->renew_mode : base->renew_mode;
     nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
     nsc->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
     nsc->renew_norm = (add->renew_norm != DEF_VAL)? add->renew_norm : base->renew_norm;
@@ -444,21 +424,21 @@ static const char *md_config_set_agreement(cmd_parms *cmd, void *dc, const char 
     return NULL;
 }
 
-static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char *value)
+static const char *md_config_set_renew_mode(cmd_parms *cmd, void *dc, const char *value)
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
-    md_drive_mode_t drive_mode;
+    md_renew_mode_t renew_mode;
 
     (void)dc;
     if (!apr_strnatcasecmp("auto", value) || !apr_strnatcasecmp("automatic", value)) {
-        drive_mode = MD_DRIVE_AUTO;
+        renew_mode = MD_RENEW_AUTO;
     }
     else if (!apr_strnatcasecmp("always", value)) {
-        drive_mode = MD_DRIVE_ALWAYS;
+        renew_mode = MD_RENEW_ALWAYS;
     }
     else if (!apr_strnatcasecmp("manual", value) || !apr_strnatcasecmp("stick", value)) {
-        drive_mode = MD_DRIVE_MANUAL;
+        renew_mode = MD_RENEW_MANUAL;
     }
     else {
         return apr_pstrcat(cmd->pool, "unknown MDDriveMode ", value, NULL);
@@ -467,7 +447,7 @@ static const char *md_config_set_drive_mode(cmd_parms *cmd, void *dc, const char
     if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
     }
-    config->drive_mode = drive_mode;
+    config->renew_mode = renew_mode;
     return NULL;
 }
 
@@ -794,54 +774,82 @@ static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const 
     return NULL;
 }
 
+static const char *md_config_set_cert_file(cmd_parms *cmd, void *mconfig, const char *arg)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+    
+    (void)mconfig;
+    if (NULL != (err = md_section_check(cmd))) return err;
+    assert(sc->current);
+    sc->current->cert_file = arg;
+    return NULL;
+}
+
+static const char *md_config_set_key_file(cmd_parms *cmd, void *mconfig, const char *arg)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+    
+    (void)mconfig;
+    if (NULL != (err = md_section_check(cmd))) return err;
+    assert(sc->current);
+    sc->current->pkey_file = arg;
+    return NULL;
+}
+
 const command_rec md_cmds[] = {
-    AP_INIT_TAKE1(     MD_CMD_CA, md_config_set_ca, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issuing the certificates"),
-    AP_INIT_TAKE1(     MD_CMD_CAAGREEMENT, md_config_set_agreement, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDCertificateAgreement", md_config_set_agreement, NULL, RSRC_CONF, 
                   "either 'accepted' or the URL of CA Terms-of-Service agreement you accept"),
-    AP_INIT_TAKE_ARGV( MD_CMD_CACHALLENGES, md_config_set_cha_tyes, NULL, RSRC_CONF, 
+    AP_INIT_TAKE_ARGV("MDCAChallenges", md_config_set_cha_tyes, NULL, RSRC_CONF, 
                       "A list of challenge types to be used."),
-    AP_INIT_TAKE1(     MD_CMD_CAPROTO, md_config_set_ca_proto, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDCertificateProtocol", md_config_set_ca_proto, NULL, RSRC_CONF, 
                   "Protocol used to obtain/renew certificates"),
-    AP_INIT_TAKE1(     MD_CMD_DRIVEMODE, md_config_set_drive_mode, NULL, RSRC_CONF, 
-                  "method of obtaining certificates for the managed domain"),
-    AP_INIT_TAKE_ARGV( MD_CMD_MD, md_config_set_names, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDDriveMode", md_config_set_renew_mode, NULL, RSRC_CONF, 
+                  "deprecated, older name for MDRenewMode"),
+    AP_INIT_TAKE1("MDRenewMode", md_config_set_renew_mode, NULL, RSRC_CONF, 
+                  "Controls how renewal of Managed Domain certificates shall be handled."),
+    AP_INIT_TAKE_ARGV("MDomain", md_config_set_names, NULL, RSRC_CONF, 
                       "A group of server names with one certificate"),
-    AP_INIT_RAW_ARGS(  MD_CMD_MD_SECTION, md_config_sec_start, NULL, RSRC_CONF, 
+    AP_INIT_RAW_ARGS(MD_CMD_MD_SECTION, md_config_sec_start, NULL, RSRC_CONF, 
                      "Container for a managed domain with common settings and certificate."),
-    AP_INIT_RAW_ARGS(  MD_CMD_MD2_SECTION, md_config_sec_start, NULL, RSRC_CONF, 
+    AP_INIT_RAW_ARGS(MD_CMD_MD2_SECTION, md_config_sec_start, NULL, RSRC_CONF, 
                      "Short form for <MDomainSet> container."),
-    AP_INIT_TAKE_ARGV( MD_CMD_MEMBER, md_config_sec_add_members, NULL, RSRC_CONF, 
+    AP_INIT_TAKE_ARGV("MDMember", md_config_sec_add_members, NULL, RSRC_CONF, 
                       "Define domain name(s) part of the Managed Domain. Use 'auto' or "
                       "'manual' to enable/disable auto adding names from virtual hosts."),
-    AP_INIT_TAKE_ARGV( MD_CMD_MEMBERS, md_config_sec_add_members, NULL, RSRC_CONF, 
+    AP_INIT_TAKE_ARGV("MDMembers", md_config_sec_add_members, NULL, RSRC_CONF, 
                       "Define domain name(s) part of the Managed Domain. Use 'auto' or "
                       "'manual' to enable/disable auto adding names from virtual hosts."),
-    AP_INIT_TAKE1(     MD_CMD_MUSTSTAPLE, md_config_set_must_staple, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDMustStaple", md_config_set_must_staple, NULL, RSRC_CONF, 
                   "Enable/Disable the Must-Staple flag for new certificates."),
-    AP_INIT_TAKE12(    MD_CMD_PORTMAP, md_config_set_port_map, NULL, RSRC_CONF, 
+    AP_INIT_TAKE12("MDPortMap", md_config_set_port_map, NULL, RSRC_CONF, 
                   "Declare the mapped ports 80 and 443 on the local server. E.g. 80:8000 "
                   "to indicate that the server port 8000 is reachable as port 80 from the "
                   "internet. Use 80:- to indicate that port 80 is not reachable from "
                   "the outside."),
-    AP_INIT_TAKE_ARGV( MD_CMD_PKEYS, md_config_set_pkeys, NULL, RSRC_CONF, 
+    AP_INIT_TAKE_ARGV("MDPrivateKeys", md_config_set_pkeys, NULL, RSRC_CONF, 
                   "set the type and parameters for private key generation"),
-    AP_INIT_TAKE1(     MD_CMD_PROXY, md_config_set_proxy, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDHttpProxy", md_config_set_proxy, NULL, RSRC_CONF, 
                   "URL of a HTTP(S) proxy to use for outgoing connections"),
-    AP_INIT_TAKE1(     MD_CMD_STOREDIR, md_config_set_store_dir, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDStoreDir", md_config_set_store_dir, NULL, RSRC_CONF, 
                   "the directory for file system storage of managed domain data."),
-    AP_INIT_TAKE1(     MD_CMD_RENEWWINDOW, md_config_set_renew_window, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDRenewWindow", md_config_set_renew_window, NULL, RSRC_CONF, 
                   "Time length for renewal before certificate expires (defaults to days)"),
-    AP_INIT_TAKE1(     MD_CMD_REQUIREHTTPS, md_config_set_require_https, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDRequireHttps", md_config_set_require_https, NULL, RSRC_CONF, 
                   "Redirect non-secure requests to the https: equivalent."),
-    AP_INIT_RAW_ARGS(MD_CMD_NOTIFYCMD, md_config_set_notify_cmd, NULL, RSRC_CONF, 
+    AP_INIT_RAW_ARGS("MDNotifyCmd", md_config_set_notify_cmd, NULL, RSRC_CONF, 
                   "set the command and optional arguments to run when signup/renew of domain is complete."),
-    AP_INIT_TAKE1(     MD_CMD_BASE_SERVER, md_config_set_base_server, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDBaseServer", md_config_set_base_server, NULL, RSRC_CONF, 
                   "allow managing of base server outside virtual hosts."),
-
-    AP_INIT_RAW_ARGS(MD_CMD_DNS01CMD, md_config_set_dns01_cmd, NULL, RSRC_CONF, 
+    AP_INIT_RAW_ARGS("MDChallengeDns01", md_config_set_dns01_cmd, NULL, RSRC_CONF, 
                   "set the command for setup/teardown of dns-01 challenges"),
-
+    AP_INIT_TAKE1("MDCertificateFile", md_config_set_cert_file, NULL, RSRC_CONF, 
+                  "set the static certificate (chain) file to use for this domain."),
+    AP_INIT_TAKE1("MDCertificateKeyFile", md_config_set_key_file, NULL, RSRC_CONF, 
+                  "set the static private key file to use for this domain."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };
@@ -921,7 +929,7 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
 {
     switch (var) {
         case MD_CONFIG_DRIVE_MODE:
-            return (sc->drive_mode != DEF_VAL)? sc->drive_mode : defconf.drive_mode;
+            return (sc->renew_mode != DEF_VAL)? sc->renew_mode : defconf.renew_mode;
         case MD_CONFIG_LOCAL_80:
             return sc->mc->local_80;
         case MD_CONFIG_LOCAL_443:

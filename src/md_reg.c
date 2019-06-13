@@ -442,7 +442,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_DRIVE_MODE & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update drive-mode: %s", name);
-        nmd->drive_mode = updates->drive_mode;
+        nmd->renew_mode = updates->renew_mode;
     }
     if (MD_UPD_RENEW_WINDOW & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update renew-window: %s", name);
@@ -526,7 +526,12 @@ static apr_status_t pubcert_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
     group = (md_store_group_t)va_arg(ap, int);
     md = va_arg(ap, const md_t *);
     
-    rv = md_pubcert_load(reg->store, group, md->name, &certs, p);
+    if (md->cert_file) {
+        rv = md_chain_fload(&certs, p, md->cert_file);
+    }
+    else {
+        rv = md_pubcert_load(reg->store, group, md->name, &certs, p);
+    }
     if (APR_SUCCESS != rv) goto leave;
             
     pubcert = apr_pcalloc(p, sizeof(*pubcert));
@@ -580,6 +585,12 @@ apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile
 {
     apr_status_t rv;
     
+    if (md->cert_file) {
+        /* With fixed files configured, we use those without further checking them ourself */
+        *pcertfile = md->cert_file;
+        *pkeyfile = md->pkey_file;
+        return APR_SUCCESS;
+    }
     rv = md_store_get_fname(pkeyfile, reg->store, group, md->name, MD_FN_PRIVKEY, p);
     if (APR_SUCCESS != rv) return rv;
     if (!md_file_exists(*pkeyfile, p)) return APR_ENOENT;
@@ -792,8 +803,8 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->transitive = md->transitive;
                     fields |= MD_UPD_TRANSITIVE;
                 }
-                if (MD_VAL_UPDATE(md, smd, drive_mode)) {
-                    smd->drive_mode = md->drive_mode;
+                if (MD_VAL_UPDATE(md, smd, renew_mode)) {
+                    smd->renew_mode = md->renew_mode;
                     fields |= MD_UPD_DRIVE_MODE;
                 }
                 if (!apr_is_empty_array(md->contacts) 

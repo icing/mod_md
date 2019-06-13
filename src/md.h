@@ -78,11 +78,11 @@ typedef enum {
 } md_store_group_t;
 
 typedef enum {
-    MD_DRIVE_DEFAULT = -1,          /* default value */
-    MD_DRIVE_MANUAL,                /* manually triggered transmission of credentials */
-    MD_DRIVE_AUTO,                  /* automatic process performed by httpd */
-    MD_DRIVE_ALWAYS,                /* always driven by httpd, even if not used in any vhost */
-} md_drive_mode_t;
+    MD_RENEW_DEFAULT = -1,          /* default value */
+    MD_RENEW_MANUAL,                /* manually triggered renewal of certificate */
+    MD_RENEW_AUTO,                  /* automatic process performed by httpd */
+    MD_RENEW_ALWAYS,                /* always renewed by httpd, even if not necessary */
+} md_renew_mode_t;
 
 typedef struct md_t md_t;
 struct md_t {
@@ -93,7 +93,7 @@ struct md_t {
     int transitive;                 /* != 0 iff VirtualHost names/aliases are auto-added */
     md_require_t require_https;     /* Iff https: is required for this MD */
     
-    int drive_mode;                 /* mode of obtaining credentials */
+    int renew_mode;                 /* mode of obtaining credentials */
     struct md_pkey_spec_t *pkey_spec;/* specification for generating new private keys */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
     apr_interval_time_t renew_norm; /* if > 0, normalized cert lifetime */
@@ -105,7 +105,7 @@ struct md_t {
     const char *ca_agreement;       /* accepted agreement uri between CA and user */ 
     struct apr_array_header_t *ca_challenges; /* challenge types configured for this MD */
     const char *cert_file;          /* != NULL iff pubcert file explicitly configured */
-    const char *key_file;           /* != NULL iff privkey file explicitly configured */
+    const char *pkey_file;          /* != NULL iff privkey file explicitly configured */
     
     md_state_t state;               /* state of this MD */
     int can_acme_tls_1;             /* MD has at least one vhost which allows ALPN protocol "acme-tls/1" */
@@ -126,6 +126,7 @@ struct md_t {
 #define MD_KEY_CA               "ca"
 #define MD_KEY_CA_URL           "ca-url"
 #define MD_KEY_CERT             "cert"
+#define MD_KEY_CERT_FILE        "cert-file"
 #define MD_KEY_CERTIFICATE      "certificate"
 #define MD_KEY_CHALLENGE        "challenge"
 #define MD_KEY_CHALLENGES       "challenges"
@@ -138,7 +139,6 @@ struct md_t {
 #define MD_KEY_DIR              "dir"
 #define MD_KEY_DOMAIN           "domain"
 #define MD_KEY_DOMAINS          "domains"
-#define MD_KEY_DRIVE_MODE       "drive-mode"
 #define MD_KEY_ERRORS           "errors"
 #define MD_KEY_EXPIRES          "expires"
 #define MD_KEY_FINALIZE         "finalize"
@@ -160,10 +160,12 @@ struct md_t {
 #define MD_KEY_ORDERS           "orders"
 #define MD_KEY_PERMANENT        "permanent"
 #define MD_KEY_PKEY             "privkey"
+#define MD_KEY_PKEY_FILE        "pkey-file"
 #define MD_KEY_PROBLEM          "problem"
 #define MD_KEY_PROTO            "proto"
 #define MD_KEY_REGISTRATION     "registration"
 #define MD_KEY_RENEW            "renew"
+#define MD_KEY_RENEW_MODE       "renew-mode"
 #define MD_KEY_RENEWAL          "renewal"
 #define MD_KEY_RENEW_WINDOW     "renew-window"
 #define MD_KEY_REQUIRE_HTTPS    "require-https"
@@ -271,11 +273,6 @@ md_t *md_clone(apr_pool_t *p, const md_t *src);
  * Shallow copy an md record into another pool.
  */
 md_t *md_copy(apr_pool_t *p, const md_t *src);
-
-/**
- * Create a merged md with the settings of add overlaying the ones from base.
- */
-md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base);
 
 /** 
  * Convert the managed domain into a JSON representation and vice versa. 

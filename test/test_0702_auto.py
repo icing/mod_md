@@ -208,7 +208,6 @@ class TestAutov2:
         # restart, check that md is in store
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(domain, dns_list)
-        assert TestEnv.await_renew_state( [ domain ] )
         
         # check: that request to domains give 503 Service Unavailable
         cert1 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)

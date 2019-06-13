@@ -13,6 +13,6 @@
     "agreement": "http://boulder:4000/terms/v1"
   },
   "state": 1,
-  "drive-mode": 2,
+  "renew-mode": 2,
   "renew-window": 1209600
 }

@@ -204,7 +204,7 @@ class TestMigration:
         conf.start_md2( [ domainb ] )
         # this willg get the reald Let's Encrypt URL assigned, turn off
         # auto renewal, so we will not talk to them
-        conf.add_line( "MDDriveMode manual" )
+        conf.add_line( "MDRenewMode manual" )
         conf.end_md2()
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=dnsList[1:])
         conf.add_vhost( TestEnv.HTTPS_PORT, domainb, aliasList=[])

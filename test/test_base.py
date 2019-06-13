@@ -613,16 +613,19 @@ class TestEnv:
         return 'renewal' in stat
 
     @classmethod
-    def await_renew_state(cls, names, timeout=60):
+    def await_renewal(cls, names, timeout=60):
         try_until = time.time() + timeout
         while len(names) > 0:
             if time.time() >= try_until:
                 return False
             allChanged = True
             for name in names:
-                # check status in md.json
-                md = TestEnv.a2md( [ "list", name ] )['jout']['output'][0]
-                if 'renew' in md and md['renew'] == True:
+                md = TestEnv.get_md_status(name, timeout)
+                if md == None:
+                    print "not managed by md: %s" % (name)
+                    return False
+
+                if 'renewal' in md:
                     names.remove(name)
 
             if len(names) != 0:
@@ -695,7 +698,7 @@ class HttpdConf(object):
         self._add_line(line)
 
     def add_drive_mode(self, mode):
-        self._add_line("  MDDriveMode %s\n" % mode)
+        self._add_line("  MDRenewMode %s\n" % mode)
 
     def add_renew_window(self, window):
         self._add_line("  MDRenewWindow %s\n" % window)
@@ -769,18 +772,17 @@ class CertUtil(object):
     # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
 
     @classmethod
-    def create_self_signed_cert( cls, nameList, validDays, serial=1000 ):
+    def create_self_signed_cert( cls, nameList, validDays, serial=1000, path=None ):
         domain = nameList[0]
-        certFilePath =  TestEnv.store_domain_file(domain, 'pubcert.pem')
-        keyFilePath = TestEnv.store_domain_file(domain, 'privkey.pem')
-
-        ddir = os.path.join(TestEnv.store_domains(), domain)
+        ddir = path if path else os.path.join(TestEnv.store_domains(), domain)
         if not os.path.exists(ddir):
             os.makedirs(ddir)
 
+        cert_file =  os.path.join(ddir, 'pubcert.pem')
+        pkey_file = os.path.join(ddir, 'privkey.pem')
         # create a key pair
-        if os.path.exists(keyFilePath):
-            key_buffer = open(keyFilePath, 'rt').read()
+        if os.path.exists(pkey_file):
+            key_buffer = open(pkey_file, 'rt').read()
             k = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_buffer)
         else:
             k = OpenSSL.crypto.PKey()
@@ -804,9 +806,9 @@ class CertUtil(object):
         cert.set_pubkey(k)
         cert.sign(k, 'sha1')
 
-        open(certFilePath, "wt").write(
+        open(cert_file, "wt").write(
             OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert))
-        open(keyFilePath, "wt").write(
+        open(pkey_file, "wt").write(
             OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, k))
 
     @classmethod

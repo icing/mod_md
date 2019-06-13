@@ -227,8 +227,8 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
         APR_ARRAY_PUSH(md->contacts, const char *) = 
         md_util_schemify(p, md->sc->s->server_admin, "mailto");
     }
-    if (md->drive_mode == MD_DRIVE_DEFAULT) {
-        md->drive_mode = md_config_geti(md->sc, MD_CONFIG_DRIVE_MODE);
+    if (md->renew_mode == MD_RENEW_DEFAULT) {
+        md->renew_mode = md_config_geti(md->sc, MD_CONFIG_DRIVE_MODE);
     }
     if (md->renew_norm <= 0 && md->renew_window <= 0) {
         md->renew_norm = md_config_get_interval(md->sc, MD_CONFIG_RENEW_NORM);
@@ -480,7 +480,7 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
 
     if (APR_SUCCESS == rv) {
         if (apr_is_empty_array(servers)) {
-            if (md->drive_mode != MD_DRIVE_ALWAYS) {
+            if (md->renew_mode != MD_RENEW_ALWAYS) {
                 /* Not an error, but looks suspicious */
                 ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(10045)
                              "No VirtualHost matches Managed Domain %s", md->name);
@@ -597,14 +597,29 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
                 return APR_EINVAL;
             }
         }
-
+        
+        if (md->cert_file && !md->pkey_file) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
+                         "The Managed Domain '%s', defined in %s(line %d), "
+                         "has a MDCertificateFile but no MDCertificateKeyFile.",
+                         md->name, md->defn_name, md->defn_line_number);
+            return APR_EINVAL;
+        }
+        if (!md->cert_file && md->pkey_file) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO()
+                         "The Managed Domain '%s', defined in %s(line %d), "
+                         "has a MDCertificateKeyFile but no MDCertificateFile.",
+                         md->name, md->defn_name, md->defn_line_number);
+            return APR_EINVAL;
+        }
+        
         md->can_acme_tls_1 = supports_acme_tls_1(md, base_server);
 
         ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10039)
                      "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, "
                      "renew=%ld, acme_tls_1=%d]",
                      md->name, md->ca_url, md->ca_proto, md->ca_agreement,
-                     md->drive_mode, (long)md->renew_window, md->can_acme_tls_1);
+                     md->renew_mode, (long)md->renew_window, md->can_acme_tls_1);
     }
     return rv;
 }
@@ -659,15 +674,16 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
     apr_array_clear(mc->watched_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
-        
-        md_result_set(result, APR_SUCCESS, NULL); 
+        md_result_set(result, APR_SUCCESS, NULL);
+
         if (md->state == MD_S_ERROR) {
             md_result_set(result, APR_EGENERAL, 
                 "in error state, unable to drive forward. This "
                 "indicates an incomplete or inconsistent configuration. "
                 "Please check the log for warnings in this regard.");
         }
-        else {
+        else if (!md->cert_file || md->renew_mode == MD_RENEW_ALWAYS) {
+            /* we will drive this MD, make a test init to detect early errors */
             md_reg_test_init(mc->reg, md, mc->env, result, p);
         }
             
@@ -678,13 +694,16 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
             continue;
         }
         
-        switch (md->drive_mode) {
-            case MD_DRIVE_AUTO:
+        switch (md->renew_mode) {
+            case MD_RENEW_AUTO:
                 if (md_array_str_index(mc->unused_names, md->name, 0, 0) >= 0) {
                     break;
                 }
+                if (md->cert_file) {
+                    break;
+                }
                 /* fall through */
-            case MD_DRIVE_ALWAYS:
+            case MD_RENEW_ALWAYS:
                 APR_ARRAY_PUSH(mc->watched_names, const char *) = md->name; 
                 break;
             default:
@@ -1055,7 +1074,7 @@ static int md_http_challenge_pr(request_rec *r)
     const md_srv_conf_t *sc;
     const char *name, *data;
     md_reg_t *reg;
-    int configured;
+    const md_t *md;
     apr_status_t rv;
     
     if (r->parsed_uri.path 
@@ -1065,7 +1084,7 @@ static int md_http_challenge_pr(request_rec *r)
             ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, 
                           "access inside /.well-known/acme-challenge for %s%s", 
                           r->hostname, r->parsed_uri.path);
-            configured = (NULL != md_get_by_domain(sc->mc->mds, r->hostname));
+            md = md_get_by_domain(sc->mc->mds, r->hostname);
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
             reg = sc && sc->mc? sc->mc->reg : NULL;
             
@@ -1094,10 +1113,13 @@ static int md_http_challenge_pr(request_rec *r)
                     
                     return DONE;
                 }
-                else if (!configured) {
-                    /* The request hostname is not for a configured domain. We are not
+                else if (!md || md->renew_mode == MD_RENEW_MANUAL
+                    || (md->cert_file && md->renew_mode == MD_RENEW_AUTO)) {
+                    /* The request hostname is not for a domain - or at least not for
+                     * a domain that we renew ourselves. We are not
                      * the sole authority here for /.well-known/acme-challenge (see PR62189).
-                     * So, we decline to handle this and let others step in.
+                     * So, we decline to handle this and give others a chance to provide
+                     * the answer.
                      */
                     return DECLINED;
                 }

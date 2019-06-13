@@ -1,3 +1,10 @@
+v2.0.4
+----------------------------------------------------------------------------------------------------
+ * Updated README.md with new directives and howto.
+ * New directives "MDCertificateFile" and "MDCertificateKeyFile" that allow defining
+   Managed Domains for certificates coming from somewhere else. 
+ * "MDRenewMode" is the new name of "MDDriveMode" (which is still available for 
+   backward compatibility). This should make it easier to understand what it does.
  * Removing some fields form the store MD JSON, now that we can inspect the pubcert itself
    all the time. Less store updates.
  * Dropped support for the pre-v1.x function that mod_ssl used in ancient patches.

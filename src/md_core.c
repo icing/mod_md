@@ -102,7 +102,7 @@ md_t *md_create_empty(apr_pool_t *p)
     if (md) {
         md->domains = apr_array_make(p, 5, sizeof(const char *));
         md->contacts = apr_array_make(p, 5, sizeof(const char *));
-        md->drive_mode = MD_DRIVE_DEFAULT;
+        md->renew_mode = MD_RENEW_DEFAULT;
         md->require_https = MD_REQUIRE_UNSET;
         md->must_staple = -1;
         md->transitive = -1;
@@ -250,7 +250,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->name = apr_pstrdup(p, src->name);
         md->require_https = src->require_https;
         md->must_staple = src->must_staple;
-        md->drive_mode = src->drive_mode;
+        md->renew_mode = src->renew_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
         md->pkey_spec = src->pkey_spec;
         md->renew_norm = src->renew_norm;
@@ -266,31 +266,10 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
             md->ca_challenges = md_array_str_clone(p, src->ca_challenges);
         }
         md->can_acme_tls_1 = src->can_acme_tls_1;
+        if (src->cert_file) md->cert_file = apr_pstrdup(p, src->cert_file);
+        if (src->pkey_file) md->pkey_file = apr_pstrdup(p, src->pkey_file);
     }    
     return md;   
-}
-
-md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
-{
-    md_t *n = apr_pcalloc(p, sizeof(*n));
-
-    n->ca_url = add->ca_url? add->ca_url : base->ca_url;
-    n->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
-    n->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
-    n->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
-    n->must_staple = (add->must_staple >= 0)? add->must_staple : base->must_staple;
-    n->drive_mode = (add->drive_mode != MD_DRIVE_DEFAULT)? add->drive_mode : base->drive_mode;
-    n->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
-    n->renew_norm = (add->renew_norm > 0)? add->renew_norm : base->renew_norm;
-    n->renew_window = (add->renew_window > 0)? add->renew_window : base->renew_window;
-    n->transitive = (add->transitive >= 0)? add->transitive : base->transitive;
-    if (add->ca_challenges) {
-        n->ca_challenges = apr_array_copy(p, add->ca_challenges);
-    }
-    else if (base->ca_challenges) {
-        n->ca_challenges = apr_array_copy(p, base->ca_challenges);
-    }
-    return n;
 }
 
 /**************************************************************************************************/
@@ -313,7 +292,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_setj(md_pkey_spec_to_json(md->pkey_spec, p), json, MD_KEY_PKEY, NULL);
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
-        md_json_setl(md->drive_mode, json, MD_KEY_DRIVE_MODE, NULL);
+        md_json_setl(md->renew_mode, json, MD_KEY_RENEW_MODE, NULL);
         if (md->renew_norm > 0) {
             int percent = (int)(((long)apr_time_sec(md->renew_window)) * 100L 
                                 / ((long)apr_time_sec(md->renew_norm))); 
@@ -343,6 +322,8 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         }
         md_json_setb(md->must_staple > 0, json, MD_KEY_MUST_STAPLE, NULL);
         md_json_setb(md->can_acme_tls_1 > 0, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
+        md_json_sets(md->cert_file, json, MD_KEY_CERT_FILE, NULL);
+        md_json_sets(md->pkey_file, json, MD_KEY_PKEY_FILE, NULL);
         return json;
     }
     return NULL;
@@ -365,7 +346,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         }
         md->state = (md_state_t)md_json_getl(json, MD_KEY_STATE, NULL);
         if (MD_S_EXPIRED_DEPRECATED == md->state) md->state = MD_S_COMPLETE;
-        md->drive_mode = (int)md_json_getl(json, MD_KEY_DRIVE_MODE, NULL);
+        md->renew_mode = (int)md_json_getl(json, MD_KEY_RENEW_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         md->transitive = (int)md_json_getl(json, MD_KEY_TRANSITIVE, NULL);
         md->renew_norm = 0;
@@ -398,6 +379,8 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         }
         md->must_staple = (int)md_json_getb(json, MD_KEY_MUST_STAPLE, NULL);
         md->can_acme_tls_1 = (int)md_json_getb(json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
+        md->cert_file = md_json_dups(p, json, MD_KEY_CERT_FILE, NULL); 
+        md->pkey_file = md_json_dups(p, json, MD_KEY_PKEY_FILE, NULL); 
         
         return md;
     }
