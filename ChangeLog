@@ -1,3 +1,5 @@
+ * public cert chain now gets cached in memory before server drops privileges, so we always
+   have access to it. Allowed to drop some pre-computed values such as the SHA256 fingerprint.
  * Adding "<MDomain name>" as a shortcut to "<MDomainSet name>". It just reads that much better.
  * More "how to"s in README.md
  * `MDPortMap` directive now also accepts `http` and `https` as external ports. `http:8888` would 

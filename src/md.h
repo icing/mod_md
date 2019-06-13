@@ -108,8 +108,6 @@ struct md_t {
     md_state_t state;               /* state of this MD */
     apr_time_t valid_from;          /* When the credentials start to be valid. 0 if unknown */
     apr_time_t valid_until;         /* When the credentials expire. 0 if unknown */
-    const char *cert_serial;        /* if != NULL, serial number of the certificate in hex notation */
-    const char *cert_sha256_fingerprint; /* if != NULL, SHA256 fingerprint in : separated hex */
     int can_acme_tls_1;             /* MD has at least one vhost which allows ALPN protocol "acme-tls/1" */
     
     const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
@@ -307,12 +305,6 @@ typedef struct md_pubcert_t md_pubcert_t;
 struct md_pubcert_t {
     struct apr_array_header_t *certs;    /* complete md_cert* chain */
     struct md_cert_t *cert;              /* the first cert from index 0 */
-};
-
-typedef struct md_creds_t md_creds_t;
-struct md_creds_t {
-    struct md_pkey_t *privkey;
-    md_pubcert_t *pub;
 };
 
 #define MD_OK(c)                    (APR_SUCCESS == (rv = c))

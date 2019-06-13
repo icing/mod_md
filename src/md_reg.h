@@ -148,10 +148,12 @@ apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_i
 apr_status_t md_reg_cleanup_challenges(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
                                        apr_array_header_t *mds);
 
-/* Mark all information from group MD_SG_DOMAINS as readonly and deny further write access.
- * MD_SG_STAGING and MD_SG_CHALLENGES remain writeable. 
+/**
+ * Mark all information from group MD_SG_DOMAINS as readonly, deny future modifications 
+ * (MD_SG_STAGING and MD_SG_CHALLENGES remain writeable). For the given MDs, cache
+ * the public information (MDs themselves and their pubcerts or lack of).
  */
-void md_reg_freeze_domains(md_reg_t *reg);
+apr_status_t md_reg_freeze_domains(md_reg_t *reg, apr_array_header_t *mds);
 
 /**************************************************************************************************/
 /* protocol drivers */

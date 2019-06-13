@@ -44,7 +44,7 @@ struct md_reg_t {
     int can_http;
     int can_https;
     const char *proxy_url;
-    int domains_readonly;
+    int domains_frozen;
 };
 
 /**************************************************************************************************/
@@ -244,18 +244,13 @@ out:
         state = MD_S_ERROR;
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}: error", md->name);
     }
-    
-    if (save_changes && md->state == state
-        && md->valid_from == valid_from && md->valid_until == valid_until) {
-        save_changes = 0;
-    }
-    md->state = state;
-    md->valid_from = valid_from;
-    md->valid_until = valid_until;
-    md->cert_serial = serial;
-    md->cert_sha256_fingerprint = fingerprint;
-    if (!reg->domains_readonly && save_changes && APR_SUCCESS == rv) {
-        return md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
+    if (md->state != state || md->valid_from != valid_from || md->valid_until != valid_until) {
+        md->state = state;
+        md->valid_from = valid_from;
+        md->valid_until = valid_until;
+        if (!reg->domains_frozen && save_changes) {
+            return md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
+        }
     }
     return rv;
 }
@@ -401,7 +396,7 @@ static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     md = va_arg(ap, md_t *);
     do_check = va_arg(ap, int);
 
-    if (reg->domains_readonly) return APR_EACCES; 
+    if (reg->domains_frozen) return APR_EACCES; 
     mine = md_clone(ptemp, md);
     if (do_check && APR_SUCCESS != (rv = check_values(reg, ptemp, md, MD_UPD_ALL))) goto leave;
     if (APR_SUCCESS != (rv = state_init(reg, ptemp, mine, 0))) goto leave;
@@ -445,7 +440,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         return rv;
     }
     
-    if (reg->domains_readonly) return APR_EACCES; 
+    if (reg->domains_frozen) return APR_EACCES; 
     nmd = md_copy(ptemp, md);
     if (MD_UPD_DOMAINS & fields) {
         nmd->domains = updates->domains;
@@ -586,7 +581,7 @@ apr_status_t md_reg_get_pubcert(const md_pubcert_t **ppubcert, md_reg_t *reg,
 
     pubcert = apr_hash_get(reg->certs, md->name, (apr_ssize_t)strlen(md->name));
     if (!pubcert) {
-        if (reg->domains_readonly) {
+        if (reg->domains_frozen) {
             rv = md_util_pool_vdo(pubcert_load, reg, p, &pubcert, MD_SG_DOMAINS, md, NULL);
         }
         else {
@@ -654,7 +649,7 @@ apr_status_t md_reg_set_props(md_reg_t *reg, apr_pool_t *p, int can_http, int ca
     if (reg->can_http != can_http || reg->can_https != can_https) {
         md_json_t *json;
         
-        if (reg->domains_readonly) return APR_EACCES; 
+        if (reg->domains_frozen) return APR_EACCES; 
         reg->can_http = can_http;
         reg->can_https = can_https;
         
@@ -699,7 +694,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                   "sync: found %d mds in store", ctx.store_mds->nelts);
-    if (reg->domains_readonly) return APR_EACCES; 
+    if (reg->domains_frozen) return APR_EACCES; 
     if (APR_SUCCESS == rv) {
         int i, fields;
         md_t *md, *config_md, *smd, *omd;
@@ -856,7 +851,7 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
 
 apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int archive)
 {
-    if (reg->domains_readonly) return APR_EACCES; 
+    if (reg->domains_frozen) return APR_EACCES; 
     return md_store_move(reg->store, p, MD_SG_DOMAINS, MD_SG_ARCHIVE, name, archive);
 }
 
@@ -1062,11 +1057,25 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
 
 apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, apr_table_t *env, apr_pool_t *p)
 {
-    if (reg->domains_readonly) return APR_EACCES;
+    if (reg->domains_frozen) return APR_EACCES;
     return md_util_pool_vdo(run_load_staging, reg, p, md, env, NULL);
 }
 
-void md_reg_freeze_domains(md_reg_t *reg)
+apr_status_t md_reg_freeze_domains(md_reg_t *reg, apr_array_header_t *mds)
 {
-    reg->domains_readonly = 1;
+    apr_status_t rv = APR_SUCCESS;
+    md_t *md;
+    const md_pubcert_t *pubcert;
+    int i;
+    
+    assert(!reg->domains_frozen);
+    /* prefill the certs cache for all mds */
+    for (i = 0; i < mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mds, i, md_t*);
+        rv = md_reg_get_pubcert(&pubcert, reg, md, reg->p);
+        if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) goto leave;
+    }
+    reg->domains_frozen = 1;
+leave:
+    return rv;
 }

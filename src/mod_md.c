@@ -793,7 +793,7 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
     
     /* From here on, the domains in the registry are readonly 
      * and only staging/challenges may be manipulated */
-    md_reg_freeze_domains(mc->reg);
+    md_reg_freeze_domains(mc->reg, mc->mds);
     
     if (mc->watched_names->nelts > 0) {
         /*10*/

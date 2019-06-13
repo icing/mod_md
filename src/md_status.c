@@ -108,9 +108,15 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
 {
     md_json_t *mdj, *jobj, *certj;
     int renew;
+    const md_pubcert_t *pubcert;
     apr_status_t rv = APR_SUCCESS;
 
     mdj = md_to_json(md, p);
+    if (APR_SUCCESS == md_reg_get_pubcert(&pubcert, reg, md, p)) {
+        if (APR_SUCCESS != (rv = status_get_cert_json(&certj, pubcert->cert, p))) goto leave;
+        md_json_setj(certj, mdj, MD_KEY_CERT, NULL);
+    }
+    
     renew = md_should_renew(md);
     md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     if (renew) {
