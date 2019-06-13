@@ -284,6 +284,9 @@ void md_cmd_print_md(md_cmd_ctx *ctx, const md_t *md)
     assert(md);
     if (ctx->json_out) {
         md_json_t *json = md_to_json(md, ctx->p);
+        if (ctx->reg) {
+            md_json_setb(md_reg_should_renew(ctx->reg, md, ctx->p), json, MD_KEY_RENEW, NULL);
+        }
         md_json_addj(json, ctx->json_out, "output", NULL);
     }
     else {

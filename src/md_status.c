@@ -36,7 +36,7 @@
 /**************************************************************************************************/
 /* certificate status information */
 
-static apr_status_t status_get_cert_json(md_json_t **pjson, md_cert_t *cert, apr_pool_t *p)
+static apr_status_t status_get_cert_json(md_json_t **pjson, const md_cert_t *cert, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
     const char *finger, *hex;
@@ -109,15 +109,17 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
     md_json_t *mdj, *jobj, *certj;
     int renew;
     const md_pubcert_t *pubcert;
+    const md_cert_t *cert;
     apr_status_t rv = APR_SUCCESS;
 
     mdj = md_to_json(md, p);
     if (APR_SUCCESS == md_reg_get_pubcert(&pubcert, reg, md, p)) {
-        if (APR_SUCCESS != (rv = status_get_cert_json(&certj, pubcert->cert, p))) goto leave;
+        cert = APR_ARRAY_IDX(pubcert->certs, 0, const md_cert_t*);
+        if (APR_SUCCESS != (rv = status_get_cert_json(&certj, cert, p))) goto leave;
         md_json_setj(certj, mdj, MD_KEY_CERT, NULL);
     }
     
-    renew = md_should_renew(md);
+    renew = md_reg_should_renew(reg, md, p);
     md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     if (renew) {
         rv = md_status_job_loadj(&jobj, md->name, reg, p);
@@ -244,7 +246,7 @@ void  md_status_take_stock(md_status_stock_t *stock, apr_array_header_t *mds,
         switch (md->state) {
             case MD_S_COMPLETE: stock->ok_count++; /* fall through */
             case MD_S_INCOMPLETE:
-                if (md_should_renew(md)) {
+                if (md_reg_should_renew(reg, md, p)) {
                     stock->renew_count++;
                     memset(&job, 0, sizeof(job));
                     job.name = md->name;

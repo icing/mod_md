@@ -667,11 +667,6 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
                 "indicates an incomplete or inconsistent configuration. "
                 "Please check the log for warnings in this regard.");
         }
-        else if (md->state == MD_S_COMPLETE && !md->valid_until) {
-            md_result_set(result, APR_EGENERAL, 
-                "is complete but has no expiration date. This "
-                "means it will never be renewed and should not happen.");
-        }
         else {
             md_reg_test_init(mc->reg, md, mc->env, result, p);
         }
@@ -988,22 +983,6 @@ static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
     return rv;
 }
 
-static int compat_warned;
-static apr_status_t md_get_credentials(server_rec *s, apr_pool_t *p,
-                                       const char **pkeyfile, 
-                                       const char **pcertfile, 
-                                       const char **pchainfile)
-{
-    *pchainfile = NULL;
-    if (!compat_warned) {
-        compat_warned = 1;
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, /* no APLOGNO */
-                     "You are using mod_md with an old patch to mod_ssl. This will "
-                     " work for now, but support will be dropped in a future release.");
-    }
-    return md_get_certificate(s, p, pkeyfile, pcertfile);
-}
-
 static int md_is_challenge(conn_rec *c, const char *servername,
                            X509 **pcert, EVP_PKEY **pkey)
 {
@@ -1233,6 +1212,5 @@ static void md_hooks(apr_pool_t *pool)
     APR_REGISTER_OPTIONAL_FN(md_is_managed);
     APR_REGISTER_OPTIONAL_FN(md_get_certificate);
     APR_REGISTER_OPTIONAL_FN(md_is_challenge);
-    APR_REGISTER_OPTIONAL_FN(md_get_credentials);
 }
 

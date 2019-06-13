@@ -262,7 +262,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
         goto out;
     }
     
-    if (force || md_should_renew(md)) {
+    if (force || md_reg_should_renew(ctx->reg, md, ctx->p)) {
         
         result = md_result_make(ctx->p, APR_SUCCESS);
         msg = "incomplete, sign up";

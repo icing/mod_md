@@ -676,12 +676,12 @@ void md_cert_free(md_cert_t *cert)
     cert_cleanup(cert);
 }
 
-void *md_cert_get_X509(struct md_cert_t *cert)
+void *md_cert_get_X509(const md_cert_t *cert)
 {
     return cert->x509;
 }
 
-const char *md_cert_get_serial_number(md_cert_t *cert, apr_pool_t *p)
+const char *md_cert_get_serial_number(const md_cert_t *cert, apr_pool_t *p)
 {
     const char *s = "";
     const ASN1_INTEGER *ai = X509_get_serialNumber(cert->x509);
@@ -709,23 +709,23 @@ int md_cert_has_expired(const md_cert_t *cert)
     return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) <= 0);
 }
 
-apr_time_t md_cert_get_not_after(md_cert_t *cert)
+apr_time_t md_cert_get_not_after(const md_cert_t *cert)
 {
     return md_asn1_time_get(X509_get_notAfter(cert->x509));
 }
 
-apr_time_t md_cert_get_not_before(md_cert_t *cert)
+apr_time_t md_cert_get_not_before(const md_cert_t *cert)
 {
     return md_asn1_time_get(X509_get_notBefore(cert->x509));
 }
 
 int md_cert_covers_domain(md_cert_t *cert, const char *domain_name)
 {
-    if (!cert->alt_names) {
-        md_cert_get_alt_names(&cert->alt_names, cert, cert->pool);
-    }
-    if (cert->alt_names) {
-        return md_array_str_index(cert->alt_names, domain_name, 0, 0) >= 0;
+    apr_array_header_t *alt_names;
+
+    md_cert_get_alt_names(&alt_names, cert, cert->pool);
+    if (alt_names) {
+        return md_array_str_index(alt_names, domain_name, 0, 0) >= 0;
     }
     return 0;
 }
@@ -757,7 +757,7 @@ int md_cert_covers_md(md_cert_t *cert, const md_t *md)
     return 0;
 }
 
-apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_get_issuers_uri(const char **puri, const md_cert_t *cert, apr_pool_t *p)
 {
     apr_status_t rv = APR_ENOENT;
     STACK_OF(ACCESS_DESCRIPTION) *xinfos;
@@ -784,7 +784,7 @@ apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_poo
     return rv;
 }
 
-apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t *cert, apr_pool_t *p)
 {
     apr_array_header_t *names;
     apr_status_t rv = APR_ENOENT;
@@ -842,7 +842,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
     return rv;
 }
 
-static apr_status_t cert_to_buffer(md_data *buffer, md_cert_t *cert, apr_pool_t *p)
+static apr_status_t cert_to_buffer(md_data *buffer, const md_cert_t *cert, apr_pool_t *p)
 {
     BIO *bio = BIO_new(BIO_s_mem());
     int i;
@@ -880,7 +880,7 @@ apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p,
     return rv;
 }
 
-apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_pool_t *p)
 {
     md_data buffer;
     apr_status_t rv;
@@ -893,7 +893,7 @@ apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t
     return rv;
 }
 
-apr_status_t md_cert_to_sha256_digest(md_data **pdigest, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_to_sha256_digest(md_data **pdigest, const md_cert_t *cert, apr_pool_t *p)
 {
     md_data *digest;
     unsigned int dlen;
@@ -912,7 +912,7 @@ leave:
     return rv;
 }
 
-apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, const md_cert_t *cert, apr_pool_t *p)
 {
     md_data *digest;
     apr_status_t rv;
@@ -1045,7 +1045,7 @@ out:
     return rv;
 }
 
-md_cert_state_t md_cert_state_get(md_cert_t *cert)
+md_cert_state_t md_cert_state_get(const md_cert_t *cert)
 {
     if (cert->x509) {
         return md_cert_is_valid_now(cert)? MD_CERT_VALID : MD_CERT_EXPIRED;
@@ -1216,7 +1216,7 @@ static int get_must_staple_nid(void)
     return nid;
 }
 
-int md_cert_must_staple(md_cert_t *cert)
+int md_cert_must_staple(const md_cert_t *cert)
 {
     /* In case we do not get the NID for it, we treat this as not set. */
     int nid = get_must_staple_nid();
@@ -1505,7 +1505,7 @@ const char *md_nid_get_lname(int nid)
     return OBJ_nid2ln(nid);
 }
 
-apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, md_cert_t *cert)
+apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, const md_cert_t *cert)
 {
 #ifndef OPENSSL_NO_CT
     int nid, i, idx, critical;

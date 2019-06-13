@@ -184,50 +184,31 @@ static apr_status_t check_values(md_reg_t *reg, apr_pool_t *p, const md_t *md, i
 /**************************************************************************************************/
 /* state assessment */
 
-static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md, int save_changes)
+static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
 {
     md_state_t state = MD_S_UNKNOWN;
     const md_pubcert_t *pub;
     const md_cert_t *cert;
-    apr_time_t valid_until = 0, valid_from = 0;
     apr_status_t rv;
-    const char *serial = NULL;
-    const char *fingerprint = NULL;
-    int i;
 
     if (APR_SUCCESS == (rv = md_reg_get_pubcert(&pub, reg, md, p))) {
-        valid_from = md_cert_get_not_before(pub->cert);
-        valid_until = md_cert_get_not_after(pub->cert);
-        serial = md_cert_get_serial_number(pub->cert, p);
-        md_cert_to_sha256_fingerprint(&fingerprint, pub->cert, p);
-        if (!md_cert_covers_md(pub->cert, md)) {
+        cert = APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*);
+        if (!md_is_covered_by_alt_names(md, pub->alt_names)) {
             state = MD_S_INCOMPLETE;
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                           "md{%s}: incomplete, cert no longer covers all domains, "
                           "needs sign up for a new certificate", md->name);
             goto out;
         }
-        if (!md->must_staple != !md_cert_must_staple(pub->cert)) {
+        if (!md->must_staple != !md_cert_must_staple(cert)) {
             state = MD_S_INCOMPLETE;
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                           "md{%s}: OCSP Stapling is%s requested, but certificate "
                           "has it%s enabled. Need to get a new certificate.", md->name,
                           md->must_staple? "" : " not", 
                           !md->must_staple? "" : " not");
             goto out;
         }
-        
-        for (i = 1; i < pub->certs->nelts; ++i) {
-            cert = APR_ARRAY_IDX(pub->certs, i, const md_cert_t *);
-            if (!md_cert_is_valid_now(cert)) {
-                state = MD_S_ERROR;
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
-                              "md{%s}: error, the certificate itself is valid, however the %d. "
-                              "certificate in the chain is not valid now (clock wrong?).", 
-                              md->name, i);
-                goto out;
-            }
-        } 
         
         state = MD_S_COMPLETE;
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "md{%s}: is complete", md->name);
@@ -244,14 +225,7 @@ out:
         state = MD_S_ERROR;
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "md{%s}: error", md->name);
     }
-    if (md->state != state || md->valid_from != valid_from || md->valid_until != valid_until) {
-        md->state = state;
-        md->valid_from = valid_from;
-        md->valid_until = valid_until;
-        if (!reg->domains_frozen && save_changes) {
-            return md_save(reg->store, p, MD_SG_DOMAINS, md, 0);
-        }
-    }
+    md->state = state;
     return rv;
 }
 
@@ -272,7 +246,7 @@ static int reg_md_iter(void *baton, md_store_t *store, md_t *md, apr_pool_t *pte
     
     (void)store;
     if (!ctx->exclude || strcmp(ctx->exclude, md->name)) {
-        state_init(ctx->reg, ptemp, (md_t*)md, 1);
+        state_init(ctx->reg, ptemp, (md_t*)md);
         return ctx->cb(ctx->baton, ctx->reg, md);
     }
     return 1;
@@ -303,7 +277,7 @@ md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p)
     md_t *md;
     
     if (APR_SUCCESS == md_load(reg->store, MD_SG_DOMAINS, name, &md, p)) {
-        state_init(reg, p, md, 1);
+        state_init(reg, p, md);
         return md;
     }
     return NULL;
@@ -311,7 +285,7 @@ md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p)
 
 apr_status_t md_reg_reinit_state(md_reg_t *reg, md_t *md, apr_pool_t *p)
 {
-    return state_init(reg, p, md, 0);
+    return state_init(reg, p, md);
 }
 
 typedef struct {
@@ -340,7 +314,7 @@ md_t *md_reg_find(md_reg_t *reg, const char *domain, apr_pool_t *p)
     
     md_reg_do(find_domain, &ctx, reg, p);
     if (ctx.md) {
-        state_init(reg, p, ctx.md, 1);
+        state_init(reg, p, ctx.md);
     }
     return ctx.md;
 }
@@ -378,7 +352,7 @@ md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, a
         *pdomain = ctx.s;
     }
     if (ctx.md) {
-        state_init(reg, p, ctx.md, 1);
+        state_init(reg, p, ctx.md);
     }
     return ctx.md;
 }
@@ -399,7 +373,7 @@ static apr_status_t p_md_add(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_l
     if (reg->domains_frozen) return APR_EACCES; 
     mine = md_clone(ptemp, md);
     if (do_check && APR_SUCCESS != (rv = check_values(reg, ptemp, md, MD_UPD_ALL))) goto leave;
-    if (APR_SUCCESS != (rv = state_init(reg, ptemp, mine, 0))) goto leave;
+    if (APR_SUCCESS != (rv = state_init(reg, ptemp, mine))) goto leave;
     rv = md_save(reg->store, p, MD_SG_DOMAINS, mine, 1);
 leave:
     return rv;
@@ -505,7 +479,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
-        rv = state_init(reg, ptemp, nmd, 0);
+        rv = state_init(reg, ptemp, nmd);
     }
     return rv;
 }
@@ -543,6 +517,7 @@ static apr_status_t pubcert_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
     apr_array_header_t *certs;
     md_pubcert_t *pubcert, **ppubcert;
     const md_t *md;
+    const md_cert_t *cert;
     md_cert_state_t cert_state;
     md_store_group_t group;
     apr_status_t rv;
@@ -556,8 +531,9 @@ static apr_status_t pubcert_load(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
             
     pubcert = apr_pcalloc(p, sizeof(*pubcert));
     pubcert->certs = certs;
-    pubcert->cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);
-    switch ((cert_state = md_cert_state_get(pubcert->cert))) {
+    cert = APR_ARRAY_IDX(certs, 0, const md_cert_t *);
+    if (APR_SUCCESS != (rv = md_cert_get_alt_names(&pubcert->alt_names, cert, p))) goto leave;
+    switch ((cert_state = md_cert_state_get(cert))) {
         case MD_CERT_VALID:
         case MD_CERT_EXPIRED:
             break;
@@ -580,21 +556,20 @@ apr_status_t md_reg_get_pubcert(const md_pubcert_t **ppubcert, md_reg_t *reg,
     const char *name;
 
     pubcert = apr_hash_get(reg->certs, md->name, (apr_ssize_t)strlen(md->name));
-    if (!pubcert) {
-        if (reg->domains_frozen) {
-            rv = md_util_pool_vdo(pubcert_load, reg, p, &pubcert, MD_SG_DOMAINS, md, NULL);
+    if (!pubcert && !reg->domains_frozen) {
+        rv = md_util_pool_vdo(pubcert_load, reg, reg->p, &pubcert, MD_SG_DOMAINS, md, NULL);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            /* We cache it missing with an empty record */
+            pubcert = apr_pcalloc(reg->p, sizeof(*pubcert));
         }
-        else {
-            rv = md_util_pool_vdo(pubcert_load, reg, reg->p, &pubcert, MD_SG_DOMAINS, md, NULL);
-            if (APR_SUCCESS != rv) goto leave;
-            name = (p != reg->p)? apr_pstrdup(reg->p, md->name) : md->name;
-            apr_hash_set(reg->certs, name, (apr_ssize_t)strlen(name), pubcert);
-        }
-        if (APR_SUCCESS == rv && pubcert->cert == NULL) {
-            rv = APR_ENOENT;
-        }
+        else if (APR_SUCCESS != rv) goto leave;
+        name = (p != reg->p)? apr_pstrdup(reg->p, md->name) : md->name;
+        apr_hash_set(reg->certs, name, (apr_ssize_t)strlen(name), pubcert);
     }
 leave:
+    if (APR_SUCCESS == rv && (!pubcert || !pubcert->certs)) {
+        rv = APR_ENOENT;
+    }
     *ppubcert = (APR_SUCCESS == rv)? pubcert : NULL;
     return rv;
 }
@@ -612,6 +587,45 @@ apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile
     if (APR_SUCCESS != rv) return rv;
     if (!md_file_exists(*pcertfile, p)) return APR_ENOENT;
     return APR_SUCCESS;
+}
+
+int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p) 
+{
+    const md_pubcert_t *pub;
+    const md_cert_t *cert;
+    apr_time_t now, valid_until, valid_from;
+    double renew_win,  life;
+    apr_interval_time_t left;
+    apr_status_t rv;
+    
+    if (md->state == MD_S_INCOMPLETE) return 1;
+    rv = md_reg_get_pubcert(&pub, reg, md, p);
+    if (APR_STATUS_IS_ENOENT(rv)) return 1;
+    if (APR_SUCCESS == rv) {
+        now = apr_time_now();
+        cert = APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*);
+        valid_until = md_cert_get_not_after(cert);
+        if (valid_until <= now) {
+            return 1;
+        }
+        
+        renew_win = (double)md->renew_window;
+        /* renew_norm means that we have a percentage value for renewals. We
+         * take that fraction from the existing certificate lifetime. */
+        if (md->renew_norm > 0 && md->renew_norm > renew_win) {
+            valid_from = md_cert_get_not_before(cert);
+            if (valid_until > valid_from) {
+                life = (double)(valid_until - valid_from); 
+                renew_win = life * renew_win / (double)md->renew_norm;
+            }
+        }
+        
+        left = valid_until - now;
+        if (left <= renew_win) {
+            return 1;
+        }                
+    }
+    return 0;
 }
 
 /**************************************************************************************************/

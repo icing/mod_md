@@ -79,6 +79,23 @@ apr_size_t md_common_name_count(const md_t *md1, const md_t *md2)
     return hits;
 }
 
+int md_is_covered_by_alt_names(const md_t *md, const struct apr_array_header_t* alt_names)
+{
+    const char *name;
+    int i;
+    
+    if (alt_names) {
+        for (i = 0; i < md->domains->nelts; ++i) {
+            name = APR_ARRAY_IDX(md->domains, i, const char *);
+            if (!md_dns_domains_match(alt_names, name)) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    return 0;
+}
+
 md_t *md_create_empty(apr_pool_t *p)
 {
     md_t *md = apr_pcalloc(p, sizeof(*md));
@@ -204,44 +221,6 @@ md_t *md_create(apr_pool_t *p, apr_array_header_t *domains)
     return md;
 }
 
-int md_should_renew(const md_t *md) 
-{
-    apr_time_t now;
-
-    switch (md->state) {
-        case MD_S_EXPIRED_DEPRECATED:
-        case MD_S_COMPLETE:
-            now = apr_time_now();
-            if (md->valid_until <= now) {
-                return 1;
-            }
-            else if (md->valid_until > 0) {
-                double renew_win,  life;
-                apr_interval_time_t left;
-                
-                renew_win = (double)md->renew_window;
-                if (md->renew_norm > 0 
-                    && md->renew_norm > renew_win
-                    && md->valid_until > md->valid_from) {
-                    /* Calc renewal days as fraction of cert lifetime - if known */
-                    life = (double)(md->valid_until - md->valid_from); 
-                    renew_win = life * renew_win / (double)md->renew_norm;
-                }
-                
-                left = md->valid_until - now;
-                if (left <= renew_win) {
-                    return 1;
-                }                
-            }
-            break;
-        case MD_S_INCOMPLETE:
-            return 1;
-        default:
-            break;
-    }
-    return 0;
-}
-
 /**************************************************************************************************/
 /* lifetime */
 
@@ -319,8 +298,6 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base)
 
 md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
 {
-    char ts[APR_RFC822_DATE_LEN];
-
     md_json_t *json = md_json_create(p);
     if (json) {
         apr_array_header_t *domains = md_array_str_compact(p, md->domains, 0);
@@ -337,14 +314,6 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         md_json_setl(md->drive_mode, json, MD_KEY_DRIVE_MODE, NULL);
-        if (md->valid_until > 0) {
-            apr_rfc822_date(ts, md->valid_until);
-            md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL);
-        }
-        if (md->valid_from > 0) {
-            apr_rfc822_date(ts, md->valid_from);
-            md_json_sets(ts, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
-        }
         if (md->renew_norm > 0) {
             int percent = (int)(((long)apr_time_sec(md->renew_window)) * 100L 
                                 / ((long)apr_time_sec(md->renew_norm))); 
@@ -357,7 +326,6 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         else {
             md_json_sets(md_duration_format(p, md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
         }
-        md_json_setb(md_should_renew(md), json, MD_KEY_RENEW, NULL);
         if (md->ca_challenges && md->ca_challenges->nelts > 0) {
             apr_array_header_t *na;
             na = md_array_str_compact(p, md->ca_challenges, 0);
@@ -400,14 +368,6 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->drive_mode = (int)md_json_getl(json, MD_KEY_DRIVE_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         md->transitive = (int)md_json_getl(json, MD_KEY_TRANSITIVE, NULL);
-        s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL);
-        if (s && *s) {
-            md->valid_until = apr_date_parse_rfc(s);
-        }
-        s = md_json_dups(p, json, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
-        if (s && *s) {
-            md->valid_from = apr_date_parse_rfc(s);
-        }
         md->renew_norm = 0;
         md->renew_window = apr_time_from_sec(md_json_getl(json, MD_KEY_RENEW_WINDOW, NULL));
         if (md->renew_window <= 0) {

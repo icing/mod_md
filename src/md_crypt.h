@@ -80,7 +80,6 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
 
-void *md_cert_get_X509(struct md_cert_t *cert);
 void *md_pkey_get_EVP_PKEY(struct md_pkey_t *pkey);
 
 struct md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p);
@@ -99,6 +98,7 @@ typedef enum {
 } md_cert_state_t;
 
 void md_cert_free(md_cert_t *cert);
+void *md_cert_get_X509(const md_cert_t *cert);
 
 apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname);
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
@@ -121,25 +121,25 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *pool,
 apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
                                      apr_pool_t *pool, const struct md_http_response_t *res);
 
-md_cert_state_t md_cert_state_get(md_cert_t *cert);
+md_cert_state_t md_cert_state_get(const md_cert_t *cert);
 int md_cert_is_valid_now(const md_cert_t *cert);
 int md_cert_has_expired(const md_cert_t *cert);
 int md_cert_covers_domain(md_cert_t *cert, const char *domain_name);
 int md_cert_covers_md(md_cert_t *cert, const struct md_t *md);
-int md_cert_must_staple(md_cert_t *cert);
-apr_time_t md_cert_get_not_after(md_cert_t *cert);
-apr_time_t md_cert_get_not_before(md_cert_t *cert);
+int md_cert_must_staple(const md_cert_t *cert);
+apr_time_t md_cert_get_not_after(const md_cert_t *cert);
+apr_time_t md_cert_get_not_before(const md_cert_t *cert);
 
-apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p);
-apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_get_issuers_uri(const char **puri, const md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t *cert, apr_pool_t *p);
 
-apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool_t *p);
 
-apr_status_t md_cert_to_sha256_digest(struct md_data **pdigest, md_cert_t *cert, apr_pool_t *p);
-apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_sha256_digest(struct md_data **pdigest, const md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, const md_cert_t *cert, apr_pool_t *p);
 
-const char *md_cert_get_serial_number(md_cert_t *cert, apr_pool_t *p);
+const char *md_cert_get_serial_number(const md_cert_t *cert, apr_pool_t *p);
 
 apr_status_t md_chain_fload(struct apr_array_header_t **pcerts, 
                             apr_pool_t *p, const char *fname);
@@ -168,7 +168,7 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
                                       const char *acme_id, md_pkey_t *pkey, 
                                       apr_interval_time_t valid_for, apr_pool_t *p);
 
-apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, md_cert_t *cert);
+apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, const md_cert_t *cert);
 
 
 /**************************************************************************************************/

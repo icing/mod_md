@@ -785,7 +785,7 @@ apr_array_header_t *md_dns_make_minimal(apr_pool_t *p, apr_array_header_t *domai
     return minimal;
 }
 
-int md_dns_domains_match(struct apr_array_header_t *domains, const char *name)
+int md_dns_domains_match(const apr_array_header_t *domains, const char *name)
 {
     const char *domain;
     int i;

@@ -120,7 +120,7 @@ struct apr_array_header_t *md_dns_make_minimal(apr_pool_t *p,
  * Determine if the given domains cover the name, including wildcard matching.
  * @return != 0 iff name is matched by list of domains
  */
-int md_dns_domains_match(struct apr_array_header_t *domains, const char *name);
+int md_dns_domains_match(const apr_array_header_t *domains, const char *name);
 
 /**************************************************************************************************/
 /* file system related */

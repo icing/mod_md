@@ -104,10 +104,10 @@ struct md_t {
     const char *ca_account;         /* account used at CA */
     const char *ca_agreement;       /* accepted agreement uri between CA and user */ 
     struct apr_array_header_t *ca_challenges; /* challenge types configured for this MD */
-
+    const char *cert_file;          /* != NULL iff pubcert file explicitly configured */
+    const char *key_file;           /* != NULL iff privkey file explicitly configured */
+    
     md_state_t state;               /* state of this MD */
-    apr_time_t valid_from;          /* When the credentials start to be valid. 0 if unknown */
-    apr_time_t valid_until;         /* When the credentials expire. 0 if unknown */
     int can_acme_tls_1;             /* MD has at least one vhost which allows ALPN protocol "acme-tls/1" */
     
     const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
@@ -285,11 +285,7 @@ md_t *md_merge(apr_pool_t *p, const md_t *add, const md_t *base);
 struct md_json_t *md_to_json (const md_t *md, apr_pool_t *p);
 md_t *md_from_json(struct md_json_t *json, apr_pool_t *p);
 
-/**
- * Determine if MD should renew its cert (if it has one)
- */
-int md_should_renew(const md_t *md);
-
+int md_is_covered_by_alt_names(const md_t *md, const struct apr_array_header_t* alt_names);
 
 #define LE_ACMEv1_PROD      "https://acme-v01.api.letsencrypt.org/directory"
 #define LE_ACMEv1_STAGING   "https://acme-staging.api.letsencrypt.org/directory"
@@ -303,8 +299,10 @@ int md_should_renew(const md_t *md);
 
 typedef struct md_pubcert_t md_pubcert_t;
 struct md_pubcert_t {
-    struct apr_array_header_t *certs;    /* complete md_cert* chain */
-    struct md_cert_t *cert;              /* the first cert from index 0 */
+    struct apr_array_header_t *certs;     /* chain of const md_cert*, leaf cert first */
+    struct apr_array_header_t *alt_names; /* alt-names of leaf cert */
+    const char *cert_file;                /* file path of chain */
+    const char *key_file;                 /* file path of key for leaf cert */
 };
 
 #define MD_OK(c)                    (APR_SUCCESS == (rv = c))

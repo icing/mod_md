@@ -90,8 +90,10 @@ class TestDrivev1:
         self._check_account_key( name )
 
         # check archive content
+        storeMd = json.loads( open( TestEnv.store_archived_file(name, 1, 'md.json')).read() )
+        for f in ['name', 'ca', 'domains', 'contacts', 'drive-mode', 'renew-window', 'must-staple' ]: 
+            assert storeMd[f] == prevMd[f]
         
-        assert json.loads( open( TestEnv.store_archived_file(name, 1, 'md.json')).read() ) == prevMd
         # check file system permissions:
         TestEnv.check_file_permissions( name )
         # check: challenges removed

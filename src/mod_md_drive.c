@@ -73,7 +73,6 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
     apr_time_t delay, next_run;
     const md_t *md;
     md_result_t *result;
-    char ts[APR_RFC822_DATE_LEN];
 
     md_status_job_load(job, dctx->mc->reg, ptemp);
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
@@ -98,7 +97,7 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
          * If that is in the future, request to run then */
         if (apr_time_now() < job->valid_from) next_run = job->valid_from;
     }
-    else if (md_should_renew(md)) {
+    else if (md_reg_should_renew(dctx->mc->reg, md, dctx->p)) {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
                      "md(%s): state=%d, driving", job->name, md->state);
         
@@ -131,12 +130,11 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
                          job->name, job->error_runs, md_duration_print(ptemp, delay));
         }
     }
-    else if (md->valid_until > 0) {
+    else {
         /* Renew is not necessary yet, leave job->next_run as 0 since 
          * that keeps the default schedule of running twice a day. */
-        apr_rfc822_date(ts, md->valid_until);
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
-                     "md(%s): no need to renew yet, cert expires %s", job->name, ts);
+                     "md(%s): no need to renew yet", job->name);
     }
     
 leave:

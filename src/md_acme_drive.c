@@ -734,14 +734,20 @@ ready:
      * to 24 hours after new cert is valid (if there is enough time left), so
      * that cients with skewed clocks do not see a problem. */
     now = apr_time_now();
-    if (d->md->state == MD_S_COMPLETE && d->md->valid_until > now) {            
-        apr_interval_time_t delay_activation;
-         
-        delay_activation = apr_time_from_sec(MD_SECS_PER_DAY);
-        if (delay_activation > (d->md->valid_until - now)) {
-            delay_activation = (d->md->valid_until - now);
+    if (d->md->state == MD_S_COMPLETE) {
+        const md_pubcert_t *pub;
+        apr_time_t valid_until, delay_activation;
+        
+        if (APR_SUCCESS == md_reg_get_pubcert(&pub, d->reg, d->md, d->p)) {
+            valid_until = md_cert_get_not_after(APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*));
+            if (valid_until > now) {            
+                delay_activation = apr_time_from_sec(MD_SECS_PER_DAY);
+                if (delay_activation > (valid_until - now)) {
+                    delay_activation = (valid_until - now);
+                }
+                md_result_delay_set(result, result->ready_at + delay_activation);
+            }
         }
-        md_result_delay_set(result, result->ready_at + delay_activation);
     }
     
     /* There is a full set staged, to be loaded */
