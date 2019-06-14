@@ -98,3 +98,18 @@ class TestStatus:
         assert status['renewal']['scts'][0]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
         assert status['renewal']['scts'][1]['logid'] == '293c519654c83965baaa50fc5807d4b76fbf587a2972dca4c30cf4e54547f478'
         assert status['renewal']['scts'][1]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
+
+    def test_920_003(self):
+        # test if switching it off works
+        domain = self.test_domain
+        dnsList = [ domain ]
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_md( dnsList )
+        conf.add_line("MDCertificateStatus off")
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], restart=False )
+        status = TestEnv.get_certificate_status( domain )
+        assert not status

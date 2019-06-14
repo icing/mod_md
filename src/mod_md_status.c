@@ -71,7 +71,7 @@ int md_http_cert_status(request_rec *r)
     
     /* We are looking for information about a staged certificate */
     sc = ap_get_module_config(r->server->module_config, &md_module);
-    if (!sc || !sc->mc || !sc->mc->reg) return DECLINED;
+    if (!sc || !sc->mc || !sc->mc->reg || !sc->mc->certificate_status_enabled) return DECLINED;
     md = md_get_by_domain(sc->mc->mds, r->hostname);
     if (!md) return DECLINED;
 
@@ -440,7 +440,7 @@ int md_status_hook(request_rec *r, int flags)
     sc = ap_get_module_config(r->server->module_config, &md_module);
     if (!sc) return DECLINED;
     mc = sc->mc;
-    if (!mc) return DECLINED;
+    if (!mc || !mc->server_status_enabled) return DECLINED;
 
     html = !(flags & AP_STATUS_SHORT);
     ctx.p = r->pool;
