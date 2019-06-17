@@ -157,10 +157,9 @@ static void send_notification(md_drive_ctx *dctx, md_status_job_t *job, const md
 
 static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool_t *ptemp)
 {
-    apr_time_t next_run;
     const md_t *md;
     md_result_t *result;
-    int error_run = 0, save = 0;
+    int error_run = 0, fatal_run = 0, save = 0;
     
     md_status_job_load(job, dctx->mc->reg, ptemp);
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
@@ -169,23 +168,23 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
     md = md_get_by_name(dctx->mc->mds, job->name);
     AP_DEBUG_ASSERT(md);
 
-    next_run = 0; /* 0 is default and means at the regular intervals */
-    
     result = md_result_md_make(ptemp, md);
+    if (job->last_result) md_result_assign(result, job->last_result); 
     
     if (md->state == MD_S_MISSING_INFORMATION) {
         /* Missing information, this will not change until configuration
          * is changed and server reloaded. */
-        md_result_set(result, APR_INCOMPLETE, "The MD is missing necessary information.");
+        fatal_run = 1;
         goto leave;
     }
     
 assess:
     if (job->finished) {
+        job->next_run = 0;
         /* Finished jobs might take a while before the results become valid.
          * If that is in the future, request to run then */
         if (apr_time_now() < job->valid_from) {
-            next_run = job->valid_from;
+            job->next_run = job->valid_from;
         }
         else if (!job->notified) {
             send_notification(dctx, job, md, result, ptemp);
@@ -226,21 +225,22 @@ assess:
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
                      "md(%s): no need to renew yet", job->name);
+        job->next_run = 0;
     }
     
 leave:
+    if (fatal_run) {
+        save = 1;
+        job->next_run = 0;
+    }
     if (error_run) {
         ++job->error_runs;
         save = 1;
-        next_run = apr_time_now() + calc_err_delay(job->error_runs);
+        job->next_run = apr_time_now() + calc_err_delay(job->error_runs);
         ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
                      "%s: encountered error for the %d. time, next run in %s",
                      job->name, job->error_runs, 
-                     md_duration_print(ptemp, next_run - apr_time_now()));
-    }
-    if (next_run != job->next_run) {
-        job->next_run = next_run;
-        save = 1;
+                     md_duration_print(ptemp, job->next_run - apr_time_now()));
     }
     if (save) {
         apr_status_t rv2 = md_status_job_save(job, dctx->mc->reg, result, ptemp);
