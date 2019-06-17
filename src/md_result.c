@@ -194,7 +194,7 @@ void md_result_log(md_result_t *result, int level)
             sep = " ";
         }
         if (result->detail) {
-            msg = apr_psprintf(result->p, "%s%ssdetail[%s]", msg, sep, result->detail);
+            msg = apr_psprintf(result->p, "%s%sdetail[%s]", msg, sep, result->detail);
             sep = " ";
         }
         md_log_perror(MD_LOG_MARK, (md_log_level_t)level, result->status, result->p, "%s", msg);

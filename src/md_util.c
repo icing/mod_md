@@ -992,27 +992,29 @@ out:
 
 const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
 {
-    const char *s = "";
+    const char *s = "", *sep = "";
     int days = (int)(apr_time_sec(duration) / MD_SECS_PER_DAY);
     int rem = (int)(apr_time_sec(duration) % MD_SECS_PER_DAY);
     
     if (days > 0) {
-        s = apr_psprintf(p, "%s%s%d days", s, (s? " " : ""), days); 
+        s = apr_psprintf(p, "%d days", days);
+        sep = " "; 
     }
     if (rem > 0) {
         int hours = (int)(apr_time_sec(rem) / MD_SECS_PER_HOUR);
         rem = (int)(apr_time_sec(rem) % MD_SECS_PER_HOUR);
         if (hours > 0) {
-            s = apr_psprintf(p, "%s%s%02d hours", s, (s? " " : ""), hours); 
+            s = apr_psprintf(p, "%s%s%02d hours", s, sep, hours); 
+            sep = " "; 
         }
         if (rem > 0) {
             int minutes = (int)(apr_time_sec(rem) / 60);
             rem = (int)(apr_time_sec(rem) % 60);
             if (minutes > 0) {
-                s = apr_psprintf(p, "%s%s%02d minutes", s, (s? " " : ""), minutes); 
+                s = apr_psprintf(p, "%s%s%02d minutes", s, sep, minutes); 
             }
             if (rem > 0) {
-                s = apr_psprintf(p, "%s%s%02d seconds", s, (s? " " : ""), rem); 
+                s = apr_psprintf(p, "%s%s%02d seconds", s, sep, rem); 
             }
         }
     }
@@ -1022,6 +1024,7 @@ const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
             s = apr_psprintf(p, "%d ms", (int)apr_time_msec(duration));
         }
     }
+    s = apr_psprintf(p, "%s%s (%ld ms)", s, sep, (long)apr_time_msec(duration)); 
     return s;
 }
 
