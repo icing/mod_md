@@ -148,7 +148,6 @@ static void send_notification(md_drive_ctx *dctx, md_status_job_t *job, const md
             return;
         }
     }
-    md_result_set(result, APR_SUCCESS, NULL);
     job->notified = 1;
     ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
                  "The Managed Domain %s has been setup and changes "
