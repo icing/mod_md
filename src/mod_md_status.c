@@ -296,17 +296,14 @@ static void si_val_props(status_ctx *ctx, md_json_t *mdj, const status_info *inf
 
 static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
-    const char *error;
     char buffer[HUGE_STRING_LEN];
     apr_status_t rv;
     int finished, errors;
     apr_time_t t;
-    const char *s, *name;
+    const char *s;
     
     (void)info;
-    name = md_json_gets(mdj, MD_KEY_NAME, NULL);  
     if (!md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, error);
         return;
     }
     
