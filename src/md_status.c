@@ -178,7 +178,8 @@ static void md_status_job_from_json(md_status_job_t *job, const md_json_t *json,
     }
 }
 
-void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, apr_pool_t *p)
+void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, 
+                           md_result_t *result, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
 
@@ -194,8 +195,9 @@ void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, apr_pool
     }
     md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
     md_json_setl(job->error_runs, json, MD_KEY_ERRORS, NULL);
-    if (job->last_result) {
-        md_json_setj(md_result_to_json(job->last_result, p), json, MD_KEY_LAST, NULL);
+    if (!result) result = job->last_result;
+    if (result) {
+        md_json_setj(md_result_to_json(result, p), json, MD_KEY_LAST, NULL);
     }
 }
 
@@ -215,21 +217,20 @@ apr_status_t md_status_job_load(md_status_job_t *job, md_reg_t *reg, apr_pool_t 
     rv = md_store_load_json(store, MD_SG_STAGING, job->name, MD_FN_JOB, &jprops, p);
     if (APR_SUCCESS == rv) {
         md_status_job_from_json(job, jprops, p);
-        job->dirty = 0;
     }
     return rv;
 }
 
-apr_status_t md_status_job_save(md_status_job_t *job, md_reg_t *reg, apr_pool_t *p)
+apr_status_t md_status_job_save(md_status_job_t *job, struct md_reg_t *reg, 
+                                md_result_t *result, apr_pool_t *p)
 {
     md_store_t *store = md_reg_store_get(reg);
     md_json_t *jprops;
     apr_status_t rv;
     
     jprops = md_json_create(p);
-    md_status_job_to_json(jprops, job, p);
-    rv = md_store_save_json(store, p, MD_SG_STAGING, job->name, MD_FN_JOB, jprops, 1);
-    if (APR_SUCCESS == rv) job->dirty = 0;
+    md_status_job_to_json(jprops, job, result, p);
+    rv = md_store_save_json(store, p, MD_SG_STAGING, job->name, MD_FN_JOB, jprops, 0);
     return rv;
 }
 

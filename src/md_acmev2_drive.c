@@ -132,7 +132,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
             md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
         }
         else if (APR_SUCCESS != rv) {
-            md_result_set(result, rv, NULL);
+            md_result_status_set(result, rv);
             goto leave;
         }
 
@@ -158,20 +158,20 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
         ad->phase = "monitor challenges";
         if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
                                                               ad->authz_monitor_timeout, d->p))) {
-            md_result_set(result, rv, NULL);
+            md_result_status_set(result, rv);
             goto leave;
         }
         
         if (APR_SUCCESS != (rv = md_acme_order_await_ready(ad->order, ad->acme, d->md, 
                                                            ad->authz_monitor_timeout, d->p))) {
-            md_result_set(result, rv, NULL);
+            md_result_status_set(result, rv);
             goto leave;
         } 
 
         md_result_activity_printf(result, "Finalizing order for %s.", ad->md->name);
         ad->phase = "finalize order";
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d, result))) {
-            md_result_set(result, rv, NULL);
+            md_result_status_set(result, rv);
             goto leave;
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: finalized order", d->md->name);
@@ -180,7 +180,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
                                   ad->md->name);
         if (APR_SUCCESS != (rv = md_acme_order_await_valid(ad->order, ad->acme, d->md, 
                                                            ad->authz_monitor_timeout, d->p))) {
-            md_result_set(result, rv, NULL);
+            md_result_status_set(result, rv);
             goto leave;
         }
         if (!ad->order->certificate) {

@@ -590,7 +590,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     /* When not explicitly told to reset, we check the existing data. If
      * it is incomplete or old, we trigger the reset for a clean start. */
     if (!reset_staging) {
-        md_result_activity_printf(result, "Checking staging area for %s.", d->md->name);
+        md_result_activity_setn(result, "Checking staging area.");
         rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ad->md, d->p);
         if (APR_SUCCESS == rv) {
             /* So, we have a copy in staging, but is it a recent or an old one? */
@@ -605,7 +605,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     }
     
     if (reset_staging) {
-        md_result_activity_printf(result, "Resetting staging area for %s.", d->md->name);
+        md_result_activity_setn(result, "Resetting staging area.");
         /* reset the staging area for this domain */
         rv = md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, 
@@ -619,7 +619,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
         ad->order = NULL;
     }
     
-    md_result_activity_printf(result, "Assessing current status of %s.", d->md->name);
+    md_result_activity_setn(result, "Assessing current status.");
     if (ad->md && ad->md->state == MD_S_MISSING_INFORMATION) {
         /* ToS agreement is missing. It makes no sense to drive this MD further */
         md_result_printf(result, APR_INCOMPLETE, 

@@ -464,7 +464,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
                 
             default:
                 rv = APR_EINVAL;
-                md_result_set(result, rv, NULL);
+                md_result_status_set(result, rv);
                 md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: unexpected AUTHZ state %d at %s", 
                               authz->domain, authz->state, url);
              goto out;

@@ -48,7 +48,7 @@ class TestNotify:
     #-----------------------------------------------------------------------------------------------
     # test case: signup with configured notify cmd that is invalid
     #
-    def test_9001(self):
+    def test_900_001(self):
         domain = self.test_domain
         
         # generate config with two MDs
@@ -67,7 +67,7 @@ class TestNotify:
         # this command should have failed and logged an error
         assert (1, 0) == TestEnv.apache_err_total()
 
-    def test_9010(self):
+    def test_900_010(self):
         domain = self.test_domain
         ncmd = ("%s/notify.py" % TestEnv.TESTROOT)
         nlog = ("%s/notify.log" % TestEnv.GEN_DIR)
@@ -91,7 +91,7 @@ class TestNotify:
         assert 1 == len(nlines)
         assert ("['%s', '%s', '%s']" % (ncmd, nlog, domain)) == nlines[0]
 
-    def test_9011(self):
+    def test_900_011(self):
         domain = self.test_domain
         ncmd = ("%s/notify.py" % TestEnv.TESTROOT)
         nlog = ("%s/notify.log" % TestEnv.GEN_DIR)

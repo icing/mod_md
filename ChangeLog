@@ -1,3 +1,7 @@
+ * `MDNotifyCmd` is now called for each domain that has been successfully renewed. Not for 
+   all Managed Domains after all have been processed. This gives notifications earlier.
+   Notification errors are now also collected under MD status and notifications are retried
+   with backoff delays.
  * New directive `MDServerStatus` to control if Managed Domains are listed in Apache's 
   `server-status` handler or not. Default yes.
  * New dorective `MDCertificateStatus` to control if JSON certificate information on a domain

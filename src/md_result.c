@@ -53,14 +53,20 @@ void md_result_reset(md_result_t *result)
     result->p = p;
 }
 
+static void on_change(md_result_t *result)
+{
+    if (result->on_change) result->on_change(result, result->on_change_data);
+}
+
 void md_result_activity_set(md_result_t *result, const char *activity)
 {
-    result->activity = activity? apr_pstrdup(result->p, activity) : NULL;
+    md_result_activity_setn(result, activity? apr_pstrdup(result->p, activity) : NULL);
 }
 
 void md_result_activity_setn(md_result_t *result, const char *activity)
 {
     result->activity = activity;
+    on_change(result);
 }
 
 void md_result_activity_printf(md_result_t *result, const char *fmt, ...)
@@ -68,20 +74,22 @@ void md_result_activity_printf(md_result_t *result, const char *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-    result->activity = apr_pvsprintf(result->p, fmt, ap);
+    md_result_activity_setn(result, apr_pvsprintf(result->p, fmt, ap));
     va_end(ap);
+}
+
+void md_result_status_set(md_result_t *result, apr_status_t status)
+{
+    result->status = status;
+    on_change(result);
 }
 
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail)
 {
     result->status = status;
     result->problem = NULL;
-    if (detail) {
-        result->detail = apr_pstrdup(result->p, detail);
-    }
-    else if (APR_SUCCESS == status) {
-        result->detail = NULL;
-    }
+    result->detail = detail? apr_pstrdup(result->p, detail) : NULL;
+    on_change(result);
 }
 
 void md_result_problem_set(md_result_t *result, apr_status_t status,
@@ -90,6 +98,7 @@ void md_result_problem_set(md_result_t *result, apr_status_t status,
     result->status = status;
     result->problem = apr_pstrdup(result->p, problem);
     result->detail = apr_pstrdup(result->p, detail);
+    on_change(result);
 }
 
 void md_result_printf(md_result_t *result, apr_status_t status, const char *fmt, ...)
@@ -100,11 +109,13 @@ void md_result_printf(md_result_t *result, apr_status_t status, const char *fmt,
     va_start(ap, fmt);
     result->detail = apr_pvsprintf(result->p, fmt, ap);
     va_end(ap);
+    on_change(result);
 }
 
 void md_result_delay_set(md_result_t *result, apr_time_t ready_at)
 {
     result->ready_at = ready_at;
+    on_change(result);
 }
 
 md_result_t*md_result_from_json(const struct md_json_t *json, apr_pool_t *p)
@@ -169,6 +180,15 @@ int md_result_cmp(const md_result_t *r1, const md_result_t *r2)
 void md_result_assign(md_result_t *dest, const md_result_t *src)
 {
    dest->status = src->status;
+   dest->problem = src->problem;
+   dest->detail = src->detail;
+   dest->activity = src->activity;
+   dest->ready_at = src->ready_at;
+}
+
+void md_result_dup(md_result_t *dest, const md_result_t *src)
+{
+   dest->status = src->status;
    dest->problem = src->problem? apr_pstrdup(dest->p, src->problem) : NULL; 
    dest->detail = src->detail? apr_pstrdup(dest->p, src->detail) : NULL; 
    dest->activity = src->activity? apr_pstrdup(dest->p, src->activity) : NULL; 
@@ -201,3 +221,8 @@ void md_result_log(md_result_t *result, int level)
     }
 }
 
+void md_result_on_change(md_result_t *result, md_result_change_cb *cb, void *data)
+{
+    result->on_change = cb;
+    result->on_change_data = data;
+}

@@ -277,7 +277,7 @@ static apr_status_t md_acme_req_done(md_acme_req_t *req, apr_status_t rv)
     if (APR_SUCCESS != rv) req->result->status = rv;
     rv = req->result->status;
     /* tranfer results into the acme's central result for longer life and later inspection */
-    md_result_assign(req->acme->last, req->result);
+    md_result_dup(req->acme->last, req->result);
     if (req->p) {
         apr_pool_destroy(req->p);
     }

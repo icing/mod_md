@@ -50,10 +50,11 @@ apr_status_t md_status_job_loadj(md_json_t **pjson, const char *name,
  */
 apr_status_t md_status_job_load(md_status_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
 
-void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, apr_pool_t *p);
+void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, 
+                           struct md_result_t *result, apr_pool_t *p);
 
-apr_status_t md_status_job_save(md_status_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
-
+apr_status_t md_status_job_save(md_status_job_t *job, struct md_reg_t *reg, 
+                                struct md_result_t *result, apr_pool_t *p);
 
 typedef struct md_status_stock_t md_status_stock_t;
 struct md_status_stock_t {

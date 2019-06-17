@@ -22,6 +22,8 @@ struct md_t;
 
 typedef struct md_result_t md_result_t;
 
+typedef void md_result_change_cb(md_result_t *result, void *data);
+
 struct md_result_t {
     apr_pool_t *p;
     const struct md_t *md;
@@ -30,6 +32,8 @@ struct md_result_t {
     const char *detail;
     const char *activity;
     apr_time_t ready_at;
+    md_result_change_cb *on_change;
+    void *on_change_data;
 };
 
 md_result_t *md_result_make(apr_pool_t *p, apr_status_t status);
@@ -40,6 +44,7 @@ void md_result_activity_set(md_result_t *result, const char *activity);
 void md_result_activity_setn(md_result_t *result, const char *activity);
 void md_result_activity_printf(md_result_t *result, const char *fmt, ...);
 
+void md_result_status_set(md_result_t *result, apr_status_t status);
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail);
 void md_result_problem_set(md_result_t *result, apr_status_t status, 
                            const char *problem, const char *detail);
@@ -54,7 +59,10 @@ struct md_json_t *md_result_to_json(const md_result_t *result, apr_pool_t *p);
 int md_result_cmp(const md_result_t *r1, const md_result_t *r2);
 
 void md_result_assign(md_result_t *dest, const md_result_t *src);
+void md_result_dup(md_result_t *dest, const md_result_t *src);
 
 void md_result_log(md_result_t *result, int level);
+
+void md_result_on_change(md_result_t *result, md_result_change_cb *cb, void *data);
 
 #endif /* mod_md_md_result_h */

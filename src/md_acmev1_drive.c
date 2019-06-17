@@ -188,14 +188,14 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
         ad->phase = "monitor challenges";
         if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
                                                               ad->authz_monitor_timeout, d->p))) {
-            md_result_set(result, rv, NULL);
+            md_result_status_set(result, rv);
             goto leave;
         }
         
         md_result_activity_printf(result, "Finalizing order for %s.", ad->md->name);
         ad->phase = "finalize order";
         if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d, result))) {
-            md_result_set(result, rv, NULL);
+            md_result_status_set(result, rv);
             goto leave;
         }
     }
