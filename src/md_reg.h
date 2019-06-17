@@ -192,7 +192,8 @@ struct md_proto_driver_t {
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, struct md_result_t *result);
 typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver, struct md_result_t *result);
-typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, md_store_group_t group);
+typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, 
+                                         md_store_group_t group, struct md_result_t *result);
 
 struct md_proto_t {
     const char *protocol;
@@ -229,6 +230,6 @@ apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md,
  * @return APR_SUCCESS on loading new data, APR_ENOENT when nothing is staged, error otherwise.
  */
 apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
-                                 apr_pool_t *p);
+                                 struct md_result_t *result, apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */

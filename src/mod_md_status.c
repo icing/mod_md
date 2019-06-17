@@ -305,44 +305,47 @@ static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *i
     
     (void)info;
     name = md_json_gets(mdj, MD_KEY_NAME, NULL);  
-    if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
-        finished = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_FINISHED, NULL);
-        errors = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_ERRORS, NULL);
-        
-        rv = (apr_status_t)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_STATUS, NULL);
-        if (rv != APR_SUCCESS) {
-            apr_brigade_printf(ctx->bb, NULL, NULL, "Error[%s]: ", 
-                               apr_strerror(rv, buffer, sizeof(buffer)));
-        }
-        if (md_json_has_key(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_MESSAGE, NULL)) {
-            apr_brigade_puts(ctx->bb, NULL, NULL, 
-                             md_json_gets(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_MESSAGE, NULL));
-        }
-        else if (finished) {
-            apr_brigade_puts(ctx->bb, NULL, NULL, "ready");
-            if (md_json_has_key(mdj, MD_KEY_RENEWAL, MD_KEY_VALID_FROM, NULL)) {
-                s = md_json_dups(ctx->p, mdj,  MD_KEY_RENEWAL, MD_KEY_VALID_FROM, NULL);
-                t = apr_date_parse_rfc(s);
-                apr_brigade_puts(ctx->bb, NULL, NULL, (apr_time_now() >= t)?
-                                 ", since: " : ", at: ");
-                si_val_time(ctx, t);
-            }
-        } 
-        else {
-            apr_brigade_puts(ctx->bb, NULL, NULL, "ongoing");
-            if ((errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL)) > 0) {
-                apr_brigade_printf(ctx->bb, NULL, NULL, ", %d errored attempts", errors); 
-            }
-            if (md_json_has_key(mdj, MD_KEY_RENEWAL, MD_KEY_NEXT_RUN, NULL)) {
-                s = md_json_dups(ctx->p, mdj,  MD_KEY_RENEWAL, MD_KEY_NEXT_RUN, NULL);
-                t = apr_date_parse_rfc(s);
-                apr_brigade_puts(ctx->bb, NULL, NULL, ", next run: ");
-                si_val_time(ctx, t);
-            }
-        }
-    }
-    else if ((error = apr_hash_get(ctx->mc->init_errors, name, APR_HASH_KEY_STRING))) {
+    if (!md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, error);
+        return;
+    }
+    
+    finished = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_FINISHED, NULL);
+    errors = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_ERRORS, NULL);
+    rv = (apr_status_t)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_STATUS, NULL);
+    
+    if (rv != APR_SUCCESS) {
+        s = md_json_gets(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
+        apr_brigade_printf(ctx->bb, NULL, NULL, "Error[%s]: %s", 
+                           apr_strerror(rv, buffer, sizeof(buffer)), s? s : "");
+    }
+    
+    if (finished) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "Finished");
+        if (md_json_has_key(mdj, MD_KEY_RENEWAL, MD_KEY_VALID_FROM, NULL)) {
+            s = md_json_gets(mdj,  MD_KEY_RENEWAL, MD_KEY_VALID_FROM, NULL);
+            t = apr_date_parse_rfc(s);
+            apr_brigade_puts(ctx->bb, NULL, NULL, (apr_time_now() >= t)?
+                             ", valid since: " : ", activate at: ");
+            si_val_time(ctx, t);
+        }
+        apr_brigade_puts(ctx->bb, NULL, NULL, ".");
+    } 
+    
+    s = md_json_gets(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
+    if (s) apr_brigade_puts(ctx->bb, NULL, NULL, s);
+    
+    errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL);
+    if (errors > 0) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, ", Had %d errors.", errors);
+    } 
+    
+    s = md_json_gets(mdj,  MD_KEY_RENEWAL, MD_KEY_NEXT_RUN, NULL);
+    if (s) {
+        t = apr_date_parse_rfc(s);
+        apr_brigade_puts(ctx->bb, NULL, NULL, "Next attempt: ");
+        si_val_time(ctx, t);
+        apr_brigade_puts(ctx->bb, NULL, NULL, ".");
     }
 }
 

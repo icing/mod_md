@@ -332,7 +332,7 @@ static apr_status_t on_response(const md_http_response_t *res)
             md_result_printf(req->result, rv, "unable to process the response: "
                              "http-status=%d, content-type=%s", 
                              res->status, apr_table_get(res->headers, "Content-Type"));
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, req->p, "%s", req->result->detail);
+            md_result_log(req->result, MD_LOG_ERR);
         }
     }
     else if (APR_EAGAIN == (rv = inspect_problem(req, res))) {
@@ -682,7 +682,7 @@ static apr_status_t update_directory(const md_http_response_t *res)
         md_result_printf(result, APR_EAGAIN,
             "The ACME server at <%s> reports that Service is Unavailable (503). This "
             "may happen during maintenance for short periods of time.", acme->url); 
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, req->pool, "%s", result->detail);
+        md_result_log(result, MD_LOG_INFO);
         rv = result->status;
         goto leave;
     }
@@ -743,7 +743,7 @@ static apr_status_t update_directory(const md_http_response_t *res)
         md_result_printf(result, APR_EINVAL,
             "Unable to understand ACME server response from <%s>. "
             "Wrong ACME protocol version or link?", acme->url); 
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, req->pool, "%s", result->detail);
+        md_result_log(result, MD_LOG_WARNING);
         rv = result->status;
     }
 leave:
@@ -780,7 +780,7 @@ apr_status_t md_acme_setup(md_acme_t *acme, md_result_t *result)
             "curl command. Sometimes, the ACME server might be down for maintenance, "
             "so failing to contact it is not an immediate problem. Apache will "
             "continue retrying this.", acme->url);
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, acme->p, "%s", result->detail);
+        md_result_log(result, MD_LOG_WARNING);
     }
     return rv;
 }

@@ -26,6 +26,7 @@
 
 #include "md.h"
 #include "md_json.h"
+#include "md_log.h"
 #include "md_result.h"
 
 md_result_t *md_result_make(apr_pool_t *p, apr_status_t status)
@@ -35,6 +36,13 @@ md_result_t *md_result_make(apr_pool_t *p, apr_status_t status)
     result = apr_pcalloc(p, sizeof(*result));
     result->p = p;
     result->status = status;
+    return result;
+}
+
+md_result_t *md_result_md_make(apr_pool_t *p, const struct md_t *md)
+{
+    md_result_t *result = md_result_make(p, APR_SUCCESS);
+    result->md = md;
     return result;
 }
 
@@ -166,3 +174,30 @@ void md_result_assign(md_result_t *dest, const md_result_t *src)
    dest->activity = src->activity? apr_pstrdup(dest->p, src->activity) : NULL; 
    dest->ready_at = src->ready_at;
 }
+
+void md_result_log(md_result_t *result, int level)
+{
+    if (md_log_is_level(result->p, (md_log_level_t)level)) {
+        const char *sep = "";
+        const char *msg = "";
+        
+        if (result->md) {
+            msg = apr_psprintf(result->p, "md[%s]", result->md->name);
+            sep = " ";
+        }
+        if (result->activity) {
+            msg = apr_psprintf(result->p, "%s%swhile[%s]", msg, sep, result->activity);
+            sep = " ";
+        }
+        if (result->problem) {
+            msg = apr_psprintf(result->p, "%s%sproblem[%s]", msg, sep, result->problem);
+            sep = " ";
+        }
+        if (result->detail) {
+            msg = apr_psprintf(result->p, "%s%ssdetail[%s]", msg, sep, result->detail);
+            sep = " ";
+        }
+        md_log_perror(MD_LOG_MARK, (md_log_level_t)level, result->status, result->p, "%s", msg);
+    }
+}
+

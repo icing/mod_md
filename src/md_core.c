@@ -296,10 +296,6 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         if (md->renew_norm > 0) {
             int percent = (int)(((long)apr_time_sec(md->renew_window)) * 100L 
                                 / ((long)apr_time_sec(md->renew_norm))); 
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, 
-                          "md{%s}: md_to_json, renewal, percent=%d, win=%ld, norm=%ld", 
-                          md->name, percent, (long)apr_time_sec(md->renew_window),
-                          (long)apr_time_sec(md->renew_norm));
             md_json_sets(apr_psprintf(p, "%d%%", percent), json, MD_KEY_RENEW_WINDOW, NULL);
         }
         else {

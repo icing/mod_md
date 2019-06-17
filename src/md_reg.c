@@ -1053,37 +1053,44 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
      * existing one go to ARCHIVE).
      * Finally, we clean up the data from CHALLENGES and STAGING.
      */
-    md = va_arg(ap, const md_t *);
-    env =  va_arg(ap, apr_table_t *);
+    md = va_arg(ap, const md_t*);
+    env =  va_arg(ap, apr_table_t*);
+    result =  va_arg(ap, md_result_t*);
     
-    result = md_result_make(ptemp, APR_SUCCESS);
     if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, md->name, NULL, ptemp))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, "%s: nothing staged", md->name);
-        return APR_ENOENT;
+        goto out;
     }
     
     rv = run_init(baton, ptemp, &driver, md, env, result, NULL);
-    if (APR_SUCCESS == result->status) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run load", md->name);
-        apr_hash_set(reg->certs, md->name, (apr_ssize_t)strlen(md->name), NULL);
-        
-        if (APR_SUCCESS == (rv = driver->proto->preload(driver, MD_SG_TMP))) {
-            /* swap */
-            rv = md_store_move(reg->store, p, MD_SG_TMP, MD_SG_DOMAINS, md->name, 1);
-            if (APR_SUCCESS == rv) {
-                md_store_purge(reg->store, p, MD_SG_STAGING, md->name);
-                md_store_purge(reg->store, p, MD_SG_CHALLENGES, md->name);
-            }
-        }
+    if (APR_SUCCESS != rv) goto out;
+    
+    apr_hash_set(reg->certs, md->name, (apr_ssize_t)strlen(md->name), NULL);
+    md_result_activity_setn(result, "preloading staged to tmp");
+    rv = driver->proto->preload(driver, MD_SG_TMP, result);
+    if (APR_SUCCESS != rv) goto out;
+    
+    /* swap */
+    md_result_activity_setn(result, "moving tmp to become new domains");
+    rv = md_store_move(reg->store, p, MD_SG_TMP, MD_SG_DOMAINS, md->name, 1);
+    if (APR_SUCCESS != rv) {
+        md_result_set(result, rv, NULL);
+        goto out;
     }
+    md_store_purge(reg->store, p, MD_SG_STAGING, md->name);
+    md_store_purge(reg->store, p, MD_SG_CHALLENGES, md->name);
+    md_result_set(result, APR_SUCCESS, "new certificate successfully saved in domains");
+
+out:
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: load done", md->name);
     return rv;
 }
 
-apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, apr_table_t *env, apr_pool_t *p)
+apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, apr_table_t *env, 
+                                 md_result_t *result, apr_pool_t *p)
 {
     if (reg->domains_frozen) return APR_EACCES;
-    return md_util_pool_vdo(run_load_staging, reg, p, md, env, NULL);
+    return md_util_pool_vdo(run_load_staging, reg, p, md, env, result, NULL);
 }
 
 apr_status_t md_reg_freeze_domains(md_reg_t *reg, apr_array_header_t *mds)

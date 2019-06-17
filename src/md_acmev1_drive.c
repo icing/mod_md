@@ -200,8 +200,7 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
         }
     }
 leave:    
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, result->status, d->p, 
-                  "md[%s]: %s", ad->md->name, result->detail);
+    md_result_log(result, MD_LOG_DEBUG);
     return result->status;
 }
 

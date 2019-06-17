@@ -78,11 +78,12 @@ static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
     if (apr_time_now() < job->next_run) return;
     
-    next_run = 0; /* 0 is default and means at the regular intervals */
-    result = md_result_make(ptemp, APR_SUCCESS);
-    
     md = md_get_by_name(dctx->mc->mds, job->name);
     AP_DEBUG_ASSERT(md);
+
+    next_run = 0; /* 0 is default and means at the regular intervals */
+    result = md_result_md_make(ptemp, md);
+    
     if (md->state == MD_S_MISSING_INFORMATION) {
         /* Missing information, this will not change until configuration
          * is changed and server reloaded. */

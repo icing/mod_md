@@ -205,7 +205,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         }
         rv = md_acme_setup(ctx->acme, result);
         if (rv != APR_SUCCESS) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "%s", result->detail);
+            md_result_log(result, MD_LOG_ERR);
             return rv;
         }
     }

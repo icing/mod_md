@@ -148,8 +148,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
                   "\"MDCertificateAgreement accepted\" "
                   "in your Apache. Then (graceful) restart the server to activate.", 
                   ad->acme->ca_agreement);
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, result->status, d->p, "md[%s]: %s", 
-                          md->name, result->detail);
+            md_result_log(result, MD_LOG_ERR);
             rv = result->status;
             goto out;
         }
@@ -643,13 +642,11 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                               d->md->name, d->md->ca_url);
     if (APR_SUCCESS != (rv = md_acme_create(&ad->acme, d->p, d->md->ca_url, d->proxy_url))) {
         md_result_printf(result, rv, "setup ACME communications");
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "md[%s]: %s", 
-                      d->md->name, result->detail);
+        md_result_log(result, MD_LOG_ERR);
         goto out;
     } 
     if (APR_SUCCESS != (rv = md_acme_setup(ad->acme, result))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "md[%s]: %s", 
-                      d->md->name, result->detail);
+        md_result_log(result, MD_LOG_ERR);
         goto out;
     }
     
@@ -663,8 +660,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
         rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
         if (APR_SUCCESS != rv) {
             md_result_printf(result, rv, "Saving MD information in staging area.");
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "md[%s]: %s", 
-                          d->md->name, result->detail);
+            md_result_log(result, MD_LOG_ERR);
             goto out;
         }
     }
@@ -722,7 +718,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
 
 ready:
-    md_result_activity_printf(result, "Renewal is complete for %s.", d->md->name);
+    md_result_activity_setn(result, NULL);
     /* we should have the complete cert chain now */
     assert(!md_array_is_empty(ad->certs));
     assert(ad->certs->nelts > 1);
@@ -777,9 +773,7 @@ static apr_status_t acme_driver_renew(md_proto_driver_t *d, md_result_t *result)
     if (APR_SUCCESS == (rv = acme_renew(d, result))) {
         ad->phase = "staging done";
     }
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, result->status, d->p, "%s: %s, %s", 
-                  d->md->name, d->proto->protocol, result->detail);
+    md_result_log(result, MD_LOG_DEBUG);
     return rv;
 }
 
@@ -787,7 +781,7 @@ static apr_status_t acme_driver_renew(md_proto_driver_t *d, md_result_t *result)
 /* ACME preload */
 
 static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_group, 
-                                 const char *name) 
+                                 const char *name, md_result_t *result) 
 {
     apr_status_t rv;
     md_pkey_t *privkey, *acct_key;
@@ -805,16 +799,16 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
      *  5. Reading/Writing the data will apply/remove any group specific data encryption.
      */
     if (APR_SUCCESS != (rv = md_load(d->store, MD_SG_STAGING, name, &md, d->p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading md json", name);
-        return rv;
+        md_result_set(result, rv, "loading staged md.json");
+        goto leave;
     }
     if (APR_SUCCESS != (rv = md_pkey_load(d->store, MD_SG_STAGING, name, &privkey, d->p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading staging private key", name);
-        return rv;
+        md_result_set(result, rv, "loading staged privkey.pem");
+        goto leave;
     }
     if (APR_SUCCESS != (rv = md_pubcert_load(d->store, MD_SG_STAGING, name, &pubcert, d->p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading pubcert", name);
-        return rv;
+        md_result_set(result, rv, "loading staged pubcert.pem");
+        goto leave;
     }
 
     /* See if staging holds a new or modified account data */
@@ -825,18 +819,18 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
         rv = APR_SUCCESS;
     }
     else if (APR_SUCCESS != rv) {
-        return rv; 
+        md_result_set(result, rv, "loading staged account");
+        goto leave;
     }
 
-    /* Remove any authz information we have here or in MD_SG_CHALLENGES */
+    md_result_activity_setn(result, "purging order information");
     md_acme_order_purge(d->store, d->p, MD_SG_STAGING, name, d->env);
 
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                  "%s: staged data load, purging tmp space", name);
+    md_result_activity_setn(result, "purging store tmp space");
     rv = md_store_purge(d->store, d->p, load_group, name);
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: error purging preload storage", name);
-        return rv;
+        md_result_set(result, rv, NULL);
+        goto leave;
     }
     
     if (acct) {
@@ -848,55 +842,57 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
          * the new account in their own STAGING area. By checking for accounts with
          * the same url, we save them all into a single one.
          */
+        md_result_activity_setn(result, "saving staged account");
         if (!id && acct->url) {
             rv = md_acme_acct_id_for_url(&id, d->store, MD_SG_ACCOUNTS, acct->url, d->p);
             if (APR_STATUS_IS_ENOENT(rv)) {
                 id = NULL;
             }
             else if (APR_SUCCESS != rv) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                              "%s: error looking up existing account by url", name);
-                return rv;
+                md_result_set(result, rv, "error searching for existing account by url");
+                goto leave;
             }
         }
         
         if (APR_SUCCESS != (rv = md_acme_create(&acme, d->p, md->ca_url, d->proxy_url))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: error creating acme", name);
-            return rv;
+            md_result_set(result, rv, "error setting up acme");
+            goto leave;
         }
         
         if (APR_SUCCESS != (rv = md_acme_acct_save(d->store, d->p, acme, &id, acct, acct_key))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: error saving acct", name);
-            return rv;
+            md_result_set(result, rv, "error saving account");
+            goto leave;
         }
         md->ca_account = id;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: saved ACME account %s", 
-                      name, id);
     }
     
+    md_result_activity_setn(result, "saving staged md/privkey/pubcert");
     if (APR_SUCCESS != (rv = md_save(d->store, d->p, load_group, md, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: saving md json", name);
-        return rv;
+        md_result_set(result, rv, "writing md.json");
+        goto leave;
     }
     if (APR_SUCCESS != (rv = md_pubcert_save(d->store, d->p, load_group, name, pubcert, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: saving cert chain", name);
-        return rv;
+        md_result_set(result, rv, "writing pubcert.pem");
+        goto leave;
     }
     if (APR_SUCCESS != (rv = md_pkey_save(d->store, d->p, load_group, name, privkey, 1))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, "%s: saving private key", name);
-        return rv;
+        md_result_set(result, rv, "writing privkey.pem");
+        goto leave;
     }
+    md_result_set(result, APR_SUCCESS, "saved staged data successfully");
     
+leave:
+    md_result_log(result, MD_LOG_DEBUG);
     return rv;
 }
 
-static apr_status_t acme_driver_preload(md_proto_driver_t *d, md_store_group_t group)
+static apr_status_t acme_driver_preload(md_proto_driver_t *d, 
+                                        md_store_group_t group, md_result_t *result)
 {
     apr_status_t rv;
 
-    rv = acme_preload(d, group, d->md->name);
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: %s, preloading", 
-                  d->md->name, d->proto->protocol);
+    rv = acme_preload(d, group, d->md->name, result);
+    md_result_log(result, MD_LOG_DEBUG);
     return rv;
 }
 

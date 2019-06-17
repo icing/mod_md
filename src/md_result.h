@@ -18,11 +18,13 @@
 #define mod_md_md_result_h
 
 struct md_json_t;
+struct md_t;
 
 typedef struct md_result_t md_result_t;
 
 struct md_result_t {
     apr_pool_t *p;
+    const struct md_t *md;
     apr_status_t status;
     const char *problem;
     const char *detail;
@@ -31,6 +33,7 @@ struct md_result_t {
 };
 
 md_result_t *md_result_make(apr_pool_t *p, apr_status_t status);
+md_result_t *md_result_md_make(apr_pool_t *p, const struct md_t *md);
 void md_result_reset(md_result_t *result);
 
 void md_result_activity_set(md_result_t *result, const char *activity);
@@ -51,5 +54,7 @@ struct md_json_t *md_result_to_json(const md_result_t *result, apr_pool_t *p);
 int md_result_cmp(const md_result_t *r1, const md_result_t *r2);
 
 void md_result_assign(md_result_t *dest, const md_result_t *src);
+
+void md_result_log(md_result_t *result, int level);
 
 #endif /* mod_md_md_result_h */

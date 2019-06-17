@@ -627,12 +627,14 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
 static void load_staged_data(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     apr_status_t rv;
-    md_t *md; 
+    md_t *md;
+    md_result_t *result;
     int i;
     
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, md_t *);
-        if (APR_SUCCESS == (rv = md_reg_load_staging(mc->reg, md, mc->env, p))) {
+        result = md_result_md_make(p, md);
+        if (APR_SUCCESS == (rv = md_reg_load_staging(mc->reg, md, mc->env, result, p))) {
             ap_log_error( APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(10068) 
                          "%s: staged set activated", md->name);
         }

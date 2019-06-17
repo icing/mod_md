@@ -584,21 +584,23 @@ out:
         rv = APR_EINVAL;
         fctx.offered = apr_array_make(p, 5, sizeof(const char*));
         md_json_itera(collect_offered, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
-        md_result_printf(result, rv, "None of offered challenge types are supported. "
+        md_result_printf(result, rv, "None of offered challenge types for domain %s are supported. "
                       "The server offered '%s' and available are: '%s'.",
+                      authz->domain, 
                       apr_array_pstrcat(p, fctx.offered, ' '),
                       apr_array_pstrcat(p, challenges, ' '));
         result->problem = "challenge-mismatch";
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: %s", authz->domain, result->detail);
+        md_result_log(result, MD_LOG_ERR);
     }
     else if (APR_SUCCESS != rv) {
         fctx.offered = apr_array_make(p, 5, sizeof(const char*));
         md_json_itera(collect_offered, &fctx, authz->resource, MD_KEY_CHALLENGES, NULL);
-        md_result_printf(result, rv, "None of the offered challenge types %s could be "
-                         "setup successfully. Please check the log for errors.",
+        md_result_printf(result, rv, "None of the offered challenge types %s offered "
+                         "for domain %s could be setup successfully. Please check the "
+                         "log for errors.", authz->domain, 
                          apr_array_pstrcat(p, fctx.offered, ' '));
         result->problem = "challenge-setup-failure";
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: %s", authz->domain, result->detail);
+        md_result_log(result, MD_LOG_ERR);
     }
     return rv;
 }

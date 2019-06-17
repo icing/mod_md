@@ -185,17 +185,13 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
         }
         if (!ad->order->certificate) {
             md_result_set(result, APR_EINVAL, "Order valid, but certifiate url is missing.");
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, d->p, 
-                          "md[%s]: %s", d->md->name, result->detail);
+            md_result_log(result, MD_LOG_WARNING);
             goto leave;
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
-                      "%s: order status: %d, certificate at %s", d->md->name, 
-                      ad->order->status, ad->order->certificate); 
+        md_result_log(result, MD_LOG_DEBUG);
     }
 leave:    
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, result->status, d->p, 
-                  "md[%s]: %s", ad->md->name, result->detail);
+    md_result_log(result, MD_LOG_DEBUG);
     return result->status;
 }
 
