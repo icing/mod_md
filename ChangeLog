@@ -1,3 +1,8 @@
+ * New directive `MDServerStatus` to control if Managed Domains are listed in Apache's 
+  `server-status` handler or not. Default yes.
+ * New dorective `MDCertificateStatus` to control if JSON certificate information on a domain
+   should be made available on https://<domain>/.httpd/certificate-status or not. Default yes.
+
 v2.0.4
 ----------------------------------------------------------------------------------------------------
  * Updated README.md with new directives and howto.

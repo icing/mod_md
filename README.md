@@ -1178,6 +1178,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCertificateFile](##mdcertificatefile)
 * [MDCertificateKeyFile](##mdcertificatekeyfile)
 * [MDCertificateProtocol](#mdcertificateprotocol)
+* [MDCertificateStatus](#mdcertificatestatus)
 * [MDChallengeDns01](#mdchallengedns01)
 * [MDRenewMode](#mdrenewemode--renew-mode)
 * [MDMember](#mdmember)
@@ -1187,6 +1188,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDPrivateKeys](#mdprivatekeys)
 * [MDHttpProxy](#mdhttpproxy)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
+* [MDServerStatus](#mdserverstatus)
 * [MDStoreDir](#mdstoredir)
 
 ## MDomain
@@ -1452,6 +1454,21 @@ Default: `off`
 
 Controls if the base server, the one outside all ```VirtualHost```s should be managed by ```mod_md``` or not. Default is to not do this, for the very reason that it may have confusing side-effects. It is recommended that you have virtual hosts for all managed domains and do not rely on the global, fallback server configuration.
 
+## MDServerStatus
+
+`MDServerStatus on|off`<BR/>
+Default: `on`
+
+Controls if Managed Domains appear in the `server-status` handler of Apache.
+
+## MDCertificateStatus
+
+`MDCertificateStatus on|off`<BR/>
+Default: `on`
+
+Controls if Managed Domains respond to public requests for `/.httpd/certificate-status` or not.
+
+
 ## ServerAdmin / Contact Information
 
 Also, the ACME protocol requires you to give a contact url when you sign up. Currently, Let's Encrypt wants an email address (and it will use it to inform you about renewals or changed terms of service). ```mod_md``` uses the ```ServerAdmin``` email in your Apache configuration, so please specify the correct address there.
@@ -1467,8 +1484,6 @@ Please see the file called LICENSE.
 This work is supported by an Award from MOSS, the Mozilla Open Source Support project (twice now!). Many thanks to these excellent people! You are awesome!
 
 Test cases mostly written by my colleague @michael-koeller who made this to a good part really a test driven development. Thanks!
-
-Münster, 24.05.2019
 
 Stefan Eissing, greenbytes GmbH
 

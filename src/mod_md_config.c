@@ -63,7 +63,9 @@ static md_mod_conf_t defmc = {
     NULL,
     NULL,
     NULL,
-    0
+    0,                         /* dry_run flag */
+    1,                         /* server_status_enabled */
+    1,                         /* certificate_status_enabled */
 };
 
 /* Default server specific setting */
@@ -237,6 +239,22 @@ static const char *md_section_check(cmd_parms *cmd) {
     }
     return NULL;
 }
+
+static const char *set_on_off(int *pvalue, const char *s, apr_pool_t *p)
+{
+    if (!apr_strnatcasecmp("off", s)) {
+        *pvalue = 0;
+    }
+    else if (!apr_strnatcasecmp("on", s)) {
+        *pvalue = 1;
+    }
+    else {
+        return apr_pstrcat(p, "unknown '", s, 
+                           "', supported parameter values are 'on' and 'off'", NULL);
+    }
+    return NULL;
+}
+
 
 static void add_domain_name(apr_array_header_t *domains, const char *name, apr_pool_t *p)
 {
@@ -460,18 +478,7 @@ static const char *md_config_set_must_staple(cmd_parms *cmd, void *dc, const cha
     if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
     }
-
-    if (!apr_strnatcasecmp("off", value)) {
-        config->must_staple = 0;
-    }
-    else if (!apr_strnatcasecmp("on", value)) {
-        config->must_staple = 1;
-    }
-    else {
-        return apr_pstrcat(cmd->pool, "unknown '", value, 
-                           "', supported parameter values are 'on' and 'off'", NULL);
-    }
-    return NULL;
+    return set_on_off(&config->must_staple, value, cmd->pool);
 }
 
 static const char *md_config_set_base_server(cmd_parms *cmd, void *dc, const char *value)
@@ -480,19 +487,8 @@ static const char *md_config_set_base_server(cmd_parms *cmd, void *dc, const cha
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
 
     (void)dc;
-    if (!err) {
-        if (!apr_strnatcasecmp("off", value)) {
-            config->mc->manage_base_server = 0;
-        }
-        else if (!apr_strnatcasecmp("on", value)) {
-            config->mc->manage_base_server = 1;
-        }
-        else {
-            err = apr_pstrcat(cmd->pool, "unknown '", value, 
-                              "', supported parameter values are 'on' and 'off'", NULL);
-        }
-    }
-    return err;
+    if (err) return err;
+    return set_on_off(&config->mc->manage_base_server, value, cmd->pool);
 }
 
 static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const char *value)
@@ -798,6 +794,31 @@ static const char *md_config_set_key_file(cmd_parms *cmd, void *mconfig, const c
     return NULL;
 }
 
+static const char *md_config_set_server_status(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    return set_on_off(&sc->mc->server_status_enabled, value, cmd->pool);
+}
+
+static const char *md_config_set_certificate_status(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    return set_on_off(&sc->mc->certificate_status_enabled, value, cmd->pool);
+}
+
+
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issuing the certificates"),
@@ -850,6 +871,10 @@ const command_rec md_cmds[] = {
                   "set the static certificate (chain) file to use for this domain."),
     AP_INIT_TAKE1("MDCertificateKeyFile", md_config_set_key_file, NULL, RSRC_CONF, 
                   "set the static private key file to use for this domain."),
+    AP_INIT_TAKE1("MDServerStatus", md_config_set_server_status, NULL, RSRC_CONF, 
+                  "On to see Managed Domains in server-status."),
+    AP_INIT_TAKE1("MDCertificateStatus", md_config_set_certificate_status, NULL, RSRC_CONF, 
+                  "On to see Managed Domain expose /.httpd/certificate-status."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };
