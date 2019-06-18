@@ -481,7 +481,7 @@ It may now be less hassle to have individual Managed Domains with individual cer
 
 # How to Use Other Certificates
 
-Since version v2.0.4 you can define Managed Domains for certificates that come from somewhere else. Before, you either configured `mod_ssl` or you had Let's Encrypt certificates via `mod_md`. Now you can mix. If you have a configruation like:
+Since version v2.0.4 you can define Managed Domains for certificates that come from somewhere else. Before, you either configured `mod_ssl` or you had Let's Encrypt certificates via `mod_md`. Now you can mix. If you have a configuration like:
 
 ```
 <VirtualHost *:443>
@@ -1184,6 +1184,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
 * [MDNotifyCmd](#mdnotifycmd)
+* [MDMessageCmd](#mdmessagecmd)
 * [MDPortMap](#mdportmap)
 * [MDPrivateKeys](#mdprivatekeys)
 * [MDHttpProxy](#mdhttpproxy)
@@ -1322,7 +1323,32 @@ Defines if newly requested certificate should have the OCSP Must Staple flag set
 `MDNotifyCmd <path to executable>`<BR/>
 Default: `none`
 
-Define a program to be called when the certificate of a Managed Domain has been obtained/renewed. The program is given the list of all MD names that have been processed successfully. The program should return 0 to indicate that the notification has been handled successfully.
+Define a program to be called when the certificate of a Managed Domain has been obtained/renewed. The program is called for each MD that has been processed successfully. The program should return 0 to indicate that the notification has been handled successfully, otherwise it is called again at a later point in time until it does.
+
+## MDMessageCmd
+
+`MDMessageCmd <path to executable> <optional-args>`<BR/>
+Default: `none`
+
+Define a program to be called when something happened concerning a managed domain. The program is given the reason and the name of the MD as arguments. The program should return 0 to indicate that the message has been handled successfully. The reasons for which it may be called are:
+
+ * `renewed`: the certificate for the managed domain has been renewed successfully. Should the command return != 0 for this reason, it will be called repeatedly until it does.
+ * `expiring`: *NOT IMPLEMENTED YET* will warn about an expiring domain that could not be renewed (or where renewal is not performed by `mod_md` itself). See `MDWarnWindow` on how to configure its timing.
+ * `errored`: *NOT IMPLEMENTED YET* errors were encountered during certificate renewal. `mod_md` will continue trying.
+
+If you have configured:
+
+```
+MDMessageCmd /etc/apache/md-message
+```
+and the Managed Domain `mydomain.com` was renewed, the program will be called with:
+
+```
+/etc/apache/md-message renewed mydomain.com
+```
+
+The program should not block, as `mod_md` will wait for it to finish. If the program wants more information, you could configure the `md-status` handler that hands out MD information in JSON format. See [the chapter about monitoring](#monitoring) for more details.
+
 
 ## MDPortMap
 
@@ -1362,7 +1388,7 @@ MDRenewMode  auto
 ```
 where, unsurprisingly, ```mod_md``` will get a new certificate when needed. For a Managed Domain used in a `VirtualHost` this means a good chunk of time before the existing certificate expires. How early that is can be configured with `MDRenewWindow`.
 
-If a Managed Domain is not used by any `VirtualHost`, the `auto` mode will not renew certificates. The same is true if the ManagedDomain has a static certificate file via `MDCertificateFile`.
+If a Managed Domain is not used by any `VirtualHost`, the `auto` mode will not renew certificates. The same is true if the Managed Domain has a static certificate file via `MDCertificateFile`.
 
 If you want renewal for such Managed Domains, you should set their renewal mode to `always`. 
 
@@ -1393,6 +1419,14 @@ Or you may specify another percentage:
 ```
 MDRenewWindow   10%
 ```
+
+## MDWarnWindow / When to warn
+
+***Control when to warn about an expiring certificate***<BR/>
+`MDWarnWindow duration`<BR/>
+Default: 10%
+
+Similar to `MDRenewWindow` this directive defines when you want to be warned about the  expiry of a domain's certificate. This will invoke the `MDMessageCmd` with reason `expiring`.
 
 ### When and how often does it check?
 

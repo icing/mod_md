@@ -109,7 +109,7 @@ And while we left out parts of the SSL configurations that used to be necessary,
 
 The module will use this name to find all hosts that belong to it and take care of those. When `mod_ssl` does not find any certificates, because you did not configure any, it will ask `mod_md`: "Hey, do you know anything about `mydomain.com`?" And it will answer: "Sure, use these files here for the certificates!"
 
-During start up, the module will see that there are no certificates yet for `maydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
+During start up, the module will see that there are no certificates yet for `mydomain.com`. It could contact Let's Encrypt right away and request one - but who knows how long that might take. In the meantime, your server will not become active and request will just time out. No good. Instead it creates a temporary certificate itself for `mydomain.com` and pass that on to `mod_ssl`. Everything starts up and your server is responsive.
 
 Now, when you open `https://mydomain.com/` in your browser now, it will complain because this temporary certificate cannot be trusted. If you tell it to ignore these security considerations (well, you should not), your server will answer every request to mydomain.com with a "503 Service Unavailable" message.
 
@@ -429,7 +429,7 @@ MDomain mail.mydomain.com
 
 Apache will accept this configuration, but - as you will find out - will not request a certificate for the mail domain. What is happening?
 
-`mod_md` sees that `mail.mydomain.com` is not used in any host. Therefore, there is no need to have a certificate for it. This is what the module calls the `MDRenewMode` and it is `auto` by default. If you change this to `always`, it will request certificates also for managed domains that appear not to be in use.
+`mod_md` sees that `mail.mydomain.com` is not used in any host. Therefore, there is no need to have a certificate for it. This is what the module calls the `MDRenewMode` and it is `auto` by default. If you change this to `always`, it will request certificates also for managed domain that appear not to be in use.
 
 ## How to Have Individual Settings
 
@@ -760,7 +760,7 @@ You can also set this per domain:
 ```
 <MDomain aaa.mydomain.net>
   MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
-</mDomain
+</MDomain
 ```
 which ensure that, whatever you set globally, this domain will use ACMEv1 with LE. For more information about this migration, see [upgrading](#upgrading).
 
@@ -969,7 +969,7 @@ If your server is not reachable on the ports needed, the domain renewal will fai
 OTOH, some servers do not listen on 80/443, but are nevertheless reachable on those ports. The common cause is a firewall/router that does _port mapping_. How should `mod_md` know? Well you need to tell it that:
 
 ```
-    MDPortaMap http:8001 https:8002
+    MDPortMap http:8001 https:8002
 ```
 Which says: _"when someone on the internet opens port 80, it arrives at Apache on port 8001"_.
 
@@ -1178,15 +1178,18 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCertificateFile](##mdcertificatefile)
 * [MDCertificateKeyFile](##mdcertificatekeyfile)
 * [MDCertificateProtocol](#mdcertificateprotocol)
+* [MDCertificateStatus](#mdcertificatestatus)
 * [MDChallengeDns01](#mdchallengedns01)
 * [MDRenewMode](#mdrenewemode--renew-mode)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
 * [MDNotifyCmd](#mdnotifycmd)
+* [MDMessageCmd](#mdmessagecmd)
 * [MDPortMap](#mdportmap)
 * [MDPrivateKeys](#mdprivatekeys)
 * [MDHttpProxy](#mdhttpproxy)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
+* [MDServerStatus](#mdserverstatus)
 * [MDStoreDir](#mdstoredir)
 
 ## MDomain
@@ -1320,7 +1323,32 @@ Defines if newly requested certificate should have the OCSP Must Staple flag set
 `MDNotifyCmd <path to executable>`<BR/>
 Default: `none`
 
-Define a program to be called when the certificate of a Managed Domain has been obtained/renewed. The program is given the list of all MD names that have been processed successfully. The program should return 0 to indicate that the notification has been handled successfully.
+Define a program to be called when the certificate of a Managed Domain has been obtained/renewed. The program is called for each MD that has been processed successfully. The program should return 0 to indicate that the notification has been handled successfully, otherwise it is called again at a later point in time until it does.
+
+## MDMessageCmd
+
+`MDMessageCmd <path to executable> <optional-args>`<BR/>
+Default: `none`
+
+Define a program to be called when something happened concering a managed domain. The program is given the reason and the name of the MD as arguments. The program should return 0 to indicate that the message has been handled successfully. The reasons for which it may be called are:
+
+ * `renewed`: the certificate for the managed domain has been renewed successfully. Should the command return != 0 for this reason, it will be called repeatedly until it does.
+ * `expiring`: *NOT IMPLEMENTED YET* will warn about an expiring domain that could not be renewed (or where renewal is not performed by `mod_md` itself). See `MDWarnWindow` on how to configure its timing.
+ * `errored`: *NOT IMPLEMENTED YET* errors were encountered during certificate renewal. `mod_md` will continue trying.
+
+If you have configured:
+
+```
+MDMessageCmd /etc/apache/md-message
+```
+and the Managed Domain `mydomain.com` was renewed, the program will be called with:
+
+```
+/etc/apache/md-message renewed mydomain.com
+```
+
+The program should not block, as `mod_md` will wait for it to finish. If the program wants more information, you could configure the `md-status` handler that hands out MD information in JSON format. See [the chapter about monitoring](#monitoring) for more details.
+
 
 ## MDPortMap
 
@@ -1392,6 +1420,14 @@ Or you may specify another percentage:
 MDRenewWindow   10%
 ```
 
+## MDWarnWindow / When to warn
+
+***Control when to warn about an expiring certificate***<BR/>
+`MDWarnWindow duration`<BR/>
+Default: 10%
+
+Similar to `MDRenewWindow` this directive defines when you want to be warned about the  expiry of a domain's certificate. This will invoke the `MDMessageCmd` with reason `expiring`.
+
 ### When and how often does it check?
 
 When in ```auto``` drive mode, the module will check every 12 hours at least what the status of the managed domains is and if it needs to do something. On errors, for example when the CA is unreachable, it will initially retry after some seconds. Should that continue to fail, it will back off to a maximum interval of hourly checks.
@@ -1452,6 +1488,21 @@ Default: `off`
 
 Controls if the base server, the one outside all ```VirtualHost```s should be managed by ```mod_md``` or not. Default is to not do this, for the very reason that it may have confusing side-effects. It is recommended that you have virtual hosts for all managed domains and do not rely on the global, fallback server configuration.
 
+## MDServerStatus
+
+`MDServerStatus on|off`<BR/>
+Default: `on`
+
+Controls if Managed Domains appear in the `server-status` handler of Apache.
+
+## MDCertificateStatus
+
+`MDCertificateStatus on|off`<BR/>
+Default: `on`
+
+Controls if Managed Domains respond to public requests for `/.httpd/certificate-status` or not.
+
+
 ## ServerAdmin / Contact Information
 
 Also, the ACME protocol requires you to give a contact url when you sign up. Currently, Let's Encrypt wants an email address (and it will use it to inform you about renewals or changed terms of service). ```mod_md``` uses the ```ServerAdmin``` email in your Apache configuration, so please specify the correct address there.
@@ -1467,8 +1518,6 @@ Please see the file called LICENSE.
 This work is supported by an Award from MOSS, the Mozilla Open Source Support project (twice now!). Many thanks to these excellent people! You are awesome!
 
 Test cases mostly written by my colleague @michael-koeller who made this to a good part really a test driven development. Thanks!
-
-Münster, 24.05.2019
 
 Stefan Eissing, greenbytes GmbH
 
