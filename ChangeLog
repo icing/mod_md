@@ -1,3 +1,4 @@
+ * More tests for invocations and error handling of `MDNotifyCmd`. 
  * `MDNotifyCmd` is now called for each domain that has been successfully renewed. Not for 
    all Managed Domains after all have been processed. This gives notifications earlier.
    Notification errors are now also collected under MD status and notifications are retried

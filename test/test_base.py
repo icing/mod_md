@@ -482,24 +482,6 @@ class TestEnv:
         return (ecount, wcount)
 
     @classmethod
-    def apache_err_total( cls ):
-        ecount = 0
-        wcount = 0
-        
-        if os.path.isfile(cls.ERROR_LOG):
-            fin = open(cls.ERROR_LOG)
-            for line in fin:
-                m = cls.RE_MD_ERROR.match(line)
-                if m:
-                    ecount += 1
-                    continue
-                m = cls.RE_MD_WARN.match(line)
-                if m:
-                    wcount += 1
-                    continue
-        return (ecount, wcount)
-
-    @classmethod
     def apache_err_scan( cls, regex ):
         if not os.path.isfile(cls.ERROR_LOG):
             return False

@@ -140,11 +140,10 @@ static void send_notification(md_drive_ctx *dctx, md_status_job_t *job, const md
         rv = md_util_exec(ptemp, argv[0], argv, &exit_code);
         
         if (APR_SUCCESS != rv || exit_code) {
-            rv = (APR_EINCOMPLETE == rv && exit_code)? 0 : rv;
-            md_result_printf(result, rv, "MDNotifyCmd %s for domain '%s' failed with exit code %d.", 
-                         dctx->mc->notify_cmd, md->name, exit_code);
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, 
-                         dctx->s, APLOGNO(10108) "%s", result->detail);
+            md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10108)), 
+                                     "MDNotifyCmd %s failed with exit code %d.", 
+                                     dctx->mc->notify_cmd, exit_code);
+            md_result_log(result, MD_LOG_ERR);
             return;
         }
     }

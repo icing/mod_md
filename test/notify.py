@@ -5,8 +5,8 @@ import sys
 
 def main(argv):
     if len(argv) > 2:
-        f1 = open(argv[1], 'w+')
-        f1.write('%s' % (argv))
+        f1 = open(argv[1], 'a+')
+        f1.write('%s\n' % (argv))
         f1.close()
         sys.stderr.write("done, all fine.\n")
         sys.exit(0)

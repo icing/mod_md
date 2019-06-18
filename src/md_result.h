@@ -48,6 +48,10 @@ void md_result_status_set(md_result_t *result, apr_status_t status);
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail);
 void md_result_problem_set(md_result_t *result, apr_status_t status, 
                            const char *problem, const char *detail);
+void md_result_problem_printf(md_result_t *result, apr_status_t status,
+                              const char *problem, const char *fmt, ...);
+
+#define MD_RESULT_LOG_ID(logno)       "urn:org:apache:httpd:log:"logno
 
 void md_result_printf(md_result_t *result, apr_status_t status, const char *fmt, ...);
 

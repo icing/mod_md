@@ -29,6 +29,13 @@
 #include "md_log.h"
 #include "md_result.h"
 
+static const char *dup_trim(apr_pool_t *p, const char *s)
+{
+    char *d = apr_pstrdup(p, s);
+    apr_collapse_spaces(d, d);
+    return d;
+}
+
 md_result_t *md_result_make(apr_pool_t *p, apr_status_t status)
 {
     md_result_t *result;
@@ -96,8 +103,22 @@ void md_result_problem_set(md_result_t *result, apr_status_t status,
                            const char *problem, const char *detail)
 {
     result->status = status;
-    result->problem = apr_pstrdup(result->p, problem);
+    result->problem = dup_trim(result->p, problem);
     result->detail = apr_pstrdup(result->p, detail);
+    on_change(result);
+}
+
+void md_result_problem_printf(md_result_t *result, apr_status_t status,
+                              const char *problem, const char *fmt, ...)
+{
+    va_list ap;
+
+    result->status = status;
+    result->problem = dup_trim(result->p, problem);
+
+    va_start(ap, fmt);
+    result->detail = apr_pvsprintf(result->p, fmt, ap);
+    va_end(ap);
     on_change(result);
 }
 
@@ -189,7 +210,7 @@ void md_result_assign(md_result_t *dest, const md_result_t *src)
 void md_result_dup(md_result_t *dest, const md_result_t *src)
 {
    dest->status = src->status;
-   dest->problem = src->problem? apr_pstrdup(dest->p, src->problem) : NULL; 
+   dest->problem = src->problem? dup_trim(dest->p, src->problem) : NULL; 
    dest->detail = src->detail? apr_pstrdup(dest->p, src->detail) : NULL; 
    dest->activity = src->activity? apr_pstrdup(dest->p, src->activity) : NULL; 
    dest->ready_at = src->ready_at;
