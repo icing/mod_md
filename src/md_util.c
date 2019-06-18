@@ -24,6 +24,7 @@
 #include <apr_tables.h>
 #include <apr_uri.h>
 
+#include "md.h"
 #include "md_log.h"
 #include "md_util.h"
 
@@ -985,139 +986,6 @@ apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *ar
     }
 out:
     return rv;
-}
-
-
-/* date/time encoding *****************************************************************************/
-
-const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
-{
-    const char *s = "", *sep = "";
-    long days = (long)(apr_time_sec(duration) / MD_SECS_PER_DAY);
-    int rem = (int)(apr_time_sec(duration) % MD_SECS_PER_DAY);
-    
-    if (days > 0) {
-        s = apr_psprintf(p, "%ld days", days);
-        sep = " "; 
-    }
-    if (rem > 0) {
-        int hours = (rem / MD_SECS_PER_HOUR);
-        rem = (rem % MD_SECS_PER_HOUR);
-        if (hours > 0) {
-            s = apr_psprintf(p, "%s%s%02d hours", s, sep, hours); 
-            sep = " "; 
-        }
-        if (rem > 0) {
-            int minutes = (rem / 60);
-            rem = (rem % 60);
-            if (minutes > 0) {
-                s = apr_psprintf(p, "%s%s%02d minutes", s, sep, minutes); 
-            }
-            if (rem > 0) {
-                s = apr_psprintf(p, "%s%s%02d seconds", s, sep, rem); 
-            }
-        }
-    }
-    else if (days == 0) {
-        s = "0 seconds";
-        if (duration != 0) {
-            s = apr_psprintf(p, "%d ms", (int)apr_time_msec(duration));
-        }
-    }
-    return s;
-}
-
-const char *md_duration_format(apr_pool_t *p, apr_interval_time_t duration)
-{
-    const char *s = "0";
-    int units = (int)(apr_time_sec(duration) / MD_SECS_PER_DAY);
-    int rem = (int)(apr_time_sec(duration) % MD_SECS_PER_DAY);
-    
-    if (rem == 0) {
-        s = apr_psprintf(p, "%dd", units); 
-    }
-    else {
-        units = (int)(apr_time_sec(duration) / MD_SECS_PER_HOUR);
-        rem = (int)(apr_time_sec(duration) % MD_SECS_PER_HOUR);
-        if (rem == 0) {
-            s = apr_psprintf(p, "%dh", units); 
-        }
-        else {
-            units = (int)(apr_time_sec(duration) / 60);
-            rem = (int)(apr_time_sec(duration) % 60);
-            if (rem == 0) {
-                s = apr_psprintf(p, "%dmi", units); 
-            }
-            else {
-                units = (int)(apr_time_sec(duration));
-                rem = (int)(apr_time_msec(duration) % 1000);
-                if (rem == 0) {
-                    s = apr_psprintf(p, "%ds", units); 
-                }
-                else {
-                    s = apr_psprintf(p, "%dms", (int)(apr_time_msec(duration))); 
-                }
-            }
-        }
-    }
-    return s;
-}
-
-apr_status_t md_duration_parse(apr_interval_time_t *ptimeout, const char *value, 
-                               const char *def_unit)
-{
-    char *endp;
-    apr_int64_t n;
-    
-    n = apr_strtoi64(value, &endp, 10);
-    if (errno) {
-        return errno;
-    }
-    if (!endp || !*endp) {
-        if (!def_unit) def_unit = "s";
-    }
-    else if (endp == value) {
-        return APR_EINVAL;
-    }
-    else {
-        def_unit = endp;
-    }
-    
-    switch (*def_unit) {
-    case 'D':
-    case 'd':
-        *ptimeout = apr_time_from_sec(n * MD_SECS_PER_DAY);
-        break;
-    case 's':
-    case 'S':
-        *ptimeout = (apr_interval_time_t) apr_time_from_sec(n);
-        break;
-    case 'h':
-    case 'H':
-        /* Time is in hours */
-        *ptimeout = (apr_interval_time_t) apr_time_from_sec(n * MD_SECS_PER_HOUR);
-        break;
-    case 'm':
-    case 'M':
-        switch (*(++def_unit)) {
-        /* Time is in milliseconds */
-        case 's':
-        case 'S':
-            *ptimeout = (apr_interval_time_t) n * 1000;
-            break;
-        /* Time is in minutes */
-        case 'i':
-        case 'I':
-            *ptimeout = (apr_interval_time_t) apr_time_from_sec(n * 60);
-            break;
-        default:
-            return APR_EGENERAL;
-        }
-        break;
-    default:
-        return APR_EGENERAL;
-    }
-    return APR_SUCCESS;
 }
 
 /* base64 url encoding ****************************************************************************/

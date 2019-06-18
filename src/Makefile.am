@@ -45,6 +45,7 @@ A2LIB_OBJECTS = \
     md_status.c \
     md_store.c \
     md_store_fs.c \
+    md_time.c \
     md_util.c
 
 A2LIB_HFILES = \
@@ -66,6 +67,7 @@ A2LIB_HFILES = \
     md_status.h \
     md_store.h \
     md_store_fs.h \
+    md_time.h \
     md_util.h \
     md.h
     

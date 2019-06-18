@@ -30,13 +30,14 @@ typedef enum {
     MD_CONFIG_DRIVE_MODE,
     MD_CONFIG_LOCAL_80,
     MD_CONFIG_LOCAL_443,
-    MD_CONFIG_RENEW_NORM,
     MD_CONFIG_RENEW_WINDOW,
+    MD_CONFIG_WARN_WINDOW,
     MD_CONFIG_TRANSITIVE,
     MD_CONFIG_PROXY,
     MD_CONFIG_REQUIRE_HTTPS,
     MD_CONFIG_MUST_STAPLE,
     MD_CONFIG_NOTIFY_CMD,
+    MD_CONFIG_MESSGE_CMD,
 } md_config_var_t;
 
 typedef struct md_mod_conf_t md_mod_conf_t;
@@ -58,6 +59,7 @@ struct md_mod_conf_t {
     struct apr_hash_t *init_errors;    /* init errors reported with MD name as key */
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
+    const char *message_cmd;           /* message command to execute on signup/renew/warnings */
     struct apr_table_t *env;           /* environment for operation */
     int dry_run;                       /* != 0 iff config dry run */
     int server_status_enabled;         /* if module should add to server-status handler */
@@ -74,10 +76,8 @@ typedef struct md_srv_conf_t {
     int renew_mode;                    /* mode of obtaining credentials */
     int must_staple;                   /* certificates should set the OCSP Must Staple extension */
     struct md_pkey_spec_t *pkey_spec;  /* specification for generating private keys */
-    apr_interval_time_t renew_norm;    /* If > 0, use as normalizing value for cert lifetime
-                                        * Example: renew_norm=90d renew_win=30d, cert lives
-                                        * for 12 days => renewal 4 days before */
-    apr_interval_time_t renew_window;  /* time before expiration that starts renewal */
+    const md_timeslice_t *renew_window; /* time before expiration that starts renewal */
+    const md_timeslice_t *warn_window;  /* time before expiration that warning are sent out */
     
     const char *ca_url;                /* url of CA certificate service */
     const char *ca_proto;              /* protocol used vs CA (e.g. ACME) */
@@ -105,7 +105,8 @@ md_srv_conf_t *md_config_get_unique(server_rec *s, apr_pool_t *p);
 
 const char *md_config_gets(const md_srv_conf_t *config, md_config_var_t var);
 int md_config_geti(const md_srv_conf_t *config, md_config_var_t var);
-apr_interval_time_t md_config_get_interval(const md_srv_conf_t *config, md_config_var_t var);
+
+void md_config_get_timespan(const md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var);
 
 
 #endif /* md_config_h */

@@ -230,10 +230,8 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     if (md->renew_mode == MD_RENEW_DEFAULT) {
         md->renew_mode = md_config_geti(md->sc, MD_CONFIG_DRIVE_MODE);
     }
-    if (md->renew_norm <= 0 && md->renew_window <= 0) {
-        md->renew_norm = md_config_get_interval(md->sc, MD_CONFIG_RENEW_NORM);
-        md->renew_window = md_config_get_interval(md->sc, MD_CONFIG_RENEW_WINDOW);
-    }
+    if (!md->renew_window) md_config_get_timespan(&md->renew_window, md->sc, MD_CONFIG_RENEW_WINDOW);
+    if (!md->warn_window) md_config_get_timespan(&md->warn_window, md->sc, MD_CONFIG_WARN_WINDOW);
     if (md->transitive < 0) {
         md->transitive = md_config_geti(md->sc, MD_CONFIG_TRANSITIVE);
     }
@@ -568,6 +566,7 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
     md_srv_conf_t *base_conf;
     md_t *md, *omd;
     const char *domain;
+    const md_timeslice_t *ts;
     apr_status_t rv = APR_SUCCESS;
     int i, j;
 
@@ -577,7 +576,11 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
      * before the server starts processing.
      */ 
     base_conf = md_config_get(base_server);
-    
+    md_config_get_timespan(&ts, base_conf, MD_CONFIG_RENEW_WINDOW);
+    if (ts) md_reg_set_renew_window_default(mc->reg, ts);
+    md_config_get_timespan(&ts, base_conf, MD_CONFIG_WARN_WINDOW);
+    if (ts) md_reg_set_warn_window_default(mc->reg, ts);
+ 
     /* Complete the properties of the MDs, now that we have the complete, merged
      * server configurations.
      */
@@ -615,11 +618,14 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
         
         md->can_acme_tls_1 = supports_acme_tls_1(md, base_server);
 
-        ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10039)
-                     "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, Drive=%d, "
-                     "renew=%ld, acme_tls_1=%d]",
-                     md->name, md->ca_url, md->ca_proto, md->ca_agreement,
-                     md->renew_mode, (long)md->renew_window, md->can_acme_tls_1);
+        if (APLOG_IS_LEVEL(base_server, log_level)) {
+            ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10039)
+                         "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, renew-mode=%d "
+                         "renew_window=%s, warn_window=%s",
+                         md->name, md->ca_url, md->ca_proto, md->ca_agreement, md->renew_mode,
+                         md->renew_window? md_timeslice_format(md->renew_window, p) : "unset",
+                         md->warn_window? md_timeslice_format(md->warn_window, p) : "unset");
+        }
     }
     return rv;
 }

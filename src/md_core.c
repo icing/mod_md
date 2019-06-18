@@ -253,8 +253,8 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->renew_mode = src->renew_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
         md->pkey_spec = src->pkey_spec;
-        md->renew_norm = src->renew_norm;
         md->renew_window = src->renew_window;
+        md->warn_window = src->warn_window;
         md->contacts = md_array_str_clone(p, src->contacts);
         if (src->ca_url) md->ca_url = apr_pstrdup(p, src->ca_url);
         if (src->ca_proto) md->ca_proto = apr_pstrdup(p, src->ca_proto);
@@ -293,14 +293,10 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         md_json_setl(md->renew_mode, json, MD_KEY_RENEW_MODE, NULL);
-        if (md->renew_norm > 0) {
-            int percent = (int)(((long)apr_time_sec(md->renew_window)) * 100L 
-                                / ((long)apr_time_sec(md->renew_norm))); 
-            md_json_sets(apr_psprintf(p, "%d%%", percent), json, MD_KEY_RENEW_WINDOW, NULL);
-        }
-        else {
-            md_json_sets(md_duration_format(p, md->renew_window), json, MD_KEY_RENEW_WINDOW, NULL);
-        }
+        if (md->renew_window)
+            md_json_sets(md_timeslice_format(md->renew_window, p), json, MD_KEY_RENEW_WINDOW, NULL);
+        if (md->warn_window)
+            md_json_sets(md_timeslice_format(md->warn_window, p), json, MD_KEY_WARN_WINDOW, NULL);
         if (md->ca_challenges && md->ca_challenges->nelts > 0) {
             apr_array_header_t *na;
             na = md_array_str_compact(p, md->ca_challenges, 0);
@@ -345,22 +341,10 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->renew_mode = (int)md_json_getl(json, MD_KEY_RENEW_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
         md->transitive = (int)md_json_getl(json, MD_KEY_TRANSITIVE, NULL);
-        md->renew_norm = 0;
-        md->renew_window = apr_time_from_sec(md_json_getl(json, MD_KEY_RENEW_WINDOW, NULL));
-        if (md->renew_window <= 0) {
-            s = md_json_gets(json, MD_KEY_RENEW_WINDOW, NULL);
-            if (s && strchr(s, '%')) {
-                int percent = atoi(s);
-                md->renew_norm = MD_TIME_RENEW_NORM;
-                if (percent <= 0 || percent >= 100) {
-                    percent = 33;
-                }
-                md->renew_window = apr_time_from_sec(apr_time_sec(md->renew_norm) * percent / 100L);
-            }
-            else if (s) {
-                md_duration_parse(&md->renew_window, s, "d");
-            }
-        }
+        s = md_json_gets(json, MD_KEY_RENEW_WINDOW, NULL);
+        md_timeslice_parse(&md->renew_window, p, s, MD_TIME_LIFE_NORM);
+        s = md_json_gets(json, MD_KEY_WARN_WINDOW, NULL);
+        md_timeslice_parse(&md->warn_window, p, s, MD_TIME_LIFE_NORM);
         if (md_json_has_key(json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL)) {
             md->ca_challenges = apr_array_make(p, 5, sizeof(const char*));
             md_json_dupsa(md->ca_challenges, p, json, MD_KEY_CA, MD_KEY_CHALLENGES, NULL);

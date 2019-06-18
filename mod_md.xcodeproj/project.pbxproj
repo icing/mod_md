@@ -111,6 +111,8 @@
 		B298D5C5229E7BF000245316 /* md_result.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_result.c; sourceTree = "<group>"; };
 		B298D5CC229E8AA600245316 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		B29B931422B8D57D00CF8640 /* notifail.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = notifail.py; sourceTree = "<group>"; };
+		B29B931522B905FA00CF8640 /* md_time.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_time.h; sourceTree = "<group>"; };
+		B29B931622B905FA00CF8640 /* md_time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_time.c; sourceTree = "<group>"; };
 		B2A93D122292D7A400BC6339 /* httpd.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd.conf.in; sourceTree = "<group>"; };
 		B2A93D132297E14600BC6339 /* test_0910_cleanups.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0910_cleanups.py; sourceTree = "<group>"; };
 		B2B330051F39E1D300579179 /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
@@ -499,6 +501,8 @@
 				B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */,
 				B2B81EC01F0F998F00E35CA3 /* md_store.c */,
 				B24052241EF9145000E36701 /* md_store.h */,
+				B29B931622B905FA00CF8640 /* md_time.c */,
+				B29B931522B905FA00CF8640 /* md_time.h */,
 				B24052251EF9145000E36701 /* md_util.c */,
 				B24052261EF9145000E36701 /* md_util.h */,
 				B24052271EF9145000E36701 /* md_version.h */,

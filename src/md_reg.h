@@ -99,6 +99,7 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
 #define MD_UPD_TRANSITIVE    0x1000
 #define MD_UPD_MUST_STAPLE   0x2000
 #define MD_UPD_PROTO         0x4000
+#define MD_UPD_WARN_WINDOW   0x8000
 #define MD_UPD_ALL           0x7FFFFFFF
 
 /**
@@ -231,5 +232,8 @@ apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md,
  */
 apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
                                  struct md_result_t *result, apr_pool_t *p);
+
+void md_reg_set_renew_window_default(md_reg_t *reg, const md_timeslice_t *renew_window);
+void md_reg_set_warn_window_default(md_reg_t *reg, const md_timeslice_t *warn_window);
 
 #endif /* mod_md_md_reg_h */

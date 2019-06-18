@@ -17,6 +17,7 @@
 #ifndef mod_md_md_h
 #define mod_md_md_h
 
+#include "md_time.h"
 #include "md_version.h"
 
 struct apr_array_header_t;
@@ -39,8 +40,9 @@ struct md_pkey_spec_t;
 
 #define PROTO_ACME_TLS_1        "acme-tls/1"
 
-#define MD_TIME_RENEW_NORM          (apr_time_from_sec(90 * MD_SECS_PER_DAY))
-#define MD_TIME_RENEW_WINDOW_DEF    (apr_time_from_sec(30 * MD_SECS_PER_DAY))
+#define MD_TIME_LIFE_NORM           (apr_time_from_sec(100 * MD_SECS_PER_DAY))
+#define MD_TIME_RENEW_WINDOW_DEF    (apr_time_from_sec(33 * MD_SECS_PER_DAY))
+#define MD_TIME_WARN_WINDOW_DEF     (apr_time_from_sec(10 * MD_SECS_PER_DAY))
 
 typedef enum {
     MD_S_UNKNOWN = 0,               /* MD has not been analysed yet */
@@ -96,8 +98,8 @@ struct md_t {
     int renew_mode;                 /* mode of obtaining credentials */
     struct md_pkey_spec_t *pkey_spec;/* specification for generating new private keys */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
-    apr_interval_time_t renew_norm; /* if > 0, normalized cert lifetime */
-    apr_interval_time_t renew_window;/* time before expiration that starts renewal */
+    const md_timeslice_t *renew_window;  /* time before expiration that starts renewal */
+    const md_timeslice_t *warn_window;   /* time before expiration that warnings are sent out */
     
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
@@ -185,6 +187,7 @@ struct md_t {
 #define MD_KEY_VALID_UNTIL      "valid-until"
 #define MD_KEY_VALUE            "value"
 #define MD_KEY_VERSION          "version"
+#define MD_KEY_WARN_WINDOW      "warn-window"
 
 #define MD_FN_MD                "md.json"
 #define MD_FN_JOB               "job.json"

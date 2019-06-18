@@ -156,7 +156,7 @@ class TestConf:
         ("test_017a", "has unrecognized format"), 
         ("test_017b", "has unrecognized format"), 
         ("test_017c", "takes one argument"), 
-        ("test_017d", "must be less than 100") ])
+        ("test_017d", "a length of 100% or more is not allowed.") ])
     def test_300_017(self, confFile, expErrMsg):
         # invalid renew window directive
         TestEnv.install_test_conf(confFile);

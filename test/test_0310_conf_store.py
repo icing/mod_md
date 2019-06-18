@@ -28,7 +28,6 @@ def setup_module(module):
     TestEnv.apache_err_reset()
     TestEnv.APACHE_CONF_SRC = "data/test_conf_store"
     TestEnv.install_test_conf(None);
-    assert TestEnv.apache_start() == 0
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
@@ -162,13 +161,13 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 2
 
-    def test_310_113(self):
+    def test_310_113a(self):
         # test case: renew window - 14 days
         TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
 
-    def test_310_113a(self):
+    def test_310_113b(self):
         # test case: renew window - 10 percent
         TestEnv.install_test_conf("renew_10p");
         assert TestEnv.apache_restart() == 0
@@ -316,7 +315,6 @@ class TestConf:
         assert TestEnv.apache_restart() == 0
         # ToDo: how to check renew value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
-
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0
         # check: renew window not set

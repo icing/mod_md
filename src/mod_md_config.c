@@ -43,50 +43,59 @@
 
 /* Default settings for the global conf */
 static md_mod_conf_t defmc = {
-    NULL,
+    NULL,                      /* list of mds */
 #if AP_MODULE_MAGIC_AT_LEAST(20180906, 2)
-    NULL, /* apply default state-dir-relative */
+    NULL,                      /* base dirm by default state-dir-relative */
 #else
     MD_DEFAULT_BASE_DIR,
 #endif
-    NULL,
-    NULL,
-    80,
-    443,
-    0,
-    0,
-    0,
-    MD_HSTS_MAX_AGE_DEFAULT,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    NULL,                      /* proxy url for outgoing http */
+    NULL,                      /* md_reg */
+    80,                        /* local http: port */
+    443,                       /* local https: port */
+    0,                         /* can http: */
+    0,                         /* can https: */
+    0,                         /* manage base server */
+    MD_HSTS_MAX_AGE_DEFAULT,   /* hsts max-age */
+    NULL,                      /* hsts headers */
+    NULL,                      /* unused names */
+    NULL,                      /* watched names */
+    NULL,                      /* init errors hash */
+    NULL,                      /* notify cmd */
+    NULL,                      /* message cmd */
+    NULL,                      /* env table */
     0,                         /* dry_run flag */
     1,                         /* server_status_enabled */
     1,                         /* certificate_status_enabled */
 };
 
+static md_timeslice_t def_renew_window = {
+    MD_TIME_LIFE_NORM,
+    MD_TIME_RENEW_WINDOW_DEF,
+};
+static md_timeslice_t def_warn_window = {
+    MD_TIME_LIFE_NORM,
+    MD_TIME_WARN_WINDOW_DEF,
+};
+
 /* Default server specific setting */
 static md_srv_conf_t defconf = {
-    "default",
-    NULL,
-    &defmc,
-
-    1,
-    MD_REQUIRE_OFF,
-    MD_RENEW_AUTO,
-    0,
-    NULL, 
-    MD_TIME_RENEW_NORM,       /* Normalized lifetime of a certificate */
-    MD_TIME_RENEW_WINDOW_DEF, /* Default remaining time when renewal commences */
-    NULL,
-    "ACME",
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    "default",                 /* name */
+    NULL,                      /* server_rec */
+    &defmc,                    /* mc */
+    1,                         /* transitive */
+    MD_REQUIRE_OFF,            /* require https */
+    MD_RENEW_AUTO,             /* renew mode */
+    0,                         /* must staple */
+    NULL,                      /* pkey spec */
+    &def_renew_window,         /* renew window */
+    &def_warn_window,          /* warn window */
+    NULL,                      /* ca url */
+    "ACME",                    /* ca protocol */
+    NULL,                      /* ca agreemnent */
+    NULL,                      /* ca challenges array */
+    NULL,                      /* currently defined md */
+    NULL,                      /* assigned md, post config */
 };
 
 static md_mod_conf_t *mod_md_config;
@@ -128,8 +137,8 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
     sc->renew_mode = DEF_VAL;
     sc->must_staple = DEF_VAL;
     sc->pkey_spec = NULL;
-    sc->renew_norm = DEF_VAL;
-    sc->renew_window = DEF_VAL;
+    sc->renew_window = NULL;
+    sc->warn_window = NULL;
     sc->ca_url = NULL;
     sc->ca_proto = NULL;
     sc->ca_agreement = NULL;
@@ -143,7 +152,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
     to->renew_mode = from->renew_mode;
     to->must_staple = from->must_staple;
     to->pkey_spec = from->pkey_spec;
-    to->renew_norm = from->renew_norm;
+    to->warn_window = from->warn_window;
     to->renew_window = from->renew_window;
     to->ca_url = from->ca_url;
     to->ca_proto = from->ca_proto;
@@ -158,11 +167,8 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->renew_mode != DEF_VAL) md->renew_mode = from->renew_mode;
     if (from->must_staple != DEF_VAL) md->must_staple = from->must_staple;
     if (from->pkey_spec) md->pkey_spec = from->pkey_spec;
-    if (from->renew_window != DEF_VAL) {
-        md->renew_norm = from->renew_norm;
-        md->renew_window = from->renew_window;
-    }
-
+    if (from->renew_window) md->renew_window = from->renew_window;
+    if (from->warn_window) md->warn_window = from->warn_window;
     if (from->ca_url) md->ca_url = from->ca_url;
     if (from->ca_proto) md->ca_proto = from->ca_proto;
     if (from->ca_agreement) md->ca_agreement = from->ca_agreement;
@@ -199,8 +205,8 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->renew_mode = (add->renew_mode != DEF_VAL)? add->renew_mode : base->renew_mode;
     nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
     nsc->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
-    nsc->renew_norm = (add->renew_norm != DEF_VAL)? add->renew_norm : base->renew_norm;
-    nsc->renew_window = (add->renew_window != DEF_VAL)? add->renew_window : base->renew_window;
+    nsc->renew_window = add->renew_window? add->renew_window : base->renew_window;
+    nsc->warn_window = add->warn_window? add->warn_window : base->warn_window;
 
     nsc->ca_url = add->ca_url? add->ca_url : base->ca_url;
     nsc->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
@@ -517,59 +523,42 @@ static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const c
     return NULL;
 }
 
-static apr_status_t percentage_parse(const char *value, int *ppercent)
-{
-    char *endp;
-    apr_int64_t n;
-    
-    n = apr_strtoi64(value, &endp, 10);
-    if (errno) {
-        return errno;
-    }
-    if (*endp == '%') {
-        if (n < 0 || n >= 100) {
-            return APR_BADARG;
-        }
-        *ppercent = (int)n;
-        return APR_SUCCESS;
-    }
-    return APR_EINVAL;
-}
-
 static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const char *value)
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
-    apr_interval_time_t timeout;
-    int percent = 0;
     
     (void)dc;
     if (!inside_md_section(cmd)
         && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
         return err;
     }
+    err = md_timeslice_parse(&config->renew_window, cmd->pool, value, MD_TIME_LIFE_NORM);
+    if (!err && config->renew_window->norm 
+        && (config->renew_window->len >= config->renew_window->norm)) {
+        err = "a length of 100% or more is not allowed.";
+    }
+    if (err) return apr_psprintf(cmd->pool, "MDRenewWindow %s", err);
+    return NULL;
+}
 
-    /* Inspired by http_core.c */
-    if (md_duration_parse(&timeout, value, "d") == APR_SUCCESS) {
-        config->renew_norm = 0;
-        config->renew_window = timeout;
-        return NULL;
+static const char *md_config_set_warn_window(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err;
+    
+    (void)dc;
+    if (!inside_md_section(cmd)
+        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
     }
-    else {
-        switch (percentage_parse(value, &percent)) {
-            case APR_SUCCESS:
-                config->renew_norm = MD_TIME_RENEW_NORM;
-                config->renew_window = apr_time_from_sec((apr_time_sec(config->renew_norm) * percent / 100L));
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, cmd->pool, 
-                              "configured renewal norm=%ld, window=%ld", 
-                              (long)apr_time_sec(config->renew_norm), 
-                              (long)apr_time_sec(config->renew_window));
-                return NULL;
-            case APR_BADARG:
-                return "MDRenewWindow as percent must be less than 100";
-        }
+    err = md_timeslice_parse(&config->warn_window, cmd->pool, value, MD_TIME_LIFE_NORM);
+    if (!err && config->warn_window->norm 
+        && (config->warn_window->len >= config->warn_window->norm)) {
+        err = "a length of 100% or more is not allowed.";
     }
-    return "MDRenewWindow has unrecognized format";
+    if (err) return apr_psprintf(cmd->pool, "MDWarnWindow %s", err);
+    return NULL;
 }
 
 static const char *md_config_set_proxy(cmd_parms *cmd, void *arg, const char *value)
@@ -757,6 +746,19 @@ static const char *md_config_set_notify_cmd(cmd_parms *cmd, void *mconfig, const
     return NULL;
 }
 
+static const char *md_config_set_msg_cmd(cmd_parms *cmd, void *mconfig, const char *arg)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+
+    if (err) {
+        return err;
+    }
+    sc->mc->message_cmd = arg;
+    (void)mconfig;
+    return NULL;
+}
+
 static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const char *arg)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
@@ -862,11 +864,11 @@ const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDRequireHttps", md_config_set_require_https, NULL, RSRC_CONF, 
                   "Redirect non-secure requests to the https: equivalent."),
     AP_INIT_RAW_ARGS("MDNotifyCmd", md_config_set_notify_cmd, NULL, RSRC_CONF, 
-                  "set the command and optional arguments to run when signup/renew of domain is complete."),
+                  "Set the command to run when signup/renew of domain is complete."),
     AP_INIT_TAKE1("MDBaseServer", md_config_set_base_server, NULL, RSRC_CONF, 
-                  "allow managing of base server outside virtual hosts."),
+                  "Allow managing of base server outside virtual hosts."),
     AP_INIT_RAW_ARGS("MDChallengeDns01", md_config_set_dns01_cmd, NULL, RSRC_CONF, 
-                  "set the command for setup/teardown of dns-01 challenges"),
+                  "Set the command for setup/teardown of dns-01 challenges"),
     AP_INIT_TAKE1("MDCertificateFile", md_config_set_cert_file, NULL, RSRC_CONF, 
                   "set the static certificate (chain) file to use for this domain."),
     AP_INIT_TAKE1("MDCertificateKeyFile", md_config_set_key_file, NULL, RSRC_CONF, 
@@ -875,6 +877,10 @@ const command_rec md_cmds[] = {
                   "On to see Managed Domains in server-status."),
     AP_INIT_TAKE1("MDCertificateStatus", md_config_set_certificate_status, NULL, RSRC_CONF, 
                   "On to see Managed Domain expose /.httpd/certificate-status."),
+    AP_INIT_TAKE1("MDWarnWindow", md_config_set_warn_window, NULL, RSRC_CONF, 
+                  "When less time remains for a certificate, send our/log a warning (defaults to days)"),
+    AP_INIT_RAW_ARGS("MDMessageCmd", md_config_set_msg_cmd, NULL, RSRC_CONF, 
+                  "Set the command run when a message about a domain is issued."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };
@@ -970,15 +976,17 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
     }
 }
 
-apr_interval_time_t md_config_get_interval(const md_srv_conf_t *sc, md_config_var_t var)
+void md_config_get_timespan(const md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var)
 {
     switch (var) {
-        case MD_CONFIG_RENEW_NORM:
-            return (sc->renew_norm >= 0)? sc->renew_norm : defconf.renew_norm;
         case MD_CONFIG_RENEW_WINDOW:
-            return (sc->renew_window >= 0)? sc->renew_window : defconf.renew_window;
+            *pspan = sc->renew_window? sc->renew_window : defconf.renew_window;
+            break;
+        case MD_CONFIG_WARN_WINDOW:
+            *pspan = sc->warn_window? sc->warn_window : defconf.warn_window;
+            break;
         default:
-            return 0;
+            break;
     }
 }
 

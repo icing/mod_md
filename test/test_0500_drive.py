@@ -474,11 +474,15 @@ class TestDrivev1:
         conf.add_md( [name] )
         conf.install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md([ "list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
+        md = TestEnv.a2md([ "list", name])['jout']['output'][0]
+        assert md['state'] == TestEnv.MD_S_INCOMPLETE
+        assert md['renew-window'] == renewWindow
         # setup: drive it
         assert TestEnv.a2md( [ "drive", name ] )['rv'] == 0
         cert1 = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
-        assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
+        md = TestEnv.a2md([ "list", name ])['jout']['output'][0] 
+        assert md['state'] == TestEnv.MD_S_COMPLETE
+        assert md['renew-window'] == renewWindow
 
         # replace cert by self-signed one -> check md status
         print "TRACE: start testing renew window: %s" % renewWindow
@@ -487,9 +491,10 @@ class TestDrivev1:
             CertUtil.create_self_signed_cert( [name], tc["valid"])
             cert2 = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
             assert cert2.get_serial() != cert1.get_serial()
-            md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
+            r = TestEnv.a2md([ "-vvvv", "list", name ])
+            md = r['jout']['output'][0]
             assert md["renew"] == tc["renew"], \
-                "Expected renew == {} indicator in {}, test case {}".format(tc["renew"], md, tc)
+                "Expected renew == {} indicator in {}, test case {}, stderr {}".format(tc["renew"], md, tc, r['stderr'])
 
     @pytest.mark.parametrize("keyType,keyParams,expKeyLength", [
         ( "RSA", [ 2048 ], 2048 ),

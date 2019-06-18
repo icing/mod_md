@@ -141,12 +141,14 @@ class TestAcmeAcc :
     def _check_account(self, acct, contact):
         # read account data from store
         # TODO: create a "a2md list accounts" command for this
+        time.sleep(0.1)
         jout = TestEnv.run([ "cat", TestEnv.path_account(acct) ])['jout']
         assert jout['registration']['contact'] == contact
 
     def _prepare_account(self, contact):
         run = TestEnv.a2md( ["-t", "accepted", "acme", "newreg"] + contact, raw=True )
         assert run['rv'] == 0
+        time.sleep(0.1)
         return re.match("registered: (.*)$", run['stdout']).group(1)
 
 

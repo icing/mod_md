@@ -45,6 +45,8 @@ struct md_reg_t {
     int can_https;
     const char *proxy_url;
     int domains_frozen;
+    const md_timeslice_t *renew_window;
+    const md_timeslice_t *warn_window;
 };
 
 /**************************************************************************************************/
@@ -85,6 +87,9 @@ apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *p, struct md_store_t *st
     reg->can_http = 1;
     reg->can_https = 1;
     reg->proxy_url = proxy_url? apr_pstrdup(p, proxy_url) : NULL;
+    
+    md_timeslice_create(&reg->renew_window, p, MD_TIME_LIFE_NORM, MD_TIME_RENEW_WINDOW_DEF); 
+    md_timeslice_create(&reg->warn_window, p, MD_TIME_LIFE_NORM, MD_TIME_WARN_WINDOW_DEF); 
     
     if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, p))) {
         rv = load_props(reg, p);
@@ -190,6 +195,9 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
     const md_pubcert_t *pub;
     const md_cert_t *cert;
     apr_status_t rv;
+
+    if (md->renew_window == NULL) md->renew_window = reg->renew_window;
+    if (md->warn_window == NULL) md->warn_window = reg->warn_window;
 
     if (APR_SUCCESS == (rv = md_reg_get_pubcert(&pub, reg, md, p))) {
         cert = APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*);
@@ -446,8 +454,11 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_RENEW_WINDOW & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update renew-window: %s", name);
-        nmd->renew_norm = updates->renew_norm;
         nmd->renew_window = updates->renew_window;
+    }
+    if (MD_UPD_WARN_WINDOW & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update warn-window: %s", name);
+        nmd->warn_window = updates->warn_window;
     }
     if (MD_UPD_CA_CHALLENGES & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update ca challenges: %s", name);
@@ -604,37 +615,25 @@ int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p)
 {
     const md_pubcert_t *pub;
     const md_cert_t *cert;
-    apr_time_t now, valid_until, valid_from;
-    double renew_win,  life;
-    apr_interval_time_t left;
+    md_timeperiod_t certlife, renewal;
     apr_status_t rv;
     
     if (md->state == MD_S_INCOMPLETE) return 1;
     rv = md_reg_get_pubcert(&pub, reg, md, p);
     if (APR_STATUS_IS_ENOENT(rv)) return 1;
     if (APR_SUCCESS == rv) {
-        now = apr_time_now();
         cert = APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*);
-        valid_until = md_cert_get_not_after(cert);
-        if (valid_until <= now) {
-            return 1;
+        certlife.start = md_cert_get_not_before(cert);
+        certlife.end = md_cert_get_not_after(cert);
+
+        renewal = md_timeperiod_slice_before_end(&certlife, md->renew_window);
+        if (md_log_is_level(p, MD_LOG_TRACE1)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, p, 
+                          "md[%s]: cert-life[%s] renewal[%s]", md->name, 
+                          md_timeperiod_print(p, &certlife),
+                          md_timeperiod_print(p, &renewal));
         }
-        
-        renew_win = (double)md->renew_window;
-        /* renew_norm means that we have a percentage value for renewals. We
-         * take that fraction from the existing certificate lifetime. */
-        if (md->renew_norm > 0 && md->renew_norm > renew_win) {
-            valid_from = md_cert_get_not_before(cert);
-            if (valid_until > valid_from) {
-                life = (double)(valid_until - valid_from); 
-                renew_win = life * renew_win / (double)md->renew_norm;
-            }
-        }
-        
-        left = valid_until - now;
-        if (left <= renew_win) {
-            return 1;
-        }                
+        return md_timeperiod_has_started(&renewal, apr_time_now());
     }
     return 0;
 }
@@ -812,11 +811,13 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->contacts = md->contacts;
                     fields |= MD_UPD_CONTACTS;
                 }
-                if (MD_VAL_UPDATE(md, smd, renew_window) 
-                    || MD_VAL_UPDATE(md, smd, renew_norm)) {
-                    smd->renew_norm = md->renew_norm;
+                if (!md_timeslice_eq(md->renew_window, smd->renew_window)) {
                     smd->renew_window = md->renew_window;
                     fields |= MD_UPD_RENEW_WINDOW;
+                }
+                if (!md_timeslice_eq(md->warn_window, smd->warn_window)) {
+                    smd->warn_window = md->warn_window;
+                    fields |= MD_UPD_WARN_WINDOW;
                 }
                 if (md->ca_challenges) {
                     md->ca_challenges = md_array_str_compact(p, md->ca_challenges, 0);
@@ -1110,4 +1111,14 @@ apr_status_t md_reg_freeze_domains(md_reg_t *reg, apr_array_header_t *mds)
     reg->domains_frozen = 1;
 leave:
     return rv;
+}
+
+void md_reg_set_renew_window_default(md_reg_t *reg, const md_timeslice_t *renew_window)
+{
+    reg->renew_window = renew_window;
+}
+
+void md_reg_set_warn_window_default(md_reg_t *reg, const md_timeslice_t *warn_window)
+{
+    reg->warn_window = warn_window;
 }
