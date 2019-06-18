@@ -721,6 +721,9 @@ class HttpdConf(object):
     def add_notify_cmd(self, cmd):
         self._add_line("  MDNotifyCmd %s\n" % cmd)
 
+    def add_message_cmd(self, cmd):
+        self._add_line("  MDMessageCmd %s\n" % cmd)
+
     def add_dns01_cmd(self, cmd):
         self._add_line("  MDChallengeDns01 %s\n" % cmd)
 

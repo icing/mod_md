@@ -105,6 +105,8 @@
 		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B2830C2422B27C3F005DBFBF /* test_0730_static.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0730_static.py; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
+		B2944E3122B9353E00466BEE /* test_0901_message.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0901_message.py; sourceTree = "<group>"; };
+		B2944E3222B9367F00466BEE /* message.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = message.py; sourceTree = "<group>"; };
 		B298D5C2229BE6FC00245316 /* md_status.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_status.h; sourceTree = "<group>"; };
 		B298D5C3229BE6FC00245316 /* md_status.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_status.c; sourceTree = "<group>"; };
 		B298D5C4229E7BF000245316 /* md_result.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_result.h; sourceTree = "<group>"; };
@@ -405,6 +407,7 @@
 				B2C1BE092201F728002EF7B4 /* dns01.py */,
 				B2B81ED31F165F8300E35CA3 /* htdocs */,
 				B2B81E931F0BB4F300E35CA3 /* Makefile.am */,
+				B2944E3222B9367F00466BEE /* message.py */,
 				B29B931422B8D57D00CF8640 /* notifail.py */,
 				B2CE87C51F8E28EA000629B2 /* notify.py */,
 				B20333361EDDA82300E5BE7E /* test_0001_store.py */,
@@ -429,6 +432,7 @@
 				B2830C2422B27C3F005DBFBF /* test_0730_static.py */,
 				B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */,
 				B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */,
+				B2944E3122B9353E00466BEE /* test_0901_message.py */,
 				B2A93D132297E14600BC6339 /* test_0910_cleanups.py */,
 				B26A4BD822A5107F00D002BC /* test_0920_status.py */,
 				B255730C1EE6D11200E0B132 /* test_base.py */,

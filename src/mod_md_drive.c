@@ -126,31 +126,45 @@ static apr_time_t calc_err_delay(int err_count)
 }
 
 static void send_notification(md_drive_ctx *dctx, md_status_job_t *job, const md_t *md, 
-                              md_result_t *result, apr_pool_t *ptemp)
+                              md_result_t *result, const char *reason, apr_pool_t *ptemp)
 {
+    const char * const *argv;
+    const char *cmdline;
+    int exit_code;            
     apr_status_t rv;
     
-    if (dctx->mc->notify_cmd) {
-        const char * const *argv;
-        const char *cmdline;
-        int exit_code;
-        
-        cmdline = apr_psprintf(ptemp, "%s %s", dctx->mc->notify_cmd, md->name); 
+    if (!strcmp("renewed", reason)) {
+        if (dctx->mc->notify_cmd) {
+            cmdline = apr_psprintf(ptemp, "%s %s", dctx->mc->notify_cmd, md->name); 
+            apr_tokenize_to_argv(cmdline, (char***)&argv, ptemp);
+            rv = md_util_exec(ptemp, argv[0], argv, &exit_code);
+            
+            if (APR_SUCCESS != rv || exit_code) {
+                md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10108)), 
+                                         "MDNotifyCmd %s failed with exit code %d.", 
+                                         dctx->mc->notify_cmd, exit_code);
+                md_result_log(result, MD_LOG_ERR);
+                return;
+            }
+        }
+        job->notified = 1;
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
+                     "The Managed Domain %s has been setup and changes "
+                     "will be activated on next (graceful) server restart.", md->name);
+    }
+    if (dctx->mc->message_cmd) {
+        cmdline = apr_psprintf(ptemp, "%s %s %s", dctx->mc->message_cmd, reason, md->name); 
         apr_tokenize_to_argv(cmdline, (char***)&argv, ptemp);
         rv = md_util_exec(ptemp, argv[0], argv, &exit_code);
         
         if (APR_SUCCESS != rv || exit_code) {
-            md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10108)), 
-                                     "MDNotifyCmd %s failed with exit code %d.", 
+            md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10109)), 
+                                     "MDMessageCmd %s failed with exit code %d.", 
                                      dctx->mc->notify_cmd, exit_code);
             md_result_log(result, MD_LOG_ERR);
             return;
         }
     }
-    job->notified = 1;
-    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
-                 "The Managed Domain %s has been setup and changes "
-                 "will be activated on next (graceful) server restart.", md->name);
 }
 
 static void process_drive_job(md_drive_ctx *dctx, md_status_job_t *job, apr_pool_t *ptemp)
@@ -185,7 +199,7 @@ assess:
             job->next_run = job->valid_from;
         }
         else if (!job->notified) {
-            send_notification(dctx, job, md, result, ptemp);
+            send_notification(dctx, job, md, result, "renewed", ptemp);
             if (APR_SUCCESS != result->status) {
                 error_run = 1;
                 goto leave;
