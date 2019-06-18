@@ -304,7 +304,6 @@ START_TEST(copies)
 {
     md_json_t *json = md_json_create(g_pool);
     md_json_t *jc, *jb = md_json_create(g_pool), *dest = md_json_create(g_pool);
-    const char *s;
     
     md_json_setb(1, json, "boolean", NULL);
     md_json_copy_to(dest, json, "boolean", NULL); 
