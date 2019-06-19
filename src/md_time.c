@@ -18,6 +18,7 @@
 
 #include <apr_lib.h>
 #include <apr_strings.h>
+#include <apr_time.h>
 
 #include "md.h"
 #include "md_time.h"
