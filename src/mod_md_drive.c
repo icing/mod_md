@@ -80,13 +80,31 @@ static void job_result_update(md_result_t *result, void *data)
 {
     md_job_result_ctx *ctx = data;
     apr_time_t now;
+    const char *msg, *sep;
     
     if (md_result_cmp(ctx->last, result)) {
         now = apr_time_now();
         md_result_assign(ctx->last, result);
-        if (apr_time_msec(now - ctx->last_save) > 500) {
-            md_job_save(ctx->job, ctx->reg, MD_SG_STAGING, result, ctx->p);
-            ctx->last_save = now;
+        if (result->activity || result->problem || result->detail) {
+            msg = sep = "";
+            if (result->activity) {
+                msg = apr_psprintf(result->p, "%s", result->activity);
+                sep = ": ";
+            }
+            if (result->detail) {
+                msg = apr_psprintf(result->p, "%s%s%s", msg, sep, result->detail);
+                sep = ", ";
+            }
+            if (result->problem) {
+                msg = apr_psprintf(result->p, "%s%sproblem: %s", msg, sep, result->problem);
+                sep = " ";
+            }
+            md_job_log_append(ctx->job, "progress", NULL, msg);
+
+            if (apr_time_msec(now - ctx->last_save) > 500) {
+                md_job_save(ctx->job, ctx->reg, MD_SG_STAGING, result, ctx->p);
+                ctx->last_save = now;
+            }
         }
     }
 }
@@ -129,7 +147,7 @@ static apr_status_t send_notification(md_drive_ctx *dctx, md_job_t *job, const m
                                       const char *reason, md_result_t *result, apr_pool_t *ptemp)
 {
     const char * const *argv;
-    const char *cmdline, *log_type;
+    const char *cmdline;
     int exit_code;
     apr_status_t rv;            
     
@@ -169,7 +187,6 @@ static apr_status_t send_notification(md_drive_ctx *dctx, md_job_t *job, const m
             md_job_log_append(job, "message-error", reason, result->detail);
             goto leave;
         }
-        md_job_log_append(job, log_type, NULL, NULL);
     }
 leave:
     return rv;

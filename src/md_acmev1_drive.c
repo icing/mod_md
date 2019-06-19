@@ -65,7 +65,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d, md_result_t *result)
     assert(ad->md);
     assert(ad->acme);
 
-    ad->phase = "check authz";
+    md_result_activity_printf(result, "Setup order resource for %s", ad->md->name);
     
     /* For each domain in MD: AUTHZ setup
      * if an AUTHZ resource is known, check if it is still valid
@@ -139,7 +139,6 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
     apr_status_t rv = APR_SUCCESS;
     const char *required;
     
-    ad->phase = "get certificate";
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: (ACMEv1) need certificate", d->md->name);
     
     /* Chose (or create) and ACME account to use */
@@ -148,7 +147,6 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
     /* Check that the account agreed to the terms-of-service, otherwise
      * requests for new authorizations are denied. ToS may change during the
      * lifetime of an account */
-    ad->phase = "check agreement";
     md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
                   "%s: (ACMEv1) check Tems-of-Service agreement", d->md->name);
     
@@ -169,36 +167,21 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
     }
     else if (APR_SUCCESS != rv) goto leave;
     
-    if (md_array_is_empty(ad->certs)) {
-        md_result_activity_printf(result, "Setup order resource for %s.", ad->md->name);
-        if (APR_SUCCESS != (rv = ad_setup_order(d, result))) {
-            goto leave;
-        }
-        
-        md_result_activity_printf(result, "Starting challenges for %s.", ad->md->name);
-        ad->phase = "start challenges";
-        if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
-                                                                ad->ca_challenges,
-                                                                d->store, d->md, d->env, 
-                                                                d->p, result))) {
-            goto leave;
-        }
-        
-        md_result_activity_printf(result, "Monitoring challenge status for %s.", ad->md->name);
-        ad->phase = "monitor challenges";
-        if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
-                                                              ad->authz_monitor_timeout, d->p))) {
-            md_result_status_set(result, rv);
-            goto leave;
-        }
-        
-        md_result_activity_printf(result, "Finalizing order for %s.", ad->md->name);
-        ad->phase = "finalize order";
-        if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d, result))) {
-            md_result_status_set(result, rv);
-            goto leave;
-        }
-    }
+    if (!md_array_is_empty(ad->certs)) goto leave;
+    
+    rv = ad_setup_order(d, result);
+    if (APR_SUCCESS != rv) goto leave;
+    
+    rv = md_acme_order_start_challenges(ad->order, ad->acme, ad->ca_challenges,
+                                        d->store, d->md, d->env, result, d->p);
+    if (APR_SUCCESS != rv) goto leave;
+    
+    rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
+                                      ad->authz_monitor_timeout, result, d->p);
+    if (APR_SUCCESS != rv) goto leave;
+    
+    rv = md_acme_drive_setup_certificate(d, result);
+
 leave:    
     md_result_log(result, MD_LOG_DEBUG);
     return result->status;

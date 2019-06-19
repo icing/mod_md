@@ -552,7 +552,6 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
      * - if there was an overlap, but no setup was successfull, report that. We
      *   will retry this, maybe the failure is temporary (e.g. command to setup DNS
      */
-    md_result_activity_printf(result, "Selecting challenge type for domain %s", authz->domain);
     rv = APR_ENOTIMPL;
     challenge_setup = NULL;
     for (i = 0; i < challenges->nelts && !fctx.accepted; ++i) {
@@ -562,6 +561,8 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
         if (fctx.accepted) {
             for (i = 0; i < (int)CHA_TYPES_LEN; ++i) {
                 if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
+                    md_result_activity_printf(result, "Setting up challenge '%s' for domain %s", 
+                                              fctx.accepted->type, authz->domain);
                     rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_spec, env, p);
                     if (APR_SUCCESS == rv) {
                         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
@@ -570,9 +571,10 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                         challenge_setup = CHA_TYPES[i].name; 
                         goto out;
                     }
-                    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
-                                  "%s: error setting up challenge '%s', looking for other option",
-                                  authz->domain, fctx.accepted->type);
+                    md_result_printf(result, rv, "error setting up challenge '%s', "
+                                     "for domain %s, looking for other option",
+                                     fctx.accepted->type, authz->domain);
+                    md_result_log(result, MD_LOG_INFO);
                 }
             }
         }

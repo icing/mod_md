@@ -97,6 +97,8 @@ class TestMessage:
         stat = TestEnv.get_md_status(domain)
         # this command did not fail and logged itself the correct information
         assert stat["renewal"]["last"]["status"] == 0
+        assert stat["renewal"]["log"]["entries"]
+        assert stat["renewal"]["log"]["entries"][0]["type"] == "notified"
         nlines = open(self.mlog).readlines()
         assert 1 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()

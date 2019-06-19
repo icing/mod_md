@@ -73,6 +73,7 @@ void md_result_activity_set(md_result_t *result, const char *activity)
 void md_result_activity_setn(md_result_t *result, const char *activity)
 {
     result->activity = activity;
+    result->problem = result->detail = NULL;
     on_change(result);
 }
 
@@ -83,12 +84,6 @@ void md_result_activity_printf(md_result_t *result, const char *fmt, ...)
     va_start(ap, fmt);
     md_result_activity_setn(result, apr_pvsprintf(result->p, fmt, ap));
     va_end(ap);
-}
-
-void md_result_status_set(md_result_t *result, apr_status_t status)
-{
-    result->status = status;
-    on_change(result);
 }
 
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail)
@@ -214,6 +209,7 @@ void md_result_dup(md_result_t *dest, const md_result_t *src)
    dest->detail = src->detail? apr_pstrdup(dest->p, src->detail) : NULL; 
    dest->activity = src->activity? apr_pstrdup(dest->p, src->activity) : NULL; 
    dest->ready_at = src->ready_at;
+   on_change(dest);
 }
 
 void md_result_log(md_result_t *result, int level)

@@ -44,7 +44,6 @@ void md_result_activity_set(md_result_t *result, const char *activity);
 void md_result_activity_setn(md_result_t *result, const char *activity);
 void md_result_activity_printf(md_result_t *result, const char *fmt, ...);
 
-void md_result_status_set(md_result_t *result, apr_status_t status);
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail);
 void md_result_problem_set(md_result_t *result, apr_status_t status, 
                            const char *problem, const char *detail);

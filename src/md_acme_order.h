@@ -67,28 +67,26 @@ apr_status_t md_acme_order_purge(struct md_store_t *store, apr_pool_t *p,
 apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *acme, 
                                             apr_array_header_t *challenge_types,
                                             md_store_t *store, const md_t *md, 
-                                            apr_table_t *env, apr_pool_t *p,
-                                            struct md_result_t *result);
+                                            apr_table_t *env, struct md_result_t *result,
+                                            apr_pool_t *p);
 
 apr_status_t md_acme_order_monitor_authzs(md_acme_order_t *order, md_acme_t *acme, 
-                                          const md_t *md, apr_interval_time_t timeout, 
-                                          apr_pool_t *p);
+                                          const md_t *md, apr_interval_time_t timeout,
+                                          struct md_result_t *result, apr_pool_t *p);
 
 /* ACMEv2 only ************************************************************************************/
 
 apr_status_t md_acme_order_register(md_acme_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
                                     const char *name, struct apr_array_header_t *domains);
 
-apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, apr_pool_t *p);
+apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, 
+                                  struct md_result_t *result, apr_pool_t *p);
 
 apr_status_t md_acme_order_await_ready(md_acme_order_t *order, md_acme_t *acme, 
                                        const md_t *md, apr_interval_time_t timeout, 
-                                       apr_pool_t *p);
+                                       struct md_result_t *result, apr_pool_t *p);
 apr_status_t md_acme_order_await_valid(md_acme_order_t *order, md_acme_t *acme, 
                                        const md_t *md, apr_interval_time_t timeout, 
-                                       apr_pool_t *p);
-
-apr_status_t md_acme_order_finalize(md_acme_order_t *order, md_acme_t *acme, 
-                                    const md_t *md, apr_pool_t *p);
+                                       struct md_result_t *result, apr_pool_t *p);
 
 #endif /* md_acme_order_h */

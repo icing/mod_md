@@ -664,6 +664,27 @@ If you just want to check the JSON status of one domain, append that to your sta
   ...
 ```
 
+Since version 2.0.5, this JSON status also shows a log of activities when domains are renewed:
+
+```
+...
+{
+"when": "Wed, 19 Jun 2019 14:45:58 GMT",
+"type": "progress", "detail": "The certificate for the managed domain has been renewed successfully and can be used. A graceful server restart now is recommended."
+},{
+"when": "Wed, 19 Jun 2019 14:45:58 GMT",
+"type": "progress", "detail": "Retrieving certificate chain for test-901-003-1560955549.org"
+},{
+"when": "Wed, 19 Jun 2019 14:45:58 GMT",
+"type": "progress", "detail": "Waiting for finalized order to become valid"
+},{
+"when": "Wed, 19 Jun 2019 14:45:50 GMT",
+"type": "progress", "detail": "Submitting CSR to CA for test-901-003-1560955549.org"
+},
+...
+```
+
+You will also find this information in the file `job.json` in your staging and, when activated, domains directory. 
 
 ### certificate-status
 
@@ -1085,6 +1106,7 @@ md/domains/your_domain.de
   +- md.json              # all info about the managed domain itself
   +- pubcert.pem          # the certificate, plus the 'chain', e.g. all intermediate ones
   +- privkey.pem          # the private key, unencrypted
+  +- job.json             # details and log of the last renewal
 ```
 All these files belong to the user that _starts_ your server and, on most platforms, are only read/writable by that user. On Ubuntu, this is ```root```. Since you probably heard that the internet is a dangerous place, the Apache ```httpd``` will switch to another user for its traffic serving processes. So, when something bad comes in, it can also use privileges from that user, not ```root```.
 

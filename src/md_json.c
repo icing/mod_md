@@ -796,6 +796,7 @@ apr_status_t md_json_dupsa(apr_array_header_t *a, apr_pool_t *p, md_json_t *json
         size_t index;
         json_t *val;
         
+        apr_array_clear(a);
         json_array_foreach(j, index, val) {
             if (json_is_string(val)) {
                 APR_ARRAY_PUSH(a, const char *) = apr_pstrdup(p, json_string_value(val));

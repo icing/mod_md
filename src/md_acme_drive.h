@@ -24,7 +24,6 @@ typedef struct md_acme_driver_t {
     md_proto_driver_t *driver;
     void *sub_driver;
     
-    const char *phase;
     int complete;
 
     md_pkey_t *privkey;              /* the new private key */
