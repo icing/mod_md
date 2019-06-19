@@ -435,7 +435,7 @@ int md_status_hook(request_rec *r, int flags)
     int i, html;
     status_ctx ctx;
     apr_array_header_t *mds;
-    md_json_t *jstatus;
+    md_json_t *jstatus, *jstock;
     
     sc = ap_get_module_config(r->server->module_config, &md_module);
     if (!sc) return DECLINED;
@@ -454,11 +454,13 @@ int md_status_hook(request_rec *r, int flags)
     if (!html) {
         apr_brigade_puts(ctx.bb, NULL, NULL, "ManagedDomains: ");
         if (mc->mds->nelts > 0) {
-            md_status_stock_t stock;
-            md_status_take_stock(&stock, mds, mc->reg, r->pool);
-            apr_brigade_printf(ctx.bb, NULL, NULL, "ok=%d renew=%d errored=%d ready=%d", 
-                               stock.ok_count, stock.renew_count, stock.errored_count, 
-                               stock.ready_count);
+            md_status_take_stock(&jstock, mds, mc->reg, r->pool);
+            apr_brigade_printf(ctx.bb, NULL, NULL, "total=%d, ok=%d renew=%d errored=%d ready=%d",
+                                (int)md_json_getl(jstock, MD_KEY_TOTAL, NULL), 
+                                (int)md_json_getl(jstock, MD_KEY_COMPLETE, NULL), 
+                                (int)md_json_getl(jstock, MD_KEY_RENEWING, NULL), 
+                                (int)md_json_getl(jstock, MD_KEY_ERRORED, NULL), 
+                                (int)md_json_getl(jstock, MD_KEY_READY, NULL));
         } 
         else {
             apr_brigade_puts(ctx.bb, NULL, NULL, "[]"); 

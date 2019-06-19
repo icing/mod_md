@@ -157,11 +157,18 @@ apr_status_t md_reg_cleanup_challenges(md_reg_t *reg, apr_pool_t *p, apr_pool_t 
 apr_status_t md_reg_freeze_domains(md_reg_t *reg, apr_array_header_t *mds);
 
 /**
- * Return of the certificate of the MD shoud be renewed. This includes reaching
+ * Return if the certificate of the MD shoud be renewed. This includes reaching
  * the renewal window of an otherwise valid certificate. It return also !0 iff
  * no certificate has been obtained yet.
  */
 int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+
+/**
+ * Return if a warning should be issued about the certificate expiration. 
+ * This applies the configured warn window to the remaining lifetime of the 
+ * current certiciate. If no certificate is present, this returns 0.
+ */
+int md_reg_should_warn(md_reg_t *reg, const md_t *md, apr_pool_t *p);
 
 /**************************************************************************************************/
 /* protocol drivers */

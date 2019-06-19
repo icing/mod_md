@@ -77,6 +77,7 @@ md_json_t *md_json_getj(md_json_t *json, ...);
 const md_json_t *md_json_getcj(const md_json_t *json, ...);
 apr_status_t md_json_setj(md_json_t *value, md_json_t *json, ...);
 apr_status_t md_json_addj(md_json_t *value, md_json_t *json, ...);
+apr_status_t md_json_insertj(md_json_t *value, size_t index, md_json_t *json, ...);
 
 /* Array/Object manipulation */
 apr_status_t md_json_clr(md_json_t *json, ...);
@@ -100,6 +101,7 @@ apr_status_t md_json_geta(apr_array_header_t *a, md_json_from_cb *cb,
 apr_status_t md_json_seta(apr_array_header_t *a, md_json_to_cb *cb, 
                           void *baton, md_json_t *json, ...);
 
+/* Called on each array element, aborts iteration when returning 0 */
 typedef int md_json_itera_cb(void *baton, size_t index, md_json_t *json);
 int md_json_itera(md_json_itera_cb *cb, void *baton, md_json_t *json, ...);
 

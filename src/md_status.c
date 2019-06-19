@@ -112,6 +112,13 @@ leave:
     return rv;
 }
 
+static apr_status_t job_loadj(md_json_t **pjson, const char *name, 
+                              struct md_reg_t *reg, apr_pool_t *p)
+{
+    md_store_t *store = md_reg_store_get(reg);
+    return md_store_load_json(store, MD_SG_STAGING, name, MD_FN_JOB, pjson, p);
+}
+
 apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md, 
                                    md_reg_t *reg, apr_pool_t *p)
 {
@@ -131,7 +138,7 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
     renew = md_reg_should_renew(reg, md, p);
     md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     if (renew) {
-        rv = md_status_job_loadj(&jobj, md->name, reg, p);
+        rv = job_loadj(&jobj, md->name, reg, p);
         if (APR_SUCCESS == rv) {
             rv = get_staging_cert_json(&certj, p, reg, md);
             if (APR_SUCCESS != rv) goto leave;
@@ -170,25 +177,36 @@ leave:
 /**************************************************************************************************/
 /* drive job persistence */
 
-static void md_status_job_from_json(md_status_job_t *job, const md_json_t *json, apr_pool_t *p)
+md_job_t *md_job_make(apr_pool_t *p, const char *name)
+{
+    md_job_t *job = apr_pcalloc(p, sizeof(*job));
+    job->name = apr_pstrdup(p, name);
+    job->p = p;
+    return job;
+}
+
+static void md_job_from_json(md_job_t *job, md_json_t *json, apr_pool_t *p)
 {
     const char *s;
+    
     /* not good, this is malloced from a temp pool */
     /*job->name = md_json_gets(json, MD_KEY_NAME, NULL);*/
     job->finished = md_json_getb(json, MD_KEY_FINISHED, NULL);
     s = md_json_dups(p, json, MD_KEY_NEXT_RUN, NULL);
     if (s && *s) job->next_run = apr_date_parse_rfc(s);
+    s = md_json_dups(p, json, MD_KEY_LAST_RUN, NULL);
+    if (s && *s) job->last_run = apr_date_parse_rfc(s);
     s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
     if (s && *s) job->valid_from = apr_date_parse_rfc(s);
-    job->notified = md_json_getb(json, MD_KEY_NOTIFIED, NULL);
     job->error_runs = (int)md_json_getl(json, MD_KEY_ERRORS, NULL);
     if (md_json_has_key(json, MD_KEY_LAST, NULL)) {
         job->last_result = md_result_from_json(md_json_getcj(json, MD_KEY_LAST, NULL), p);
     }
+    job->log = md_json_getj(json, MD_KEY_LOG, NULL);
 }
 
-void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, 
-                           md_result_t *result, apr_pool_t *p)
+static void job_to_json(md_json_t *json, const md_job_t *job, 
+                        md_result_t *result, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
 
@@ -198,82 +216,149 @@ void md_status_job_to_json(md_json_t *json, const md_status_job_t *job,
         apr_rfc822_date(ts, job->next_run);
         md_json_sets(ts, json, MD_KEY_NEXT_RUN, NULL);
     }
+    if (job->last_run > 0) {
+        apr_rfc822_date(ts, job->last_run);
+        md_json_sets(ts, json, MD_KEY_LAST_RUN, NULL);
+    }
     if (job->valid_from > 0) {
         apr_rfc822_date(ts, job->valid_from);
         md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
     }
-    md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
     md_json_setl(job->error_runs, json, MD_KEY_ERRORS, NULL);
     if (!result) result = job->last_result;
     if (result) {
         md_json_setj(md_result_to_json(result, p), json, MD_KEY_LAST, NULL);
     }
+    if (job->log) md_json_setj(job->log, json, MD_KEY_LOG, NULL);
 }
 
-apr_status_t md_status_job_loadj(md_json_t **pjson, const char *name, 
-                                struct md_reg_t *reg, apr_pool_t *p)
-{
-    md_store_t *store = md_reg_store_get(reg);
-    return md_store_load_json(store, MD_SG_STAGING, name, MD_FN_JOB, pjson, p);
-}
-
-apr_status_t md_status_job_load(md_status_job_t *job, md_reg_t *reg, apr_pool_t *p)
+apr_status_t md_job_load(md_job_t *job, md_reg_t *reg, 
+                         md_store_group_t group, apr_pool_t *p)
 {
     md_store_t *store = md_reg_store_get(reg);
     md_json_t *jprops;
     apr_status_t rv;
     
-    rv = md_store_load_json(store, MD_SG_STAGING, job->name, MD_FN_JOB, &jprops, p);
+    rv = md_store_load_json(store, group, job->name, MD_FN_JOB, &jprops, p);
     if (APR_SUCCESS == rv) {
-        md_status_job_from_json(job, jprops, p);
+        md_job_from_json(job, jprops, p);
     }
     return rv;
 }
 
-apr_status_t md_status_job_save(md_status_job_t *job, struct md_reg_t *reg, 
-                                md_result_t *result, apr_pool_t *p)
+apr_status_t md_job_save(md_job_t *job, struct md_reg_t *reg, 
+                         md_store_group_t group, md_result_t *result, 
+                         apr_pool_t *p)
 {
     md_store_t *store = md_reg_store_get(reg);
     md_json_t *jprops;
     apr_status_t rv;
     
     jprops = md_json_create(p);
-    md_status_job_to_json(jprops, job, result, p);
-    rv = md_store_save_json(store, p, MD_SG_STAGING, job->name, MD_FN_JOB, jprops, 0);
+    job_to_json(jprops, job, result, p);
+    rv = md_store_save_json(store, p, group, job->name, MD_FN_JOB, jprops, 0);
     return rv;
 }
 
-void  md_status_take_stock(md_status_stock_t *stock, apr_array_header_t *mds, 
+void md_job_log_append(md_job_t *job, const char *type, 
+                       const char *status, const char *detail)
+{
+    md_json_t *entry;
+    char ts[APR_RFC822_DATE_LEN];
+    
+    entry = md_json_create(job->p);
+    apr_rfc822_date(ts, apr_time_now());
+    md_json_sets(ts, entry, MD_KEY_WHEN, NULL);
+    md_json_sets(type, entry, MD_KEY_TYPE, NULL);
+    if (status) md_json_sets(status, entry, MD_KEY_STATUS, NULL);
+    if (detail) md_json_sets(detail, entry, MD_KEY_DETAIL, NULL);
+    if (!job->log) job->log = md_json_create(job->p);
+    md_json_insertj(entry, 0, job->log, MD_KEY_ENTRIES, NULL);
+}
+
+typedef struct {
+    md_job_t *job;
+    const char *type;
+    md_json_t *entry;
+    size_t index;
+} log_find_ctx;
+
+static int find_first_log_entry(void *baton, size_t index, md_json_t *entry)
+{
+    log_find_ctx *ctx = baton;
+    const char *etype;
+    
+    etype = md_json_gets(entry, MD_KEY_TYPE, NULL);
+    if (etype == ctx->type || (etype && ctx->type && !strcmp(etype, ctx->type))) {
+        ctx->entry = entry;
+        ctx->index = index;
+        return 0;
+    }
+    return 1;
+}
+
+md_json_t *md_job_log_get_latest(md_job_t *job, const char *type)
+
+{
+    log_find_ctx ctx;
+    ctx.job = job;
+    ctx.type = type;
+    memset(&ctx, 0, sizeof(ctx));
+    if (job->log) md_json_itera(find_first_log_entry, &ctx, job->log, MD_KEY_ENTRIES, NULL);
+    return ctx.entry;
+}
+
+apr_time_t md_job_log_get_time_of_latest(md_job_t *job, const char *type)
+{
+    md_json_t *entry;
+    const char *s;
+    
+    entry = md_job_log_get_latest(job, type);
+    if (entry) {
+        s = md_json_gets(entry, MD_KEY_WHEN, NULL);
+        if (s) return apr_date_parse_rfc(s);
+    }
+    return 0;
+}
+
+void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds, 
                            md_reg_t *reg, apr_pool_t *p)
 {
     const md_t *md;
-    md_status_job_t job;
-    int i;
+    md_job_t job;
+    int i, complete, renewing, errored, ready, total;
+    md_json_t *json;
 
-    memset(stock, 0, sizeof(*stock));
+    json = md_json_create(p);
+    complete = renewing = errored = ready = total = 0;
     for (i = 0; i < mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mds, i, const md_t *);
+        ++total;
         switch (md->state) {
-            case MD_S_COMPLETE: stock->ok_count++; /* fall through */
+            case MD_S_COMPLETE: ++complete; /* fall through */
             case MD_S_INCOMPLETE:
                 if (md_reg_should_renew(reg, md, p)) {
-                    stock->renew_count++;
+                    ++renewing;
                     memset(&job, 0, sizeof(job));
                     job.name = md->name;
-                    if (APR_SUCCESS == md_status_job_load(&job, reg, p)) {
+                    if (APR_SUCCESS == md_job_load(&job, reg, MD_SG_STAGING, p)) {
                         if (job.error_runs > 0 
                             || (job.last_result && job.last_result->status != APR_SUCCESS)) {
-                            stock->errored_count++;
+                            ++errored;
                         }
                         else if (job.finished) {
-                            stock->ready_count++;
+                            ++ready;
                         }
                     }
                 }
                 break;
-            default: stock->errored_count++; break;
+            default: ++errored; break;
         }
     }
+    md_json_setl(total, json, MD_KEY_TOTAL, NULL);
+    md_json_setl(complete, json, MD_KEY_COMPLETE, NULL);
+    md_json_setl(renewing, json, MD_KEY_RENEWING, NULL);
+    md_json_setl(errored, json, MD_KEY_ERRORED, NULL);
+    md_json_setl(ready, json, MD_KEY_READY, NULL);
+    *pjson = json;
 }
-
-

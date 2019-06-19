@@ -31,6 +31,7 @@
 #include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
+#include "md_status.h"
 #include "md_util.h"
 
 #include "md_acme.h"
@@ -638,6 +639,33 @@ int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p)
     return 0;
 }
 
+int md_reg_should_warn(md_reg_t *reg, const md_t *md, apr_pool_t *p)
+{
+    const md_pubcert_t *pub;
+    const md_cert_t *cert;
+    md_timeperiod_t certlife, warn;
+    apr_status_t rv;
+    
+    if (md->state == MD_S_INCOMPLETE) return 0;
+    rv = md_reg_get_pubcert(&pub, reg, md, p);
+    if (APR_STATUS_IS_ENOENT(rv)) return 0;
+    if (APR_SUCCESS == rv) {
+        cert = APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*);
+        certlife.start = md_cert_get_not_before(cert);
+        certlife.end = md_cert_get_not_after(cert);
+
+        warn = md_timeperiod_slice_before_end(&certlife, md->warn_window);
+        if (md_log_is_level(p, MD_LOG_TRACE1)) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, p, 
+                          "md[%s]: cert-life[%s] warn[%s]", md->name, 
+                          md_timeperiod_print(p, &certlife),
+                          md_timeperiod_print(p, &warn));
+        }
+        return md_timeperiod_has_started(&warn, apr_time_now());
+    }
+    return 0;
+}
+
 /**************************************************************************************************/
 /* synching */
 
@@ -1045,6 +1073,7 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     md_proto_driver_t *driver;
     md_result_t *result;
     apr_table_t *env;
+    md_job_t *job;
     apr_status_t rv;
     
     /* For the MD,  check if something is in the STAGING area. If none is there, 
@@ -1070,6 +1099,12 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     md_result_activity_setn(result, "preloading staged to tmp");
     rv = driver->proto->preload(driver, MD_SG_TMP, result);
     if (APR_SUCCESS != rv) goto out;
+
+    /* If we had a job saved in STAGING, copy it over too */
+    job = md_job_make(ptemp, md->name);
+    if (APR_SUCCESS == md_job_load(job, reg, MD_SG_STAGING, ptemp)) {
+        md_job_save(job, reg, MD_SG_TMP, NULL, ptemp);
+    }
     
     /* swap */
     md_result_activity_setn(result, "moving tmp to become new domains");
@@ -1078,6 +1113,7 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
         md_result_set(result, rv, NULL);
         goto out;
     }
+    
     md_store_purge(reg->store, p, MD_SG_STAGING, md->name);
     md_store_purge(reg->store, p, MD_SG_CHALLENGES, md->name);
     md_result_set(result, APR_SUCCESS, "new certificate successfully saved in domains");

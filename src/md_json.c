@@ -187,6 +187,38 @@ static apr_status_t jselect_add(json_t *val, md_json_t *json, va_list ap)
     return APR_SUCCESS;
 }
 
+static apr_status_t jselect_insert(json_t *val, size_t index, md_json_t *json, va_list ap)
+{
+    const char *key;
+    json_t *j, *aj;
+    
+    j = jselect_parent(&key, 1, json, ap);
+    
+    if (!j || !json_is_object(j)) {
+        json_decref(val);
+        return APR_EINVAL;
+    }
+    
+    aj = json_object_get(j, key);
+    if (!aj) {
+        aj = json_array();
+        json_object_set_new(j, key, aj);
+    }
+    
+    if (!json_is_array(aj)) {
+        json_decref(val);
+        return APR_EINVAL;
+    }
+
+    if (json_array_size(aj) <= index) {
+        json_array_append(aj, val);
+    }
+    else {
+        json_array_insert(aj, index, val);
+    }
+    return APR_SUCCESS;
+}
+
 static apr_status_t jselect_set(json_t *val, md_json_t *json, va_list ap)
 {
     const char *key;
@@ -471,6 +503,17 @@ apr_status_t md_json_addj(md_json_t *value, md_json_t *json, ...)
     
     va_start(ap, json);
     rv = jselect_add(value->j, json, ap);
+    va_end(ap);
+    return rv;
+}
+
+apr_status_t md_json_insertj(md_json_t *value, size_t index, md_json_t *json, ...)
+{
+    va_list ap;
+    apr_status_t rv;
+    
+    va_start(ap, json);
+    rv = jselect_insert(value->j, index, json, ap);
     va_end(ap);
     return rv;
 }
@@ -847,8 +890,7 @@ const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
 
     chunks = apr_array_make(p, 10, sizeof(char *));
     rv = json_dump_callback(json->j, chunk_cb, chunks, fmt_to_flags(fmt));
-
-    if (rv) {
+    if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p,
                       "md_json_writep failed to dump JSON");
         return NULL;
@@ -869,17 +911,15 @@ apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, a
     apr_status_t rv;
     const char *s;
     
-    s = md_json_writep(json, p, fmt);
-
-    if (s) {
+    if ((s = md_json_writep(json, p, fmt))) {
         rv = apr_file_write_full(f, s, strlen(s), NULL);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_writef: error writing file");
+        }
     }
     else {
         rv = APR_EINVAL;
-    }
-
-    if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_writef");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_writef: error dumping json");
     }
     return rv;
 }

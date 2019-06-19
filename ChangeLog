@@ -1,3 +1,7 @@
+ * Renewal jobs now have their own log attached with timestamps when renewal was started,
+   ran into errors, finished. The job JSON files are copied from staging into the domain
+   directory for possible later review.
+ * A configured MDMessageCmd is now called for 'errored' and 'expiring' domains as well.
  * new `MDMessageCmd` added as alternative to MDNotifyCmd. This command is called with an
    addition "reason" parameter that specifies what happened to the manged domain. Currently
    the only reason used is "renewed". More will come. 

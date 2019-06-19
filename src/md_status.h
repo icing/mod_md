@@ -21,50 +21,77 @@ struct md_json_t;
 struct md_reg_t;
 struct md_result_t;
 
+/** 
+ * Get a JSON summary of the MD and its status (certificates, jobs, etc.).
+ */
 apr_status_t md_status_get_md_json(struct md_json_t **pjson, const md_t *md, 
                                    struct md_reg_t *reg, apr_pool_t *p);
 
+/** 
+ * Get a JSON summary of all MDs and their status.
+ */
 apr_status_t md_status_get_json(struct md_json_t **pjson, apr_array_header_t *mds, 
                                 struct md_reg_t *reg, apr_pool_t *p);
 
-typedef struct md_status_job_t md_status_job_t;
+/**
+ * Take stock of all MDs given for a short overview. The JSON returned
+ * will carry intergers for MD_KEY_COMPLETE, MD_KEY_RENEWING, 
+ * MD_KEY_ERRORED, MD_KEY_READY and MD_KEY_TOTAL.
+ */
+void  md_status_take_stock(struct md_json_t **pjson, apr_array_header_t *mds, 
+                           struct md_reg_t *reg, apr_pool_t *p);
 
-struct md_status_job_t {
-    const char *name;      /* Name of the MD this job is about */     
+typedef struct md_job_t md_job_t;
+struct md_job_t {
+    const char *name;      /* Name of the MD this job is about */
+    apr_pool_t *p;     
     apr_time_t next_run;   /* Time this job wants to be processed next */
-    int finished;          /* true iff the job finished successfully */
-    apr_time_t valid_from; /* at which time the finished job results become valid */
-    int notified;          /* true iff the user has been notified that results are valid now */
-    int error_runs;        /* Number of errored runs of an unfinished job */
+    apr_time_t last_run;   /* Time this job ran last (or 0) */
     struct md_result_t *last_result; /* Result from last run */
-    int dirty;             /* transient flag if job needs saving */    
+    int finished;          /* true iff the job finished successfully */
+    apr_time_t valid_from; /* at which time the finished job results become valid, 0 if immediate */
+    int error_runs;        /* Number of errored runs of an unfinished job */
+    md_json_t *log;        /* array of log objects with minimum fields
+                              MD_KEY_WHEN (timestamp) and MD_KEY_TYPE (string) */   
 };
 
 /**
- * Loads the raw JSON as persisted in the staging area.
+ * Create a new job instance for the given MD name. Job load/save will work
+ * on the MD_SG_STAGING for the name.
  */
-apr_status_t md_status_job_loadj(md_json_t **pjson, const char *name, 
-                                 struct md_reg_t *reg, apr_pool_t *p);
-/*
- * Load and convert the job stored in staging.
+md_job_t *md_job_make(apr_pool_t *p, const char *name);
+
+/**
+ * Update the job from storage in <group>/job->name.
  */
-apr_status_t md_status_job_load(md_status_job_t *job, struct md_reg_t *reg, apr_pool_t *p);
+apr_status_t md_job_load(md_job_t *job, struct md_reg_t *reg, 
+                         md_store_group_t group, apr_pool_t *p);
 
-void md_status_job_to_json(md_json_t *json, const md_status_job_t *job, 
-                           struct md_result_t *result, apr_pool_t *p);
+/**
+ * Update storage from job in <group>/job->name.
+ */
+apr_status_t md_job_save(md_job_t *job, struct md_reg_t *reg, 
+                         md_store_group_t group, struct md_result_t *result, 
+                         apr_pool_t *p);
 
-apr_status_t md_status_job_save(md_status_job_t *job, struct md_reg_t *reg, 
-                                struct md_result_t *result, apr_pool_t *p);
+/**
+ * Append to the job's log. Timestamp is automatically added.
+ * @param type          type of log entry
+ * @param status        status of entry (maybe NULL)
+ * @param detail        description of what happened
+ */
+void md_job_log_append(md_job_t *job, const char *type, 
+                       const char *status, const char *detail);
 
-typedef struct md_status_stock_t md_status_stock_t;
-struct md_status_stock_t {
-    int ok_count;
-    int renew_count;
-    int errored_count;
-    int ready_count;
-};
+/**
+ * Retrieve the lastest log entry of a certain type.
+ */
+md_json_t *md_job_log_get_latest(md_job_t *job, const char *type);
 
-void  md_status_take_stock(md_status_stock_t *stock, apr_array_header_t *mds, 
-                           struct md_reg_t *reg, apr_pool_t *p);
+/**
+ * Get the time the latest log entry of the given type happened, or 0 if
+ * none is found.
+ */
+apr_time_t md_job_log_get_time_of_latest(md_job_t *job, const char *type);
 
 #endif /* md_status_h */

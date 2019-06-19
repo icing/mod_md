@@ -1333,8 +1333,8 @@ Default: `none`
 Define a program to be called when something happened concerning a managed domain. The program is given the reason and the name of the MD as arguments. The program should return 0 to indicate that the message has been handled successfully. The reasons for which it may be called are:
 
  * `renewed`: the certificate for the managed domain has been renewed successfully. Should the command return != 0 for this reason, it will be called repeatedly until it does.
- * `expiring`: *NOT IMPLEMENTED YET* will warn about an expiring domain that could not be renewed (or where renewal is not performed by `mod_md` itself). See `MDWarnWindow` on how to configure its timing.
- * `errored`: *NOT IMPLEMENTED YET* errors were encountered during certificate renewal. `mod_md` will continue trying.
+ * `expiring`: will warn about an expiring domain that could not be renewed (or where renewal is not performed by `mod_md` itself). See `MDWarnWindow` on how to configure its timing.
+ * `errored`: errors were encountered during certificate renewal. `mod_md` will continue trying.
 
 If you have configured:
 
