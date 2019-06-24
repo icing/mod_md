@@ -22,6 +22,8 @@ struct md_reg_t;
 
 typedef struct md_drive_ctx md_drive_ctx;
 
+int md_will_renew_cert(const md_t *md);
+
 /**
  * Start driving the certificate procotol for the domains mentioned in mc->watched_names.
  */

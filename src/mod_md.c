@@ -674,7 +674,7 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
     int i;
     
     /* Calculate the list of MD names which we need to watch:
-     * - all MDs in drive mode 'ALWAYS'
+     * - all MDs that are used somewhere
      * - all MDs in drive mode 'AUTO' that are not in 'unused_names'
      */
     result = md_result_make(ptemp, APR_SUCCESS);
@@ -685,37 +685,29 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
 
         if (md->state == MD_S_ERROR) {
             md_result_set(result, APR_EGENERAL, 
-                "in error state, unable to drive forward. This "
-                "indicates an incomplete or inconsistent configuration. "
-                "Please check the log for warnings in this regard.");
+                          "in error state, unable to drive forward. This "
+                          "indicates an incomplete or inconsistent configuration. "
+                          "Please check the log for warnings in this regard.");
+            continue;
         }
-        else if (!md->cert_file || md->renew_mode == MD_RENEW_ALWAYS) {
-            /* we will drive this MD, make a test init to detect early errors */
-            md_reg_test_init(mc->reg, md, mc->env, result, p);
-        }
-            
-        if (APR_SUCCESS != result->status && result->detail) {
-            apr_hash_set(mc->init_errors, md->name, APR_HASH_KEY_STRING, apr_pstrdup(p, result->detail));
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO() 
-                         "md[%s]: %s", md->name, result->detail);
+
+        if (md->renew_mode == MD_RENEW_AUTO
+            && md_array_str_index(mc->unused_names, md->name, 0, 0) >= 0) {
+            /* This MD is not used in any virtualhost, do not watch */
             continue;
         }
         
-        switch (md->renew_mode) {
-            case MD_RENEW_AUTO:
-                if (md_array_str_index(mc->unused_names, md->name, 0, 0) >= 0) {
-                    break;
-                }
-                if (md->cert_file) {
-                    break;
-                }
-                /* fall through */
-            case MD_RENEW_ALWAYS:
-                APR_ARRAY_PUSH(mc->watched_names, const char *) = md->name; 
-                break;
-            default:
-                break;
+        if (md_will_renew_cert(md)) {
+            /* make a test init to detect early errors. */
+            md_reg_test_init(mc->reg, md, mc->env, result, p);
+            if (APR_SUCCESS != result->status && result->detail) {
+                apr_hash_set(mc->init_errors, md->name, APR_HASH_KEY_STRING, apr_pstrdup(p, result->detail));
+                ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO() 
+                             "md[%s]: %s", md->name, result->detail);
+            }
         }
+        
+        APR_ARRAY_PUSH(mc->watched_names, const char *) = md->name; 
     }
 }   
 

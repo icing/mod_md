@@ -174,6 +174,7 @@ static apr_status_t send_notification(md_drive_ctx *dctx, md_job_t *job, const m
     }
     if (dctx->mc->message_cmd) {
         cmdline = apr_psprintf(ptemp, "%s %s %s", dctx->mc->message_cmd, reason, md->name); 
+        ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, dctx->s, "Message command: %s", cmdline);
         apr_tokenize_to_argv(cmdline, (char***)&argv, ptemp);
         rv = md_util_exec(ptemp, argv[0], argv, &exit_code);
         
@@ -196,6 +197,7 @@ static void check_expiration(md_drive_ctx *dctx, md_job_t *job, const md_t *md, 
 {
     md_timeperiod_t since_last;
     
+    ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s, "md(%s): check expiration", md->name);
     if (!md_reg_should_warn(dctx->mc->reg, md, dctx->p)) return;
     
     /* Sends these out at most once per day */
@@ -203,6 +205,8 @@ static void check_expiration(md_drive_ctx *dctx, md_job_t *job, const md_t *md, 
     since_last.end = apr_time_now();
 
     if (md_timeperiod_length(&since_last) >= apr_time_from_sec(MD_SECS_PER_DAY)) {
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, dctx->s, 
+                     "md(%s): message expiration warning", md->name);
         send_notification(dctx, job, md, "expiring", NULL, ptemp);
     }
 }
@@ -231,7 +235,7 @@ static void process_drive_job(md_drive_ctx *dctx, md_job_t *job, apr_pool_t *pte
         goto leave;
     }
     
-    while (1) {
+    while (md_will_renew_cert(md)) {
         if (job->finished) {
             job->next_run = 0;
             /* Finished jobs might take a while before the results become valid.
@@ -312,6 +316,17 @@ leave:
         apr_status_t rv2 = md_job_save(job, dctx->mc->reg, MD_SG_STAGING, result, ptemp);
         ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, dctx->s, "%s: saving job props", job->name);
     }
+}
+
+int md_will_renew_cert(const md_t *md)
+{
+    if (md->renew_mode == MD_RENEW_MANUAL) {
+        return 0;
+    }
+    else if (md->renew_mode == MD_RENEW_AUTO && md->cert_file) {
+        return 0;
+    } 
+    return 1;
 }
 
 static apr_time_t next_run_default(void)
