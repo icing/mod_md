@@ -171,7 +171,6 @@ class TestConf:
         # test case: renew window - 10 percent
         TestEnv.install_test_conf("renew_10p");
         assert TestEnv.apache_restart() == 0
-        # TODO: place appropriate checks here
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '10%'
         
     def test_310_114(self):
@@ -313,7 +312,6 @@ class TestConf:
         # test case: remove renew window from conf -> fallback to default
         TestEnv.install_test_conf("renew_14d");
         assert TestEnv.apache_restart() == 0
-        # ToDo: how to check renew value in store?
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
         TestEnv.install_test_conf("one_md");
         assert TestEnv.apache_restart() == 0

@@ -487,7 +487,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_PROTO & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update proto: %s", name);
-        nmd->can_acme_tls_1 = updates->can_acme_tls_1;
+        nmd->acme_tls_1_domains = updates->acme_tls_1_domains;
     }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
@@ -874,8 +874,8 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     smd->must_staple = md->must_staple;
                     fields |= MD_UPD_MUST_STAPLE;
                 }
-                if (MD_VAL_UPDATE(md, smd, can_acme_tls_1)) {
-                    smd->can_acme_tls_1 = md->can_acme_tls_1;
+                if (!md_array_str_eq(md->acme_tls_1_domains, smd->acme_tls_1_domains, 0)) {
+                    smd->acme_tls_1_domains = md->acme_tls_1_domains;
                     fields |= MD_UPD_PROTO;
                 }
                 
@@ -1001,6 +1001,7 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
         md_result_printf(result, APR_EGENERAL, "Unknown CA protocol '%s'", md->ca_proto); 
         goto leave;
     }
+    
     result->status = driver->proto->init(driver, result);
 
 leave:

@@ -195,7 +195,6 @@ struct md_proto_driver_t {
     int can_http;
     int can_https;
     int reset;
-
 };
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, struct md_result_t *result);

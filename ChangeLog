@@ -1,3 +1,6 @@
+ * ACME challenge method 'tls-alpn-01' is now checked for each domain in an MD individually
+   and no longer needs to be available for all domains.
+
 v2.0.5
 ----------------------------------------------------------------------------------------------------
  * Renewal jobs now have their own log attached with timestamps when renewal was started,

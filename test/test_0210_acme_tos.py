@@ -1,6 +1,7 @@
 # test mod_md acme terms-of-service handling
 
 import os.path
+import json
 import re
 import sys
 import time
@@ -103,11 +104,10 @@ class TestAcmeToS :
         return re.match("registered: (.*)$", run['stdout']).group(1)
 
     def _check_account(self, acct, contact, tos):
-        # read account data from store
-        # TODO: create a "a2md list accounts" command for this
-        jout = TestEnv.run([ "cat", TestEnv.path_account(acct) ])['jout']
-        assert jout['registration']['contact'] == contact
+        with open(TestEnv.path_account(acct)) as f:
+            acctj = json.load(f)
+        assert acctj['registration']['contact'] == contact
         if tos:
-            assert jout['agreement'] == tos
+            assert acctj['agreement'] == tos
         else:
-            assert 'agreement' not in jout
+            assert 'agreement' not in acctj

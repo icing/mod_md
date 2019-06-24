@@ -106,6 +106,7 @@ md_t *md_create_empty(apr_pool_t *p)
         md->require_https = MD_REQUIRE_UNSET;
         md->must_staple = -1;
         md->transitive = -1;
+        md->acme_tls_1_domains = apr_array_make(p, 5, sizeof(const char *));
         md->defn_name = "unknown";
         md->defn_line_number = 0;
     }
@@ -236,6 +237,7 @@ md_t *md_copy(apr_pool_t *p, const md_t *src)
         if (src->ca_challenges) {
             md->ca_challenges = apr_array_copy(p, src->ca_challenges);
         }
+        md->acme_tls_1_domains = apr_array_copy(p, src->acme_tls_1_domains);
     }    
     return md;   
 }
@@ -265,7 +267,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         if (src->ca_challenges) {
             md->ca_challenges = md_array_str_clone(p, src->ca_challenges);
         }
-        md->can_acme_tls_1 = src->can_acme_tls_1;
+        md->acme_tls_1_domains = md_array_str_compact(p, src->acme_tls_1_domains, 0);
         if (src->cert_file) md->cert_file = apr_pstrdup(p, src->cert_file);
         if (src->pkey_file) md->pkey_file = apr_pstrdup(p, src->pkey_file);
     }    
@@ -313,7 +315,8 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
                 break;
         }
         md_json_setb(md->must_staple > 0, json, MD_KEY_MUST_STAPLE, NULL);
-        md_json_setb(md->can_acme_tls_1 > 0, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
+        if (!apr_is_empty_array(md->acme_tls_1_domains))
+            md_json_setsa(md->acme_tls_1_domains, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         md_json_sets(md->cert_file, json, MD_KEY_CERT_FILE, NULL);
         md_json_sets(md->pkey_file, json, MD_KEY_PKEY_FILE, NULL);
         return json;
@@ -358,7 +361,8 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             md->require_https = MD_REQUIRE_PERMANENT;
         }
         md->must_staple = (int)md_json_getb(json, MD_KEY_MUST_STAPLE, NULL);
-        md->can_acme_tls_1 = (int)md_json_getb(json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
+        md_json_dupsa(md->acme_tls_1_domains, p, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
+            
         md->cert_file = md_json_dups(p, json, MD_KEY_CERT_FILE, NULL); 
         md->pkey_file = md_json_dups(p, json, MD_KEY_PKEY_FILE, NULL); 
         

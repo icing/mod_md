@@ -373,32 +373,31 @@ static server_rec *get_https_server(const char *domain, server_rec *base_server)
     return NULL;
 }
 
-static int supports_acme_tls_1(md_t *md, server_rec *base_server)
+static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
 {
     server_rec *s;
     int i;
     const char *domain;
     
-    /* We return 1 only if all domains have support for protocol acme-tls/1 
-     * FIXME: we could allow this for a subset only, but then we need to either
-     * remember this individually or move the detection to the tls-alpn-01 startup
-     * function that may then fail dynamically. Hmm... 
-     */
+    /* Collect those domains that support the "acme-tls/1" protocol. This
+     * is part of the MD (and not tested dynamically), since challenge selection
+     * may be done outside the server, e.g. in the a2md command. */
+     apr_array_clear(md->acme_tls_1_domains);
     for (i = 0; i < md->domains->nelts; ++i) {
         domain = APR_ARRAY_IDX(md->domains, i, const char*);
         if (NULL == (s = get_https_server(domain, base_server))) {
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
                          "%s: no https server_rec found for %s", md->name, domain);
-            return 0;
+            continue;
         }
         if (!ap_is_allowed_protocol(NULL, NULL, s, PROTO_ACME_TLS_1)) {
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO()
                          "%s: https server_rec for %s does not have protocol %s enabled", 
                          md->name, domain, PROTO_ACME_TLS_1);
-            return 0;
+            continue;
         }
+        APR_ARRAY_PUSH(md->acme_tls_1_domains, const char*) = domain;
     }
-    return 1;
 }
 
 static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *base_server, 
@@ -615,8 +614,8 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
                          md->name, md->defn_name, md->defn_line_number);
             return APR_EINVAL;
         }
-        
-        md->can_acme_tls_1 = supports_acme_tls_1(md, base_server);
+
+        init_acme_tls_1_domains(md, base_server);
 
         if (APLOG_IS_LEVEL(base_server, log_level)) {
             ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10039)

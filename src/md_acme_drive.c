@@ -543,7 +543,8 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
         ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
         dis_https = 1;
     }
-    if (!d->md->can_acme_tls_1 && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0, 1) >= 0) {
+    if (apr_is_empty_array(d->md->acme_tls_1_domains)
+        && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0, 1) >= 0) {
         ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
         dis_alpn_acme = 1;
     }

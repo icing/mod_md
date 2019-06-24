@@ -110,7 +110,8 @@ struct md_t {
     const char *pkey_file;          /* != NULL iff privkey file explicitly configured */
     
     md_state_t state;               /* state of this MD */
-    int can_acme_tls_1;             /* MD has at least one vhost which allows ALPN protocol "acme-tls/1" */
+    
+    struct apr_array_header_t *acme_tls_1_domains; /* domains supporting "acme-tls/1" protocol */
     
     const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
     const char *defn_name;          /* config file this MD was defined */

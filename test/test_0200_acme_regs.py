@@ -92,11 +92,11 @@ class TestAcmeAcc :
         # create new account
         acct = self._prepare_account(["tmp@not-forbidden.org"])
         # modify server's reg url
-        # TODO: find storage-independent way to modify local registration data
         jsonFile = TestEnv.path_account(acct)
-        jout = TestEnv.run([ "cat", jsonFile ])['jout']
-        jout['url'] = jout['url'] + "0"
-        open(jsonFile, "w").write(json.dumps(jout))
+        with open(jsonFile) as f:
+            acctj = json.load(f)
+        acctj['url'] = acctj['url'] + "0"
+        open(jsonFile, "w").write(json.dumps(acctj))
         # validate account
         assert TestEnv.a2md( ["acme", "validate", acct] )['rv'] == 1
 
@@ -131,10 +131,9 @@ class TestAcmeAcc :
     # --------- _utils_ ---------
 
     def _check_account(self, acct, contact):
-        # read account data from store
-        # TODO: create a "a2md list accounts" command for this
-        jout = TestEnv.run([ "cat", TestEnv.path_account(acct) ])['jout']
-        assert jout['registration']['contact'] == contact
+        with open(TestEnv.path_account(acct)) as f:
+            acctj = json.load(f)
+        assert acctj['registration']['contact'] == contact
 
     def _prepare_account(self, contact):
         run = TestEnv.a2md( ["acme", "newreg"] + contact, raw=True )
