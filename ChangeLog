@@ -1,4 +1,6 @@
- * MDs with static certificate (MDCertificateFile) are not auto-renewd. But they are watched
+v2.0.6
+----------------------------------------------------------------------------------------------------
+ * MDs with static certificate (MDCertificateFile) are not auto-renewed. But they are watched
    for expiration and trigger a configured MDMessageCmd.
  * ACME challenge method 'tls-alpn-01' is now checked for each domain in an MD individually
    and no longer needs to be available for all domains.
