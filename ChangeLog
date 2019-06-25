@@ -1,3 +1,6 @@
+ * Fixing NULL dereferences when unable to lead certificate chains from staging.
+ * Updating a newly created account in a2md right away to make sure it responds. 
+
 v2.0.6
 ----------------------------------------------------------------------------------------------------
  * MDs with static certificate (MDCertificateFile) are not auto-renewed. But they are watched
