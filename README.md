@@ -1211,6 +1211,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDPrivateKeys](#mdprivatekeys)
 * [MDHttpProxy](#mdhttpproxy)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
+* [MDWarnWindow](#mdwarnwindow)
 * [MDServerStatus](#mdserverstatus)
 * [MDStoreDir](#mdstoredir)
 
