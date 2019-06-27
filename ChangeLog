@@ -1,4 +1,5 @@
- * Adaptions for new mod_ssl interface vi hooks, as available in apache trunk.
+ * Prepping http client for multi request handling in parallel.
+ * Adaptions for new mod_ssl interface via hooks, as available in apache trunk.
  * Fixing NULL dereferences when unable to lead certificate chains from staging.
  * Updating a newly created account in a2md right away to make sure it responds. 
 

@@ -1076,11 +1076,9 @@ apr_status_t md_json_readf(md_json_t **pjson, apr_pool_t *p, const char *fpath)
 apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, const md_http_response_t *res)
 {
     apr_status_t rv = APR_ENOENT;
-    if (res->rv == APR_SUCCESS) {
-        const char *ctype = apr_table_get(res->headers, "content-type");
-        if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {
-            rv = md_json_readb(pjson, pool, res->body);
-        }
+    const char *ctype = apr_table_get(res->headers, "content-type");
+    if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {
+        rv = md_json_readb(pjson, pool, res->body);
     }
     return rv;
 }
@@ -1091,9 +1089,9 @@ typedef struct {
     md_json_t *json;
 } resp_data;
 
-static apr_status_t json_resp_cb(const md_http_response_t *res)
+static apr_status_t json_resp_cb(const md_http_response_t *res, void *data)
 {
-    resp_data *resp = res->req->baton;
+    resp_data *resp = data;
     return md_json_read_http(&resp->json, resp->pool, res);
 }
 
@@ -1106,7 +1104,7 @@ apr_status_t md_json_http_get(md_json_t **pjson, apr_pool_t *pool,
     memset(&resp, 0, sizeof(resp));
     resp.pool = pool;
     
-    rv = md_http_GET(http, url, NULL, json_resp_cb, &resp);
+    rv = md_http_GET_perform(http, url, NULL, json_resp_cb, &resp);
     
     if (rv == APR_SUCCESS) {
         *pjson = resp.json;
