@@ -325,7 +325,7 @@ apr_status_t md_util_freplace(const char *fpath, apr_fileperms_t perms, apr_pool
 creat:
     while (i < max && APR_EEXIST == (rv = md_util_fcreatex(&f, tmp, perms, p))) {
         ++i;
-        apr_sleep(apr_time_msec(50));
+        apr_sleep(apr_time_from_msec(50));
     } 
     if (APR_EEXIST == rv 
         && APR_SUCCESS == (rv = apr_file_remove(tmp, p))

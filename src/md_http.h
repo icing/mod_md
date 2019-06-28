@@ -47,6 +47,14 @@ struct md_http_callbacks_t {
     void *on_response_data;
 };
 
+typedef struct md_http_timeouts_t md_http_timeouts_t;
+struct md_http_timeouts_t {
+    apr_time_t overall;
+    apr_time_t connect;
+    long stall_bytes_per_sec;
+    apr_time_t stalled;
+};
+
 struct md_http_request_t {
     md_http_t *http;
     apr_pool_t *pool;
@@ -59,7 +67,8 @@ struct md_http_request_t {
     struct apr_bucket_brigade *body;
     apr_off_t body_len;
     apr_off_t resp_limit;
-    md_http_callbacks_t *cb;
+    md_http_timeouts_t timeout;
+    md_http_callbacks_t cb;
     void *internals;
 };
 
@@ -76,11 +85,38 @@ apr_status_t md_http_create(md_http_t **phttp, apr_pool_t *p, const char *user_a
 void md_http_set_response_limit(md_http_t *http, apr_off_t resp_limit);
 
 /**
+ * Set the timeout for the complete reqest. This needs to take everything from
+ * DNS looksups, to conntects, to transfer of all data into account and should
+ * be sufficiently large.
+ * Set to 0 the have no timeout for this.
+ */
+void md_http_set_timeout_default(md_http_t *http, apr_time_t timeout);
+void md_http_set_timeout(md_http_request_t *req, apr_time_t timeout);
+
+/**
+ * Set the timeout for establishing a connection. 
+ * Set to 0 the have no special timeout for this.
+ */
+void md_http_set_connect_timeout_default(md_http_t *http, apr_time_t timeout);
+void md_http_set_connect_timeout(md_http_request_t *req, apr_time_t timeout);
+
+/**
+ * Set the condition for when a transfer is considered "stalled", e.g. does not
+ * progress at a sufficient rate and will be aborted.
+ * Set to 0 the have no stall detection in place.
+ */
+void md_http_set_stalling_default(md_http_t *http, long bytes_per_sec, apr_time_t timeout);
+void md_http_set_stalling(md_http_request_t *req, long bytes_per_sec, apr_time_t timeout);
+
+/**
  * Perform the request. Then this function returns, the request and
  * all its memory has been freed and must no longer be used.
  */
 apr_status_t md_http_perform(md_http_request_t *request);
 
+/**
+ * Perform all requests in parallel.
+ */
 apr_status_t md_http_multi_perform(apr_array_header_t *requests);
 
 /**

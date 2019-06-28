@@ -101,7 +101,7 @@ static void job_result_update(md_result_t *result, void *data)
             }
             md_job_log_append(ctx->job, "progress", NULL, msg);
 
-            if (apr_time_msec(now - ctx->last_save) > 500) {
+            if (apr_time_as_msec(now - ctx->last_save) > 500) {
                 md_job_save(ctx->job, ctx->reg, MD_SG_STAGING, result, ctx->p);
                 ctx->last_save = now;
             }

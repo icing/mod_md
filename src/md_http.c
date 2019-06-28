@@ -31,6 +31,7 @@ struct md_http_t {
     md_http_impl_t *impl;
     const char *user_agent;
     const char *proxy_url;
+    md_http_timeouts_t timeout;
 };
 
 static md_http_impl_t *cur_impl;
@@ -80,6 +81,38 @@ apr_status_t md_http_create(md_http_t **phttp, apr_pool_t *p, const char *user_a
 void md_http_set_response_limit(md_http_t *http, apr_off_t resp_limit)
 {
     http->resp_limit = resp_limit;
+}
+
+void md_http_set_timeout_default(md_http_t *http, apr_time_t timeout)
+{
+    http->timeout.overall = timeout;
+}
+
+void md_http_set_timeout(md_http_request_t *req, apr_time_t timeout)
+{
+    req->timeout.overall = timeout;
+}
+
+void md_http_set_connect_timeout_default(md_http_t *http, apr_time_t timeout)
+{
+    http->timeout.connect = timeout;
+}
+
+void md_http_set_connect_timeout(md_http_request_t *req, apr_time_t timeout)
+{
+    req->timeout.connect = timeout;
+}
+
+void md_http_set_stalling_default(md_http_t *http, long bytes_per_sec, apr_time_t timeout)
+{
+    http->timeout.stall_bytes_per_sec = bytes_per_sec;
+    http->timeout.stalled = timeout;
+}
+
+void md_http_set_stalling(md_http_request_t *req, long bytes_per_sec, apr_time_t timeout)
+{
+    req->timeout.stall_bytes_per_sec = bytes_per_sec;
+    req->timeout.stalled = timeout;
 }
 
 static apr_status_t req_set_body(md_http_request_t *req, const char *content_type,
@@ -146,8 +179,7 @@ static apr_status_t req_create(md_http_request_t **preq, md_http_t *http,
     req->resp_limit = http->resp_limit;
     req->user_agent = http->user_agent;
     req->proxy_url = http->proxy_url;
-    req->cb = apr_pcalloc(pool, sizeof(md_http_callbacks_t));
-    
+    req->timeout = http->timeout;
     *preq = req;
     return rv;
 }
@@ -163,14 +195,14 @@ void md_http_req_destroy(md_http_request_t *req)
 
 void md_http_set_on_status_cb(md_http_request_t *req, md_http_status_cb *cb, void *baton)
 {
-    req->cb->on_status = cb;
-    req->cb->on_status_data = baton;
+    req->cb.on_status = cb;
+    req->cb.on_status_data = baton;
 }
 
 void md_http_set_on_response_cb(md_http_request_t *req, md_http_response_cb *cb, void *baton)
 {
-    req->cb->on_response = cb;
-    req->cb->on_response_data = baton;
+    req->cb.on_response = cb;
+    req->cb.on_response_data = baton;
 }
 
 static void req_init_cl(md_http_request_t *req)

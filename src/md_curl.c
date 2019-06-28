@@ -174,6 +174,20 @@ static int curlify_headers(void *baton, const char *key, const char *value)
     return 1;
 }
 
+/* Convert timeout values for curl. Since curl uses 0 to disable
+ * timeout, return at least 1 if the apr_time_t value is non-zero. */
+static long timeout_msec(apr_time_t timeout)
+{
+    long ms = apr_time_as_msec(timeout);
+    return ms? ms : (timeout? 1 : 0);
+}
+
+static long timeout_sec(apr_time_t timeout)
+{
+    long s = apr_time_sec(timeout);
+    return s? s : (timeout? 1 : 0);
+}
+
 static apr_status_t internals_setup(md_http_request_t *req)
 {
     md_curl_internals_t *internals;
@@ -218,6 +232,17 @@ static apr_status_t internals_setup(md_http_request_t *req)
     curl_easy_setopt(curl, CURLOPT_READDATA, req->body);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, internals);
     
+    if (req->timeout.overall > 0) {
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_msec(req->timeout.overall));
+    }
+    if (req->timeout.connect > 0) {
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, timeout_msec(req->timeout.connect));
+    }
+    if (req->timeout.stalled > 0) {
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, req->timeout.stall_bytes_per_sec);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, timeout_sec(req->timeout.stalled));
+    }
+    
     if (req->user_agent) {
         curl_easy_setopt(curl, CURLOPT_USERAGENT, req->user_agent);
     }
@@ -256,8 +281,8 @@ static void fire_status(md_http_request_t *req, apr_status_t rv)
     if (internals && !internals->status_fired) {
         internals->status_fired = 1;
         internals->rv = rv;
-        if (req->cb->on_status) {
-            req->cb->on_status(req, rv, req->cb->on_status_data);
+        if (req->cb.on_status) {
+            req->cb.on_status(req, rv, req->cb.on_status_data);
         }
     }
 }
@@ -288,8 +313,8 @@ static apr_status_t md_curl_perform(md_http_request_t *req)
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, req->pool, "request <-- %d", 
                   internals->response->status);
     
-    if (req->cb->on_response) {
-        rv = req->cb->on_response(internals->response, req->cb->on_response_data);
+    if (req->cb.on_response) {
+        rv = req->cb.on_response(internals->response, req->cb.on_response_data);
     }
     
 leave:
@@ -341,7 +366,6 @@ static apr_status_t md_curl_multi_perform(apr_array_header_t *requests)
     CURLMcode mc;
     struct CURLMsg *curlmsg;
     int i, n, running, numfds, slowdown, msgcount;
-    apr_time_t timeout, deadline, maxwait;
     apr_status_t rv;
     
     /* Setup internals for each request. Report error status on each
@@ -349,7 +373,7 @@ static apr_status_t md_curl_multi_perform(apr_array_header_t *requests)
     for (n = 0, i = 0; i < requests->nelts; ++i) {
         req = APR_ARRAY_IDX(requests, i, md_http_request_t*);
         if (APR_SUCCESS != (rv = internals_setup(req))) {
-            if (req->cb->on_status) req->cb->on_status(req, rv, req->cb->on_status_data); 
+            if (req->cb.on_status) req->cb.on_status(req, rv, req->cb.on_status_data);
         }
         ++n;
     }
@@ -367,17 +391,10 @@ static apr_status_t md_curl_multi_perform(apr_array_header_t *requests)
         add_to_curlm(req, curlm);
     }
     
-    timeout = apr_time_from_sec(1 * 60);
-    deadline = apr_time_now() + timeout;
     do {
         mc = curl_multi_perform(curlm, &running);
         if (CURLM_OK == mc) {
-            maxwait = deadline - apr_time_now();
-            if (maxwait <= 0) {
-                rv = APR_TIMEUP;
-                goto leave;
-            }
-            mc = curl_multi_wait(curlm, NULL, 0, apr_time_msec(maxwait), &numfds);
+            mc = curl_multi_wait(curlm, NULL, 0, 1000, &numfds);
         }
         if (CURLM_OK != mc) {
             rv = APR_ECONNABORTED;

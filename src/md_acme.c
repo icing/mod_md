@@ -757,7 +757,12 @@ apr_status_t md_acme_setup(md_acme_t *acme, md_result_t *result)
                                                            acme->user_agent, acme->proxy_url))) {
         return rv;
     }
+    /* TODO: maybe this should be configurable. Let's take some reasonable 
+     * defaults for now that protect our client */
     md_http_set_response_limit(acme->http, 1024*1024);
+    md_http_set_timeout_default(acme->http, apr_time_from_sec(10 * 60));
+    md_http_set_connect_timeout_default(acme->http, apr_time_from_sec(30));
+    md_http_set_stalling_default(acme->http, 10, apr_time_from_sec(30));
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "get directory from %s", acme->url);
     
