@@ -107,6 +107,7 @@ md_t *md_create_empty(apr_pool_t *p)
         md->must_staple = -1;
         md->transitive = -1;
         md->acme_tls_1_domains = apr_array_make(p, 5, sizeof(const char *));
+        md->stapling = -1;
         md->defn_name = "unknown";
         md->defn_line_number = 0;
     }
@@ -268,6 +269,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
             md->ca_challenges = md_array_str_clone(p, src->ca_challenges);
         }
         md->acme_tls_1_domains = md_array_str_compact(p, src->acme_tls_1_domains, 0);
+        md->stapling = src->stapling;
         if (src->cert_file) md->cert_file = apr_pstrdup(p, src->cert_file);
         if (src->pkey_file) md->pkey_file = apr_pstrdup(p, src->pkey_file);
     }    
@@ -319,6 +321,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_setsa(md->acme_tls_1_domains, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         md_json_sets(md->cert_file, json, MD_KEY_CERT_FILE, NULL);
         md_json_sets(md->pkey_file, json, MD_KEY_PKEY_FILE, NULL);
+        md_json_setb(md->stapling > 0, json, MD_KEY_STAPLING, NULL);
         return json;
     }
     return NULL;
@@ -365,6 +368,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             
         md->cert_file = md_json_dups(p, json, MD_KEY_CERT_FILE, NULL); 
         md->pkey_file = md_json_dups(p, json, MD_KEY_PKEY_FILE, NULL); 
+        md->stapling = (int)md_json_getb(json, MD_KEY_STAPLING, NULL);
         
         return md;
     }

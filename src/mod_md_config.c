@@ -50,7 +50,8 @@ static md_mod_conf_t defmc = {
     MD_DEFAULT_BASE_DIR,
 #endif
     NULL,                      /* proxy url for outgoing http */
-    NULL,                      /* md_reg */
+    NULL,                      /* md_reg_t */
+    NULL,                      /* md_ocsp_reg_t */
     80,                        /* local http: port */
     443,                       /* local https: port */
     0,                         /* can http: */
@@ -94,6 +95,8 @@ static md_srv_conf_t defconf = {
     "ACME",                    /* ca protocol */
     NULL,                      /* ca agreemnent */
     NULL,                      /* ca challenges array */
+    0,                         /* stapling */
+    1,                         /* staple others */
     NULL,                      /* currently defined md */
     NULL,                      /* assigned md, post config */
 };
@@ -143,6 +146,8 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
     sc->ca_proto = NULL;
     sc->ca_agreement = NULL;
     sc->ca_challenges = NULL;
+    sc->stapling = DEF_VAL;
+    sc->staple_others = DEF_VAL;
 }
 
 static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
@@ -158,6 +163,8 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
     to->ca_proto = from->ca_proto;
     to->ca_agreement = from->ca_agreement;
     to->ca_challenges = from->ca_challenges;
+    to->stapling = from->stapling;
+    to->staple_others = from->staple_others;
 }
 
 static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t *p)
@@ -173,6 +180,7 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->ca_proto) md->ca_proto = from->ca_proto;
     if (from->ca_agreement) md->ca_agreement = from->ca_agreement;
     if (from->ca_challenges) md->ca_challenges = apr_array_copy(p, from->ca_challenges);
+    if (from->stapling != DEF_VAL) md->stapling = from->stapling;
 }
 
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s)
@@ -213,6 +221,8 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
     nsc->ca_challenges = (add->ca_challenges? apr_array_copy(pool, add->ca_challenges) 
                     : (base->ca_challenges? apr_array_copy(pool, base->ca_challenges) : NULL));
+    nsc->stapling = (add->stapling != DEF_VAL)? add->stapling : base->stapling;
+    nsc->staple_others = (add->staple_others != DEF_VAL)? add->staple_others : base->staple_others;
     nsc->current = NULL;
     nsc->assigned = NULL;
     
@@ -485,6 +495,30 @@ static const char *md_config_set_must_staple(cmd_parms *cmd, void *dc, const cha
         return err;
     }
     return set_on_off(&config->must_staple, value, cmd->pool);
+}
+
+static const char *md_config_set_stapling(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    return set_on_off(&config->stapling, value, cmd->pool);
+}
+
+static const char *md_config_set_staple_others(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    return set_on_off(&config->staple_others, value, cmd->pool);
 }
 
 static const char *md_config_set_base_server(cmd_parms *cmd, void *dc, const char *value)
@@ -881,6 +915,10 @@ const command_rec md_cmds[] = {
                   "When less time remains for a certificate, send our/log a warning (defaults to days)"),
     AP_INIT_RAW_ARGS("MDMessageCmd", md_config_set_msg_cmd, NULL, RSRC_CONF, 
                   "Set the command run when a message about a domain is issued."),
+    AP_INIT_TAKE1("MDStapling", md_config_set_stapling, NULL, RSRC_CONF, 
+                  "Enable/Disable OCSP Stapling for this/all Managed Domain(s)."),
+    AP_INIT_TAKE1("MDStapleOthers", md_config_set_staple_others, NULL, RSRC_CONF, 
+                  "Enable/Disable OCSP Stapling for certificates not in Managed Domains."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };
@@ -971,6 +1009,10 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
             return (sc->require_https != MD_REQUIRE_UNSET)? sc->require_https : defconf.require_https;
         case MD_CONFIG_MUST_STAPLE:
             return (sc->must_staple != DEF_VAL)? sc->must_staple : defconf.must_staple;
+        case MD_CONFIG_STAPLING:
+            return (sc->stapling != DEF_VAL)? sc->stapling : defconf.stapling;
+        case MD_CONFIG_STAPLE_OTHERS:
+            return (sc->staple_others != DEF_VAL)? sc->staple_others : defconf.staple_others;
         default:
             return 0;
     }

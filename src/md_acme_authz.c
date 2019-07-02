@@ -323,7 +323,7 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
     const char *acme_id, *token;
     apr_status_t rv;
     int notify_server;
-    md_data data;
+    md_data_t data;
     
     (void)env;
     if (md_array_str_index(acme_tls_1_domains, authz->domain, 0, 0) < 0) {
@@ -400,7 +400,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     apr_status_t rv;
     int exit_code, notify_server;
     authz_req_ctx ctx;
-    md_data data;
+    md_data_t data;
     
     (void)store;
     (void)key_spec;

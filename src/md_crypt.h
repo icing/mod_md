@@ -24,7 +24,7 @@ struct md_t;
 struct md_http_response_t;
 struct md_cert_t;
 struct md_pkey_t;
-struct md_data;
+struct md_data_t;
 
 
 /**************************************************************************************************/
@@ -35,9 +35,9 @@ apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p);
 /**************************************************************************************************/
 /* digests */
 apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
-                                      const struct md_data *data);
+                                      const struct md_data_t *data);
 apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
-                                        const struct md_data *data);
+                                        const struct md_data_t *data);
 
 #define MD_DATA_SET_STR(d, s)       do { (d)->data = (s); (d)->len = strlen(s); } while(0)
 
@@ -97,7 +97,18 @@ typedef enum {
     MD_CERT_EXPIRED
 } md_cert_state_t;
 
-void md_cert_free(md_cert_t *cert);
+/**
+ * Create a holder of the certificate that will free its memmory when the
+ * pool is destroyed.
+ */
+md_cert_t *md_cert_make(apr_pool_t *p, void *x509);
+
+/**
+ * Wrap a x509 certificate into our own structure, without taking ownership
+ * of its memory. The caller remains responsible.
+ */
+md_cert_t *md_cert_wrap(apr_pool_t *p, void *x509);
+
 void *md_cert_get_X509(const md_cert_t *cert);
 
 apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname);
@@ -136,7 +147,7 @@ apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t 
 apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool_t *p);
 
-apr_status_t md_cert_to_sha256_digest(struct md_data **pdigest, const md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_sha256_digest(struct md_data_t **pdigest, const md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, const md_cert_t *cert, apr_pool_t *p);
 
 const char *md_cert_get_serial_number(const md_cert_t *cert, apr_pool_t *p);
@@ -181,9 +192,9 @@ typedef struct md_sct md_sct;
 struct md_sct {
     int version;
     apr_time_t timestamp;
-    struct md_data *logid;
+    struct md_data_t *logid;
     int signature_type_nid;
-    struct md_data *signature;
+    struct md_data_t *signature;
 };
 
 #endif /* md_crypt_h */

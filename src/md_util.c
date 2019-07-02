@@ -70,13 +70,23 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /**************************************************************************************************/
 /* data chunks */
 
-md_data *md_data_create(apr_pool_t *p, const char *data, apr_size_t len)
+md_data_t *md_data_create(apr_pool_t *p, const char *data, apr_size_t len)
 {
-    md_data *d;
+    md_data_t *d;
     
     d = apr_palloc(p, sizeof(*d));
     d->len = len;
     d->data = len? apr_pstrndup(p, data, len) : NULL;
+    return d;
+}
+
+md_data_t *md_data_make(apr_pool_t *p, apr_size_t len)
+{
+    md_data_t *d;
+    
+    d = apr_palloc(p, sizeof(*d));
+    d->len = len;
+    d->data = apr_pcalloc(p, len);
     return d;
 }
 
@@ -100,7 +110,7 @@ static const char * const hex_const[] = {
 };
 
 apr_status_t md_data_to_hex(const char **phex, char separator,
-                            apr_pool_t *p, const md_data *data)
+                            apr_pool_t *p, const md_data_t *data)
 {
     char *hex, *cp;
     const char * x;

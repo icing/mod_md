@@ -85,21 +85,22 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
 /**
  * Bitmask for fields that are updated.
  */
-#define MD_UPD_DOMAINS       0x0001
-#define MD_UPD_CA_URL        0x0002
-#define MD_UPD_CA_PROTO      0x0004
-#define MD_UPD_CA_ACCOUNT    0x0008
-#define MD_UPD_CONTACTS      0x0010
-#define MD_UPD_AGREEMENT     0x0020
-#define MD_UPD_DRIVE_MODE    0x0080
-#define MD_UPD_RENEW_WINDOW  0x0100
-#define MD_UPD_CA_CHALLENGES 0x0200
-#define MD_UPD_PKEY_SPEC     0x0400
-#define MD_UPD_REQUIRE_HTTPS 0x0800
-#define MD_UPD_TRANSITIVE    0x1000
-#define MD_UPD_MUST_STAPLE   0x2000
-#define MD_UPD_PROTO         0x4000
-#define MD_UPD_WARN_WINDOW   0x8000
+#define MD_UPD_DOMAINS       0x00001
+#define MD_UPD_CA_URL        0x00002
+#define MD_UPD_CA_PROTO      0x00004
+#define MD_UPD_CA_ACCOUNT    0x00008
+#define MD_UPD_CONTACTS      0x00010
+#define MD_UPD_AGREEMENT     0x00020
+#define MD_UPD_DRIVE_MODE    0x00080
+#define MD_UPD_RENEW_WINDOW  0x00100
+#define MD_UPD_CA_CHALLENGES 0x00200
+#define MD_UPD_PKEY_SPEC     0x00400
+#define MD_UPD_REQUIRE_HTTPS 0x00800
+#define MD_UPD_TRANSITIVE    0x01000
+#define MD_UPD_MUST_STAPLE   0x02000
+#define MD_UPD_PROTO         0x04000
+#define MD_UPD_WARN_WINDOW   0x08000
+#define MD_UPD_STAPLING      0x10000
 #define MD_UPD_ALL           0x7FFFFFFF
 
 /**

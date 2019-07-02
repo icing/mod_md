@@ -115,6 +115,11 @@
 		B29B931422B8D57D00CF8640 /* notifail.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = notifail.py; sourceTree = "<group>"; };
 		B29B931522B905FA00CF8640 /* md_time.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_time.h; sourceTree = "<group>"; };
 		B29B931622B905FA00CF8640 /* md_time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_time.c; sourceTree = "<group>"; };
+		B2A3E34B22CA24D3009D35AE /* mod_md_ocsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mod_md_ocsp.h; sourceTree = "<group>"; };
+		B2A3E34C22CA24D3009D35AE /* mod_md_ocsp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mod_md_ocsp.c; sourceTree = "<group>"; };
+		B2A3E34D22CA34C2009D35AE /* test_0801_stapling.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0801_stapling.py; sourceTree = "<group>"; };
+		B2A3E34E22CB7881009D35AE /* md_ocsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_ocsp.h; sourceTree = "<group>"; };
+		B2A3E34F22CB7881009D35AE /* md_ocsp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_ocsp.c; sourceTree = "<group>"; };
 		B2A93D122292D7A400BC6339 /* httpd.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = httpd.conf.in; sourceTree = "<group>"; };
 		B2A93D132297E14600BC6339 /* test_0910_cleanups.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0910_cleanups.py; sourceTree = "<group>"; };
 		B2B330051F39E1D300579179 /* md_acme_acct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_acme_acct.c; sourceTree = "<group>"; };
@@ -208,7 +213,7 @@
 		B2FC60741F597352005B7D9E /* test_016c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016c.conf; sourceTree = "<group>"; };
 		B2FC60751F597352005B7D9E /* test_016d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016d.conf; sourceTree = "<group>"; };
 		B2FC60761F59894A005B7D9E /* TODO.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = SOURCE_ROOT; };
-		B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0800_stapling.py; sourceTree = "<group>"; };
+		B2FEEDDF1FFB910D0029E19C /* test_0800_must_staple.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0800_must_staple.py; sourceTree = "<group>"; };
 		B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0900_notify.py; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -430,7 +435,8 @@
 				B2C1BE0621F5CB38002EF7B4 /* test_0710_migration.py */,
 				B2C1BE082201AC02002EF7B4 /* test_0720_wildcard.py */,
 				B2830C2422B27C3F005DBFBF /* test_0730_static.py */,
-				B2FEEDDF1FFB910D0029E19C /* test_0800_stapling.py */,
+				B2FEEDDF1FFB910D0029E19C /* test_0800_must_staple.py */,
+				B2A3E34D22CA34C2009D35AE /* test_0801_stapling.py */,
 				B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */,
 				B2944E3122B9353E00466BEE /* test_0901_message.py */,
 				B2A93D132297E14600BC6339 /* test_0910_cleanups.py */,
@@ -495,6 +501,8 @@
 				B240521D1EF9145000E36701 /* md_jws.h */,
 				B240521E1EF9145000E36701 /* md_log.c */,
 				B240521F1EF9145000E36701 /* md_log.h */,
+				B2A3E34F22CB7881009D35AE /* md_ocsp.c */,
+				B2A3E34E22CB7881009D35AE /* md_ocsp.h */,
 				B24052211EF9145000E36701 /* md_reg.c */,
 				B24052221EF9145000E36701 /* md_reg.h */,
 				B298D5C5229E7BF000245316 /* md_result.c */,
@@ -516,6 +524,8 @@
 				B2B3300D1F39E5BD00579179 /* mod_md_config.h */,
 				B20E6018228D54F000E3FE89 /* mod_md_drive.c */,
 				B20E6017228D54F000E3FE89 /* mod_md_drive.h */,
+				B2A3E34C22CA24D3009D35AE /* mod_md_ocsp.c */,
+				B2A3E34B22CA24D3009D35AE /* mod_md_ocsp.h */,
 				B2B3300E1F39E5BD00579179 /* mod_md_os.c */,
 				B2B3300F1F39E5BD00579179 /* mod_md_os.h */,
 				B24052201EF9145000E36701 /* mod_md_private.h */,

@@ -489,6 +489,10 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update proto: %s", name);
         nmd->acme_tls_1_domains = updates->acme_tls_1_domains;
     }
+    if (MD_UPD_STAPLING & fields) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update stapling: %s", name);
+        nmd->stapling = updates->stapling;
+    }
     
     if (fields && APR_SUCCESS == (rv = md_save(reg->store, p, MD_SG_DOMAINS, nmd, 0))) {
         rv = state_init(reg, ptemp, nmd);
@@ -877,6 +881,10 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                 if (!md_array_str_eq(md->acme_tls_1_domains, smd->acme_tls_1_domains, 0)) {
                     smd->acme_tls_1_domains = md->acme_tls_1_domains;
                     fields |= MD_UPD_PROTO;
+                }
+                if (MD_VAL_UPDATE(md, smd, stapling)) {
+                    smd->stapling = md->stapling;
+                    fields |= MD_UPD_STAPLING;
                 }
                 
                 if (fields) {

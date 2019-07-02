@@ -91,7 +91,7 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
 apr_status_t md_jws_pkey_thumb(const char **pthumb, apr_pool_t *p, struct md_pkey_t *pkey)
 {
     const char *e64, *n64, *s;
-    md_data data;
+    md_data_t data;
     apr_status_t rv;
     
     e64 = md_pkey_get_rsa_e64(pkey, p);

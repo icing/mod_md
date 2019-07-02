@@ -140,7 +140,7 @@ static apr_status_t req_set_body(md_http_request_t *req, const char *content_typ
 }
 
 static apr_status_t req_set_body_data(md_http_request_t *req, const char *content_type,
-                                      const md_data *body)
+                                      const md_data_t *body)
 {
     apr_bucket_brigade *bbody = NULL;
     apr_status_t rv;
@@ -272,7 +272,7 @@ apr_status_t md_http_POST_create(md_http_request_t **preq, md_http_t *http, cons
 
 apr_status_t md_http_POSTd_create(md_http_request_t **preq, md_http_t *http, const char *url, 
                                   struct apr_table_t *headers, const char *content_type, 
-                                  const struct md_data *body)
+                                  const struct md_data_t *body)
 {
     md_http_request_t *req;
     apr_status_t rv;
@@ -324,7 +324,7 @@ apr_status_t md_http_POST_perform(struct md_http_t *http, const char *url,
 
 apr_status_t md_http_POSTd_perform(md_http_t *http, const char *url, 
                                    struct apr_table_t *headers, const char *content_type, 
-                                   const md_data *body, 
+                                   const md_data_t *body, 
                                    md_http_response_cb *cb, void *baton)
 {
     md_http_request_t *req;

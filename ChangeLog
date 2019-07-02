@@ -1,3 +1,4 @@
+ * New directives "MDStapling on|off"
  * Overall, connect and stall timeouts set in http client requests.
  * Prepping http client for multi request handling in parallel.
  * Adaptions for new mod_ssl interface via hooks, as available in apache trunk.

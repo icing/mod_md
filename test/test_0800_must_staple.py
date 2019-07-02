@@ -1,4 +1,4 @@
-# test mod_md stapling support
+# test mod_md must-staple support
 
 import json
 import os
@@ -31,7 +31,7 @@ def teardown_module(module):
     assert TestEnv.apache_stop() == 0
 
 
-class TestStapling:
+class TestMustStaple:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -45,7 +45,7 @@ class TestStapling:
     #-----------------------------------------------------------------------------------------------
     # MD with default, e.g. not staple
     # 
-    def test_8001(self):
+    def test_800_001(self):
         domain = self.test_domain
         dns_list = [ domain ]
 
@@ -66,7 +66,7 @@ class TestStapling:
     #-----------------------------------------------------------------------------------------------
     # MD that should explicitly not staple
     # 
-    def test_8002(self):
+    def test_800_002(self):
         domain = self.test_domain
         dns_list = [ domain ]
 
@@ -84,12 +84,12 @@ class TestStapling:
         TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
-        assert self.get_ocsp_response(domain) == "no response sent" 
+        assert self.get_ocsp_status(domain) == "no response sent" 
 
     #-----------------------------------------------------------------------------------------------
     # MD that must staple and toggle off again
     # 
-    def test_8003(self):
+    def test_800_003(self):
         domain = self.test_domain
         dns_list = [ domain ]
 
@@ -140,12 +140,15 @@ class TestStapling:
     #-----------------------------------------------------------------------------------------------
     # MD that must staple
     # 
-    def test_8004(self):
+    def test_800_004(self):
         domain = self.test_domain
         dns_list = [ domain ]
 
         conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
+        conf.add_line("LogLevel ssl:trace2")
+        conf.add_line("SSLUseStapling On")
+        conf.add_line("SSLStaplingCache \"shmcb:logs/ssl_stapling(32768)\"")
         conf.add_must_staple( "on" )
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
@@ -158,9 +161,9 @@ class TestStapling:
         TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
-        assert self.get_verify_response(domain) == "0 (ok)" 
-        # enable once we implement ocsp stapling support
-        # assert self.get_ocsp_response(domain) == "successful (0x0)" 
+        # the mod_ssl OCSP Stapling implementation is configured, should report success
+        assert self.get_verify_response(domain) == "0 (ok)"
+        assert self.get_ocsp_status(domain) == "successful (0x0)" 
 
     # --------- _utils_ ---------
 
@@ -172,9 +175,9 @@ class TestStapling:
                           "-showcerts"
                           ] )
     
-    def get_ocsp_response(self, domain):
+    def get_ocsp_status(self, domain):
         r = self.get_client_status( domain )
-        regex = re.compile(r'OCSP response:\s*(.+)')
+        regex = re.compile(r'OCSP response: +([^=\n]+)\n')
         matches = regex.finditer(r["stdout"])
         for m in matches:
             if m.group(1) != "":

@@ -20,7 +20,7 @@
 struct apr_table_t;
 struct apr_bucket_brigade;
 struct apr_bucket_alloc_t;
-struct md_data;
+struct md_data_t;
 
 typedef struct md_http_t md_http_t;
 
@@ -182,7 +182,7 @@ apr_status_t md_http_POST_create(md_http_request_t **preq, md_http_t *http, cons
  */
 apr_status_t md_http_POSTd_create(md_http_request_t **preq, md_http_t *http, const char *url, 
                                   struct apr_table_t *headers, const char *content_type, 
-                                  const struct md_data *body);
+                                  const struct md_data_t *body);
 
 /*
  * Convenience functions for create+perform.
@@ -199,7 +199,7 @@ apr_status_t md_http_POST_perform(md_http_t *http, const char *url,
                                   md_http_response_cb *cb, void *baton);
 apr_status_t md_http_POSTd_perform(md_http_t *http, const char *url, 
                                    struct apr_table_t *headers, const char *content_type, 
-                                   const struct md_data *body, 
+                                   const struct md_data_t *body, 
                                    md_http_response_cb *cb, void *baton);
 
 void md_http_req_destroy(md_http_request_t *req);

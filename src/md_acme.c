@@ -348,7 +348,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
 {
     apr_status_t rv;
     md_acme_t *acme = req->acme;
-    md_data *body = NULL;
+    md_data_t *body = NULL;
     md_result_t *result;
 
     assert(acme->url);

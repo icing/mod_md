@@ -32,7 +32,6 @@ class TestAcmeAcc :
 
     # --------- acme newreg ---------
 
-    @pytest.mark.skipif(False, reason="not implemented")
     @pytest.mark.parametrize("contact", [
         ("x@not-forbidden.org"), ("xx@not-forbidden.org"), ("xxx@not-forbidden.org")
     ])

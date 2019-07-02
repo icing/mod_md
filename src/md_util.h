@@ -35,16 +35,19 @@ apr_status_t md_util_pool_vdo(md_util_vaction *cb, void *baton, apr_pool_t *p, .
 /**************************************************************************************************/
 /* data chunks */
 
-typedef struct md_data md_data;
-struct md_data {
+typedef struct md_data_t md_data_t;
+struct md_data_t {
     const char *data;
     apr_size_t len;
 };
 
-md_data *md_data_create(apr_pool_t *p, const char *data, apr_size_t len);
+#define MD_DATA_CWRAP(d, buffer)       md_data_t d = { buffer, sizeof(buffer) }
+
+md_data_t *md_data_make(apr_pool_t *p, apr_size_t len);
+md_data_t *md_data_create(apr_pool_t *p, const char *data, apr_size_t len);
 
 apr_status_t md_data_to_hex(const char **phex, char separator,
-                            apr_pool_t *p, const md_data *data);
+                            apr_pool_t *p, const md_data_t *data);
 
 /**************************************************************************************************/
 /* string related */

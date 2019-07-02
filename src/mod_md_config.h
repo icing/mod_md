@@ -20,6 +20,7 @@
 struct apr_hash_t;
 struct md_store_t;
 struct md_reg_t;
+struct md_ocsp_reg_t;
 struct md_pkey_spec_t;
 
 typedef enum {
@@ -38,6 +39,8 @@ typedef enum {
     MD_CONFIG_MUST_STAPLE,
     MD_CONFIG_NOTIFY_CMD,
     MD_CONFIG_MESSGE_CMD,
+    MD_CONFIG_STAPLING,
+    MD_CONFIG_STAPLE_OTHERS,
 } md_config_var_t;
 
 typedef struct md_mod_conf_t md_mod_conf_t;
@@ -45,7 +48,8 @@ struct md_mod_conf_t {
     apr_array_header_t *mds;           /* all md_t* defined in the config, shared */
     const char *base_dir;              /* base dir for store */
     const char *proxy_url;             /* proxy url to use (or NULL) */
-    struct md_reg_t *reg;              /* md registry instance, singleton, shared */
+    struct md_reg_t *reg;              /* md registry instance */
+    struct md_ocsp_reg_t *ocsp;        /* ocsp status registry */
 
     int local_80;                      /* On which port http:80 arrives */
     int local_443;                     /* On which port https:443 arrives */
@@ -83,6 +87,9 @@ typedef struct md_srv_conf_t {
     const char *ca_proto;              /* protocol used vs CA (e.g. ACME) */
     const char *ca_agreement;          /* accepted agreement uri between CA and user */ 
     struct apr_array_header_t *ca_challenges; /* challenge types configured */
+    
+    int stapling;                      /* OCSP stapling enabled */
+    int staple_others;                 /* Provide OCSP stapling for non-MD certificates */
 
     md_t *current;                     /* md currently defined in <MDomainSet xxx> section */
     md_t *assigned;                    /* post_config: MD that applies to this server or NULL */

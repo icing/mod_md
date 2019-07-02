@@ -102,7 +102,7 @@ static apr_status_t get_staging_cert_json(md_json_t **pjson, apr_pool_t *p,
         rv = APR_SUCCESS;
         goto leave;
     }
-    else if (APR_SUCCESS != rv) {
+    else if (APR_SUCCESS != rv || certs->nelts == 0) {
         goto leave;
     }
     cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);

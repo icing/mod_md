@@ -155,7 +155,7 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
 
 static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p) 
 {
-    md_data *buf = baton;
+    md_data_t *buf = baton;
     apr_size_t wlen;
     
     (void)p;
@@ -384,7 +384,7 @@ apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p,
     return rv;
 }
 
-static apr_status_t pkey_to_buffer(md_data *buf, md_pkey_t *pkey, apr_pool_t *p,
+static apr_status_t pkey_to_buffer(md_data_t *buf, md_pkey_t *pkey, apr_pool_t *p,
                                    const char *pass, apr_size_t pass_len)
 {
     BIO *bio = BIO_new(BIO_s_mem());
@@ -435,7 +435,7 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
                            const char *pass_phrase, apr_size_t pass_len,
                            const char *fname, apr_fileperms_t perms)
 {
-    md_data buffer;
+    md_data_t buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p, pass_phrase, pass_len))) {
@@ -581,10 +581,10 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
     return rv;
 }
 
-static apr_status_t sha256_digest(md_data **pdigest, apr_pool_t *p, const md_data *buf)
+static apr_status_t sha256_digest(md_data_t **pdigest, apr_pool_t *p, const md_data_t *buf)
 {
     EVP_MD_CTX *ctx = NULL;
-    md_data *digest;
+    md_data_t *digest;
     apr_status_t rv = APR_ENOMEM;
     unsigned int dlen;
 
@@ -614,10 +614,10 @@ leave:
     return rv;
 }
 
-apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, const md_data *d)
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, const md_data_t *d)
 {
     const char *digest64 = NULL;
-    md_data *digest;
+    md_data_t *digest;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = sha256_digest(&digest, p, d))) {
@@ -630,9 +630,9 @@ apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, con
 }
 
 apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
-                                        const md_data *data)
+                                        const md_data_t *data)
 {
-    md_data *digest;
+    md_data_t *digest;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = sha256_digest(&digest, p, data))) {
@@ -661,19 +661,19 @@ static apr_status_t cert_cleanup(void *data)
     return APR_SUCCESS;
 }
 
-static md_cert_t *make_cert(apr_pool_t *p, X509 *x509) 
+md_cert_t *md_cert_wrap(apr_pool_t *p, void *x509) 
 {
     md_cert_t *cert = apr_pcalloc(p, sizeof(*cert));
     cert->pool = p;
     cert->x509 = x509;
-    apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
-    
     return cert;
 }
 
-void md_cert_free(md_cert_t *cert)
+md_cert_t *md_cert_make(apr_pool_t *p, void *x509) 
 {
-    cert_cleanup(cert);
+    md_cert_t *cert = md_cert_wrap(p, x509);
+    apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
+    return cert;
 }
 
 void *md_cert_get_X509(const md_cert_t *cert)
@@ -831,7 +831,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
         x509 = PEM_read_X509(f, NULL, NULL, NULL);
         rv = fclose(f);
         if (x509 != NULL) {
-            cert =  make_cert(p, x509);
+            cert =  md_cert_make(p, x509);
         }
         else {
             rv = APR_EINVAL;
@@ -842,7 +842,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
     return rv;
 }
 
-static apr_status_t cert_to_buffer(md_data *buffer, const md_cert_t *cert, apr_pool_t *p)
+static apr_status_t cert_to_buffer(md_data_t *buffer, const md_cert_t *cert, apr_pool_t *p)
 {
     BIO *bio = BIO_new(BIO_s_mem());
     int i;
@@ -871,7 +871,7 @@ static apr_status_t cert_to_buffer(md_data *buffer, const md_cert_t *cert, apr_p
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
                            const char *fname, apr_fileperms_t perms)
 {
-    md_data buffer;
+    md_data_t buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
@@ -882,7 +882,7 @@ apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p,
 
 apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_pool_t *p)
 {
-    md_data buffer;
+    md_data_t buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
@@ -893,9 +893,9 @@ apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_
     return rv;
 }
 
-apr_status_t md_cert_to_sha256_digest(md_data **pdigest, const md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_to_sha256_digest(md_data_t **pdigest, const md_cert_t *cert, apr_pool_t *p)
 {
-    md_data *digest;
+    md_data_t *digest;
     unsigned int dlen;
     apr_status_t rv = APR_ENOMEM;
     
@@ -914,7 +914,7 @@ leave:
 
 apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, const md_cert_t *cert, apr_pool_t *p)
 {
-    md_data *digest;
+    md_data_t *digest;
     apr_status_t rv;
     
     rv = md_cert_to_sha256_digest(&digest, cert, p);
@@ -937,7 +937,7 @@ static int md_cert_read_pem(BIO *bf, apr_pool_t *p, md_cert_t **pcert)
         rv = APR_ENOENT;
         goto out;
     }
-    cert = make_cert(p, x509);
+    cert = md_cert_make(p, x509);
     rv = APR_SUCCESS;
     
 out:
@@ -974,7 +974,7 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
                 goto out;
             }
             else {
-                cert = make_cert(p, x509);
+                cert = md_cert_make(p, x509);
                 rv = APR_SUCCESS;
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "cert parsed");
             }
@@ -1065,7 +1065,7 @@ apr_status_t md_chain_fappend(struct apr_array_header_t *certs, apr_pool_t *p, c
     if (rv == APR_SUCCESS) {
         ERR_clear_error();
         while (NULL != (x509 = PEM_read_X509(f, NULL, NULL, NULL))) {
-            cert = make_cert(p, x509);
+            cert = md_cert_make(p, x509);
             APR_ARRAY_PUSH(certs, md_cert_t *) = cert;
         }
         fclose(f);
@@ -1418,7 +1418,7 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
         rv = APR_EGENERAL; goto out;
     }
 
-    cert = make_cert(p, x);
+    cert = md_cert_make(p, x);
     rv = APR_SUCCESS;
     
 out:
@@ -1470,7 +1470,7 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
         rv = APR_EGENERAL; goto out;
     }
 
-    cert = make_cert(p, x);
+    cert = md_cert_make(p, x);
     rv = APR_SUCCESS;
     
 out:
