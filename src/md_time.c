@@ -76,9 +76,11 @@ const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
             rem = (rem % 60);
             if (minutes > 0) {
                 s = apr_psprintf(p, "%s%s%02d minutes", s, sep, minutes); 
+                sep = " "; 
             }
             if (rem > 0) {
                 s = apr_psprintf(p, "%s%s%02d seconds", s, sep, rem); 
+                sep = " "; 
             }
         }
     }

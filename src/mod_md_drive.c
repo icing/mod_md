@@ -53,13 +53,13 @@
 /**************************************************************************************************/
 /* watchdog based impl. */
 
-#define MD_WATCHDOG_NAME   "_md_"
+#define MD_RENEW_WATCHDOG_NAME   "_md_renew_"
 
 static APR_OPTIONAL_FN_TYPE(ap_watchdog_get_instance) *wd_get_instance;
 static APR_OPTIONAL_FN_TYPE(ap_watchdog_register_callback) *wd_register_callback;
 static APR_OPTIONAL_FN_TYPE(ap_watchdog_set_callback_interval) *wd_set_interval;
 
-struct md_drive_ctx {
+struct md_renew_ctx_t {
     apr_pool_t *p;
     server_rec *s;
     md_mod_conf_t *mc;
@@ -143,7 +143,7 @@ static apr_time_t calc_err_delay(int err_count)
     return delay;
 }
 
-static apr_status_t send_notification(md_drive_ctx *dctx, md_job_t *job, const md_t *md, 
+static apr_status_t send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
                                       const char *reason, md_result_t *result, apr_pool_t *ptemp)
 {
     const char * const *argv;
@@ -193,7 +193,7 @@ leave:
     return rv;
 }
 
-static void check_expiration(md_drive_ctx *dctx, md_job_t *job, const md_t *md, apr_pool_t *ptemp)
+static void check_expiration(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, apr_pool_t *ptemp)
 {
     md_timeperiod_t since_last;
     
@@ -211,7 +211,7 @@ static void check_expiration(md_drive_ctx *dctx, md_job_t *job, const md_t *md, 
     }
 }
 
-static void process_drive_job(md_drive_ctx *dctx, md_job_t *job, apr_pool_t *ptemp)
+static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *ptemp)
 {
     const md_t *md;
     md_result_t *result;
@@ -337,7 +337,7 @@ static apr_time_t next_run_default(void)
 
 static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
 {
-    md_drive_ctx *dctx = baton;
+    md_renew_ctx_t *dctx = baton;
     md_job_t *job;
     apr_time_t next_run, wait_time;
     int i;
@@ -390,10 +390,10 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
     return APR_SUCCESS;
 }
 
-apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
+apr_status_t md_renew_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     apr_allocator_t *allocator;
-    md_drive_ctx *dctx;
+    md_renew_ctx_t *dctx;
     apr_pool_t *dctxp;
     apr_status_t rv;
     const char *name;
@@ -438,11 +438,11 @@ apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     apr_allocator_max_free_set(allocator, 1);
     rv = apr_pool_create_ex(&dctxp, p, NULL, allocator);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10062) "md_drive_ctx: create pool");
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10062) "md_renew_watchdog: create pool");
         return rv;
     }
     apr_allocator_owner_set(allocator, dctxp);
-    apr_pool_tag(dctxp, "md_drive_ctx");
+    apr_pool_tag(dctxp, "md_renew_watchdog");
 
     dctx = apr_pcalloc(dctxp, sizeof(*dctx));
     dctx->p = dctxp;
@@ -484,13 +484,13 @@ apr_status_t md_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
         return APR_SUCCESS;
     }
     
-    if (APR_SUCCESS != (rv = wd_get_instance(&dctx->watchdog, MD_WATCHDOG_NAME, 0, 1, dctx->p))) {
+    if (APR_SUCCESS != (rv = wd_get_instance(&dctx->watchdog, MD_RENEW_WATCHDOG_NAME, 0, 1, dctx->p))) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO(10066) 
-                     "create md watchdog(%s)", MD_WATCHDOG_NAME);
+                     "create md renew watchdog(%s)", MD_RENEW_WATCHDOG_NAME);
         return rv;
     }
     rv = wd_register_callback(dctx->watchdog, 0, dctx, run_watchdog);
     ap_log_error(APLOG_MARK, rv? APLOG_CRIT : APLOG_DEBUG, rv, s, APLOGNO(10067) 
-                 "register md watchdog(%s)", MD_WATCHDOG_NAME);
+                 "register md renew watchdog(%s)", MD_RENEW_WATCHDOG_NAME);
     return rv;
 }

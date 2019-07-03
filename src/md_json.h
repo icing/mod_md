@@ -137,4 +137,6 @@ apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool,
 
 apr_status_t md_json_copy_to(md_json_t *dest, const md_json_t *src, ...);
 
+const char *md_json_dump_state(md_json_t *json, apr_pool_t *p);
+
 #endif /* md_json_h */

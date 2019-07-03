@@ -24,5 +24,10 @@ apr_status_t md_ocsp_init_stapling_status(server_rec *s, apr_pool_t *p,
 apr_status_t md_ocsp_get_stapling_status(unsigned char **pder, int *pderlen, 
                                          conn_rec *c, server_rec *s, void *x509cert);
                           
+/**
+ * Start watchdog for retrieving/updating ocsp status.
+ */
+apr_status_t md_ocsp_start_watching(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p);
+
 
 #endif /* mod_md_md_ocsp_h */

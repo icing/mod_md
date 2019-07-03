@@ -298,6 +298,9 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     /* challenges dir and files are readable by all, no secrets involved */ 
     s_fs->group_perms[MD_SG_CHALLENGES].dir = MD_FPROT_D_UALL_WREAD;
     s_fs->group_perms[MD_SG_CHALLENGES].file = MD_FPROT_F_UALL_WREAD;
+    /* OCSP data is readable by all, no secrets involved */ 
+    s_fs->group_perms[MD_SG_OCSP].dir = MD_FPROT_D_UALL_WREAD;
+    s_fs->group_perms[MD_SG_OCSP].file = MD_FPROT_F_UALL_WREAD;
 
     s_fs->base = apr_pstrdup(p, path);
     

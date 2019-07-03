@@ -56,8 +56,8 @@ struct md_job_t {
 };
 
 /**
- * Create a new job instance for the given MD name. Job load/save will work
- * on the MD_SG_STAGING for the name.
+ * Create a new job instance for the given MD name. 
+ * Job load/save will work using the name.
  */
 md_job_t *md_job_make(apr_pool_t *p, const char *name);
 

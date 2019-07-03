@@ -55,6 +55,7 @@ static const char *GROUP_NAME[] = {
     "staging",
     "archive",
     "tmp",
+    "ocsp",
     NULL
 };
 

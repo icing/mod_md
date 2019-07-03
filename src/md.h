@@ -74,6 +74,7 @@ typedef enum {
     MD_SG_STAGING,
     MD_SG_ARCHIVE,
     MD_SG_TMP,
+    MD_SG_OCSP,
     MD_SG_COUNT,
 } md_store_group_t;
 

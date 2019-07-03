@@ -149,13 +149,14 @@ static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
     ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s, "store event=%d on %s %s (group %d)", 
                  ev, (ftype == APR_DIR)? "dir" : "file", fname, group);
                  
-    /* Directories in group CHALLENGES and STAGING are written to under a different user. 
-     * Give him ownership. 
+    /* Directories in group CHALLENGES, STAGING and OCSP are written to 
+     * under a different user. Give her ownership. 
      */
     if (ftype == APR_DIR) {
         switch (group) {
             case MD_SG_CHALLENGES:
             case MD_SG_STAGING:
+            case MD_SG_OCSP:
                 rv = md_make_worker_accessible(fname, p);
                 if (APR_ENOTIMPL != rv) {
                     return rv;
@@ -197,7 +198,9 @@ static apr_status_t setup_store(md_store_t **pstore, md_mod_conf_t *mc,
     md_store_fs_set_event_cb(*pstore, store_file_ev, s);
     if (APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_CHALLENGES, p, s))
         || APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_STAGING, p, s))
-        || APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_ACCOUNTS, p, s))) {
+        || APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_ACCOUNTS, p, s))
+        || APR_SUCCESS != (rv = check_group_dir(*pstore, MD_SG_OCSP, p, s))
+        ) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10047) 
                      "setup challenges directory");
     }
@@ -716,8 +719,8 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
     }
 }   
 
-static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
-                                   apr_pool_t *ptemp, server_rec *s)
+static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
+                                              apr_pool_t *ptemp, server_rec *s)
 {
     void *data = NULL;
     const char *mod_md_init_key = "mod_md_init_counter";
@@ -825,11 +828,30 @@ static apr_status_t md_post_config(apr_pool_t *p, apr_pool_t *plog,
                      mc->watched_names->nelts, mc->mds->nelts);
     
         md_http_use_implementation(md_curl_get_impl(p));
-        rv = md_start_watching(mc, s, p);
+        rv = md_renew_start_watching(mc, s, p);
     }
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075) "no mds to drive");
     }
+leave:
+    return rv;
+}
+
+static apr_status_t md_post_config_after_ssl(apr_pool_t *p, apr_pool_t *plog,
+                                             apr_pool_t *ptemp, server_rec *s)
+{
+    md_srv_conf_t *sc;
+    apr_status_t rv = APR_SUCCESS;
+
+    (void)ptemp;
+    (void)plog;
+    sc = md_config_get(s);
+    if (!sc || !sc->mc || !sc->mc->ocsp || sc->mc->dry_run) goto leave;
+    if (md_ocsp_count(sc->mc->ocsp) == 0) goto leave;
+    
+    md_http_use_implementation(md_curl_get_impl(p));
+    rv = md_ocsp_start_watching(sc->mc, s, p);
+    
 leave:
     return rv;
 }
@@ -1259,8 +1281,10 @@ static void md_hooks(apr_pool_t *pool)
     ap_log_perror(APLOG_MARK, APLOG_TRACE1, 0, pool, "installing hooks");
     
     /* Run once after configuration is set, before mod_ssl.
+     * Run again after mod_ssl is done.
      */
-    ap_hook_post_config(md_post_config, NULL, mod_ssl, APR_HOOK_MIDDLE);
+    ap_hook_post_config(md_post_config_before_ssl, NULL, mod_ssl, APR_HOOK_MIDDLE);
+    ap_hook_post_config(md_post_config_after_ssl, mod_ssl, NULL, APR_HOOK_MIDDLE);
     
     /* Run once after a child process has been created.
      */

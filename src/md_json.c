@@ -313,6 +313,19 @@ int md_json_is(const md_json_type_t jtype, md_json_t *json, ...)
     return 0;
 }
 
+static const char *md_json_type_name(md_json_t *json)
+{
+    json_t *j = json->j;
+    if (json_is_object(j)) return "object";
+    if (json_is_array(j)) return "array";
+    if (json_is_string(j)) return "string";
+    if (json_is_real(j)) return "real";
+    if (json_is_integer(j)) return "integer";
+    if (json_is_true(j)) return "true";
+    if (json_is_false(j)) return "false";
+    return "unknown";
+}
+
 /**************************************************************************************************/
 /* booleans */
 
@@ -877,10 +890,14 @@ apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, apr_bucket_briga
 static int chunk_cb(const char *buffer, size_t len, void *baton)
 {
     apr_array_header_t *chunks = baton;
-    char *chunk = apr_pcalloc(chunks->pool, len+1);
+    char *chunk;
     
-    memcpy(chunk, buffer, len);
-    APR_ARRAY_PUSH(chunks, const char *) = chunk;
+    if (len > 0) {
+        chunk = apr_palloc(chunks->pool, len+1);
+        memcpy(chunk, buffer, len);
+        chunk[len] = '\0';
+        APR_ARRAY_PUSH(chunks, const char*) = chunk;
+    }
     return 0;
 }
 
@@ -901,7 +918,7 @@ const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
         case 0:
             return "";
         case 1:
-            return APR_ARRAY_IDX(chunks, 0, const char *);
+            return APR_ARRAY_IDX(chunks, 0, const char*);
         default:
             return apr_array_pstrcat(p, chunks, 0);
     }
@@ -920,7 +937,8 @@ apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, a
     }
     else {
         rv = APR_EINVAL;
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, "md_json_writef: error dumping json");
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, json->p, 
+                      "md_json_writef: error dumping json (%s)", md_json_dump_state(json, p));
     }
     return rv;
 }
@@ -1131,4 +1149,10 @@ apr_status_t md_json_copy_to(md_json_t *dest, const md_json_t *src, ...)
         va_end(ap);
     }
     return rv;
+}
+
+const char *md_json_dump_state(md_json_t *json, apr_pool_t *p)
+{
+    if (!json) return "NULL";
+    return apr_psprintf(p, "%s, refc=%ld", md_json_type_name(json), (long)json->j->refcount);
 }

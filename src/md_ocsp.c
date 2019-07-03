@@ -52,6 +52,8 @@ typedef struct md_ocsp_status_t md_ocsp_status_t;
 struct md_ocsp_status_t {
     char id[MD_OCSP_ID_LENGTH];
     OCSP_CERTID *certid;
+    const char *responder_url;
+    md_timeperiod_t lifetime;
     md_data_t resp_der;
 };
 
@@ -86,9 +88,7 @@ static apr_status_t ocsp_reg_cleanup(void *data)
     md_ocsp_reg_t *reg = data;
     
     /* free all OpenSSL structures that we hold */
-    if (reg->hash) {
-       apr_hash_do(ocsp_status_cleanup, reg, reg->hash);
-    }
+    apr_hash_do(ocsp_status_cleanup, reg, reg->hash);
     return APR_SUCCESS;
 }
 
@@ -115,8 +115,11 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
 {
     char id[MD_OCSP_ID_LENGTH];
     md_ocsp_status_t *ostat;
+    STACK_OF(OPENSSL_STRING) *ssk = NULL;
+    const char *name;
     apr_status_t rv;
     
+    name = md? md->name : MD_OTHER;
     rv = init_cert_id(id, sizeof(id), cert);
     if (APR_SUCCESS != rv) goto leave;
     
@@ -126,15 +129,29 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     ostat = apr_pcalloc(reg->p, sizeof(*ostat));
     memcpy(ostat->id, id, sizeof(ostat->id));
     
+    ssk = X509_get1_ocsp(md_cert_get_X509(cert));
+    if (!ssk) {
+        rv = APR_EGENERAL;
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, reg->p, 
+                      "md[%s]: certificate with serial %s has not OCSP responder URL", 
+                      name, md_cert_get_serial_number(cert, reg->p));
+        goto leave;
+    }
+    ostat->responder_url = apr_pstrdup(reg->p, sk_OPENSSL_STRING_value(ssk, 0));
+    X509_email_free(ssk);
+
     ostat->certid = OCSP_cert_to_id(NULL, md_cert_get_X509(cert), md_cert_get_X509(issuer));
     if (!ostat->certid) {
         rv = APR_EGENERAL;
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, reg->p, 
                       "md[%s]: unable to create OCSP certid for certificate with serial %s", 
-                      md? md->name : MD_OTHER, md_cert_get_serial_number(cert, reg->p));
+                      name, md_cert_get_serial_number(cert, reg->p));
         goto leave;
     }
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
+                  "md[%s]: adding ocsp info (responder=%s)", 
+                  name, ostat->responder_url);
     apr_hash_set(reg->hash, ostat->id, sizeof(ostat->id), ostat);
     rv = APR_SUCCESS;
 leave:
@@ -173,4 +190,59 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     *pderlen = (int)ostat->resp_der.len;
 leave:
     return rv;
+}
+
+apr_size_t md_ocsp_count(md_ocsp_reg_t *reg)
+{
+    return apr_hash_count(reg->hash);
+}
+
+typedef struct {
+    apr_array_header_t *todos;
+    const md_timeslice_t *window;
+    apr_time_t next_run;
+} md_ocsp_select_ctx_t;
+
+
+static int select_todos(void *baton, const void *key, apr_ssize_t klen, const void *val)
+{
+    md_ocsp_select_ctx_t *ctx = baton;
+    md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
+    md_timeperiod_t renewal;
+    (void)key;
+    (void)klen;
+    if (ostat->resp_der.len == 0 || ostat->lifetime.end == 0) {
+        APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
+        goto leave;
+    }
+    renewal = md_timeperiod_slice_before_end(&ostat->lifetime, ctx->window);
+    if (md_timeperiod_has_started(&renewal, apr_time_now())) {
+        APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
+        goto leave;
+    }
+    if (renewal.start < ctx->next_run) {
+        ctx->next_run = renewal.start;
+    }
+leave:
+    return 1;
+}
+
+void md_ocsp_renew(md_ocsp_reg_t *reg, const md_timeslice_t *window, 
+                   apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run)
+{
+    md_ocsp_select_ctx_t ctx;
+    
+    (void)reg;
+    (void)window;
+    (void)p;
+    (void)ptemp;
+    (void)pnext_run;
+    ctx.todos = apr_array_make(ptemp, (int)md_ocsp_count(reg), sizeof(md_ocsp_status_t*));
+    ctx.window = window;
+    ctx.next_run = *pnext_run;
+    apr_hash_do(select_todos, &ctx, reg->hash);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
+                  "certificates that need a OCSP status update now: %d", 
+                  ctx.todos->nelts);
+
 }
