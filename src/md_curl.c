@@ -24,6 +24,7 @@
 
 #include "md_http.h"
 #include "md_log.h"
+#include "md_util.h"
 #include "md_curl.h"
 
 /**************************************************************************************************/
@@ -188,6 +189,38 @@ static long timeout_sec(apr_time_t timeout)
     return s? s : (timeout? 1 : 0);
 }
 
+static int curl_debug_log(CURL *curl, curl_infotype type, char *data, size_t size, void *baton)
+{
+    md_http_request_t *req = baton;
+    
+    (void)curl;
+    switch (type) {
+        case CURLINFO_TEXT:
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->pool, 
+                          "req[%d]: info %s", req->id, apr_pstrndup(req->pool, data, size));
+            break;
+        case CURLINFO_HEADER_OUT:
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->pool, 
+                          "req[%d]: header --> %s", req->id, apr_pstrndup(req->pool, data, size));
+            break;
+        case CURLINFO_HEADER_IN:
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->pool, 
+                          "req[%d]: header <-- %s", req->id, apr_pstrndup(req->pool, data, size));
+            break;
+        case CURLINFO_DATA_OUT:
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->pool, 
+                          "req[%d]: data --> %ld bytes", req->id, (long)size);
+            break;
+        case CURLINFO_DATA_IN:
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->pool, 
+                          "req[%d]: data <-- %ld bytes", req->id, (long)size);
+            break;
+        default:
+            break;
+    }
+    return 0;
+}
+
 static apr_status_t internals_setup(md_http_request_t *req)
 {
     md_curl_internals_t *internals;
@@ -262,15 +295,32 @@ static apr_status_t internals_setup(md_http_request_t *req)
         }
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
-                  "request --> %s %s", req->method, req->url);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, req->pool, 
+                  "req[%d]: %s %s", req->id, req->method, req->url);
     
-    if (md_log_is_level(req->pool, MD_LOG_TRACE3)) {
+    if (md_log_is_level(req->pool, MD_LOG_TRACE4)) {
         curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+        curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, curl_debug_log);
+        curl_easy_setopt(curl, CURLOPT_DEBUGDATA, req);
     }
     
 leave:
     req->internals = (APR_SUCCESS == rv)? internals : NULL;
+    return rv;
+}
+
+static apr_status_t update_status(md_http_request_t *req)
+{
+    md_curl_internals_t *internals = req->internals;
+    long l;
+    apr_status_t rv = APR_SUCCESS;
+
+    if (internals) {
+        rv = curl_status(curl_easy_getinfo(internals->curl, CURLINFO_RESPONSE_CODE, &l));
+        if (APR_SUCCESS == rv) {
+            internals->response->status = (int)l;
+        }
+    }
     return rv;
 }
 
@@ -280,6 +330,13 @@ static void fire_status(md_http_request_t *req, apr_status_t rv)
         
     if (internals && !internals->status_fired) {
         internals->status_fired = 1;
+        
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, req->pool, 
+                      "req[%d] fire callbacks", req->id);
+        if ((APR_SUCCESS == rv) && req->cb.on_response) {
+            rv = req->cb.on_response(internals->response, req->cb.on_response_data);
+        }
+    
         internals->rv = rv;
         if (req->cb.on_status) {
             req->cb.on_status(req, rv, req->cb.on_status_data);
@@ -315,6 +372,7 @@ static apr_status_t md_curl_perform(md_http_request_t *req)
     
     if (req->cb.on_response) {
         rv = req->cb.on_response(internals->response, req->cb.on_response_data);
+        req->cb.on_response = NULL;
     }
     
 leave:
@@ -359,73 +417,109 @@ static void remove_from_curlm(md_http_request_t *req, CURLM *curlm)
     }
 }
     
-static apr_status_t md_curl_multi_perform(apr_array_header_t *requests)
+static apr_status_t md_curl_multi_perform(md_http_t *http, apr_pool_t *p,
+                                          md_http_next_req *nextreq, void *baton)
 {
     md_http_request_t *req;
     CURLM *curlm = NULL;
     CURLMcode mc;
     struct CURLMsg *curlmsg;
+    apr_array_header_t *requests;
     int i, n, running, numfds, slowdown, msgcount;
     apr_status_t rv;
     
-    /* Setup internals for each request. Report error status on each
-     * where this fails. */
-    for (n = 0, i = 0; i < requests->nelts; ++i) {
-        req = APR_ARRAY_IDX(requests, i, md_http_request_t*);
-        if (APR_SUCCESS != (rv = internals_setup(req))) {
-            if (req->cb.on_status) req->cb.on_status(req, rv, req->cb.on_status_data);
-        }
-        ++n;
-    }
-    rv = APR_SUCCESS;
-    if (!n) goto leave;
-    
-    /* Setup a mult curl instance and add all easy handles for processing */
+    requests = apr_array_make(p, 10, sizeof(md_http_request_t*));
     curlm = curl_multi_init();
     if (!curlm) {
         rv = APR_ENOMEM;
         goto leave;
     }
-    for (n = 0, i = 0; i < requests->nelts; ++i) {
-        req = APR_ARRAY_IDX(requests, i, md_http_request_t*);
-        add_to_curlm(req, curlm);
-    }
     
-    do {
+    running = 1;
+    slowdown = 0;
+    while(1) {
+        while (1) {
+            /* fetch as many requests as nextreq gives us */
+            rv = nextreq(&req, baton, http, requests->nelts);
+            
+            if (APR_SUCCESS == rv) {
+                if (APR_SUCCESS != (rv = internals_setup(req))) {
+                    if (req->cb.on_status) req->cb.on_status(req, rv, req->cb.on_status_data);
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, 
+                                  "multi_perform[%d reqs]: setup failed", requests->nelts);
+                }
+                else {
+                    APR_ARRAY_PUSH(requests, md_http_request_t*) = req;
+                    add_to_curlm(req, curlm);
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, 
+                                  "multi_perform[%d reqs]: added request", requests->nelts);
+                }
+                continue;
+            }
+            else if (APR_STATUS_IS_ENOENT(rv)) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
+                              "multi_perform[%d reqs]: no more requests", requests->nelts);
+                if (!running) {
+                    goto leave;
+                }
+                break;
+            }
+            else {
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, 
+                              "multi_perform[%d reqs]: nextreq() failed", requests->nelts);
+                goto leave;
+            }
+        }
+    
         mc = curl_multi_perform(curlm, &running);
         if (CURLM_OK == mc) {
             mc = curl_multi_wait(curlm, NULL, 0, 1000, &numfds);
+            if (numfds) slowdown = 0;
         }
         if (CURLM_OK != mc) {
             rv = APR_ECONNABORTED;
-            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, requests->pool, 
-                          "multi_perform failed(%d): %s", mc, curl_multi_strerror(mc));
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+                          "multi_perform[%d reqs] failed(%d): %s", 
+                          requests->nelts, mc, curl_multi_strerror(mc));
             goto leave;
         }
         if (!numfds) {
             /* no activity on any connection, timeout */
-            if (slowdown) {
-                apr_sleep(apr_time_from_msec(100));
-            }
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
+                          "multi_perform[%d reqs]: slowdown %d", requests->nelts, slowdown);
+            if (slowdown) apr_sleep(apr_time_from_msec(100));
             ++slowdown;
-            continue;
         }
 
-        slowdown = 0;
+        /* process status messages, e.g. that a request is done */
         while (1) {
             curlmsg = curl_multi_info_read(curlm, &msgcount);
             if (!curlmsg) break;
             if (curlmsg->msg == CURLMSG_DONE) {
                 req = find_curl_request(requests, curlmsg->easy_handle);
                 if (req) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
+                                  "multi_perform[%d reqs]: req[%d] done", 
+                                  requests->nelts, req->id);
+                    update_status(req);
                     fire_status(req, curl_status(curlmsg->data.result));
                     remove_from_curlm(req, curlm);
+                    md_array_remove(requests, req);
+                    md_http_req_destroy(req);
+                }
+                else {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
+                                  "multi_perform[%d reqs]: req done, but not found by handle", 
+                                  requests->nelts);
                 }
             }
         }
-    } while (running);
+        assert(running == requests->nelts);
+    };
 
 leave:
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, 
+                  "multi_perform[%d reqs]: leaving", requests->nelts);
     for (n = 0, i = 0; i < requests->nelts; ++i) {
         req = APR_ARRAY_IDX(requests, i, md_http_request_t*);
         fire_status(req, APR_SUCCESS);
@@ -433,7 +527,6 @@ leave:
         md_http_req_destroy(req);
     }
     if (curlm) curl_multi_cleanup(curlm);
-    apr_array_clear(requests);
     return rv;
 }
 

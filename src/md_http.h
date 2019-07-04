@@ -58,6 +58,7 @@ struct md_http_timeouts_t {
 struct md_http_request_t {
     md_http_t *http;
     apr_pool_t *pool;
+    int id;
     struct apr_bucket_alloc_t *bucket_alloc;
     const char *method;
     const char *url;
@@ -113,11 +114,6 @@ void md_http_set_stalling(md_http_request_t *req, long bytes_per_sec, apr_time_t
  * all its memory has been freed and must no longer be used.
  */
 apr_status_t md_http_perform(md_http_request_t *request);
-
-/**
- * Perform all requests in parallel.
- */
-apr_status_t md_http_multi_perform(apr_array_header_t *requests);
 
 /**
  * Set the callback to be invoked once the status of a request is known.
@@ -204,13 +200,32 @@ apr_status_t md_http_POSTd_perform(md_http_t *http, const char *url,
 
 void md_http_req_destroy(md_http_request_t *req);
 
+/** Return the next request for processing on APR_SUCCESS. Return ARP_ENOENT
+ * when no request is available. Anything else is an error.
+ */
+typedef apr_status_t md_http_next_req(md_http_request_t **preq, void *baton, 
+                                      md_http_t *http, int in_flight);
+
+/**
+ * Perform requests in parallel as retrieved from the nextreq function.
+ * There are as many requests in flight as the nextreq functions provides. 
+ *
+ * To limit the number of parallel requests, nextreq should return APR_ENOENT when the limit
+ * is reached. It will be called again when the number of in_flight requests changes.
+ * 
+ * When all reqests are done, nextreq will be called one more time. Should it not
+ * return anything, this function returns.
+ */
+apr_status_t md_http_multi_perform(md_http_t *http, md_http_next_req *nextreq, void *baton);
+
 /**************************************************************************************************/
 /* interface to implementation */
 
 typedef apr_status_t md_http_init_cb(void);
 typedef void md_http_req_cleanup_cb(md_http_request_t *req);
 typedef apr_status_t md_http_perform_cb(md_http_request_t *req);
-typedef apr_status_t md_http_multi_perform_cb(apr_array_header_t *requests);
+typedef apr_status_t md_http_multi_perform_cb(md_http_t *http, apr_pool_t *p, 
+                                              md_http_next_req *nextreq, void *baton);
 
 typedef struct md_http_impl_t md_http_impl_t;
 struct md_http_impl_t {

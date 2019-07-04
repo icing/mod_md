@@ -32,6 +32,8 @@ struct md_data_t;
 
 apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p);
 
+apr_time_t md_asn1_generalized_time_get(void *ASN1_GENERALIZEDTIME);
+
 /**************************************************************************************************/
 /* digests */
 apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 

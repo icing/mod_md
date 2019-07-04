@@ -767,7 +767,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
         goto leave;
     }
 
-    rv = md_ocsp_reg_make(&mc->ocsp, p, store);
+    rv = md_ocsp_reg_make(&mc->ocsp, p, store, AP_SERVER_BASEVERSION, mc->proxy_url);
     if (APR_SUCCESS != rv) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "setup ocsp registry");
         goto leave;

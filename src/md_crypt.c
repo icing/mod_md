@@ -253,6 +253,11 @@ static apr_time_t md_asn1_time_get(const ASN1_TIME* time)
 #endif
 }
 
+apr_time_t md_asn1_generalized_time_get(void *ASN1_GENERALIZEDTIME)
+{
+    return md_asn1_time_get(ASN1_GENERALIZEDTIME);
+}
+
 
 /**************************************************************************************************/
 /* private keys */

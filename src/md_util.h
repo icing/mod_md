@@ -50,6 +50,15 @@ apr_status_t md_data_to_hex(const char **phex, char separator,
                             apr_pool_t *p, const md_data_t *data);
 
 /**************************************************************************************************/
+/* generic arrays */
+
+/**
+ * In an array of pointers, remove all entries == elem. Returns the number
+ * of entries removed.
+ */
+int md_array_remove(struct apr_array_header_t *a, void *elem);
+
+/**************************************************************************************************/
 /* string related */
 char *md_util_str_tolower(char *s);
 

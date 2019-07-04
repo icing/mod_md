@@ -27,6 +27,7 @@
 struct md_http_t {
     apr_pool_t *pool;
     apr_bucket_alloc_t *bucket_alloc;
+    int next_id;
     apr_off_t resp_limit;
     md_http_impl_t *impl;
     const char *user_agent;
@@ -171,6 +172,7 @@ static apr_status_t req_create(md_http_request_t **preq, md_http_t *http,
     
     req = apr_pcalloc(pool, sizeof(*req));
     req->pool = pool;
+    req->id = http->next_id++;
     req->bucket_alloc = http->bucket_alloc;
     req->http = http;
     req->method = method;
@@ -221,16 +223,29 @@ apr_status_t md_http_perform(md_http_request_t *req)
     return req->http->impl->perform(req);
 }
 
-apr_status_t md_http_multi_perform(apr_array_header_t *requests)
+typedef struct {
+    md_http_next_req *nextreq;
+    void *baton;
+} nextreq_proxy_t;
+
+static apr_status_t proxy_nextreq(md_http_request_t **preq, void *baton, 
+                                      md_http_t *http, int in_flight)
 {
-    md_http_request_t *req;
-    int i;
+    nextreq_proxy_t *proxy = baton;
+    apr_status_t rv;
     
-    for (i = 0; i < requests->nelts; ++i) {
-        req = APR_ARRAY_IDX(requests, i, md_http_request_t*);
-        req_init_cl(req);
-    }
-    return req->http->impl->multi_perform(requests);
+    rv = proxy->nextreq(preq, proxy->baton, http, in_flight);
+    if (APR_SUCCESS == rv) req_init_cl(*preq);
+    return rv;
+}
+
+apr_status_t md_http_multi_perform(md_http_t *http, md_http_next_req *nextreq, void *baton)
+{
+    nextreq_proxy_t proxy;
+    
+    proxy.nextreq = nextreq;
+    proxy.baton = baton;
+    return http->impl->multi_perform(http, http->pool, proxy_nextreq, &proxy);
 }
 
 apr_status_t md_http_GET_create(md_http_request_t **preq, md_http_t *http, const char *url, 

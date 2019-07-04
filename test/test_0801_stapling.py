@@ -63,6 +63,7 @@ class TestStapling:
         TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         # the mod_md stapling should report success
+        time.sleep(1)
         assert self.get_verify_response(domain) == "0 (ok)"
         assert self.get_ocsp_status(domain) == "successful (0x0)" 
 

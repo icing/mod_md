@@ -22,7 +22,8 @@ struct md_store_t;
 typedef struct md_ocsp_reg_t md_ocsp_reg_t;
 
 apr_status_t md_ocsp_reg_make(md_ocsp_reg_t **preg, apr_pool_t *p, 
-                              struct md_store_t *store);
+                              struct md_store_t *store, 
+                              const char *user_agent, const char *proxy_url);
 
 apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *x, 
                            md_cert_t *issuer, const md_t *md);

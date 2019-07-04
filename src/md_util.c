@@ -14,6 +14,7 @@
  * limitations under the License.
  */
  
+#include <assert.h>
 #include <stdio.h>
 
 #include <apr_lib.h>
@@ -129,6 +130,30 @@ apr_status_t md_data_to_hex(const char **phex, char separator,
     }
     *phex = hex;
     return APR_SUCCESS;
+}
+
+/**************************************************************************************************/
+/* generic arrays */
+
+int md_array_remove(struct apr_array_header_t *a, void *elem)
+{
+    int i, n, m;
+    void **pe;
+    
+    assert(sizeof(void*) == a->elt_size);
+    n = i = 0;
+    while (i < a->nelts) {
+        pe = &APR_ARRAY_IDX(a, i, void*);
+        if (*pe == elem) {
+            m = a->nelts - (i+1);
+            if (m > 0) memmove(pe, pe+1, (unsigned)m*sizeof(void*));
+            a->nelts--;
+            n++;
+            continue;
+        }
+        ++i;
+    }
+    return n;
 }
 
 /**************************************************************************************************/

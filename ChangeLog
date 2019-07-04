@@ -1,3 +1,4 @@
+ * first ocsp responses are retrieved, but the cache does not work cross-process yet.
  * New directives "MDStapling on|off"
  * Overall, connect and stall timeouts set in http client requests.
  * Prepping http client for multi request handling in parallel.
