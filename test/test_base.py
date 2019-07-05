@@ -282,7 +282,7 @@ class TestEnv:
         assert len(TestEnv.STORE_DIR) > 1
         if not os.path.exists(TestEnv.STORE_DIR):
             os.makedirs(TestEnv.STORE_DIR)
-        for dir in [ "challenges", "tmp", "archive", "domains", "accounts", "staging" ]:
+        for dir in [ "challenges", "tmp", "archive", "domains", "accounts", "staging", "ocsp" ]:
             shutil.rmtree(os.path.join(TestEnv.STORE_DIR, dir), ignore_errors=True)
 
     @classmethod

@@ -211,51 +211,49 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
 
 static apr_status_t acmev1_req_init(md_acme_req_t *req, md_json_t *jpayload)
 {
-    const char *payload;
-    size_t payload_len;
+    md_data_t payload;
     
     if (!req->acme->acct) {
         return APR_EINVAL;
     }
     if (jpayload) {
-        payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
-        if (!payload) {
+        payload.data = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
+        if (!payload.data) {
             return APR_EINVAL;
         }
     }
     else {
-        payload = "";
+        payload.data = "";
     }
 
-    payload_len = strlen(payload);
+    payload.len = strlen(payload.data);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
-                  "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload_len, payload);
-    return md_jws_sign(&req->req_json, req->p, payload, payload_len,
+                  "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload.len, payload.data);
+    return md_jws_sign(&req->req_json, req->p, &payload,
                        req->prot_hdrs, req->acme->acct_key, NULL);
 }
 
 static apr_status_t acmev2_req_init(md_acme_req_t *req, md_json_t *jpayload)
 {
-    const char *payload;
-    size_t payload_len;
+    md_data_t payload;
     
     if (!req->acme->acct) {
         return APR_EINVAL;
     }
     if (jpayload) {
-        payload = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
-        if (!payload) {
+        payload.data = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
+        if (!payload.data) {
             return APR_EINVAL;
         }
     }
     else {
-        payload = "";
+        payload.data = "";
     }
 
-    payload_len = strlen(payload);
+    payload.len = strlen(payload.data);
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
-                  "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload_len, payload);
-    return md_jws_sign(&req->req_json, req->p, payload, payload_len,
+                  "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload.len, payload.data);
+    return md_jws_sign(&req->req_json, req->p, &payload,
                        req->prot_hdrs, req->acme->acct_key, req->acme->acct->url);
 }
 

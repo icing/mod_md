@@ -180,6 +180,7 @@ struct md_t {
 #define MD_KEY_RENEW_WINDOW     "renew-window"
 #define MD_KEY_REQUIRE_HTTPS    "require-https"
 #define MD_KEY_RESOURCE         "resource"
+#define MD_KEY_RESPONSE         "response"
 #define MD_KEY_SERIAL           "serial"
 #define MD_KEY_SHA256_FINGERPRINT  "sha256-fingerprint"
 #define MD_KEY_STAPLING         "stapling"

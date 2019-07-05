@@ -91,6 +91,12 @@ md_data_t *md_data_make(apr_pool_t *p, apr_size_t len)
     return d;
 }
 
+void md_data_assign_pcopy(md_data_t *dest, const md_data_t *src, apr_pool_t *p)
+{
+    dest->data = (src->data && src->len)? apr_pmemdup(p, src->data, src->len) : NULL;
+    dest->len = dest->data? src->len : 0;
+}
+
 static const char * const hex_const[] = {
     "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f", 
     "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f", 
@@ -1058,7 +1064,7 @@ static const unsigned char BASE64URL_CHARS[] = {
 
 #define BASE64URL_CHAR(x)    BASE64URL_CHARS[ (unsigned int)(x) & 0x3fu ]
    
-apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded, 
+apr_size_t md_util_base64url_decode(md_data_t *decoded, const char *encoded, 
                                     apr_pool_t *pool)
 {
     const unsigned char *e = (const unsigned char *)encoded;
@@ -1072,10 +1078,10 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
     }
     len = (int)(p - e);
     mlen = (len/4)*4;
-    *decoded = apr_pcalloc(pool, (apr_size_t)len + 1);
+    decoded->data = apr_pcalloc(pool, (apr_size_t)len + 1);
     
     i = 0;
-    d = (unsigned char*)*decoded;
+    d = (unsigned char*)decoded->data;
     for (; i < mlen; i += 4) {
         n = ((BASE64URL_UINT6[ e[i+0] ] << 18) +
              (BASE64URL_UINT6[ e[i+1] ] << 12) +
@@ -1104,14 +1110,15 @@ apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded,
         default: /* do nothing */
             break;
     }
-    return (apr_size_t)(mlen/4*3 + remain);
+    decoded->len = (apr_size_t)(mlen/4*3 + remain);
+    return decoded->len; 
 }
 
-const char *md_util_base64url_encode(const char *data, apr_size_t dlen, apr_pool_t *pool)
+const char *md_util_base64url_encode(const md_data_t *data, apr_pool_t *pool)
 {
-    int i, len = (int)dlen;
-    apr_size_t slen = ((dlen+2)/3)*4 + 1; /* 0 terminated */
-    const unsigned char *udata = (const unsigned char*)data;
+    int i, len = (int)data->len;
+    apr_size_t slen = ((data->len+2)/3)*4 + 1; /* 0 terminated */
+    const unsigned char *udata = (const unsigned char*)data->data;
     unsigned char *enc, *p = apr_pcalloc(pool, slen);
     
     enc = p;

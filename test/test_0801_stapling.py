@@ -44,7 +44,7 @@ class TestStapling:
 
     #-----------------------------------------------------------------------------------------------
     # MD with stapling enabled, mod_ssl stapling off
-    @pytest.mark.skipif(True, reason="not implemented")
+    #@pytest.mark.skipif(True, reason="not implemented")
     def test_801_001(self):
         domain = self.test_domain
         dns_list = [ domain ]

@@ -1,3 +1,6 @@
+ * ocsp responses are now saved in and retrieved from store. Misses concurrency and timed
+   invalidation handling.
+ * first own ocsp test successful.
  * first ocsp responses are retrieved, but the cache does not work cross-process yet.
  * New directives "MDStapling on|off"
  * Overall, connect and stall timeouts set in http client requests.

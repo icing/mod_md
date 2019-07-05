@@ -22,6 +22,7 @@
 #include <apr_buckets.h>
 #include <apr_hash.h>
 #include <apr_time.h>
+#include <apr_date.h>
 #include <apr_strings.h>
 
 #include <openssl/err.h>
@@ -35,6 +36,7 @@
 #include "md_json.h"
 #include "md_log.h"
 #include "md_http.h"
+#include "md_json.h"
 #include "md_store.h"
 #include "md_util.h"
 #include "md_ocsp.h"
@@ -53,15 +55,19 @@ struct md_ocsp_reg_t {
 
 typedef struct md_ocsp_status_t md_ocsp_status_t; 
 struct md_ocsp_status_t {
-    char id[MD_OCSP_ID_LENGTH];
+    md_data_t id;
     OCSP_CERTID *certid;
     const char *responder_url;
-    md_timeperiod_t lifetime;
-    md_data_t req_der;
-    md_timeperiod_t resp_valid;
+
     md_data_t resp_der;
+    md_timeperiod_t resp_valid;
     
+    md_data_t req_der;
     OCSP_REQUEST *ocsp_req;
+    md_ocsp_reg_t *reg;
+
+    const char *md_name;
+    const char *file_name;
 };
 
 static apr_status_t init_cert_id(char *buffer, apr_size_t len, md_cert_t *cert)
@@ -109,6 +115,89 @@ static int ostat_cleanup(void *ctx, const void *key, apr_ssize_t klen, const voi
     return 1;
 }
 
+        
+static void ostat_set(md_ocsp_status_t *ostat, md_data_t *der, md_timeperiod_t *valid)
+{
+    if (ostat->resp_der.data) {
+        OPENSSL_free((void*)ostat->resp_der.data);
+        ostat->resp_der.data = NULL;
+        ostat->resp_der.len = 0;
+    }
+    ostat->resp_der = *der;
+    ostat->resp_valid = *valid;
+}
+
+static apr_status_t ostat_from_json(md_ocsp_status_t *ostat, md_json_t *json, apr_pool_t *p)
+{
+    const char *s;
+    md_timeperiod_t valid;
+    md_data_t der;
+    apr_status_t rv = APR_ENOENT;
+    
+    s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
+    if (s && *s) valid.start = apr_date_parse_rfc(s);
+    s = md_json_dups(p, json, MD_KEY_VALID_UNTIL, NULL);
+    if (s && *s) valid.end = apr_date_parse_rfc(s);
+    s = md_json_dups(p, json, MD_KEY_RESPONSE, NULL);
+    if (!s || !*s) goto leave;
+
+    md_util_base64url_decode(&der, s, p);
+    if (!der.len) goto leave;
+    s = OPENSSL_malloc(der.len);
+    if (!s) goto leave;
+    memcpy((char*)s, der.data, der.len);
+    der.data = s;
+    ostat_set(ostat, &der, &valid);
+
+leave:
+    return rv;
+}
+
+static void ostat_to_json(md_json_t *json, const md_ocsp_status_t *ostat, apr_pool_t *p)
+{
+    char ts[APR_RFC822_DATE_LEN];
+
+    (void)p;
+    md_json_sets(ostat->md_name, json, MD_KEY_NAME, NULL);
+    if (ostat->resp_der.len > 0) {
+        md_json_sets(md_util_base64url_encode(&ostat->resp_der, p), json, MD_KEY_RESPONSE, NULL);
+        
+        if (ostat->resp_valid.start > 0) {
+            apr_rfc822_date(ts, ostat->resp_valid.start);
+            md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
+        }
+        if (ostat->resp_valid.end > 0) {
+            apr_rfc822_date(ts, ostat->resp_valid.end);
+            md_json_sets(ts, json, MD_KEY_VALID_UNTIL, NULL);
+        }
+    }
+}
+
+static apr_status_t ocsp_status_reload(md_ocsp_status_t *ostat, apr_pool_t *ptemp)
+{
+    md_store_t *store = ostat->reg->store;
+    md_json_t *jprops;
+    apr_status_t rv;
+    
+    rv = md_store_load_json(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, &jprops, ptemp);
+    if (APR_SUCCESS == rv) {
+        ostat_from_json(ostat, jprops, ptemp);
+    }
+    return rv;
+}
+
+static apr_status_t ocsp_status_save(md_ocsp_status_t *ostat, apr_pool_t *ptemp)
+{
+    md_store_t *store = ostat->reg->store;
+    md_json_t *jprops;
+    apr_status_t rv;
+    
+    jprops = md_json_create(ptemp);
+    ostat_to_json(jprops, ostat, ptemp);
+    rv = md_store_save_json(store, ptemp, MD_SG_OCSP, ostat->md_name, ostat->file_name, jprops, 0);
+    return rv;
+}
+
 static apr_status_t ocsp_reg_cleanup(void *data)
 {
     md_ocsp_reg_t *reg = data;
@@ -142,21 +231,28 @@ leave:
 
 apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issuer, const md_t *md)
 {
-    char id[MD_OCSP_ID_LENGTH];
+    char iddata[MD_OCSP_ID_LENGTH];
     md_ocsp_status_t *ostat;
     STACK_OF(OPENSSL_STRING) *ssk = NULL;
     const char *name;
+    md_data_t id;
     apr_status_t rv;
     
     name = md? md->name : MD_OTHER;
-    rv = init_cert_id(id, sizeof(id), cert);
+    id.data = iddata; id.len = sizeof(iddata);
+    
+    rv = init_cert_id((char*)id.data, id.len, cert);
     if (APR_SUCCESS != rv) goto leave;
     
-    ostat = apr_hash_get(reg->hash, id, sizeof(id));
+    ostat = apr_hash_get(reg->hash, id.data, (apr_ssize_t)id.len);
     if (ostat) goto leave; /* already seen it, cert is used in >1 server_rec */
     
     ostat = apr_pcalloc(reg->p, sizeof(*ostat));
-    memcpy(ostat->id, id, sizeof(ostat->id));
+    md_data_assign_pcopy(&ostat->id, &id, reg->p);
+    ostat->reg = reg;
+    ostat->md_name = name;
+    ostat->file_name = apr_psprintf(reg->p, "ocsp-%s.json", 
+                                    md_util_base64url_encode(&id, reg->p));
     
     ssk = X509_get1_ocsp(md_cert_get_X509(cert));
     if (!ssk) {
@@ -178,10 +274,13 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
         goto leave;
     }
     
+    /* See, if we have something in store */
+    ocsp_status_reload(ostat, reg->p);
+    
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
                   "md[%s]: adding ocsp info (responder=%s)", 
                   name, ostat->responder_url);
-    apr_hash_set(reg->hash, ostat->id, sizeof(ostat->id), ostat);
+    apr_hash_set(reg->hash, ostat->id.data, (apr_ssize_t)ostat->id.len, ostat);
     rv = APR_SUCCESS;
 leave:
     return rv;
@@ -199,6 +298,8 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     (void)p;
     (void)md;
     name = md? md->name : MD_OTHER;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
+                  "md[%s]: OCSP, get_status", name);
     rv = init_cert_id(id, sizeof(id), cert);
     if (APR_SUCCESS != rv) goto leave;
     
@@ -211,8 +312,13 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     *pder = NULL;
     *pderlen = 0;
     if (ostat->resp_der.len <= 0) {
+        /* See, if we have something in store */
+        ocsp_status_reload(ostat, p);
+    }
+
+    if (ostat->resp_der.len <= 0) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
-                      "md[%s]: no OCSP response available", name);
+                      "md[%s]: OCSP, no response available", name);
         goto leave;
     }
 
@@ -224,7 +330,7 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     memcpy(*pder, ostat->resp_der.data, ostat->resp_der.len);
     *pderlen = (int)ostat->resp_der.len;
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
-                  "md[%s]: returning %ld bytes of OCSP response", 
+                  "md[%s]: OCSP, returning %ld bytes of response", 
                   name, (long)ostat->resp_der.len);
 leave:
     return rv;
@@ -251,11 +357,11 @@ static int select_todos(void *baton, const void *key, apr_ssize_t klen, const vo
     md_timeperiod_t renewal;
     (void)key;
     (void)klen;
-    if (ostat->resp_der.len == 0 || ostat->lifetime.end == 0) {
+    if (ostat->resp_der.len == 0 || ostat->resp_valid.end == 0) {
         APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
         goto leave;
     }
-    renewal = md_timeperiod_slice_before_end(&ostat->lifetime, ctx->window);
+    renewal = md_timeperiod_slice_before_end(&ostat->resp_valid, ctx->window);
     if (md_timeperiod_has_started(&renewal, apr_time_now())) {
         APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
         goto leave;
@@ -292,6 +398,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     int n, breason, bstatus;
     ASN1_GENERALIZEDTIME *bup = NULL, *bnextup = NULL;
     md_data_t new_der;
+    md_timeperiod_t valid;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
                   "req[%d]: OCSP respoonse: %d, cl=%s, ct=%s",  req->id, resp->status,
@@ -342,6 +449,10 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             goto leave;
         }
         
+        /* Coming here, we have a response for our certid and it is either GOOD
+         * or REVOKED. Both cases we want to remember and use in stapling. */
+
+        /* First, update our memory entry in the hash */
         new_der.data = NULL;
         new_der.len = 0;
         n = i2d_OCSP_RESPONSE(ocsp_resp, (unsigned char**)&new_der.data);
@@ -352,25 +463,22 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             goto leave;
         }
         new_der.len = (apr_size_t)n;
+        valid.start = bup? md_asn1_generalized_time_get(bup) : apr_time_now();
+        valid.end = md_asn1_generalized_time_get(bnextup);
+        ostat_set(ostat, &new_der, &valid);
         
-        ostat->resp_valid.start = bup? md_asn1_generalized_time_get(bup) : apr_time_now();
-        ostat->resp_valid.end = md_asn1_generalized_time_get(bnextup);
-        if (ostat->resp_der.data) {
-            OPENSSL_free((void*)ostat->resp_der.data);
-            ostat->resp_der.data = NULL;
-            ostat->resp_der.len = 0;
+        /* Next, write this data into the store where other processes will pick it up */
+        rv = ocsp_status_save(ostat, req->pool); 
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, req->pool, 
+                          "md[%s]: error saving OCSP status", ostat->md_name);
+            goto leave;
         }
-        ostat->resp_der = new_der;
-        
-        /* Coming here, we have a response for our certid and it is either GOOD
-         * or REVOKED. Both cases we want to remember and use in stapling. */
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
                       "req[%d]: cert status is %s, answer valid [%s], OCSP repsone DER length %ld", 
                       req->id, (bstatus == V_OCSP_CERTSTATUS_GOOD)? "GOOD" : "REVOKED",
                       md_timeperiod_print(req->pool, &ostat->resp_valid), 
                       (long)ostat->resp_der.len);
-        
-        rv = APR_SUCCESS;
     }
 
     (void)ostat;

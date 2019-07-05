@@ -512,12 +512,14 @@ static void RSA_get0_key(const RSA *r,
 static const char *bn64(const BIGNUM *b, apr_pool_t *p) 
 {
     if (b) {
-         apr_size_t len = (apr_size_t)BN_num_bytes(b);
-         char *buffer = apr_pcalloc(p, len);
-         if (buffer) {
-            BN_bn2bin(b, (unsigned char *)buffer);
-            return md_util_base64url_encode(buffer, len, p);
-         }
+        md_data_t buffer;
+
+        buffer.len = (apr_size_t)BN_num_bytes(b);
+        buffer.data = apr_pcalloc(p, buffer.len);
+        if (buffer.data) {
+            BN_bn2bin(b, (unsigned char *)buffer.data);
+            return md_util_base64url_encode(&buffer, p);
+        }
     }
     return NULL;
 }
@@ -550,21 +552,23 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
                              const char *d, size_t dlen)
 {
     EVP_MD_CTX *ctx = NULL;
-    char *buffer;
+    md_data_t buffer;
     unsigned int blen;
     const char *sign64 = NULL;
     apr_status_t rv = APR_ENOMEM;
     
-    buffer = apr_pcalloc(p, (apr_size_t)EVP_PKEY_size(pkey->pkey));
-    if (buffer) {
+    buffer.len = (apr_size_t)EVP_PKEY_size(pkey->pkey);
+    buffer.data = apr_pcalloc(p, buffer.len);
+    if (buffer.data) {
         ctx = EVP_MD_CTX_create();
         if (ctx) {
             rv = APR_ENOTIMPL;
             if (EVP_SignInit_ex(ctx, EVP_sha256(), NULL)) {
                 rv = APR_EGENERAL;
                 if (EVP_SignUpdate(ctx, d, dlen)) {
-                    if (EVP_SignFinal(ctx, (unsigned char*)buffer, &blen, pkey->pkey)) {
-                        sign64 = md_util_base64url_encode(buffer, blen, p);
+                    if (EVP_SignFinal(ctx, (unsigned char*)buffer.data, &blen, pkey->pkey)) {
+                        buffer.len = blen;
+                        sign64 = md_util_base64url_encode(&buffer, p);
                         if (sign64) {
                             rv = APR_SUCCESS;
                         }
@@ -626,7 +630,7 @@ apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, con
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = sha256_digest(&digest, p, d))) {
-        if (NULL == (digest64 = md_util_base64url_encode(digest->data, digest->len, p))) {
+        if (NULL == (digest64 = md_util_base64url_encode(digest, p))) {
             rv = APR_EGENERAL;
         }
     }
@@ -891,7 +895,7 @@ apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
-        *ps64 = md_util_base64url_encode(buffer.data, buffer.len, p);
+        *ps64 = md_util_base64url_encode(&buffer, p);
         return APR_SUCCESS;
     }
     *ps64 = NULL;
@@ -1253,12 +1257,13 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
                                 apr_array_header_t *domains, int must_staple, 
                                 md_pkey_t *pkey, apr_pool_t *p)
 {
-    const char *s, *csr_der, *csr_der_64 = NULL;
+    const char *s, *csr_der_64 = NULL;
     const unsigned char *domain;
     X509_REQ *csr;
     X509_NAME *n = NULL;
     STACK_OF(X509_EXTENSION) *exts = NULL;
     apr_status_t rv;
+    md_data_t csr_der;
     int csr_der_len;
     
     assert(domains->nelts > 0);
@@ -1310,12 +1315,13 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", name);
         rv = APR_EGENERAL; goto out;
     }
-    s = csr_der = apr_pcalloc(p, (apr_size_t)csr_der_len + 1);
+    csr_der.len = (apr_size_t)csr_der_len;
+    s = csr_der.data = apr_pcalloc(p, csr_der.len + 1);
     if (i2d_X509_REQ(csr, (unsigned char**)&s) != csr_der_len) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", name);
         rv = APR_EGENERAL; goto out;
     }
-    csr_der_64 = md_util_base64url_encode(csr_der, (apr_size_t)csr_der_len, p);
+    csr_der_64 = md_util_base64url_encode(&csr_der, p);
     rv = APR_SUCCESS;
     
 out:

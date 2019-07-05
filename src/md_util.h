@@ -46,6 +46,8 @@ struct md_data_t {
 md_data_t *md_data_make(apr_pool_t *p, apr_size_t len);
 md_data_t *md_data_create(apr_pool_t *p, const char *data, apr_size_t len);
 
+void md_data_assign_pcopy(md_data_t *dest, const md_data_t *src, apr_pool_t *p);
+
 apr_status_t md_data_to_hex(const char **phex, char separator,
                             apr_pool_t *p, const md_data_t *data);
 
@@ -185,9 +187,8 @@ apr_status_t md_text_freplace(const char *fpath, apr_fileperms_t perms,
 
 /**************************************************************************************************/
 /* base64 url encodings */
-const char *md_util_base64url_encode(const char *data, 
-                                     apr_size_t len, apr_pool_t *pool);
-apr_size_t md_util_base64url_decode(const char **decoded, const char *encoded, 
+const char *md_util_base64url_encode(const md_data_t *data, apr_pool_t *pool);
+apr_size_t md_util_base64url_decode(md_data_t *decoded, const char *encoded, 
                                     apr_pool_t *pool);
 
 /**************************************************************************************************/
