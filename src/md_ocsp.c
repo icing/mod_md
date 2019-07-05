@@ -24,6 +24,7 @@
 #include <apr_time.h>
 #include <apr_date.h>
 #include <apr_strings.h>
+#include <apr_thread_mutex.h>
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
@@ -51,6 +52,8 @@ struct md_ocsp_reg_t {
     const char *user_agent;
     const char *proxy_url;
     apr_hash_t *hash;
+    apr_thread_mutex_t *mutex;
+    md_timeslice_t renew_window;
 };
 
 typedef struct md_ocsp_status_t md_ocsp_status_t; 
@@ -115,23 +118,55 @@ static int ostat_cleanup(void *ctx, const void *key, apr_ssize_t klen, const voi
     return 1;
 }
 
-        
-static void ostat_set(md_ocsp_status_t *ostat, md_data_t *der, md_timeperiod_t *valid)
+static apr_time_t ostat_get_renew_start(md_ocsp_status_t *ostat)
 {
+    md_timeperiod_t renewal;
+    
+    renewal = md_timeperiod_slice_before_end(&ostat->resp_valid, &ostat->reg->renew_window);
+    return renewal.start;
+} 
+
+static int ostat_should_renew(md_ocsp_status_t *ostat) 
+{
+    md_timeperiod_t renewal;
+    
+    renewal = md_timeperiod_slice_before_end(&ostat->resp_valid, &ostat->reg->renew_window);
+    return md_timeperiod_has_started(&renewal, apr_time_now());
+}  
+
+static apr_status_t ostat_set(md_ocsp_status_t *ostat, 
+                              md_data_t *der, md_timeperiod_t *valid, int copy)
+{
+    apr_status_t rv = APR_SUCCESS;
+    char *s = (char*)der->data;
+    
+    if (der->len && copy) {
+        s = OPENSSL_malloc(der->len);
+        if (!s) {
+            rv = APR_ENOMEM;
+            goto leave;
+        }
+        memcpy((char*)s, der->data, der->len);
+    }
+ 
     if (ostat->resp_der.data) {
         OPENSSL_free((void*)ostat->resp_der.data);
         ostat->resp_der.data = NULL;
         ostat->resp_der.len = 0;
     }
-    ostat->resp_der = *der;
+    
+    ostat->resp_der.data = s;
+    ostat->resp_der.len = der->len;
     ostat->resp_valid = *valid;
+leave:
+    return rv;
 }
 
-static apr_status_t ostat_from_json(md_ocsp_status_t *ostat, md_json_t *json, apr_pool_t *p)
+static apr_status_t ostat_from_json(md_data_t *resp_der, md_timeperiod_t *resp_valid, 
+                                    md_json_t *json, apr_pool_t *p)
 {
     const char *s;
     md_timeperiod_t valid;
-    md_data_t der;
     apr_status_t rv = APR_ENOENT;
     
     s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
@@ -141,39 +176,34 @@ static apr_status_t ostat_from_json(md_ocsp_status_t *ostat, md_json_t *json, ap
     s = md_json_dups(p, json, MD_KEY_RESPONSE, NULL);
     if (!s || !*s) goto leave;
 
-    md_util_base64url_decode(&der, s, p);
-    if (!der.len) goto leave;
-    s = OPENSSL_malloc(der.len);
-    if (!s) goto leave;
-    memcpy((char*)s, der.data, der.len);
-    der.data = s;
-    ostat_set(ostat, &der, &valid);
+    md_util_base64url_decode(resp_der, s, p);
+    *resp_valid = valid;
 
 leave:
     return rv;
 }
 
-static void ostat_to_json(md_json_t *json, const md_ocsp_status_t *ostat, apr_pool_t *p)
+static void ostat_to_json(md_json_t *json, const md_data_t *resp_der, 
+                          const md_timeperiod_t *resp_valid, apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
 
-    (void)p;
-    md_json_sets(ostat->md_name, json, MD_KEY_NAME, NULL);
-    if (ostat->resp_der.len > 0) {
-        md_json_sets(md_util_base64url_encode(&ostat->resp_der, p), json, MD_KEY_RESPONSE, NULL);
+    if (resp_der->len > 0) {
+        md_json_sets(md_util_base64url_encode(resp_der, p), json, MD_KEY_RESPONSE, NULL);
         
-        if (ostat->resp_valid.start > 0) {
-            apr_rfc822_date(ts, ostat->resp_valid.start);
+        if (resp_valid->start > 0) {
+            apr_rfc822_date(ts, resp_valid->start);
             md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
         }
-        if (ostat->resp_valid.end > 0) {
-            apr_rfc822_date(ts, ostat->resp_valid.end);
+        if (resp_valid->end > 0) {
+            apr_rfc822_date(ts, resp_valid->end);
             md_json_sets(ts, json, MD_KEY_VALID_UNTIL, NULL);
         }
     }
 }
 
-static apr_status_t ocsp_status_reload(md_ocsp_status_t *ostat, apr_pool_t *ptemp)
+static apr_status_t ocsp_status_load(md_data_t *resp_der, md_timeperiod_t *resp_valid,
+                                     md_ocsp_status_t *ostat, apr_pool_t *ptemp)
 {
     md_store_t *store = ostat->reg->store;
     md_json_t *jprops;
@@ -181,19 +211,20 @@ static apr_status_t ocsp_status_reload(md_ocsp_status_t *ostat, apr_pool_t *ptem
     
     rv = md_store_load_json(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, &jprops, ptemp);
     if (APR_SUCCESS == rv) {
-        ostat_from_json(ostat, jprops, ptemp);
+        ostat_from_json(resp_der, resp_valid, jprops, ptemp);
     }
     return rv;
 }
 
-static apr_status_t ocsp_status_save(md_ocsp_status_t *ostat, apr_pool_t *ptemp)
+static apr_status_t ocsp_status_save(const md_data_t *resp_der, const md_timeperiod_t *resp_valid,
+                                     md_ocsp_status_t *ostat, apr_pool_t *ptemp)
 {
     md_store_t *store = ostat->reg->store;
     md_json_t *jprops;
     apr_status_t rv;
     
     jprops = md_json_create(ptemp);
-    ostat_to_json(jprops, ostat, ptemp);
+    ostat_to_json(jprops, resp_der, resp_valid, ptemp);
     rv = md_store_save_json(store, ptemp, MD_SG_OCSP, ostat->md_name, ostat->file_name, jprops, 0);
     return rv;
 }
@@ -208,6 +239,7 @@ static apr_status_t ocsp_reg_cleanup(void *data)
 }
 
 apr_status_t md_ocsp_reg_make(md_ocsp_reg_t **preg, apr_pool_t *p, md_store_t *store, 
+                              const md_timeslice_t *renew_window,
                               const char *user_agent, const char *proxy_url)
 {
     md_ocsp_reg_t *reg;
@@ -223,6 +255,11 @@ apr_status_t md_ocsp_reg_make(md_ocsp_reg_t **preg, apr_pool_t *p, md_store_t *s
     reg->user_agent = user_agent;
     reg->proxy_url = proxy_url;
     reg->hash = apr_hash_make(p);
+    reg->renew_window = *renew_window;
+    
+    rv = apr_thread_mutex_create(&reg->mutex, APR_THREAD_MUTEX_NESTED, p);
+    if (APR_SUCCESS != rv) goto leave;
+
     apr_pool_cleanup_register(p, reg, ocsp_reg_cleanup, apr_pool_cleanup_null);
 leave:
     *preg = (APR_SUCCESS == rv)? reg : NULL;
@@ -238,6 +275,7 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     md_data_t id;
     apr_status_t rv;
     
+    /* Called during post_config. no mutex protection needed */
     name = md? md->name : MD_OTHER;
     id.data = iddata; id.len = sizeof(iddata);
     
@@ -275,7 +313,7 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     }
     
     /* See, if we have something in store */
-    ocsp_status_reload(ostat, reg->p);
+    ocsp_status_load(&ostat->resp_der, &ostat->resp_valid, ostat, reg->p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
                   "md[%s]: adding ocsp info (responder=%s)", 
@@ -293,7 +331,10 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     char id[MD_OCSP_ID_LENGTH];
     md_ocsp_status_t *ostat;
     const char *name;
-    apr_status_t rv;
+    apr_status_t rv, rv2;
+    int locked = 0;
+    md_data_t resp_der;
+    md_timeperiod_t resp_valid;
     
     (void)p;
     (void)md;
@@ -309,19 +350,31 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
         goto leave;
     }
     
+    apr_thread_mutex_lock(reg->mutex);
+    locked = 1;
+    
     *pder = NULL;
     *pderlen = 0;
     if (ostat->resp_der.len <= 0) {
-        /* See, if we have something in store */
-        ocsp_status_reload(ostat, p);
+        /* No resonse, if we something arrived in store. */
+        memset(&resp_der, 0, sizeof(resp_der));
+        memset(&resp_valid, 0, sizeof(resp_valid));
+        rv2 = ocsp_status_load(&resp_der, &resp_valid, ostat, p);
+        if (APR_SUCCESS == rv2) {
+            ostat_set(ostat, &resp_der, &resp_valid, 1);
+        }
+        if (ostat->resp_der.len <= 0) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
+                          "md[%s]: OCSP, no response available", name);
+            goto leave;
+        }
     }
-
-    if (ostat->resp_der.len <= 0) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
-                      "md[%s]: OCSP, no response available", name);
-        goto leave;
+    /* We have a response */
+    if (ostat_should_renew(ostat)) {
+        /* But it is up for renewal, let's check the store now and then */
+        /* TODO: make timed attempts to read new data from store */
     }
-
+    
     *pder = OPENSSL_malloc(ostat->resp_der.len);
     if (*pder == NULL) {
         rv = APR_ENOMEM;
@@ -333,6 +386,7 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
                   "md[%s]: OCSP, returning %ld bytes of response", 
                   name, (long)ostat->resp_der.len);
 leave:
+    if (locked) apr_thread_mutex_unlock(reg->mutex);
     return rv;
 }
 
@@ -342,8 +396,8 @@ apr_size_t md_ocsp_count(md_ocsp_reg_t *reg)
 }
 
 typedef struct {
+    md_ocsp_reg_t *reg;
     apr_array_header_t *todos;
-    const md_timeslice_t *window;
     apr_time_t next_run;
     
     int max_parallel;
@@ -354,20 +408,21 @@ static int select_todos(void *baton, const void *key, apr_ssize_t klen, const vo
 {
     md_ocsp_todo_ctx_t *ctx = baton;
     md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
-    md_timeperiod_t renewal;
+    apr_time_t ts;
+    
     (void)key;
     (void)klen;
     if (ostat->resp_der.len == 0 || ostat->resp_valid.end == 0) {
         APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
         goto leave;
     }
-    renewal = md_timeperiod_slice_before_end(&ostat->resp_valid, ctx->window);
-    if (md_timeperiod_has_started(&renewal, apr_time_now())) {
+    if (ostat_should_renew(ostat)) {
         APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
         goto leave;
     }
-    if (renewal.start < ctx->next_run) {
-        ctx->next_run = renewal.start;
+    ts = ostat_get_renew_start(ostat);
+    if (ts < ctx->next_run) {
+        ctx->next_run = ts;
     }
 leave:
     return 1;
@@ -404,6 +459,8 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                   "req[%d]: OCSP respoonse: %d, cl=%s, ct=%s",  req->id, resp->status,
                   apr_table_get(resp->headers, "Content-Length"),
                   apr_table_get(resp->headers, "Content-Type"));
+    new_der.data = NULL;
+    new_der.len = 0;
     if (APR_SUCCESS == (rv = apr_brigade_pflatten(resp->body, &der, &der_len, req->pool))) {
         const unsigned char *bf = (const unsigned char*)der;
         
@@ -451,10 +508,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
         
         /* Coming here, we have a response for our certid and it is either GOOD
          * or REVOKED. Both cases we want to remember and use in stapling. */
-
-        /* First, update our memory entry in the hash */
-        new_der.data = NULL;
-        new_der.len = 0;
+        
         n = i2d_OCSP_RESPONSE(ocsp_resp, (unsigned char**)&new_der.data);
         if (n <= 0) {
             rv = APR_EGENERAL;
@@ -465,10 +519,14 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
         new_der.len = (apr_size_t)n;
         valid.start = bup? md_asn1_generalized_time_get(bup) : apr_time_now();
         valid.end = md_asn1_generalized_time_get(bnextup);
-        ostat_set(ostat, &new_der, &valid);
+
+        /* First, update the instance with a copy */
+        apr_thread_mutex_lock(ostat->reg->mutex);
+        ostat_set(ostat, &new_der, &valid, 1);
+        apr_thread_mutex_unlock(ostat->reg->mutex);
         
-        /* Next, write this data into the store where other processes will pick it up */
-        rv = ocsp_status_save(ostat, req->pool); 
+        /* Next, save the original response */
+        rv = ocsp_status_save(&new_der, &valid, ostat, req->pool); 
         if (APR_SUCCESS != rv) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, req->pool, 
                           "md[%s]: error saving OCSP status", ostat->md_name);
@@ -481,8 +539,8 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                       (long)ostat->resp_der.len);
     }
 
-    (void)ostat;
 leave:
+    if (new_der.data) OPENSSL_free((void*)new_der.data);
     if (basic_resp) OCSP_BASICRESP_free(basic_resp);
     if (ocsp_resp) OCSP_RESPONSE_free(ocsp_resp);
     return rv;
@@ -531,8 +589,7 @@ leave:
 }
 
 
-void md_ocsp_renew(md_ocsp_reg_t *reg, const md_timeslice_t *window, 
-                   apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run)
+void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run)
 {
     md_ocsp_todo_ctx_t ctx;
     md_http_t *http;
@@ -541,8 +598,8 @@ void md_ocsp_renew(md_ocsp_reg_t *reg, const md_timeslice_t *window,
     (void)p;
     (void)pnext_run;
     
+    ctx.reg = reg;
     ctx.todos = apr_array_make(ptemp, (int)md_ocsp_count(reg), sizeof(md_ocsp_status_t*));
-    ctx.window = window;
     ctx.next_run = *pnext_run;
     ctx.max_parallel = 6; /* the magic number in HTTP */
     

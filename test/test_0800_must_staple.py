@@ -84,7 +84,8 @@ class TestMustStaple:
         TestEnv.check_md_complete(domain)
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert not cert1.get_must_staple()
-        assert self.get_ocsp_status(domain) == "no response sent" 
+        stat = TestEnv.get_ocsp_status(domain)
+        assert stat['ocsp'] == "no response sent" 
 
     #-----------------------------------------------------------------------------------------------
     # MD that must staple and toggle off again
@@ -162,38 +163,7 @@ class TestMustStaple:
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert1.get_must_staple()
         # the mod_ssl OCSP Stapling implementation is configured, should report success
-        assert self.get_verify_response(domain) == "0 (ok)"
-        assert self.get_ocsp_status(domain) == "successful (0x0)" 
+        stat = TestEnv.await_ocsp_status(domain)
+        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['verify'] == "0 (ok)"
 
-    # --------- _utils_ ---------
-
-    def get_client_status(self, domain):
-        return TestEnv.run( [ "openssl", "s_client", "-status", 
-                          "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
-                          "-CAfile", "gen/ca.pem", 
-                          "-servername", domain,
-                          "-showcerts"
-                          ] )
-    
-    def get_ocsp_status(self, domain):
-        r = self.get_client_status( domain )
-        regex = re.compile(r'OCSP response: +([^=\n]+)\n')
-        matches = regex.finditer(r["stdout"])
-        for m in matches:
-            if m.group(1) != "":
-                return m.group(1)
-        regex = re.compile(r'OCSP Response Status:\s*(.+)')
-        matches = regex.finditer(r["stdout"])
-        for m in matches:
-            if m.group(1) != "":
-                return m.group(1)
-        return None
-        
-    def get_verify_response(self, domain):
-        r = self.get_client_status( domain )
-        regex = re.compile(r'Verify return code:\s*(.+)')
-        matches = regex.finditer(r["stdout"])
-        for m in matches:
-            if m.group(1) != "":
-                return m.group(1)
-        return None

@@ -61,41 +61,8 @@ class TestStapling:
         assert TestEnv.await_completion( [ domain ] )
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md_complete(domain)
-        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
-        # the mod_md stapling should report success
-        time.sleep(1)
-        assert self.get_verify_response(domain) == "0 (ok)"
-        assert self.get_ocsp_status(domain) == "successful (0x0)" 
+        # the mod_md stapling should report success, after a while
+        stat = TestEnv.await_ocsp_status(domain)
+        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['verify'] == "0 (ok)"
 
-    # --------- _utils_ ---------
-
-    def get_client_status(self, domain):
-        return TestEnv.run( [ "openssl", "s_client", "-status", 
-                          "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
-                          "-CAfile", "gen/ca.pem", 
-                          "-servername", domain,
-                          "-showcerts"
-                          ] )
-    
-    def get_ocsp_status(self, domain):
-        r = self.get_client_status( domain )
-        regex = re.compile(r'OCSP response: +([^=\n]+)\n')
-        matches = regex.finditer(r["stdout"])
-        for m in matches:
-            if m.group(1) != "":
-                return m.group(1)
-        regex = re.compile(r'OCSP Response Status:\s*(.+)')
-        matches = regex.finditer(r["stdout"])
-        for m in matches:
-            if m.group(1) != "":
-                return m.group(1)
-        return None
-        
-    def get_verify_response(self, domain):
-        r = self.get_client_status( domain )
-        regex = re.compile(r'Verify return code:\s*(.+)')
-        matches = regex.finditer(r["stdout"])
-        for m in matches:
-            if m.group(1) != "":
-                return m.group(1)
-        return None

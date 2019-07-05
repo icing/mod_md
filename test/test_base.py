@@ -651,6 +651,44 @@ class TestEnv:
         # staging
         cls.check_file_access( cls.store_stagings(), 0755 )
 
+    @classmethod
+    def get_ocsp_status( cls, domain ):
+        stat = {}
+        r = TestEnv.run( [ "openssl", "s_client", "-status", 
+                          "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
+                          "-CAfile", "gen/ca.pem", 
+                          "-servername", domain,
+                          "-showcerts"
+                          ] )
+        ocsp_regex = re.compile(r'OCSP response: +([^=\n]+)\n')
+        matches = ocsp_regex.finditer(r["stdout"])
+        for m in matches:
+            if m.group(1) != "":
+                stat['ocsp'] = m.group(1)
+        if not 'ocsp' in stat:
+            ocsp_regex = re.compile(r'OCSP Response Status:\s*(.+)')
+            matches = ocsp_regex.finditer(r["stdout"])
+            for m in matches:
+                if m.group(1) != "":
+                    stat['ocsp'] = m.group(1)
+        verify_regex = re.compile(r'Verify return code:\s*(.+)')
+        matches = verify_regex.finditer(r["stdout"])
+        for m in matches:
+            if m.group(1) != "":
+                stat['verify'] = m.group(1)
+        return stat
+
+    @classmethod
+    def await_ocsp_status( cls, domain, timeout=60 ):
+        try_until = time.time() + timeout
+        while True:
+            if time.time() >= try_until:
+                return False
+            stat = cls.get_ocsp_status(domain)
+            if 'ocsp' in stat and stat['ocsp'] != "no response sent":
+                return stat
+            time.sleep(0.1)
+        
 # -----------------------------------------------
 # --
 # --     dynamic httpd configuration

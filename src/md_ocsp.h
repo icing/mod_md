@@ -18,11 +18,13 @@
 #define md_ocsp_h
 
 struct md_store_t;
+struct md_timeslice_t;
 
 typedef struct md_ocsp_reg_t md_ocsp_reg_t;
 
-apr_status_t md_ocsp_reg_make(md_ocsp_reg_t **preg, apr_pool_t *p, 
+apr_status_t md_ocsp_reg_make(md_ocsp_reg_t **preg, apr_pool_t *p,
                               struct md_store_t *store, 
+                              const md_timeslice_t *renew_window,
                               const char *user_agent, const char *proxy_url);
 
 apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *x, 
@@ -34,7 +36,6 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
 
 apr_size_t md_ocsp_count(md_ocsp_reg_t *reg);
 
-void md_ocsp_renew(md_ocsp_reg_t *reg, const md_timeslice_t *window, 
-                   apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run);
+void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run);
 
 #endif /* md_ocsp_h */

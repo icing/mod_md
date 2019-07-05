@@ -106,8 +106,6 @@ struct md_ocsp_ctx_t {
     server_rec *s;
     md_mod_conf_t *mc;
     ap_watchdog_t *watchdog;
-    
-    const md_timeslice_t *renew_window;
 };
 
 static apr_time_t next_run_default(void)
@@ -143,7 +141,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
              * regular runs. */
             next_run = next_run_default();
             
-            md_ocsp_renew(octx->mc->ocsp, octx->renew_window, octx->p, ptemp, &next_run);
+            md_ocsp_renew(octx->mc->ocsp, octx->p, ptemp, &next_run);
             
             wait_time = next_run - apr_time_now();
             if (APLOGdebug(octx->s)) {
@@ -197,9 +195,6 @@ apr_status_t md_ocsp_start_watching(struct md_mod_conf_t *mc, server_rec *s, apr
     octx->p = octxp;
     octx->s = s;
     octx->mc = mc;
-    /* renew on 30% remaining /*/
-    md_timeslice_create(&octx->renew_window, octx->p, 
-                        apr_time_from_sec(100 * 3600), apr_time_from_sec(30 * 3600)); 
     
     /* TODO: make sure that store is prepped, has correct permissions and
      * perform house-keeping, such as removing OCSP responses no longer used
