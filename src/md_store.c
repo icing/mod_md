@@ -146,6 +146,12 @@ int md_store_is_newer(md_store_t *store, md_store_group_t group1, md_store_group
     return store->is_newer(store, group1, group2, name, aspect, p);
 }
 
+apr_time_t md_store_get_modified(md_store_t *store, md_store_group_t group,  
+                                 const char *name, const char *aspect, apr_pool_t *p)
+{
+    return store->get_modified(store, group, name, aspect, p);
+}
+
 apr_status_t md_store_iter_names(md_store_inspect *inspect, void *baton, md_store_t *store, 
                                  apr_pool_t *p, md_store_group_t group, const char *pattern)
 {

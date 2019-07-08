@@ -1,3 +1,4 @@
+ * ocsp responses up for renewal are checked periodically for updates in the store.
  * ocsp responses are now saved in and retrieved from store. Concurrent access in place, timed
    invalidation handling still missing.
  * first own ocsp test successful.

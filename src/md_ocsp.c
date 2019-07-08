@@ -71,6 +71,9 @@ struct md_ocsp_status_t {
 
     const char *md_name;
     const char *file_name;
+    
+    apr_time_t resp_mtime;
+    apr_time_t resp_last_check;
 };
 
 static apr_status_t init_cert_id(char *buffer, apr_size_t len, md_cert_t *cert)
@@ -135,12 +138,12 @@ static int ostat_should_renew(md_ocsp_status_t *ostat)
 }  
 
 static apr_status_t ostat_set(md_ocsp_status_t *ostat, 
-                              md_data_t *der, md_timeperiod_t *valid, int copy)
+                              md_data_t *der, md_timeperiod_t *valid)
 {
     apr_status_t rv = APR_SUCCESS;
     char *s = (char*)der->data;
     
-    if (der->len && copy) {
+    if (der->len) {
         s = OPENSSL_malloc(der->len);
         if (!s) {
             rv = APR_ENOMEM;
@@ -169,6 +172,8 @@ static apr_status_t ostat_from_json(md_data_t *resp_der, md_timeperiod_t *resp_v
     md_timeperiod_t valid;
     apr_status_t rv = APR_ENOENT;
     
+    memset(resp_der, 0, sizeof(*resp_der));
+    memset(resp_valid, 0, sizeof(*resp_valid));
     s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
     if (s && *s) valid.start = apr_date_parse_rfc(s);
     s = md_json_dups(p, json, MD_KEY_VALID_UNTIL, NULL);
@@ -178,7 +183,7 @@ static apr_status_t ostat_from_json(md_data_t *resp_der, md_timeperiod_t *resp_v
 
     md_util_base64url_decode(resp_der, s, p);
     *resp_valid = valid;
-
+    rv = APR_SUCCESS;
 leave:
     return rv;
 }
@@ -202,19 +207,28 @@ static void ostat_to_json(md_json_t *json, const md_data_t *resp_der,
     }
 }
 
-static apr_status_t ocsp_status_load(md_data_t *resp_der, md_timeperiod_t *resp_valid,
-                                     md_ocsp_status_t *ostat, apr_pool_t *ptemp)
+static apr_status_t ocsp_status_refresh(md_ocsp_status_t *ostat, apr_pool_t *ptemp)
 {
     md_store_t *store = ostat->reg->store;
     md_json_t *jprops;
-    apr_status_t rv;
+    apr_time_t mtime;
+    apr_status_t rv = APR_EAGAIN;
+    md_data_t resp_der;
+    md_timeperiod_t resp_valid;
     
+    mtime = md_store_get_modified(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, ptemp);
+    if (mtime <= ostat->resp_mtime) goto leave;
     rv = md_store_load_json(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, &jprops, ptemp);
-    if (APR_SUCCESS == rv) {
-        ostat_from_json(resp_der, resp_valid, jprops, ptemp);
-    }
+    if (APR_SUCCESS != rv) goto leave;
+    rv = ostat_from_json(&resp_der, &resp_valid, jprops, ptemp);
+    if (APR_SUCCESS != rv) goto leave;
+    rv = ostat_set(ostat, &resp_der, &resp_valid);
+    if (APR_SUCCESS != rv) goto leave;
+    ostat->resp_mtime = mtime;
+leave:
     return rv;
 }
+
 
 static apr_status_t ocsp_status_save(const md_data_t *resp_der, const md_timeperiod_t *resp_valid,
                                      md_ocsp_status_t *ostat, apr_pool_t *ptemp)
@@ -313,7 +327,7 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     }
     
     /* See, if we have something in store */
-    ocsp_status_load(&ostat->resp_der, &ostat->resp_valid, ostat, reg->p);
+    ocsp_status_refresh(ostat, reg->p);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
                   "md[%s]: adding ocsp info (responder=%s)", 
@@ -333,8 +347,6 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     const char *name;
     apr_status_t rv, rv2;
     int locked = 0;
-    md_data_t resp_der;
-    md_timeperiod_t resp_valid;
     
     (void)p;
     (void)md;
@@ -350,19 +362,18 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
         goto leave;
     }
     
+    /* While the ostat instance itself always exists, the response data it holds
+     * may vary over time and we need locked access to make a copy. */
     apr_thread_mutex_lock(reg->mutex);
     locked = 1;
     
     *pder = NULL;
     *pderlen = 0;
     if (ostat->resp_der.len <= 0) {
-        /* No resonse, if we something arrived in store. */
-        memset(&resp_der, 0, sizeof(resp_der));
-        memset(&resp_valid, 0, sizeof(resp_valid));
-        rv2 = ocsp_status_load(&resp_der, &resp_valid, ostat, p);
-        if (APR_SUCCESS == rv2) {
-            ostat_set(ostat, &resp_der, &resp_valid, 1);
-        }
+        /* No resonse known, check the store if out watchdog retrieved one 
+         * in the meantime. */
+        
+        rv2 = ocsp_status_refresh(ostat, p);
         if (ostat->resp_der.len <= 0) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
                           "md[%s]: OCSP, no response available", name);
@@ -371,8 +382,22 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     }
     /* We have a response */
     if (ostat_should_renew(ostat)) {
-        /* But it is up for renewal, let's check the store now and then */
-        /* TODO: make timed attempts to read new data from store */
+        /* But it is up for renewal. A watchdog should be busy with
+         * retrieving a new one. In case of outages, this might take
+         * a while, however. Pace the frequency of checks with the
+         * urgency of a new response based on the remaining time. */
+        md_timeperiod_t rem = md_timeperiod_remaining(&ostat->resp_valid, apr_time_now());
+        long seconds = apr_time_sec(md_timeperiod_length(&rem));
+        apr_time_t waiting_time; 
+        
+        /* every hour, every minute, every second */
+        waiting_time = ((seconds >= MD_SECS_PER_DAY)?
+                        apr_time_from_sec(60 * 60) : ((seconds >= 60)? 
+                        apr_time_from_sec(60) : apr_time_from_sec(1)));
+        if ((apr_time_now() - ostat->resp_last_check) >= waiting_time) {
+            ostat->resp_last_check = apr_time_now();
+            ocsp_status_refresh(ostat, p);
+        }
     }
     
     *pder = OPENSSL_malloc(ostat->resp_der.len);
@@ -522,7 +547,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
 
         /* First, update the instance with a copy */
         apr_thread_mutex_lock(ostat->reg->mutex);
-        ostat_set(ostat, &new_der, &valid, 1);
+        ostat_set(ostat, &new_der, &valid);
         apr_thread_mutex_unlock(ostat->reg->mutex);
         
         /* Next, save the original response */

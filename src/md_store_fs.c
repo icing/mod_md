@@ -93,6 +93,9 @@ static apr_status_t fs_get_fname(const char **pfname,
 static int fs_is_newer(md_store_t *store, md_store_group_t group1, md_store_group_t group2,  
                        const char *name, const char *aspect, apr_pool_t *p);
 
+static apr_time_t fs_get_modified(md_store_t *store, md_store_group_t group,  
+                                  const char *name, const char *aspect, apr_pool_t *p);
+
 static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname, 
                                     apr_pool_t *p, apr_pool_t *ptemp)
 {
@@ -281,6 +284,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.iterate_names = fs_iterate_names;
     s_fs->s.get_fname = fs_get_fname;
     s_fs->s.is_newer = fs_is_newer;
+    s_fs->s.get_modified = fs_get_modified;
     
     /* by default, everything is only readable by the current user */ 
     s_fs->def_perms.dir = MD_FPROT_D_UONLY;
@@ -522,7 +526,6 @@ static apr_status_t pfs_is_newer(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
     return rv;
 }
 
- 
 static int fs_is_newer(md_store_t *store, md_store_group_t group1, md_store_group_t group2,  
                        const char *name, const char *aspect, apr_pool_t *p)
 {
@@ -537,6 +540,44 @@ static int fs_is_newer(md_store_t *store, md_store_group_t group1, md_store_grou
     return 0;
 }
 
+static apr_status_t pfs_get_modified(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *fname, *name, *aspect;
+    md_store_group_t group;
+    apr_finfo_t inf;
+    apr_time_t *pmtime;
+    apr_status_t rv;
+    
+    (void)p;
+    group = (md_store_group_t)va_arg(ap, int);
+    name = va_arg(ap, const char*);
+    aspect = va_arg(ap, const char*);
+    pmtime = va_arg(ap, apr_time_t*);
+    
+    *pmtime = 0;
+    if (   MD_OK(fs_get_fname(&fname, &s_fs->s, group, name, aspect, ptemp))
+        && MD_OK(apr_stat(&inf, fname, APR_FINFO_MTIME, ptemp))) {
+        *pmtime = inf.mtime;
+    }
+
+    return rv;
+}
+
+static apr_time_t fs_get_modified(md_store_t *store, md_store_group_t group,  
+                                  const char *name, const char *aspect, apr_pool_t *p)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    apr_time_t mtime;
+    apr_status_t rv;
+    
+    rv = md_util_pool_vdo(pfs_get_modified, s_fs, p, group, name, aspect, &mtime, NULL);
+    if (APR_SUCCESS == rv) {
+        return mtime;
+    }
+    return 0;
+}
+ 
 static apr_status_t pfs_save(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
 {
     md_store_fs_t *s_fs = baton;
