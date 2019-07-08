@@ -358,7 +358,7 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     char id[MD_OCSP_ID_LENGTH];
     md_ocsp_status_t *ostat;
     const char *name;
-    apr_status_t rv, rv2;
+    apr_status_t rv;
     int locked = 0;
     
     (void)p;
@@ -386,7 +386,7 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
         /* No resonse known, check the store if out watchdog retrieved one 
          * in the meantime. */
         
-        rv2 = ocsp_status_refresh(ostat, p);
+        ocsp_status_refresh(ostat, p);
         if (ostat->resp_der.len <= 0) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
                           "md[%s]: OCSP, no response available", name);
@@ -399,7 +399,7 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
          * retrieving a new one. In case of outages, this might take
          * a while, however. Pace the frequency of checks with the
          * urgency of a new response based on the remaining time. */
-        long secs = apr_time_sec(md_timeperiod_remaining(&ostat->resp_valid, apr_time_now()));
+        long secs = (long)apr_time_sec(md_timeperiod_remaining(&ostat->resp_valid, apr_time_now()));
         apr_time_t waiting_time; 
         
         /* every hour, every minute, every second */

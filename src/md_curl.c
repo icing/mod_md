@@ -179,13 +179,13 @@ static int curlify_headers(void *baton, const char *key, const char *value)
  * timeout, return at least 1 if the apr_time_t value is non-zero. */
 static long timeout_msec(apr_time_t timeout)
 {
-    long ms = apr_time_as_msec(timeout);
+    long ms = (long)apr_time_as_msec(timeout);
     return ms? ms : (timeout? 1 : 0);
 }
 
 static long timeout_sec(apr_time_t timeout)
 {
-    long s = apr_time_sec(timeout);
+    long s = (long)apr_time_sec(timeout);
     return s? s : (timeout? 1 : 0);
 }
 
@@ -425,7 +425,7 @@ static apr_status_t md_curl_multi_perform(md_http_t *http, apr_pool_t *p,
     CURLMcode mc;
     struct CURLMsg *curlmsg;
     apr_array_header_t *requests;
-    int i, n, running, numfds, slowdown, msgcount;
+    int i, running, numfds, slowdown, msgcount;
     apr_status_t rv;
     
     requests = apr_array_make(p, 10, sizeof(md_http_request_t*));
@@ -520,7 +520,7 @@ static apr_status_t md_curl_multi_perform(md_http_t *http, apr_pool_t *p,
 leave:
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, 
                   "multi_perform[%d reqs]: leaving", requests->nelts);
-    for (n = 0, i = 0; i < requests->nelts; ++i) {
+    for (i = 0; i < requests->nelts; ++i) {
         req = APR_ARRAY_IDX(requests, i, md_http_request_t*);
         fire_status(req, APR_SUCCESS);
         remove_from_curlm(req, curlm);
