@@ -44,14 +44,11 @@ int md_timeperiod_has_ended(const md_timeperiod_t *period, apr_time_t time)
     return (time >= period->start) && (time <= period->end);
 }
 
-md_timeperiod_t md_timeperiod_remaining(const md_timeperiod_t *period, apr_time_t time)
+apr_interval_time_t md_timeperiod_remaining(const md_timeperiod_t *period, apr_time_t time)
 {
-    md_timeperiod_t rem;
-    
-    if (time < period->start) return *period;
-    rem.start = (time < period->end)? time : period->end;
-    rem.end = period->end;
-    return rem;
+    if (time < period->start) return md_timeperiod_length(period);
+    if (time < period->end) return period->end - time;
+    return 0;
 }
 
 char *md_timeperiod_print(apr_pool_t *p, const md_timeperiod_t *period)

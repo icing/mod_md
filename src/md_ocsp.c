@@ -61,6 +61,9 @@ struct md_ocsp_status_t {
     md_data_t id;
     OCSP_CERTID *certid;
     const char *responder_url;
+    
+    apr_time_t next_retrieve; /* when the responder shall be asked again */
+    int errors;               /* consecutive failed attempts */
 
     md_data_t resp_der;
     md_timeperiod_t resp_valid;
@@ -74,6 +77,7 @@ struct md_ocsp_status_t {
     
     apr_time_t resp_mtime;
     apr_time_t resp_last_check;
+    
 };
 
 static apr_status_t init_cert_id(char *buffer, apr_size_t len, md_cert_t *cert)
@@ -137,8 +141,8 @@ static int ostat_should_renew(md_ocsp_status_t *ostat)
     return md_timeperiod_has_started(&renewal, apr_time_now());
 }  
 
-static apr_status_t ostat_set(md_ocsp_status_t *ostat, 
-                              md_data_t *der, md_timeperiod_t *valid)
+static apr_status_t ostat_set(md_ocsp_status_t *ostat, md_data_t *der, 
+                              md_timeperiod_t *valid, apr_time_t mtime)
 {
     apr_status_t rv = APR_SUCCESS;
     char *s = (char*)der->data;
@@ -161,6 +165,11 @@ static apr_status_t ostat_set(md_ocsp_status_t *ostat,
     ostat->resp_der.data = s;
     ostat->resp_der.len = der->len;
     ostat->resp_valid = *valid;
+    ostat->resp_mtime = mtime;
+    
+    ostat->errors = 0;
+    ostat->next_retrieve = ostat_get_renew_start(ostat);
+    
 leave:
     return rv;
 }
@@ -222,9 +231,8 @@ static apr_status_t ocsp_status_refresh(md_ocsp_status_t *ostat, apr_pool_t *pte
     if (APR_SUCCESS != rv) goto leave;
     rv = ostat_from_json(&resp_der, &resp_valid, jprops, ptemp);
     if (APR_SUCCESS != rv) goto leave;
-    rv = ostat_set(ostat, &resp_der, &resp_valid);
+    rv = ostat_set(ostat, &resp_der, &resp_valid, mtime);
     if (APR_SUCCESS != rv) goto leave;
-    ostat->resp_mtime = mtime;
 leave:
     return rv;
 }
@@ -235,11 +243,16 @@ static apr_status_t ocsp_status_save(const md_data_t *resp_der, const md_timeper
 {
     md_store_t *store = ostat->reg->store;
     md_json_t *jprops;
+    apr_time_t mtime;
     apr_status_t rv;
     
     jprops = md_json_create(ptemp);
     ostat_to_json(jprops, resp_der, resp_valid, ptemp);
     rv = md_store_save_json(store, ptemp, MD_SG_OCSP, ostat->md_name, ostat->file_name, jprops, 0);
+    if (APR_SUCCESS != rv) goto leave;
+    mtime = md_store_get_modified(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, ptemp);
+    if (mtime) ostat->resp_mtime = mtime;
+leave:
     return rv;
 }
 
@@ -386,13 +399,12 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
          * retrieving a new one. In case of outages, this might take
          * a while, however. Pace the frequency of checks with the
          * urgency of a new response based on the remaining time. */
-        md_timeperiod_t rem = md_timeperiod_remaining(&ostat->resp_valid, apr_time_now());
-        long seconds = apr_time_sec(md_timeperiod_length(&rem));
+        long secs = apr_time_sec(md_timeperiod_remaining(&ostat->resp_valid, apr_time_now()));
         apr_time_t waiting_time; 
         
         /* every hour, every minute, every second */
-        waiting_time = ((seconds >= MD_SECS_PER_DAY)?
-                        apr_time_from_sec(60 * 60) : ((seconds >= 60)? 
+        waiting_time = ((secs >= MD_SECS_PER_DAY)?
+                        apr_time_from_sec(60 * 60) : ((secs >= 60)? 
                         apr_time_from_sec(60) : apr_time_from_sec(1)));
         if ((apr_time_now() - ostat->resp_last_check) >= waiting_time) {
             ostat->resp_last_check = apr_time_now();
@@ -428,43 +440,6 @@ typedef struct {
     int max_parallel;
 } md_ocsp_todo_ctx_t;
 
-
-static int select_todos(void *baton, const void *key, apr_ssize_t klen, const void *val)
-{
-    md_ocsp_todo_ctx_t *ctx = baton;
-    md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
-    apr_time_t ts;
-    
-    (void)key;
-    (void)klen;
-    if (ostat->resp_der.len == 0 || ostat->resp_valid.end == 0) {
-        APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
-        goto leave;
-    }
-    if (ostat_should_renew(ostat)) {
-        APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
-        goto leave;
-    }
-    ts = ostat_get_renew_start(ostat);
-    if (ts < ctx->next_run) {
-        ctx->next_run = ts;
-    }
-leave:
-    return 1;
-}
-
-static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status_t status, 
-                                        void *baton)
-{
-    md_ocsp_status_t *ostat = baton;
-
-    if (APR_SUCCESS != status) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, status, req->pool, 
-                      "req[%d]: status failed",  req->id);
-    }
-    ostat_req_cleanup(ostat);
-    return APR_SUCCESS;
-}
 
 static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
 {
@@ -547,7 +522,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
 
         /* First, update the instance with a copy */
         apr_thread_mutex_lock(ostat->reg->mutex);
-        ostat_set(ostat, &new_der, &valid);
+        ostat_set(ostat, &new_der, &valid, apr_time_now());
         apr_thread_mutex_unlock(ostat->reg->mutex);
         
         /* Next, save the original response */
@@ -571,6 +546,20 @@ leave:
     return rv;
 }
 
+static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status_t status, 
+                                        void *baton)
+{
+    md_ocsp_status_t *ostat = baton;
+
+    if (APR_SUCCESS != status) {
+        ++ostat->errors;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, status, req->pool, 
+                      "md[%s]: OCSP status update failed (%d. time)",  
+                      ostat->md_name, ostat->errors);
+    }
+    ostat_req_cleanup(ostat);
+    return APR_SUCCESS;
+}
 
 static apr_status_t next_todo(md_http_request_t **preq, void *baton, 
                               md_http_t *http, int in_flight)
@@ -613,6 +602,41 @@ leave:
     return rv;
 }
 
+static int select_todos(void *baton, const void *key, apr_ssize_t klen, const void *val)
+{
+    md_ocsp_todo_ctx_t *ctx = baton;
+    md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
+    
+    (void)key;
+    (void)klen;
+    if (ostat->next_retrieve <= apr_time_now()) {
+        APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
+    }
+    return 1;
+}
+
+static int select_next_run(void *baton, const void *key, apr_ssize_t klen, const void *val)
+{
+    md_ocsp_todo_ctx_t *ctx = baton;
+    md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
+    apr_time_t now;
+    
+    (void)key;
+    (void)klen;
+    /* when does this need to retrieve again? */
+    now = apr_time_now();
+    ostat->next_retrieve = ostat_get_renew_start(ostat);
+    if (ostat->next_retrieve < now) {
+        ostat->next_retrieve = now + apr_time_from_sec(1);
+        if (ostat->errors > 0){
+            ostat->next_retrieve += apr_time_from_sec(1 << (ostat->errors > 10? 10 : ostat->errors));
+        }
+    }
+    if (ostat->next_retrieve < ctx->next_run) {
+        ctx->next_run = ostat->next_retrieve;
+    }
+    return 1;
+}
 
 void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run)
 {
@@ -637,6 +661,9 @@ void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_tim
     if (APR_SUCCESS != rv) goto leave;
     
     rv = md_http_multi_perform(http, next_todo, &ctx);
+
+    apr_hash_do(select_next_run, &ctx, reg->hash);
+    *pnext_run = ctx.next_run;
     
 leave:
     if (APR_SUCCESS != rv) {
