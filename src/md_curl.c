@@ -189,7 +189,7 @@ static apr_status_t curl_perform(md_http_request_t *req)
     CURL *curl;
     struct curl_slist *req_hdrs = NULL;
 
-    if (APR_SUCCESS != (rv = curl_init(req))) return rv;
+    rv = curl_init(req);
     curl = req->internals;
     
     res = apr_pcalloc(req->pool, sizeof(*res));

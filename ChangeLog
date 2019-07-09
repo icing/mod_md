@@ -1,3 +1,6 @@
+ * fixing a crash when authentication status was deemed invalid by CA.
+ * bringing back some internal changes from apache svn.
+
 v2.0.6
 ----------------------------------------------------------------------------------------------------
  * MDs with static certificate (MDCertificateFile) are not auto-renewed. But they are watched

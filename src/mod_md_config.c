@@ -897,12 +897,6 @@ apr_status_t md_config_post_config(server_rec *s, apr_pool_t *p)
     if (mc->hsts_max_age > 0) {
         mc->hsts_header = apr_psprintf(p, "max-age=%d", mc->hsts_max_age);
     }
-
-#if AP_MODULE_MAGIC_AT_LEAST(20180906, 2)
-    if (mc->base_dir == NULL) {
-        mc->base_dir = ap_state_dir_relative(p, MD_DEFAULT_BASE_DIR);
-    }
-#endif
     
     return APR_SUCCESS;
 }
