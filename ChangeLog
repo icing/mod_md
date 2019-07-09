@@ -1,3 +1,6 @@
+v2.0.7
+----------------------------------------------------------------------------------------------------
+ * supports the new mod_ssl hooks for interworking
  * fixing a crash when authentication status was deemed invalid by CA.
  * bringing back some internal changes from apache svn.
 
