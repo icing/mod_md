@@ -51,7 +51,7 @@ static int staple_here(md_srv_conf_t *sc)
 }
 
 apr_status_t md_ocsp_init_stapling_status(server_rec *s, apr_pool_t *p, 
-                                          void *x509cert, void *x509issuer)
+                                          X509 *cert, X509 *issuer)
 {
     md_srv_conf_t *sc;
     const md_t *md;
@@ -62,14 +62,14 @@ apr_status_t md_ocsp_init_stapling_status(server_rec *s, apr_pool_t *p,
     md = sc->assigned;
     ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, s, "init stapling for: %s", 
                  md? md->name : s->server_hostname);
-    return md_ocsp_prime(sc->mc->ocsp, md_cert_wrap(p, x509cert), 
-                         md_cert_wrap(p, x509issuer), md);
+    return md_ocsp_prime(sc->mc->ocsp, md_cert_wrap(p, cert), 
+                         md_cert_wrap(p, issuer), md);
 declined:
     return DECLINED;
 }
 
 apr_status_t md_ocsp_get_stapling_status(unsigned char **pder, int *pderlen, 
-                                         conn_rec *c, server_rec *s, void *x509cert)
+                                         conn_rec *c, server_rec *s, X509 *cert)
 {
     md_srv_conf_t *sc;
     const md_t *md;
@@ -82,7 +82,7 @@ apr_status_t md_ocsp_get_stapling_status(unsigned char **pder, int *pderlen,
     ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, c, "get stapling for: %s", 
                   md? md->name : s->server_hostname);
     rv = md_ocsp_get_status(pder, pderlen, sc->mc->ocsp, 
-                            md_cert_wrap(c->pool, x509cert), c->pool, md);
+                            md_cert_wrap(c->pool, cert), c->pool, md);
     if (APR_STATUS_IS_ENOENT(rv)) goto declined;
     return rv;
     
