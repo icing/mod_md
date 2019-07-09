@@ -144,12 +144,30 @@ apr_status_t md_acme_authz_retrieve(md_acme_t *acme, apr_pool_t *p, const char *
     return rv;
 }
 
+typedef struct {
+    apr_pool_t *p;
+    md_acme_authz_t *authz;
+} error_ctx_t;
+
+static int copy_challenge_error(void *baton, size_t index, md_json_t *json)
+{
+    error_ctx_t *ctx = baton;
+    
+    (void)index;
+    if (md_json_has_key(json, MD_KEY_ERROR, NULL)) {
+        ctx->authz->error_type = md_json_dups(ctx->p, json, MD_KEY_ERROR, MD_KEY_TYPE, NULL);
+        ctx->authz->error_detail = md_json_dups(ctx->p, json, MD_KEY_ERROR, MD_KEY_DETAIL, NULL);
+    }
+    return 1;
+}
+
 apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_pool_t *p)
 {
     md_json_t *json;
     const char *s, *err;
     md_log_level_t log_level;
     apr_status_t rv;
+    error_ctx_t ctx;
     
     assert(acme);
     assert(acme->http);
@@ -158,6 +176,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_p
 
     authz->state = MD_ACME_AUTHZ_S_UNKNOWN;
     json = NULL;
+    authz->error_type = authz->error_detail = NULL;
     err = "unable to parse response";
     log_level = MD_LOG_ERR;
     
@@ -177,7 +196,10 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_p
             log_level = MD_LOG_DEBUG;
         }
         else if (!strcmp(s, "invalid")) {
+            ctx.p = p;
+            ctx.authz = authz;
             authz->state = MD_ACME_AUTHZ_S_INVALID;
+            md_json_itera(copy_challenge_error, &ctx, json, MD_KEY_CHALLENGES, NULL);
             err = "challenge 'invalid'";
         }
     }

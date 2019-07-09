@@ -145,6 +145,7 @@ struct md_t {
 #define MD_KEY_DOMAINS          "domains"
 #define MD_KEY_ENTRIES          "entries"
 #define MD_KEY_ERRORED          "errored"
+#define MD_KEY_ERROR            "error"
 #define MD_KEY_ERRORS           "errors"
 #define MD_KEY_EXPIRES          "expires"
 #define MD_KEY_FINALIZE         "finalize"

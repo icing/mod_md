@@ -1,3 +1,4 @@
+ * CA reported problems when authorization challenges fail are now visible in the renewal log.
  * backoff timing for failed ocsp retrieval attempts. specific ocsp update will be
    delayed accordingly.
  * ocsp responses up for renewal are checked periodically for updates in the store.
