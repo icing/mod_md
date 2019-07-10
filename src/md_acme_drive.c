@@ -623,8 +623,14 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
 
         rv = md_reg_get_cred_files(&keyfile, &certfile, d->reg, MD_SG_STAGING, d->md, d->p);
         if (APR_SUCCESS == rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: all data staged", d->md->name);
-            goto ready;
+            if (md_array_is_empty(ad->certs)
+                && APR_SUCCESS == md_pubcert_load(d->store, MD_SG_STAGING, d->md->name, &staged_certs, d->p)) {
+                apr_array_cat(ad->certs, staged_certs);
+            }
+            if (!md_array_is_empty(ad->certs)) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: all data staged", d->md->name);
+                goto ready;
+            }
         }
     }
     

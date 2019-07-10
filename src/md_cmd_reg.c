@@ -254,7 +254,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
     
     reset = md_cmd_ctx_has_option(ctx, "reset");  
     force = md_cmd_ctx_has_option(ctx, "force");
-    result = md_result_md_make(ctx->p, md);
+    result = md_result_md_make(ctx->p, md->name);
     
     if (md->state == MD_S_ERROR) {
         md_result_printf(result, APR_EGENERAL, "in error state. Please check the server "

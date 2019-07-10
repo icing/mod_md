@@ -42,6 +42,8 @@ struct md_pkey_spec_t;
 #define MD_TIME_RENEW_WINDOW_DEF    (apr_time_from_sec(33 * MD_SECS_PER_DAY))
 #define MD_TIME_WARN_WINDOW_DEF     (apr_time_from_sec(10 * MD_SECS_PER_DAY))
 
+#define MD_OTHER                "other"
+
 typedef enum {
     MD_S_UNKNOWN = 0,               /* MD has not been analysed yet */
     MD_S_INCOMPLETE = 1,            /* MD is missing necessary information, cannot go live */

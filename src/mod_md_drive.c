@@ -102,7 +102,7 @@ static void job_result_update(md_result_t *result, void *data)
             md_job_log_append(ctx->job, "progress", NULL, msg);
 
             if (apr_time_as_msec(now - ctx->last_save) > 500) {
-                md_job_save(ctx->job, ctx->reg, MD_SG_STAGING, result, ctx->p);
+                md_job_save(ctx->job, md_reg_store_get(ctx->reg), MD_SG_STAGING, result, ctx->p);
                 ctx->last_save = now;
             }
         }
@@ -129,27 +129,13 @@ static void job_result_observation_end(md_job_t *job, md_result_t *result)
     md_result_on_change(result, NULL, NULL);
 } 
 
-static apr_time_t calc_err_delay(int err_count)
-{
-    apr_time_t delay = 0;
-    
-    if (err_count > 0) {
-        /* back off duration, depending on the errors we encounter in a row */
-        delay = apr_time_from_sec(5 << (err_count - 1));
-        if (delay > apr_time_from_sec(60*60)) {
-            delay = apr_time_from_sec(60*60);
-        }
-    }
-    return delay;
-}
-
-static apr_status_t send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
-                                      const char *reason, md_result_t *result, apr_pool_t *ptemp)
+static void send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
+                              const char *reason, md_result_t *result, apr_pool_t *ptemp)
 {
     const char * const *argv;
     const char *cmdline;
     int exit_code;
-    apr_status_t rv;            
+    apr_status_t rv;
     
     if (!strcmp("renewed", reason)) {
         if (dctx->mc->notify_cmd) {
@@ -159,13 +145,12 @@ static apr_status_t send_notification(md_renew_ctx_t *dctx, md_job_t *job, const
             
             if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
             if (APR_SUCCESS != rv) {
-                if (!result) result = md_result_make(ptemp, rv);
                 md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10108)), 
                                          "MDNotifyCmd %s failed with exit code %d.", 
                                          dctx->mc->notify_cmd, exit_code);
                 md_result_log(result, MD_LOG_ERR);
                 md_job_log_append(job, "notify-error", result->problem, result->detail);
-                goto leave;
+                return;
             }
         }
         ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
@@ -180,20 +165,18 @@ static apr_status_t send_notification(md_renew_ctx_t *dctx, md_job_t *job, const
         
         if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
         if (APR_SUCCESS != rv) {
-            if (!result) result = md_result_make(ptemp, rv);
             md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10109)), 
                                      "MDMessageCmd %s failed with exit code %d.", 
                                      dctx->mc->notify_cmd, exit_code);
             md_result_log(result, MD_LOG_ERR);
             md_job_log_append(job, "message-error", reason, result->detail);
-            goto leave;
+            return;
         }
     }
-leave:
-    return rv;
 }
 
-static void check_expiration(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, apr_pool_t *ptemp)
+static void check_expiration(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
+                             md_result_t *result, apr_pool_t *ptemp)
 {
     md_timeperiod_t since_last;
     
@@ -207,7 +190,7 @@ static void check_expiration(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md
     if (md_timeperiod_length(&since_last) >= apr_time_from_sec(MD_SECS_PER_DAY)) {
         ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, dctx->s, 
                      "md(%s): message expiration warning", md->name);
-        send_notification(dctx, job, md, "expiring", NULL, ptemp);
+        send_notification(dctx, job, md, "expiring", result, ptemp);
     }
 }
 
@@ -215,55 +198,27 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
 {
     const md_t *md;
     md_result_t *result;
-    int error_run = 0, fatal_run = 0, save = 0;
     apr_status_t rv;
     
-    md_job_load(job, dctx->mc->reg, MD_SG_STAGING, ptemp);
+    md_job_load(job, md_reg_store_get(dctx->mc->reg), MD_SG_STAGING, ptemp);
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
     if (apr_time_now() < job->next_run) return;
     
     md = md_get_by_name(dctx->mc->mds, job->name);
     AP_DEBUG_ASSERT(md);
 
-    result = md_result_md_make(ptemp, md);
-    if (job->last_result) md_result_assign(result, job->last_result); 
+    result = md_result_md_make(ptemp, md->name);
+    if (job->last_result) md_result_assign(result, job->last_result);
     
     if (md->state == MD_S_MISSING_INFORMATION) {
         /* Missing information, this will not change until configuration
          * is changed and server reloaded. */
-        fatal_run = 1;
+        job->fatal_error = 1;
+        job->next_run = 0;
         goto leave;
     }
     
-    while (md_will_renew_cert(md)) {
-        if (job->finished) {
-            job->next_run = 0;
-            /* Finished jobs might take a while before the results become valid.
-             * If that is in the future, request to run then */
-            if (apr_time_now() < job->valid_from) {
-                job->next_run = job->valid_from;
-            }
-            else if (md_job_log_get_time_of_latest(job, "notified") == 0) {
-                rv = send_notification(dctx, job, md, "renewed", result, ptemp);
-                if (APR_SUCCESS == rv) {
-                    md_job_log_append(job, "notified", NULL, NULL);
-                    save = 1;
-                }
-                else { 
-                    /* we treat this as an error that triggers retries */
-                    error_run = 1;
-                }
-            }
-            goto leave;
-        }
-        
-        if (!md_reg_should_renew(dctx->mc->reg, md, dctx->p)) {
-            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
-                         "md(%s): no need to renew yet", job->name);
-            job->next_run = 0;
-            goto leave;
-        }
-
+    if (md_will_renew_cert(md)) {
         /* Renew the MDs credentials in a STAGING area. Might be invoked repeatedly 
          * without discarding previous/intermediate results.
          * Only returns SUCCESS when the renewal is complete, e.g. STAGING as a
@@ -271,50 +226,59 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
          */
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
                      "md(%s): state=%d, driving", job->name, md->state);
-        md_job_log_append(job, "renewal-start", NULL, NULL);
-        /* observe result changes and persist them with limited frequency */
-        job_result_observation_start(job, result, dctx->mc->reg, ptemp);
-        
-        md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, result, ptemp);
-        
-        job_result_observation_end(job, result);
-        if (APR_SUCCESS != result->status) {
-            ap_log_error( APLOG_MARK, APLOG_ERR, result->status, dctx->s, APLOGNO(10056) 
-                         "processing %s: %s", job->name, result->detail);
-            error_run = 1;
-            md_job_log_append(job, "renewal-error", result->problem, result->detail);
-            send_notification(dctx, job, md, "errored", result, ptemp);
+
+        if (!md_reg_should_renew(dctx->mc->reg, md, dctx->p)) {
+            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
+                         "md(%s): no need to renew", job->name);
+            md_job_cancel(job);
             goto leave;
         }
+    
+        md_job_start_run(job); 
+        job_result_observation_start(job, result, dctx->mc->reg, ptemp);
+
+        md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, result, ptemp);
+
+        job_result_observation_end(job, result);
+        md_job_end_run(job, result);
         
-        job->finished = 1;
-        job->valid_from = result->ready_at;
-        job->error_runs = 0;
-        md_job_log_append(job, "renewal-finish", NULL, NULL);
-        save = 1;
+        if (APR_SUCCESS == result->status) {
+            /* Finished jobs might take a while before the results become valid.
+             * If that is in the future, request to run then */
+            if (apr_time_now() < result->ready_at) {
+                md_job_retry_at(job, result->ready_at);
+                goto leave;
+            }
+            
+            if (md_job_log_get_time_of_latest(job, "notified") == 0) {
+                send_notification(dctx, job, md, "renewed", result, ptemp);
+                if (APR_SUCCESS != result->status) {
+                    /* we treat this as an error that triggers retries */
+                    md_job_end_run(job, result);
+                    goto leave;
+                }
+                md_job_log_append(job, "notified", NULL, NULL);
+            }
+        }
+        else {
+            ap_log_error( APLOG_MARK, APLOG_ERR, result->status, dctx->s, APLOGNO(10056) 
+                         "processing %s: %s", job->name, result->detail);
+            md_job_log_append(job, "renewal-error", result->problem, result->detail);
+            send_notification(dctx, job, md, "errored", result, ptemp);
+            ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
+                         "%s: encountered error for the %d. time, next run in %s",
+                         job->name, job->error_runs, 
+                         md_duration_print(ptemp, job->next_run - apr_time_now()));
+        }
     }
     
 leave:
     if (!job->finished) {
-        check_expiration(dctx, job, md, ptemp);
+        check_expiration(dctx, job, md, result, ptemp);
     }
-    
-    if (fatal_run) {
-        save = 1;
-        job->next_run = 0;
-    }
-    if (error_run) {
-        ++job->error_runs;
-        save = 1;
-        job->next_run = apr_time_now() + calc_err_delay(job->error_runs);
-        ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
-                     "%s: encountered error for the %d. time, next run in %s",
-                     job->name, job->error_runs, 
-                     md_duration_print(ptemp, job->next_run - apr_time_now()));
-    }
-    if (save) {
-        apr_status_t rv2 = md_job_save(job, dctx->mc->reg, MD_SG_STAGING, result, ptemp);
-        ap_log_error(APLOG_MARK, APLOG_TRACE1, rv2, dctx->s, "%s: saving job props", job->name);
+    if (job->dirty) {
+        rv = md_job_save(job, md_reg_store_get(dctx->mc->reg), MD_SG_STAGING, result, ptemp);
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, dctx->s, "%s: saving job props", job->name);
     }
 }
 
@@ -460,7 +424,7 @@ apr_status_t md_renew_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_
         ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,  
                      "md(%s): state=%d, created drive job", name, md->state);
         
-        md_job_load(job, mc->reg, MD_SG_STAGING, dctx->p);
+        md_job_load(job, md_reg_store_get(mc->reg), MD_SG_STAGING, dctx->p);
         if (job->error_runs) {
             /* Server has just restarted. If we encounter an MD job with errors
              * on a previous driving, we purge its STAGING area.

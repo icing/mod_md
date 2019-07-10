@@ -26,7 +26,7 @@ typedef void md_result_change_cb(md_result_t *result, void *data);
 
 struct md_result_t {
     apr_pool_t *p;
-    const struct md_t *md;
+    const char *md_name;
     apr_status_t status;
     const char *problem;
     const char *detail;
@@ -37,7 +37,7 @@ struct md_result_t {
 };
 
 md_result_t *md_result_make(apr_pool_t *p, apr_status_t status);
-md_result_t *md_result_md_make(apr_pool_t *p, const struct md_t *md);
+md_result_t *md_result_md_make(apr_pool_t *p, const char *md_name);
 void md_result_reset(md_result_t *result);
 
 void md_result_activity_set(md_result_t *result, const char *activity);

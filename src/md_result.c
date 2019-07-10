@@ -42,14 +42,15 @@ md_result_t *md_result_make(apr_pool_t *p, apr_status_t status)
     
     result = apr_pcalloc(p, sizeof(*result));
     result->p = p;
+    result->md_name = MD_OTHER;
     result->status = status;
     return result;
 }
 
-md_result_t *md_result_md_make(apr_pool_t *p, const struct md_t *md)
+md_result_t *md_result_md_make(apr_pool_t *p, const char *md_name)
 {
     md_result_t *result = md_result_make(p, APR_SUCCESS);
-    result->md = md;
+    result->md_name = md_name;
     return result;
 }
 
@@ -218,8 +219,8 @@ void md_result_log(md_result_t *result, int level)
         const char *sep = "";
         const char *msg = "";
         
-        if (result->md) {
-            msg = apr_psprintf(result->p, "md[%s]", result->md->name);
+        if (result->md_name) {
+            msg = apr_psprintf(result->p, "md[%s]", result->md_name);
             sep = " ";
         }
         if (result->activity) {

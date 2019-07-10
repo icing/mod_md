@@ -38,11 +38,11 @@
 #include "md_log.h"
 #include "md_http.h"
 #include "md_json.h"
+#include "md_result.h"
+#include "md_status.h"
 #include "md_store.h"
 #include "md_util.h"
 #include "md_ocsp.h"
-
-#define MD_OTHER            "other"
 
 #define MD_OCSP_ID_LENGTH   SHA_DIGEST_LENGTH
    
@@ -125,14 +125,6 @@ static int ostat_cleanup(void *ctx, const void *key, apr_ssize_t klen, const voi
     return 1;
 }
 
-static apr_time_t ostat_get_renew_start(md_ocsp_status_t *ostat)
-{
-    md_timeperiod_t renewal;
-    
-    renewal = md_timeperiod_slice_before_end(&ostat->resp_valid, &ostat->reg->renew_window);
-    return renewal.start;
-} 
-
 static int ostat_should_renew(md_ocsp_status_t *ostat) 
 {
     md_timeperiod_t renewal;
@@ -168,7 +160,8 @@ static apr_status_t ostat_set(md_ocsp_status_t *ostat, md_data_t *der,
     ostat->resp_mtime = mtime;
     
     ostat->errors = 0;
-    ostat->next_retrieve = ostat_get_renew_start(ostat);
+    ostat->next_retrieve = md_timeperiod_slice_before_end(
+        &ostat->resp_valid, &ostat->reg->renew_window).start;
     
 leave:
     return rv;
@@ -433,17 +426,16 @@ apr_size_t md_ocsp_count(md_ocsp_reg_t *reg)
 }
 
 typedef struct {
-    md_ocsp_reg_t *reg;
-    apr_array_header_t *todos;
-    apr_time_t next_run;
-    
-    int max_parallel;
-} md_ocsp_todo_ctx_t;
-
+    apr_pool_t *p;
+    md_ocsp_status_t *ostat;
+    md_result_t *result;
+    md_job_t *job;
+} md_ocsp_update_t;
 
 static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
 {
-    md_ocsp_status_t *ostat = baton;
+    md_ocsp_update_t *update = baton;
+    md_ocsp_status_t *ostat = update->ostat;
     md_http_request_t *req = resp->req;
     OCSP_RESPONSE *ocsp_resp = NULL;
     OCSP_BASICRESP *basic_resp = NULL;
@@ -549,7 +541,8 @@ leave:
 static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status_t status, 
                                         void *baton)
 {
-    md_ocsp_status_t *ostat = baton;
+    md_ocsp_update_t *update = baton;
+    md_ocsp_status_t *ostat = update->ostat;
 
     if (APR_SUCCESS != status) {
         ++ostat->errors;
@@ -561,20 +554,31 @@ static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status
     return APR_SUCCESS;
 }
 
+typedef struct {
+    md_ocsp_reg_t *reg;
+    apr_array_header_t *todos;
+    apr_pool_t *ptemp;
+    apr_time_t time;
+    int max_parallel;
+} md_ocsp_todo_ctx_t;
+
 static apr_status_t next_todo(md_http_request_t **preq, void *baton, 
                               md_http_t *http, int in_flight)
 {
     md_ocsp_todo_ctx_t *ctx = baton;
-    md_ocsp_status_t *ostat, **postat;    
+    md_ocsp_update_t *update, **pupdate;    
+    md_ocsp_status_t *ostat;
     OCSP_CERTID *certid = NULL;
     md_http_request_t *req = NULL;
     apr_status_t rv = APR_ENOENT;
     int len;
     
     if (in_flight < ctx->max_parallel) {
-        postat = apr_array_pop(ctx->todos);
-        if (postat) {
-            ostat = *postat;
+        pupdate = apr_array_pop(ctx->todos);
+        if (pupdate) {
+            update = *pupdate;
+            ostat = update->ostat;
+            
             if (!ostat->ocsp_req) {
                 ostat->ocsp_req = OCSP_REQUEST_new();
                 if (!ostat->ocsp_req) goto leave;
@@ -591,8 +595,8 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
             rv = md_http_POSTd_create(&req, http, ostat->responder_url, NULL, 
                                       "application/ocsp-request", &ostat->req_der);
             if (APR_SUCCESS != rv) goto leave;
-            md_http_set_on_status_cb(req, ostat_on_req_status, ostat);
-            md_http_set_on_response_cb(req, ostat_on_resp, ostat);
+            md_http_set_on_status_cb(req, ostat_on_req_status, update);
+            md_http_set_on_response_cb(req, ostat_on_resp, update);
             rv = APR_SUCCESS;
         }
     }
@@ -602,38 +606,35 @@ leave:
     return rv;
 }
 
-static int select_todos(void *baton, const void *key, apr_ssize_t klen, const void *val)
+static int select_updates(void *baton, const void *key, apr_ssize_t klen, const void *val)
 {
     md_ocsp_todo_ctx_t *ctx = baton;
     md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
+    md_ocsp_update_t *update;
     
     (void)key;
     (void)klen;
-    if (ostat->next_retrieve <= apr_time_now()) {
-        APR_ARRAY_PUSH(ctx->todos, md_ocsp_status_t*) = ostat;
+    if (ostat->next_retrieve <= ctx->time) {
+        update = apr_pcalloc(ctx->ptemp, sizeof(*update));
+        update->p = ctx->ptemp;
+        update->ostat = ostat;
+        update->result = md_result_md_make(update->p, ostat->md_name);
+        update->job = md_job_make(update->p, ostat->md_name);
+        md_job_load(update->job, ctx->reg->store, MD_SG_OCSP, update->p);
+        APR_ARRAY_PUSH(ctx->todos, md_ocsp_update_t*) = update;
     }
     return 1;
 }
 
-static int select_next_run(void *baton, const void *key, apr_ssize_t klen, const void *val)
+static int select_next_retrieve(void *baton, const void *key, apr_ssize_t klen, const void *val)
 {
     md_ocsp_todo_ctx_t *ctx = baton;
     md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
-    apr_time_t now;
     
     (void)key;
     (void)klen;
-    /* when does this need to retrieve again? */
-    now = apr_time_now();
-    ostat->next_retrieve = ostat_get_renew_start(ostat);
-    if (ostat->next_retrieve < now) {
-        ostat->next_retrieve = now + apr_time_from_sec(1);
-        if (ostat->errors > 0){
-            ostat->next_retrieve += apr_time_from_sec(1 << (ostat->errors > 10? 10 : ostat->errors));
-        }
-    }
-    if (ostat->next_retrieve < ctx->next_run) {
-        ctx->next_run = ostat->next_retrieve;
+    if (ostat->next_retrieve < ctx->time && ostat->next_retrieve > apr_time_now()) {
+        ctx->time = ostat->next_retrieve;
     }
     return 1;
 }
@@ -641,20 +642,24 @@ static int select_next_run(void *baton, const void *key, apr_ssize_t klen, const
 void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run)
 {
     md_ocsp_todo_ctx_t ctx;
+    md_ocsp_update_t *update;
     md_http_t *http;
     apr_status_t rv = APR_SUCCESS;
+    int i;
     
     (void)p;
     (void)pnext_run;
     
     ctx.reg = reg;
+    ctx.ptemp = ptemp;
     ctx.todos = apr_array_make(ptemp, (int)md_ocsp_count(reg), sizeof(md_ocsp_status_t*));
-    ctx.next_run = *pnext_run;
     ctx.max_parallel = 6; /* the magic number in HTTP */
     
-    apr_hash_do(select_todos, &ctx, reg->hash);
+    /* Create a list of update tasks that are needed now or in the next minute */
+    ctx.time = apr_time_now() + apr_time_from_sec(60);;
+    apr_hash_do(select_updates, &ctx, reg->hash);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
-                  "certificates that need a OCSP status update now: %d",  ctx.todos->nelts);
+                  "OCSP status updates due: %d",  ctx.todos->nelts);
     if (!ctx.todos->nelts) goto leave;
     
     rv = md_http_create(&http, ptemp, reg->user_agent, reg->proxy_url);
@@ -662,10 +667,27 @@ void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_tim
     
     rv = md_http_multi_perform(http, next_todo, &ctx);
 
-    apr_hash_do(select_next_run, &ctx, reg->hash);
-    *pnext_run = ctx.next_run;
-    
 leave:
+    /* When do we need to run next? *pnext_run contains the planned schedule from
+     * the watchdog. We can make that earlier if we need it. There are 2 cases: */
+    ctx.time = *pnext_run;
+    
+    /* 1. One of the updates we just did was not successfull and needs to run again */
+    for (i = 0; i < ctx.todos->nelts; ++i) {
+        update = APR_ARRAY_IDX(ctx.todos, i, md_ocsp_update_t*);
+        if (!update->job->finished && 
+            update->job->next_run > 0 && update->job->next_run < ctx.time) {
+            ctx.time = update->job->next_run; 
+        }
+    }
+    
+    /* 2. One of the not-yet-due updates should happen before the planned run */
+    apr_hash_do(select_next_retrieve, &ctx, reg->hash);
+
+    /* sanity check and return */
+    if (ctx.time < apr_time_now()) ctx.time = apr_time_now() + apr_time_from_sec(1);
+    *pnext_run = ctx.time;
+
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "ocsp_renew done");
     }

@@ -51,8 +51,10 @@ struct md_job_t {
     int finished;          /* true iff the job finished successfully */
     apr_time_t valid_from; /* at which time the finished job results become valid, 0 if immediate */
     int error_runs;        /* Number of errored runs of an unfinished job */
+    int fatal_error;       /* a fatal error is remedied by retrying */
     md_json_t *log;        /* array of log objects with minimum fields
-                              MD_KEY_WHEN (timestamp) and MD_KEY_TYPE (string) */   
+                              MD_KEY_WHEN (timestamp) and MD_KEY_TYPE (string) */
+    int dirty;
 };
 
 /**
@@ -64,13 +66,13 @@ md_job_t *md_job_make(apr_pool_t *p, const char *name);
 /**
  * Update the job from storage in <group>/job->name.
  */
-apr_status_t md_job_load(md_job_t *job, struct md_reg_t *reg, 
+apr_status_t md_job_load(md_job_t *job, struct md_store_t *store, 
                          md_store_group_t group, apr_pool_t *p);
 
 /**
  * Update storage from job in <group>/job->name.
  */
-apr_status_t md_job_save(md_job_t *job, struct md_reg_t *reg, 
+apr_status_t md_job_save(md_job_t *job, struct md_store_t *store, 
                          md_store_group_t group, struct md_result_t *result, 
                          apr_pool_t *p);
 
@@ -93,5 +95,10 @@ md_json_t *md_job_log_get_latest(md_job_t *job, const char *type);
  * none is found.
  */
 apr_time_t md_job_log_get_time_of_latest(md_job_t *job, const char *type);
+
+void md_job_start_run(md_job_t *job);
+void md_job_end_run(md_job_t *job, struct md_result_t *result);
+void md_job_cancel(md_job_t *job);
+void md_job_retry_at(md_job_t *job, apr_time_t later);
 
 #endif /* md_status_h */

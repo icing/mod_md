@@ -232,10 +232,9 @@ static void job_to_json(md_json_t *json, const md_job_t *job,
     if (job->log) md_json_setj(job->log, json, MD_KEY_LOG, NULL);
 }
 
-apr_status_t md_job_load(md_job_t *job, md_reg_t *reg, 
+apr_status_t md_job_load(md_job_t *job, md_store_t *store, 
                          md_store_group_t group, apr_pool_t *p)
 {
-    md_store_t *store = md_reg_store_get(reg);
     md_json_t *jprops;
     apr_status_t rv;
     
@@ -246,17 +245,17 @@ apr_status_t md_job_load(md_job_t *job, md_reg_t *reg,
     return rv;
 }
 
-apr_status_t md_job_save(md_job_t *job, struct md_reg_t *reg, 
+apr_status_t md_job_save(md_job_t *job, md_store_t *store, 
                          md_store_group_t group, md_result_t *result, 
                          apr_pool_t *p)
 {
-    md_store_t *store = md_reg_store_get(reg);
     md_json_t *jprops;
     apr_status_t rv;
     
     jprops = md_json_create(p);
     job_to_json(jprops, job, result, p);
     rv = md_store_save_json(store, p, group, job->name, MD_FN_JOB, jprops, 0);
+    if (APR_SUCCESS == rv) job->dirty = 0;
     return rv;
 }
 
@@ -274,6 +273,7 @@ void md_job_log_append(md_job_t *job, const char *type,
     if (detail) md_json_sets(detail, entry, MD_KEY_DETAIL, NULL);
     if (!job->log) job->log = md_json_create(job->p);
     md_json_insertj(entry, 0, job->log, MD_KEY_ENTRIES, NULL);
+    job->dirty = 1;
 }
 
 typedef struct {
@@ -324,6 +324,7 @@ apr_time_t md_job_log_get_time_of_latest(md_job_t *job, const char *type)
 void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds, 
                            md_reg_t *reg, apr_pool_t *p)
 {
+    md_store_t *store = md_reg_store_get(reg);
     const md_t *md;
     md_job_t job;
     int i, complete, renewing, errored, ready, total;
@@ -341,7 +342,7 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
                     ++renewing;
                     memset(&job, 0, sizeof(job));
                     job.name = md->name;
-                    if (APR_SUCCESS == md_job_load(&job, reg, MD_SG_STAGING, p)) {
+                    if (APR_SUCCESS == md_job_load(&job, store, MD_SG_STAGING, p)) {
                         if (job.error_runs > 0 
                             || (job.last_result && job.last_result->status != APR_SUCCESS)) {
                             ++errored;
@@ -361,4 +362,53 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
     md_json_setl(errored, json, MD_KEY_ERRORED, NULL);
     md_json_setl(ready, json, MD_KEY_READY, NULL);
     *pjson = json;
+}
+
+void md_job_start_run(md_job_t *job)
+{
+    job->fatal_error = 0;
+    job->last_run = apr_time_now();
+    md_job_log_append(job, "renewal-start", NULL, NULL);
+}
+
+void md_job_cancel(md_job_t *job)
+{
+    job->next_run = 0;
+}   
+
+static apr_time_t calc_err_delay(int err_count)
+{
+    apr_time_t delay = 0;
+    
+    if (err_count > 0) {
+        /* back off duration, depending on the errors we encounter in a row */
+        delay = apr_time_from_sec(5 << (err_count - 1));
+        if (delay > apr_time_from_sec(60*60)) {
+            delay = apr_time_from_sec(60*60);
+        }
+    }
+    return delay;
+}
+
+void md_job_end_run(md_job_t *job, struct md_result_t *result)
+{
+    if (APR_SUCCESS == result->status) {
+        job->finished = 1;
+        job->valid_from = result->ready_at;
+        job->error_runs = 0;
+        job->dirty = 1;
+        md_job_log_append(job, "renewal-finish", NULL, NULL);
+    }
+    else {
+        ++job->error_runs;
+        job->dirty = 1;
+        job->next_run = apr_time_now() + calc_err_delay(job->error_runs);
+    }
+    
+}
+
+void md_job_retry_at(md_job_t *job, apr_time_t later)
+{
+    job->next_run = later;
+    job->dirty = 1;
 }

@@ -646,7 +646,7 @@ static void load_staged_data(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, md_t *);
-        result = md_result_md_make(p, md);
+        result = md_result_md_make(p, md->name);
         if (APR_SUCCESS == (rv = md_reg_load_staging(mc->reg, md, mc->env, result, p))) {
             ap_log_error( APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(10068) 
                          "%s: staged set activated", md->name);
