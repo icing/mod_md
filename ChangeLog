@@ -1,3 +1,8 @@
+v2.0.8
+----------------------------------------------------------------------------------------------------
+ * adapted to latest mod_ssl api changes in trunk
+ * fixed a use-after-free when updating account information from the server.
+
 v2.0.7
 ----------------------------------------------------------------------------------------------------
  * supports the new mod_ssl hooks for interworking
