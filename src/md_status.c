@@ -177,12 +177,19 @@ leave:
 /**************************************************************************************************/
 /* drive job persistence */
 
-md_job_t *md_job_make(apr_pool_t *p, const char *name)
+md_job_t *md_job_make(apr_pool_t *p, md_store_group_t group, const char *name)
 {
     md_job_t *job = apr_pcalloc(p, sizeof(*job));
+    job->group = group;
     job->name = apr_pstrdup(p, name);
     job->p = p;
+    job->max_log = 128;
     return job;
+}
+
+void md_job_set_group(md_job_t *job, md_store_group_t group)
+{
+    job->group = group;
 }
 
 static void md_job_from_json(md_job_t *job, md_json_t *json, apr_pool_t *p)
@@ -232,29 +239,26 @@ static void job_to_json(md_json_t *json, const md_job_t *job,
     if (job->log) md_json_setj(job->log, json, MD_KEY_LOG, NULL);
 }
 
-apr_status_t md_job_load(md_job_t *job, md_store_t *store, 
-                         md_store_group_t group, apr_pool_t *p)
+apr_status_t md_job_load(md_job_t *job, md_store_t *store, apr_pool_t *p)
 {
     md_json_t *jprops;
     apr_status_t rv;
     
-    rv = md_store_load_json(store, group, job->name, MD_FN_JOB, &jprops, p);
+    rv = md_store_load_json(store, job->group, job->name, MD_FN_JOB, &jprops, p);
     if (APR_SUCCESS == rv) {
         md_job_from_json(job, jprops, p);
     }
     return rv;
 }
 
-apr_status_t md_job_save(md_job_t *job, md_store_t *store, 
-                         md_store_group_t group, md_result_t *result, 
-                         apr_pool_t *p)
+apr_status_t md_job_save(md_job_t *job, md_store_t *store, md_result_t *result, apr_pool_t *p)
 {
     md_json_t *jprops;
     apr_status_t rv;
     
     jprops = md_json_create(p);
     job_to_json(jprops, job, result, p);
-    rv = md_store_save_json(store, p, group, job->name, MD_FN_JOB, jprops, 0);
+    rv = md_store_save_json(store, p, job->group, job->name, MD_FN_JOB, jprops, 0);
     if (APR_SUCCESS == rv) job->dirty = 0;
     return rv;
 }
@@ -273,6 +277,7 @@ void md_job_log_append(md_job_t *job, const char *type,
     if (detail) md_json_sets(detail, entry, MD_KEY_DETAIL, NULL);
     if (!job->log) job->log = md_json_create(job->p);
     md_json_insertj(entry, 0, job->log, MD_KEY_ENTRIES, NULL);
+    md_json_limita(job->max_log, job->log, MD_KEY_ENTRIES, NULL);
     job->dirty = 1;
 }
 
@@ -342,7 +347,7 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
                     ++renewing;
                     memset(&job, 0, sizeof(job));
                     job.name = md->name;
-                    if (APR_SUCCESS == md_job_load(&job, store, MD_SG_STAGING, p)) {
+                    if (APR_SUCCESS == md_job_load(&job, store, p)) {
                         if (job.error_runs > 0 
                             || (job.last_result && job.last_result->status != APR_SUCCESS)) {
                             ++errored;
@@ -364,11 +369,75 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
     *pjson = json;
 }
 
-void md_job_start_run(md_job_t *job)
+typedef struct {
+    apr_pool_t *p;
+    md_job_t *job;
+    md_store_t *store;
+    md_result_t *last;
+    apr_time_t last_save;
+} md_job_result_ctx;
+
+static void job_result_update(md_result_t *result, void *data)
+{
+    md_job_result_ctx *ctx = data;
+    apr_time_t now;
+    const char *msg, *sep;
+    
+    if (md_result_cmp(ctx->last, result)) {
+        now = apr_time_now();
+        md_result_assign(ctx->last, result);
+        if (result->activity || result->problem || result->detail) {
+            msg = sep = "";
+            if (result->activity) {
+                msg = apr_psprintf(result->p, "%s", result->activity);
+                sep = ": ";
+            }
+            if (result->detail) {
+                msg = apr_psprintf(result->p, "%s%s%s", msg, sep, result->detail);
+                sep = ", ";
+            }
+            if (result->problem) {
+                msg = apr_psprintf(result->p, "%s%sproblem: %s", msg, sep, result->problem);
+                sep = " ";
+            }
+            md_job_log_append(ctx->job, "progress", NULL, msg);
+
+            if (ctx->store && apr_time_as_msec(now - ctx->last_save) > 500) {
+                md_job_save(ctx->job, ctx->store, result, ctx->p);
+                ctx->last_save = now;
+            }
+        }
+    }
+}
+
+static void job_observation_start(md_job_t *job, md_result_t *result, md_store_t *store)
+{
+    md_job_result_ctx *ctx;
+
+    if (job->observing) md_result_on_change(job->observing, NULL, NULL);
+    job->observing = result;
+    
+    ctx = apr_pcalloc(result->p, sizeof(*ctx));
+    ctx->p = result->p;
+    ctx->job = job;
+    ctx->store = store;
+    ctx->last = md_result_md_make(result->p, APR_SUCCESS);
+    md_result_assign(ctx->last, result);
+    md_result_on_change(result, job_result_update, ctx);
+}
+
+static void job_observation_end(md_job_t *job)
+{
+    if (job->observing) md_result_on_change(job->observing, NULL, NULL);
+    job->observing = NULL; 
+} 
+
+void md_job_start_run(md_job_t *job, md_result_t *result, md_store_t *store)
 {
     job->fatal_error = 0;
     job->last_run = apr_time_now();
-    md_job_log_append(job, "renewal-start", NULL, NULL);
+    job_observation_start(job, result, store);
+    md_job_log_append(job, "starting", NULL, NULL);
 }
 
 void md_job_cancel(md_job_t *job)
@@ -376,7 +445,7 @@ void md_job_cancel(md_job_t *job)
     job->next_run = 0;
 }   
 
-static apr_time_t calc_err_delay(int err_count)
+apr_time_t md_job_delay_on_errors(int err_count)
 {
     apr_time_t delay = 0;
     
@@ -390,21 +459,21 @@ static apr_time_t calc_err_delay(int err_count)
     return delay;
 }
 
-void md_job_end_run(md_job_t *job, struct md_result_t *result)
+void md_job_end_run(md_job_t *job, md_result_t *result)
 {
     if (APR_SUCCESS == result->status) {
         job->finished = 1;
         job->valid_from = result->ready_at;
         job->error_runs = 0;
         job->dirty = 1;
-        md_job_log_append(job, "renewal-finish", NULL, NULL);
+        md_job_log_append(job, "finished", NULL, NULL);
     }
     else {
         ++job->error_runs;
         job->dirty = 1;
-        job->next_run = apr_time_now() + calc_err_delay(job->error_runs);
+        job->next_run = apr_time_now() + md_job_delay_on_errors(job->error_runs);
     }
-    
+    job_observation_end(job);
 }
 
 void md_job_retry_at(md_job_t *job, apr_time_t later)
@@ -412,3 +481,4 @@ void md_job_retry_at(md_job_t *job, apr_time_t later)
     job->next_run = later;
     job->dirty = 1;
 }
+

@@ -83,6 +83,9 @@ apr_status_t md_json_insertj(md_json_t *value, size_t index, md_json_t *json, ..
 apr_status_t md_json_clr(md_json_t *json, ...);
 apr_status_t md_json_del(md_json_t *json, ...);
 
+/* Remove all array elements beyond max_elements */ 
+apr_size_t md_json_limita(size_t max_elements, md_json_t *json, ...);
+
 /* conversion function from and to json */
 typedef apr_status_t md_json_to_cb(void *value, md_json_t *json, apr_pool_t *p, void *baton);
 typedef apr_status_t md_json_from_cb(void **pvalue, md_json_t *json, apr_pool_t *p, void *baton);

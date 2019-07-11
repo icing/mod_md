@@ -59,10 +59,11 @@ struct md_ocsp_reg_t {
 typedef struct md_ocsp_status_t md_ocsp_status_t; 
 struct md_ocsp_status_t {
     md_data_t id;
+    const char *hexid;
     OCSP_CERTID *certid;
     const char *responder_url;
     
-    apr_time_t next_retrieve; /* when the responder shall be asked again */
+    apr_time_t next_run;      /* when the responder shall be asked again */
     int errors;               /* consecutive failed attempts */
 
     md_data_t resp_der;
@@ -160,7 +161,7 @@ static apr_status_t ostat_set(md_ocsp_status_t *ostat, md_data_t *der,
     ostat->resp_mtime = mtime;
     
     ostat->errors = 0;
-    ostat->next_retrieve = md_timeperiod_slice_before_end(
+    ostat->next_run = md_timeperiod_slice_before_end(
         &ostat->resp_valid, &ostat->reg->renew_window).start;
     
 leave:
@@ -309,8 +310,8 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     md_data_assign_pcopy(&ostat->id, &id, reg->p);
     ostat->reg = reg;
     ostat->md_name = name;
-    ostat->file_name = apr_psprintf(reg->p, "ocsp-%s.json", 
-                                    md_util_base64url_encode(&id, reg->p));
+    md_data_to_hex(&ostat->hexid, 0, reg->p, &ostat->id);
+    ostat->file_name = apr_psprintf(reg->p, "ocsp-%s.json", ostat->hexid); 
     
     ssk = X509_get1_ocsp(md_cert_get_X509(cert));
     if (!ssk) {
@@ -428,6 +429,7 @@ apr_size_t md_ocsp_count(md_ocsp_reg_t *reg)
 typedef struct {
     apr_pool_t *p;
     md_ocsp_status_t *ostat;
+    md_store_t *store;
     md_result_t *result;
     md_job_t *job;
 } md_ocsp_update_t;
@@ -447,6 +449,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     md_data_t new_der;
     md_timeperiod_t valid;
     
+    md_result_activity_printf(update->result, "status of cert %s, reading response", ostat->hexid);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
                   "req[%d]: OCSP respoonse: %d, cl=%s, ct=%s",  req->id, resp->status,
                   apr_table_get(resp->headers, "Content-Length"),
@@ -458,43 +461,43 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
         
         if (NULL == (ocsp_resp = d2i_OCSP_RESPONSE(NULL, &bf, (long)der_len))) {
             rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                          "req[%d]: response body does not parse as OCSP response", req->id);
+            md_result_set(update->result, rv, "response body does not parse as OCSP response");
+            md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
         /* got a response! but what does it say? */
         n = OCSP_response_status(ocsp_resp);
         if (OCSP_RESPONSE_STATUS_SUCCESSFUL != n) {
             rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                          "req[%d]: OCSP response not successful: %d", req->id, n);
+            md_result_printf(update->result, rv, "OCSP response status is, unsuccessfully, %d", n);
+            md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
         basic_resp = OCSP_response_get1_basic(ocsp_resp);
         if (!basic_resp) {
             rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                          "req[%d]: OCSP response has no basicresponse", req->id);
+            md_result_set(update->result, rv, "OCSP response has no basicresponse");
+            md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
         n = OCSP_resp_find_status(basic_resp, ostat->certid, &bstatus,
                                    &breason, NULL, &bup, &bnextup);
         if (n != 1) {
             rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                          "req[%d]: OCSP basicresponse, unable to find status", req->id);
+            md_result_set(update->result, rv, "OCSP basicresponse, unable to find cert status");
+            md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
         if (V_OCSP_CERTSTATUS_UNKNOWN == bstatus) {
             rv = APR_ENOENT;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                          "req[%d]: OCSP basicresponse says cert is unknown", req->id);
+            md_result_set(update->result, rv, "OCSP basicresponse says cert is unknown");
+            md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
         if (!bnextup) {
             rv = APR_EINVAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                          "req[%d]: OCSP basicresponse validity unknown", req->id);
+            md_result_set(update->result, rv, "OCSP basicresponse reports not valid dates");
+            md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
         
@@ -504,8 +507,8 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
         n = i2d_OCSP_RESPONSE(ocsp_resp, (unsigned char**)&new_der.data);
         if (n <= 0) {
             rv = APR_EGENERAL;
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                          "req[%d]: error DER encoding OCSP response", req->id);
+            md_result_set(update->result, rv, "error DER encoding OCSP response");
+            md_result_log(update->result, MD_LOG_WARNING);
             goto leave;
         }
         new_der.len = (apr_size_t)n;
@@ -520,15 +523,14 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
         /* Next, save the original response */
         rv = ocsp_status_save(&new_der, &valid, ostat, req->pool); 
         if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, req->pool, 
-                          "md[%s]: error saving OCSP status", ostat->md_name);
+            md_result_set(update->result, rv, "error saving OCSP status");
+            md_result_log(update->result, MD_LOG_ERR);
             goto leave;
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, req->pool, 
-                      "req[%d]: cert status is %s, answer valid [%s], OCSP repsone DER length %ld", 
-                      req->id, (bstatus == V_OCSP_CERTSTATUS_GOOD)? "GOOD" : "REVOKED",
-                      md_timeperiod_print(req->pool, &ostat->resp_valid), 
-                      (long)ostat->resp_der.len);
+        md_result_printf(update->result, rv, "certificate status is %s, status valid %s", 
+                         (bstatus == V_OCSP_CERTSTATUS_GOOD)? "GOOD" : "REVOKED",
+                         md_timeperiod_print(req->pool, &ostat->resp_valid));
+        md_result_log(update->result, MD_LOG_DEBUG);
     }
 
 leave:
@@ -544,12 +546,17 @@ static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status
     md_ocsp_update_t *update = baton;
     md_ocsp_status_t *ostat = update->ostat;
 
+    (void)req;
+    md_job_end_run(update->job, update->result);
     if (APR_SUCCESS != status) {
         ++ostat->errors;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, status, req->pool, 
-                      "md[%s]: OCSP status update failed (%d. time)",  
-                      ostat->md_name, ostat->errors);
+        ostat->next_run = apr_time_now() + md_job_delay_on_errors(ostat->errors); 
+        md_result_printf(update->result, status, "OCSP status update failed (%d. time)",  
+                         ostat->errors);
+        md_result_log(update->result, MD_LOG_DEBUG);
     }
+
+    md_job_save(update->job, update->store, update->result, update->p);
     ostat_req_cleanup(ostat);
     return APR_SUCCESS;
 }
@@ -579,6 +586,9 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
             update = *pupdate;
             ostat = update->ostat;
             
+            md_job_load(update->job, update->store, update->p);
+            md_job_start_run(update->job, update->result, ctx->reg->store);
+             
             if (!ostat->ocsp_req) {
                 ostat->ocsp_req = OCSP_REQUEST_new();
                 if (!ostat->ocsp_req) goto leave;
@@ -592,6 +602,8 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
                 if (len < 0) goto leave;
                 ostat->req_der.len = (apr_size_t)len;
             }
+            md_result_activity_printf(update->result, "status of cert %s, contacting %s",
+                                      ostat->hexid, ostat->responder_url);
             rv = md_http_POSTd_create(&req, http, ostat->responder_url, NULL, 
                                       "application/ocsp-request", &ostat->req_der);
             if (APR_SUCCESS != rv) goto leave;
@@ -614,27 +626,27 @@ static int select_updates(void *baton, const void *key, apr_ssize_t klen, const 
     
     (void)key;
     (void)klen;
-    if (ostat->next_retrieve <= ctx->time) {
+    if (ostat->next_run <= ctx->time) {
         update = apr_pcalloc(ctx->ptemp, sizeof(*update));
         update->p = ctx->ptemp;
         update->ostat = ostat;
+        update->store = ctx->reg->store;
         update->result = md_result_md_make(update->p, ostat->md_name);
-        update->job = md_job_make(update->p, ostat->md_name);
-        md_job_load(update->job, ctx->reg->store, MD_SG_OCSP, update->p);
+        update->job = md_job_make(update->p, MD_SG_OCSP, ostat->md_name);
         APR_ARRAY_PUSH(ctx->todos, md_ocsp_update_t*) = update;
     }
     return 1;
 }
 
-static int select_next_retrieve(void *baton, const void *key, apr_ssize_t klen, const void *val)
+static int select_next_run(void *baton, const void *key, apr_ssize_t klen, const void *val)
 {
     md_ocsp_todo_ctx_t *ctx = baton;
     md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
     
     (void)key;
     (void)klen;
-    if (ostat->next_retrieve < ctx->time && ostat->next_retrieve > apr_time_now()) {
-        ctx->time = ostat->next_retrieve;
+    if (ostat->next_run < ctx->time && ostat->next_run > apr_time_now()) {
+        ctx->time = ostat->next_run;
     }
     return 1;
 }
@@ -642,10 +654,8 @@ static int select_next_retrieve(void *baton, const void *key, apr_ssize_t klen, 
 void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run)
 {
     md_ocsp_todo_ctx_t ctx;
-    md_ocsp_update_t *update;
     md_http_t *http;
     apr_status_t rv = APR_SUCCESS;
-    int i;
     
     (void)p;
     (void)pnext_run;
@@ -669,20 +679,9 @@ void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_tim
 
 leave:
     /* When do we need to run next? *pnext_run contains the planned schedule from
-     * the watchdog. We can make that earlier if we need it. There are 2 cases: */
+     * the watchdog. We can make that earlier if we need it. */
     ctx.time = *pnext_run;
-    
-    /* 1. One of the updates we just did was not successfull and needs to run again */
-    for (i = 0; i < ctx.todos->nelts; ++i) {
-        update = APR_ARRAY_IDX(ctx.todos, i, md_ocsp_update_t*);
-        if (!update->job->finished && 
-            update->job->next_run > 0 && update->job->next_run < ctx.time) {
-            ctx.time = update->job->next_run; 
-        }
-    }
-    
-    /* 2. One of the not-yet-due updates should happen before the planned run */
-    apr_hash_do(select_next_retrieve, &ctx, reg->hash);
+    apr_hash_do(select_next_run, &ctx, reg->hash);
 
     /* sanity check and return */
     if (ctx.time < apr_time_now()) ctx.time = apr_time_now() + apr_time_from_sec(1);

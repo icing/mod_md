@@ -531,6 +531,25 @@ apr_status_t md_json_insertj(md_json_t *value, size_t index, md_json_t *json, ..
     return rv;
 }
 
+apr_size_t md_json_limita(size_t max_elements, md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    apr_size_t n = 0;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+
+    if (j && json_is_array(j)) {
+        n = json_array_size(j);
+        while (n > max_elements) {
+            json_array_remove(j, n-1);
+            n = json_array_size(j);
+        }
+    }
+    return n;
+}
 
 /**************************************************************************************************/
 /* arrays / objects */

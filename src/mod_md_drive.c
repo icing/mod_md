@@ -68,67 +68,6 @@ struct md_renew_ctx_t {
     apr_array_header_t *jobs;
 };
 
-typedef struct {
-    apr_pool_t *p;
-    md_job_t *job;
-    md_reg_t *reg;
-    md_result_t *last;
-    apr_time_t last_save;
-} md_job_result_ctx;
-
-static void job_result_update(md_result_t *result, void *data)
-{
-    md_job_result_ctx *ctx = data;
-    apr_time_t now;
-    const char *msg, *sep;
-    
-    if (md_result_cmp(ctx->last, result)) {
-        now = apr_time_now();
-        md_result_assign(ctx->last, result);
-        if (result->activity || result->problem || result->detail) {
-            msg = sep = "";
-            if (result->activity) {
-                msg = apr_psprintf(result->p, "%s", result->activity);
-                sep = ": ";
-            }
-            if (result->detail) {
-                msg = apr_psprintf(result->p, "%s%s%s", msg, sep, result->detail);
-                sep = ", ";
-            }
-            if (result->problem) {
-                msg = apr_psprintf(result->p, "%s%sproblem: %s", msg, sep, result->problem);
-                sep = " ";
-            }
-            md_job_log_append(ctx->job, "progress", NULL, msg);
-
-            if (apr_time_as_msec(now - ctx->last_save) > 500) {
-                md_job_save(ctx->job, md_reg_store_get(ctx->reg), MD_SG_STAGING, result, ctx->p);
-                ctx->last_save = now;
-            }
-        }
-    }
-}
-
-static void job_result_observation_start(md_job_t *job, md_result_t *result, 
-                                         md_reg_t *reg, apr_pool_t *p)
-{
-    md_job_result_ctx *ctx;
-
-    ctx = apr_pcalloc(p, sizeof(*ctx));
-    ctx->p = p;
-    ctx->job = job;
-    ctx->reg = reg;
-    ctx->last = md_result_md_make(p, APR_SUCCESS);
-    md_result_assign(ctx->last, result);
-    md_result_on_change(result, job_result_update, ctx);
-}
-
-static void job_result_observation_end(md_job_t *job, md_result_t *result)
-{
-    (void)job;
-    md_result_on_change(result, NULL, NULL);
-} 
-
 static void send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
                               const char *reason, md_result_t *result, apr_pool_t *ptemp)
 {
@@ -200,7 +139,7 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
     md_result_t *result;
     apr_status_t rv;
     
-    md_job_load(job, md_reg_store_get(dctx->mc->reg), MD_SG_STAGING, ptemp);
+    md_job_load(job, md_reg_store_get(dctx->mc->reg), ptemp);
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
     if (apr_time_now() < job->next_run) return;
     
@@ -234,12 +173,8 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
             goto leave;
         }
     
-        md_job_start_run(job); 
-        job_result_observation_start(job, result, dctx->mc->reg, ptemp);
-
+        md_job_start_run(job, result, md_reg_store_get(dctx->mc->reg)); 
         md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, result, ptemp);
-
-        job_result_observation_end(job, result);
         md_job_end_run(job, result);
         
         if (APR_SUCCESS == result->status) {
@@ -277,7 +212,7 @@ leave:
         check_expiration(dctx, job, md, result, ptemp);
     }
     if (job->dirty) {
-        rv = md_job_save(job, md_reg_store_get(dctx->mc->reg), MD_SG_STAGING, result, ptemp);
+        rv = md_job_save(job, md_reg_store_get(dctx->mc->reg), result, ptemp);
         ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, dctx->s, "%s: saving job props", job->name);
     }
 }
@@ -419,12 +354,12 @@ apr_status_t md_renew_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_
         md = md_get_by_name(mc->mds, name);
         if (!md) continue;
         
-        job = md_job_make(p, md->name);
+        job = md_job_make(p, MD_SG_STAGING, md->name);
         APR_ARRAY_PUSH(dctx->jobs, md_job_t*) = job;
         ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,  
                      "md(%s): state=%d, created drive job", name, md->state);
         
-        md_job_load(job, md_reg_store_get(mc->reg), MD_SG_STAGING, dctx->p);
+        md_job_load(job, md_reg_store_get(mc->reg), dctx->p);
         if (job->error_runs) {
             /* Server has just restarted. If we encounter an MD job with errors
              * on a previous driving, we purge its STAGING area.

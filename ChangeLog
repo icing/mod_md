@@ -1,3 +1,6 @@
+ * The number of log entries for a single job is now limited to 128. New entries will
+   cause the oldest ones to be removed.
+ * OCSP Stapling renewal jobs are now also persisted in the store.
  * Fixed a user-after-free when updating accounts from the server.
  * CA reported problems when authorization challenges fail are now visible in the renewal log.
  * backoff timing for failed ocsp retrieval attempts. specific ocsp update will be

@@ -1110,9 +1110,10 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     if (APR_SUCCESS != rv) goto out;
 
     /* If we had a job saved in STAGING, copy it over too */
-    job = md_job_make(ptemp, md->name);
-    if (APR_SUCCESS == md_job_load(job, reg->store, MD_SG_STAGING, ptemp)) {
-        md_job_save(job, reg->store, MD_SG_TMP, NULL, ptemp);
+    job = md_job_make(ptemp, MD_SG_STAGING, md->name);
+    if (APR_SUCCESS == md_job_load(job, reg->store, ptemp)) {
+        md_job_set_group(job, MD_SG_TMP);
+        md_job_save(job, reg->store, NULL, ptemp);
     }
     
     /* swap */
