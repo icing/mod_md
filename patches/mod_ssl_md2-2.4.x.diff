@@ -1,8 +1,324 @@
+Index: CHANGES
+===================================================================
+--- CHANGES	(revision 1862828)
++++ CHANGES	(working copy)
+@@ -1,6 +1,14 @@
+                                                          -*- coding: utf-8 -*-
+ Changes with Apache 2.4.40
+ 
++  *) mod_ssl/mod_md: reversing dependency by letting mod_ssl offer hooks for
++     adding certificates and keys to a virtual host. An additional hook allows
++     answering special TLS connections as used in ACME challenges.
++     Adding 2 new hooks for init/get of OCSP stapling status information when
++     other modules want to provide those. Falls back to own implementation with
++     same behaviour as before.
++     [Stefan Eissing]
++  
+   *) mod_md: new features
+      - supports the ACMEv2 protocol
+      - new challenge method 'tls-alpn-01' implemented, needs mod_ssl patch to become available 
+Index: modules/md/md.h
+===================================================================
+--- modules/md/md.h	(revision 1862828)
++++ modules/md/md.h	(working copy)
+@@ -29,8 +29,6 @@
+ struct md_srv_conf_t;
+ struct md_pkey_spec_t;
+ 
+-#define MD_TLSSNI01_DNS_SUFFIX     ".acme.invalid"
+-
+ #define MD_PKEY_RSA_BITS_MIN       2048
+ #define MD_PKEY_RSA_BITS_DEF       2048
+ 
+Index: modules/ssl/mod_ssl.h
+===================================================================
+--- modules/ssl/mod_ssl.h	(revision 1862828)
++++ modules/ssl/mod_ssl.h	(working copy)
+@@ -29,6 +29,7 @@
+ #include "httpd.h"
+ #include "http_config.h"
+ #include "apr_optional.h"
++#include "apr_tables.h" /* for apr_array_header_t */
+ 
+ /* Create a set of SSL_DECLARE(type), SSL_DECLARE_NONSTD(type) and
+  * SSL_DECLARE_DATA with appropriate export and import tags for the platform
+@@ -86,6 +87,34 @@
+ APR_DECLARE_OPTIONAL_FN(int, ssl_engine_set, (conn_rec *,
+                                               ap_conf_vector_t *,
+                                               int proxy, int enable));
++                                              
++/* Check for availability of new hooks */
++#define SSL_CERT_HOOKS
++#ifdef SSL_CERT_HOOKS
+ 
++/** Lets others add certificate and key files to the given server.
++ * For each cert a key must also be added.
++ * @param cert_file and array of const char* with the path to the certificate chain
++ * @param key_file and array of const char* with the path to the private key file
++ */
++APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, add_cert_files,
++                          (server_rec *s, apr_pool_t *p, 
++                           apr_array_header_t *cert_files,
++                           apr_array_header_t *key_files))
++
++/** In case no certificates are available for a server, this
++ * lets other modules add a fallback certificate for the time
++ * being. Regular requests against this server will be answered
++ * with a 503. 
++ * @param cert_file and array of const char* with the path to the certificate chain
++ * @param key_file and array of const char* with the path to the private key file
++ */
++APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, add_fallback_cert_files,
++                          (server_rec *s, apr_pool_t *p, 
++                           apr_array_header_t *cert_files,
++                           apr_array_header_t *key_files))
++
++#endif /* SSL_CERT_HOOKS */
++
+ #endif /* __MOD_SSL_H__ */
+ /** @} */
+Index: modules/ssl/mod_ssl_openssl.h
+===================================================================
+--- modules/ssl/mod_ssl_openssl.h	(revision 1862828)
++++ modules/ssl/mod_ssl_openssl.h	(working copy)
+@@ -69,5 +69,45 @@
+ APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, proxy_post_handshake,
+                           (conn_rec *c, SSL *ssl))
+ 
++/** On TLS connections that do not relate to a configured virtual host,
++ * allow other modules to provide a X509 certificate and EVP_PKEY to
++ * be used on the connection. This first hook which does not
++ * return DECLINED will determine the outcome. */
++APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, answer_challenge,
++                          (conn_rec *c, const char *server_name, 
++                          X509 **pcert, EVP_PKEY **pkey))
++
++/** During post_config phase, ask around if someone wants to provide
++ * OCSP stapling status information for the given cert (with the also
++ * provided issuer certificate). The first hook which does not
++ * return DECLINED promises to take responsibility (and respond
++ * in later calls via hook ssl_get_stapling_status).
++ * If no hook takes over, mod_ssl's own stapling implementation will
++ * be applied (if configured).
++ */
++APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, init_stapling_status,
++                          (server_rec *s, apr_pool_t *p, 
++                          X509 *cert, X509 *issuer))
++
++/** Anyone answering positive to ssl_init_stapling_status for a 
++ * certificate, needs to register here and supply the actual OCSP stapling
++ * status data (OCSP_RESP) for a new connection.
++ * A hook supplying the response data must return APR_SUCCESS.
++ * The data is returned in DER encoded bytes via pder and pderlen. The
++ * returned pointer may be NULL, which indicates that data is (currently)
++ * unavailable.
++ * If DER data is returned, it MUST come from a response with
++ * status OCSP_RESPONSE_STATUS_SUCCESSFUL and V_OCSP_CERTSTATUS_GOOD
++ * or V_OCSP_CERTSTATUS_REVOKED, not V_OCSP_CERTSTATUS_UNKNOWN. This means
++ * errors in OCSP retrieval are to be handled/logged by the hook and
++ * are not done by mod_ssl.
++ * Any DER bytes returned MUST be allocated via malloc() and ownership
++ * passes to mod_ssl. Meaning, the hook must return a malloced copy of
++ * the data it has. mod_ssl (or OpenSSL) will free it. 
++ */
++APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, get_stapling_status,
++                          (unsigned char **pder, int *pderlen, 
++                          conn_rec *c, server_rec *s, X509 *cert))
++                          
+ #endif /* __MOD_SSL_OPENSSL_H__ */
+ /** @} */
+Index: modules/ssl/ssl_engine_init.c
+===================================================================
+--- modules/ssl/ssl_engine_init.c	(revision 1862828)
++++ modules/ssl/ssl_engine_init.c	(working copy)
+@@ -36,6 +36,25 @@
+                                     (server_rec *s,apr_pool_t *p,int is_proxy,SSL_CTX *ctx),
+                                     (s,p,is_proxy,ctx), OK, DECLINED)
+ 
++APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, add_cert_files,
++                                    (server_rec *s, apr_pool_t *p, 
++                                    apr_array_header_t *cert_files, apr_array_header_t *key_files),
++                                    (s, p, cert_files, key_files),
++                                    OK, DECLINED)
++
++APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, add_fallback_cert_files,
++                                    (server_rec *s, apr_pool_t *p, 
++                                    apr_array_header_t *cert_files, apr_array_header_t *key_files),
++                                    (s, p, cert_files, key_files),
++                                    OK, DECLINED)
++
++APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, answer_challenge,
++                                    (conn_rec *c, const char *server_name, 
++                                    X509 **pcert, EVP_PKEY **pkey),
++                                    (c, server_name, pcert, pkey),
++                                    DECLINED, DECLINED)
++
++
+ /*  _________________________________________________________________
+ **
+ **  Module Initialization
+@@ -165,18 +184,18 @@
+                  modver, AP_SERVER_BASEVERSION, incver);
+ }
+ 
+-/**************************************************************************************************/
+-/* Managed Domains Interface */
++/*  _________________________________________________________________
++**
++**  Let other answer special connection attempts. 
++**  Used in ACME challenge handling by mod_md.
++**  _________________________________________________________________
++*/
+ 
+-static APR_OPTIONAL_FN_TYPE(md_is_managed) *md_is_managed;
+-static APR_OPTIONAL_FN_TYPE(md_get_certificate) *md_get_certificate;
+-static APR_OPTIONAL_FN_TYPE(md_is_challenge) *md_is_challenge;
+-
+ int ssl_is_challenge(conn_rec *c, const char *servername, 
+                      X509 **pcert, EVP_PKEY **pkey)
+ {
+-    if (md_is_challenge) {
+-        return md_is_challenge(c, servername, pcert, pkey);
++    if (APR_SUCCESS == ssl_run_answer_challenge(c, servername, pcert, pkey)) {
++        return 1;
+     }
+     *pcert = NULL;
+     *pkey = NULL;
+@@ -231,16 +250,6 @@
+     ssl_config_global_create(base_server); /* just to avoid problems */
+     ssl_config_global_fix(mc);
+ 
+-    /* Initialize our interface to mod_md, if it is loaded 
+-     */
+-    md_is_managed = APR_RETRIEVE_OPTIONAL_FN(md_is_managed);
+-    md_get_certificate = APR_RETRIEVE_OPTIONAL_FN(md_get_certificate);
+-    md_is_challenge = APR_RETRIEVE_OPTIONAL_FN(md_is_challenge);
+-    if (!md_is_managed || !md_get_certificate) {
+-        md_is_managed = NULL;
+-        md_get_certificate = NULL;
+-    }
+-
+     /*
+      *  try to fix the configuration and open the dedicated SSL
+      *  logfile as early as possible
+@@ -1344,8 +1353,7 @@
+          * loaded via SSLOpenSSLConfCmd Certificate), so for 1.0.2 and
+          * later, we defer to the code in ssl_init_server_ctx.
+          */
+-        if ((mctx->stapling_enabled == TRUE) &&
+-            !ssl_stapling_init_cert(s, p, ptemp, mctx, cert)) {
++        if (!ssl_stapling_init_cert(s, p, ptemp, mctx, cert)) {
+             ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(02567)
+                          "Unable to configure certificate %s for stapling",
+                          key_id);
+@@ -1739,11 +1747,13 @@
+                                         apr_array_header_t *pphrases)
+ {
+     apr_status_t rv;
++    modssl_pk_server_t *pks;
+ #ifdef HAVE_SSL_CONF_CMD
+     ssl_ctx_param_t *param = (ssl_ctx_param_t *)sc->server->ssl_ctx_param->elts;
+     SSL_CONF_CTX *cctx = sc->server->ssl_ctx_config;
+     int i;
+ #endif
++    int n;
+ 
+     /*
+      *  Check for problematic re-initializations
+@@ -1755,52 +1765,26 @@
+         return APR_EGENERAL;
+     }
+ 
+-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10083)
+-                 "Init: (%s) mod_md support is %s.", ssl_util_vhostid(p, s),
+-                 md_is_managed? "available" : "unavailable");
+-    if (md_is_managed && md_is_managed(s)) {
+-        modssl_pk_server_t *const pks = sc->server->pks;
+-        if (pks->cert_files->nelts > 0 || pks->key_files->nelts > 0) {
+-            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10084)
+-                         "Init: (%s) You configured certificate/key files on this host, but "
+-                         "is is covered by a Managed Domain. You need to remove these directives "
+-                         "for the Managed Domain to take over.", ssl_util_vhostid(p, s));
+-        }
+-        else {
+-            const char *key_file, *cert_file, *chain_file;
+-            
+-            key_file = cert_file = chain_file = NULL;
+-            
+-            if (md_get_certificate) {
+-                rv = md_get_certificate(s, p, &key_file, &cert_file);
+-            }
+-            else {
+-                rv = APR_ENOTIMPL;
+-            }
+-            
+-            if (key_file && cert_file) {
+-                ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, 
+-                             "%s: installing key=%s, cert=%s, chain=%s", 
+-                             ssl_util_vhostid(p, s), key_file, cert_file, chain_file);
+-                APR_ARRAY_PUSH(pks->key_files, const char *) = key_file;
+-                APR_ARRAY_PUSH(pks->cert_files, const char *) = cert_file;
+-                sc->server->cert_chain = chain_file;
+-            }
+-            
+-            if (APR_STATUS_IS_EAGAIN(rv)) {
+-                /* Managed Domain not ready yet. This is not a reason to fail the config */
+-                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10085)
+-                             "Init: %s will respond with '503 Service Unavailable' for now. This "
+-                             "host is part of a Managed Domain, but no SSL certificate is "
+-                             "available (yet).", ssl_util_vhostid(p, s));
+-                pks->service_unavailable = 1;
+-            }
+-            else if (rv != APR_SUCCESS) {
+-                return rv;
+-            }
+-        }
++    /* Allow others to provide certificate files */
++    pks = sc->server->pks;
++    n = pks->cert_files->nelts;
++    ssl_run_add_cert_files(s, p, pks->cert_files, pks->key_files);
++
++    if (n < pks->cert_files->nelts) {
++        /* this overrides any old chain configuration */
++        sc->server->cert_chain = NULL;
+     }
+     
++    if (apr_is_empty_array(pks->cert_files) && !sc->server->cert_chain) {
++        ssl_run_add_fallback_cert_files(s, p, pks->cert_files, pks->key_files);
++        
++        pks->service_unavailable = 1;
++        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10085)
++                     "Init: %s will respond with '503 Service Unavailable' for now. There "
++                     "are no SSL certificates configured and no other module contributed any.",
++                     ssl_util_vhostid(p, s));
++    }
++    
+     if ((rv = ssl_init_ctx(s, p, ptemp, sc->server)) != APR_SUCCESS) {
+         return rv;
+     }
+@@ -1851,7 +1835,7 @@
+      * (late) point makes sure that we catch both certificates loaded
+      * via SSLCertificateFile and SSLOpenSSLConfCmd Certificate.
+      */
+-    if (sc->server->stapling_enabled == TRUE) {
++    do {
+         X509 *cert;
+         int i = 0;
+         int ret = SSL_CTX_set_current_cert(sc->server->ssl_ctx,
+@@ -1868,7 +1852,7 @@
+                                            SSL_CERT_SET_NEXT);
+             i++;
+         }
+-    }
++    } while(0);
+ #endif
+ 
+ #ifdef HAVE_TLS_SESSION_TICKETS
 Index: modules/ssl/ssl_engine_kernel.c
 ===================================================================
---- modules/ssl/ssl_engine_kernel.c	(revision 1851621)
+--- modules/ssl/ssl_engine_kernel.c	(revision 1862828)
 +++ modules/ssl/ssl_engine_kernel.c	(working copy)
-@@ -2290,6 +2290,37 @@
+@@ -2293,6 +2293,37 @@
  }
  
  #ifdef HAVE_TLSEXT
@@ -40,7 +356,7 @@ Index: modules/ssl/ssl_engine_kernel.c
  /*
   * This function sets the virtual host from an extended
   * client hello with a server name indication extension ("SNI", cf. RFC 6066).
-@@ -2319,30 +2350,12 @@
+@@ -2322,30 +2353,12 @@
                  return APR_SUCCESS;
              }
              else if (ssl_is_challenge(c, servername, &cert, &key)) {
@@ -75,7 +391,7 @@ Index: modules/ssl/ssl_engine_kernel.c
              }
              else {
                  ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02044)
-@@ -2635,6 +2648,23 @@
+@@ -2638,6 +2651,23 @@
                            proposed);
              return SSL_TLSEXT_ERR_ALERT_FATAL;
          }
@@ -99,3 +415,177 @@ Index: modules/ssl/ssl_engine_kernel.c
      }
  
      return SSL_TLSEXT_ERR_OK;
+Index: modules/ssl/ssl_util_stapling.c
+===================================================================
+--- modules/ssl/ssl_util_stapling.c	(revision 1862828)
++++ modules/ssl/ssl_util_stapling.c	(working copy)
+@@ -31,12 +31,28 @@
+ #include "ssl_private.h"
+ #include "ap_mpm.h"
+ #include "apr_thread_mutex.h"
++#include "mod_ssl_openssl.h"
+ 
++APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, init_stapling_status,
++                                    (server_rec *s, apr_pool_t *p, 
++                                     X509 *cert, X509 *issuer),
++                                     (s, p, cert, issuer),
++                                    DECLINED, DECLINED)
++
++APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, get_stapling_status,
++                                    (unsigned char **pder, int *pderlen, 
++                                     conn_rec *c, server_rec *s, X509 *cert),
++                                     (pder, pderlen, c, s, cert), 
++                                    DECLINED, DECLINED)
++                         
++
+ #ifdef HAVE_OCSP_STAPLING
+ 
+ static int stapling_cache_mutex_on(server_rec *s);
+ static int stapling_cache_mutex_off(server_rec *s);
+ 
++static int stapling_cb(SSL *ssl, void *arg);
++
+ /**
+  * Maxiumum OCSP stapling response size. This should be the response for a
+  * single certificate and will typically include the responder certificate chain
+@@ -119,9 +135,40 @@
+     OCSP_CERTID *cid = NULL;
+     STACK_OF(OPENSSL_STRING) *aia = NULL;
+ 
+-    if ((x == NULL) || (X509_digest(x, EVP_sha1(), idx, NULL) != 1))
++    if (x == NULL)
+         return 0;
+ 
++    if (!(issuer = stapling_get_issuer(mctx, x))) {
++        /* In Apache pre 2.4.40, we use to come here only when mod_ssl stapling
++         * was enabled. With the new hooks, we give other modules the chance
++         * to provide stapling status. However, we do not want to log ssl errors
++         * where we did not do so in the past. */
++        if (mctx->stapling_enabled == TRUE) {
++            ssl_log_xerror(SSLLOG_MARK, APLOG_ERR, 0, ptemp, s, x, APLOGNO(02217)
++                           "ssl_stapling_init_cert: can't retrieve issuer "
++                           "certificate!");
++            return 0;
++        }
++        return 1;
++    }
++
++    if (ssl_run_init_stapling_status(s, p, x, issuer) == APR_SUCCESS) {
++        /* Someone's taken over or mod_ssl's own implementation is not enabled */
++        if (mctx->stapling_enabled != TRUE) {
++            SSL_CTX_set_tlsext_status_cb(mctx->ssl_ctx, stapling_cb);
++            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO() "OCSP stapling added via hook");
++        }
++        return 1;
++    }
++    
++    if (mctx->stapling_enabled != TRUE) {
++        /* mod_ssl's own implementation is not enabled */
++        return 1;
++    }
++    
++    if (X509_digest(x, EVP_sha1(), idx, NULL) != 1)
++        return 0;
++
+     cinf = apr_hash_get(stapling_certinfo, idx, sizeof(idx));
+     if (cinf) {
+         /* 
+@@ -139,13 +186,6 @@
+         return 1;
+     }
+ 
+-    if (!(issuer = stapling_get_issuer(mctx, x))) {
+-        ssl_log_xerror(SSLLOG_MARK, APLOG_ERR, 0, ptemp, s, x, APLOGNO(02217)
+-                       "ssl_stapling_init_cert: can't retrieve issuer "
+-                       "certificate!");
+-        return 0;
+-    }
+-
+     cid = OCSP_cert_to_id(NULL, x, issuer);
+     X509_free(issuer);
+     if (!cid) {
+@@ -182,18 +222,16 @@
+                    mctx->sc->vhost_id);
+ 
+     apr_hash_set(stapling_certinfo, cinf->idx, sizeof(cinf->idx), cinf);
+-
++    
+     return 1;
+ }
+ 
+-static certinfo *stapling_get_certinfo(server_rec *s, modssl_ctx_t *mctx,
++static certinfo *stapling_get_certinfo(server_rec *s, X509 *x, modssl_ctx_t *mctx,
+                                         SSL *ssl)
+ {
+     certinfo *cinf;
+-    X509 *x;
+     UCHAR idx[SHA_DIGEST_LENGTH];
+-    x = SSL_get_certificate(ssl);
+-    if ((x == NULL) || (X509_digest(x, EVP_sha1(), idx, NULL) != 1))
++    if (X509_digest(x, EVP_sha1(), idx, NULL) != 1)
+         return NULL;
+     cinf = apr_hash_get(stapling_certinfo, idx, sizeof(idx));
+     if (cinf && cinf->cid)
+@@ -750,7 +788,27 @@
+     OCSP_RESPONSE *rsp = NULL;
+     int rv;
+     BOOL ok = TRUE;
++    X509 *x;
++    unsigned char *rspder = NULL;
++    int rspderlen;
+ 
++    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01951)
++                 "stapling_cb: OCSP Stapling callback called");
++
++    x = SSL_get_certificate(ssl);
++    if (x == NULL) {
++        return SSL_TLSEXT_ERR_NOACK;
++    }
++
++    if (ssl_run_get_stapling_status(&rspder, &rspderlen, conn, s, x) == APR_SUCCESS) {
++        /* a hook handles stapling for this certicate and determines the response */
++        if (rspder == NULL || rspderlen <= 0) {
++            return SSL_TLSEXT_ERR_NOACK;
++        }
++        SSL_set_tlsext_status_ocsp_resp(ssl, rspder, rspderlen);
++        return SSL_TLSEXT_ERR_OK;
++    }
++    
+     if (sc->server->stapling_enabled != TRUE) {
+         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01950)
+                      "stapling_cb: OCSP Stapling disabled");
+@@ -757,11 +815,7 @@
+         return SSL_TLSEXT_ERR_NOACK;
+     }
+ 
+-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01951)
+-                 "stapling_cb: OCSP Stapling callback called");
+-
+-    cinf = stapling_get_certinfo(s, mctx, ssl);
+-    if (cinf == NULL) {
++    if ((cinf = stapling_get_certinfo(s, x, mctx, ssl)) == NULL) {
+         return SSL_TLSEXT_ERR_NOACK;
+     }
+ 
+@@ -864,9 +918,10 @@
+     if (mctx->stapling_responder_timeout == UNSET) {
+         mctx->stapling_responder_timeout = 10 * APR_USEC_PER_SEC;
+     }
++
+     SSL_CTX_set_tlsext_status_cb(ctx, stapling_cb);
+     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01960) "OCSP stapling initialized");
+-
++    
+     return APR_SUCCESS;
+ }
+ 
+Index: .
+===================================================================
+--- .	(revision 1862828)
++++ .	(working copy)
+
+Property changes on: .
+___________________________________________________________________
+Modified: svn:mergeinfo
+## -0,0 +0,1 ##
+   Merged /httpd/httpd/trunk:r1862803,1862823

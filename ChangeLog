@@ -2,6 +2,8 @@ v2.0.8
 ----------------------------------------------------------------------------------------------------
  * adapted to latest mod_ssl api changes in trunk
  * fixed a use-after-free when updating account information from the server.
+ * removed httpd trunk patch as no longer needed
+ * updated httpd 2.4.x patch with mod_ssl changes
 
 v2.0.7
 ----------------------------------------------------------------------------------------------------
