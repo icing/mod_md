@@ -22,10 +22,12 @@
 #define MD_SECS_PER_HOUR      (60*60)
 #define MD_SECS_PER_DAY       (24*MD_SECS_PER_HOUR)
 
-typedef struct {
+typedef struct md_timeperiod_t md_timeperiod_t;
+
+struct md_timeperiod_t {
     apr_time_t start;
     apr_time_t end;
-} md_timeperiod_t;
+};
 
 apr_time_t md_timeperiod_length(const md_timeperiod_t *period);
 

@@ -22,6 +22,7 @@
 #include "md_json.h"
 #include "md_log.h"
 #include "md_http.h"
+#include "md_time.h"
 #include "md_util.h"
 
 /* jansson thinks everyone compiles with the platform's cc in its fullest capabilities
@@ -1174,4 +1175,23 @@ const char *md_json_dump_state(md_json_t *json, apr_pool_t *p)
 {
     if (!json) return "NULL";
     return apr_psprintf(p, "%s, refc=%ld", md_json_type_name(json), (long)json->j->refcount);
+}
+
+apr_status_t md_json_timeperiod_set(md_timeperiod_t *tp, md_json_t *json, ...)
+{
+    char ts[APR_RFC822_DATE_LEN];
+    json_t *jn;
+    va_list ap;
+    apr_status_t rv;
+    
+    jn = json_object();
+    apr_rfc822_date(ts, tp->start);
+    json_object_set_new(jn, "from", json_string(ts));
+    apr_rfc822_date(ts, tp->end);
+    json_object_set_new(jn, "until", json_string(ts));
+
+    va_start(ap, json);
+    rv = jselect_set_new(jn, json, ap);
+    va_end(ap);
+    return rv;
 }

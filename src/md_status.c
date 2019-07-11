@@ -27,6 +27,7 @@
 #include "md.h"
 #include "md_crypt.h"
 #include "md_log.h"
+#include "md_ocsp.h"
 #include "md_store.h"
 #include "md_result.h"
 #include "md_reg.h"
@@ -120,12 +121,14 @@ static apr_status_t job_loadj(md_json_t **pjson, const char *name,
 }
 
 apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md, 
-                                   md_reg_t *reg, apr_pool_t *p)
+                                   md_reg_t *reg, md_ocsp_reg_t *ocsp, apr_pool_t *p)
 {
     md_json_t *mdj, *jobj, *certj;
     int renew;
     const md_pubcert_t *pubcert;
-    const md_cert_t *cert;
+    const md_cert_t *cert = NULL;
+    md_ocsp_cert_stat_t cert_stat;
+    md_timeperiod_t ocsp_valid; 
     apr_status_t rv = APR_SUCCESS;
 
     mdj = md_to_json(md, p);
@@ -148,13 +151,25 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
         else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;
         else goto leave;
     }
+    
+    md_json_setb(md->stapling, mdj, MD_KEY_STAPLING, NULL);
+    if (md->stapling && ocsp && cert) {
+        rv = md_ocsp_get_meta(&cert_stat, &ocsp_valid, ocsp, cert, p, md);
+        if (APR_SUCCESS == rv) {
+            md_json_sets(md_ocsp_cert_stat_name(cert_stat), mdj, MD_KEY_OCSP, MD_KEY_STATUS, NULL);
+            md_json_timeperiod_set(&ocsp_valid, mdj, MD_KEY_OCSP, MD_KEY_VALID, NULL);
+        }
+        else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;
+        else goto leave;
+   }
+    
 leave:
     *pjson = (APR_SUCCESS == rv)? mdj : NULL;
     return rv;
 }
 
 apr_status_t md_status_get_json(md_json_t **pjson, apr_array_header_t *mds, 
-                                md_reg_t *reg, apr_pool_t *p) 
+                                md_reg_t *reg, md_ocsp_reg_t *ocsp, apr_pool_t *p) 
 {
     md_json_t *json, *mdj;
     apr_status_t rv = APR_SUCCESS;
@@ -165,7 +180,7 @@ apr_status_t md_status_get_json(md_json_t **pjson, apr_array_header_t *mds,
     md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
     for (i = 0; i < mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mds, i, const md_t *);
-        rv = md_status_get_md_json(&mdj, md, reg, p);
+        rv = md_status_get_md_json(&mdj, md, reg, ocsp, p);
         if (APR_SUCCESS != rv) goto leave;
         md_json_addj(mdj, json, MD_KEY_MDS, NULL);
     }

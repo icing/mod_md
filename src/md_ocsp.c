@@ -66,6 +66,7 @@ struct md_ocsp_status_t {
     apr_time_t next_run;      /* when the responder shall be asked again */
     int errors;               /* consecutive failed attempts */
 
+    md_ocsp_cert_stat_t resp_stat;
     md_data_t resp_der;
     md_timeperiod_t resp_valid;
     
@@ -81,7 +82,23 @@ struct md_ocsp_status_t {
     
 };
 
-static apr_status_t init_cert_id(char *buffer, apr_size_t len, md_cert_t *cert)
+const char *md_ocsp_cert_stat_name(md_ocsp_cert_stat_t stat)
+{
+    switch (stat) {
+        case MD_OCSP_CERT_ST_GOOD: return "good";
+        case MD_OCSP_CERT_ST_REVOKED: return "revoked";
+        default: return "unknown";
+    }
+}
+
+md_ocsp_cert_stat_t md_ocsp_cert_stat_value(const char *name)
+{
+    if (name && !strcmp("good", name)) return MD_OCSP_CERT_ST_GOOD;
+    if (name && !strcmp("revoked", name)) return MD_OCSP_CERT_ST_REVOKED;
+    return MD_OCSP_CERT_ST_UNKNOWN;
+}
+
+static apr_status_t init_cert_id(char *buffer, apr_size_t len, const md_cert_t *cert)
 {
     X509 *x = md_cert_get_X509(cert);
     
@@ -134,8 +151,8 @@ static int ostat_should_renew(md_ocsp_status_t *ostat)
     return md_timeperiod_has_started(&renewal, apr_time_now());
 }  
 
-static apr_status_t ostat_set(md_ocsp_status_t *ostat, md_data_t *der, 
-                              md_timeperiod_t *valid, apr_time_t mtime)
+static apr_status_t ostat_set(md_ocsp_status_t *ostat, md_ocsp_cert_stat_t stat,
+                              md_data_t *der, md_timeperiod_t *valid, apr_time_t mtime)
 {
     apr_status_t rv = APR_SUCCESS;
     char *s = (char*)der->data;
@@ -155,6 +172,7 @@ static apr_status_t ostat_set(md_ocsp_status_t *ostat, md_data_t *der,
         ostat->resp_der.len = 0;
     }
     
+    ostat->resp_stat = stat;
     ostat->resp_der.data = s;
     ostat->resp_der.len = der->len;
     ostat->resp_valid = *valid;
@@ -168,7 +186,8 @@ leave:
     return rv;
 }
 
-static apr_status_t ostat_from_json(md_data_t *resp_der, md_timeperiod_t *resp_valid, 
+static apr_status_t ostat_from_json(md_ocsp_cert_stat_t *pstat, 
+                                    md_data_t *resp_der, md_timeperiod_t *resp_valid, 
                                     md_json_t *json, apr_pool_t *p)
 {
     const char *s;
@@ -183,21 +202,25 @@ static apr_status_t ostat_from_json(md_data_t *resp_der, md_timeperiod_t *resp_v
     if (s && *s) valid.end = apr_date_parse_rfc(s);
     s = md_json_dups(p, json, MD_KEY_RESPONSE, NULL);
     if (!s || !*s) goto leave;
-
     md_util_base64url_decode(resp_der, s, p);
+    *pstat = md_ocsp_cert_stat_value(md_json_gets(json, MD_KEY_STATUS, NULL));
     *resp_valid = valid;
     rv = APR_SUCCESS;
 leave:
     return rv;
 }
 
-static void ostat_to_json(md_json_t *json, const md_data_t *resp_der, 
-                          const md_timeperiod_t *resp_valid, apr_pool_t *p)
+static void ostat_to_json(md_json_t *json, md_ocsp_cert_stat_t stat,
+                          const md_data_t *resp_der, const md_timeperiod_t *resp_valid, 
+                          apr_pool_t *p)
 {
     char ts[APR_RFC822_DATE_LEN];
+    const char *s = NULL;
 
     if (resp_der->len > 0) {
         md_json_sets(md_util_base64url_encode(resp_der, p), json, MD_KEY_RESPONSE, NULL);
+        s = md_ocsp_cert_stat_name(stat);
+        if (s) md_json_sets(s, json, MD_KEY_STATUS, NULL);
         
         if (resp_valid->start > 0) {
             apr_rfc822_date(ts, resp_valid->start);
@@ -218,21 +241,23 @@ static apr_status_t ocsp_status_refresh(md_ocsp_status_t *ostat, apr_pool_t *pte
     apr_status_t rv = APR_EAGAIN;
     md_data_t resp_der;
     md_timeperiod_t resp_valid;
+    md_ocsp_cert_stat_t resp_stat;
     
     mtime = md_store_get_modified(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, ptemp);
     if (mtime <= ostat->resp_mtime) goto leave;
     rv = md_store_load_json(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, &jprops, ptemp);
     if (APR_SUCCESS != rv) goto leave;
-    rv = ostat_from_json(&resp_der, &resp_valid, jprops, ptemp);
+    rv = ostat_from_json(&resp_stat, &resp_der, &resp_valid, jprops, ptemp);
     if (APR_SUCCESS != rv) goto leave;
-    rv = ostat_set(ostat, &resp_der, &resp_valid, mtime);
+    rv = ostat_set(ostat, resp_stat, &resp_der, &resp_valid, mtime);
     if (APR_SUCCESS != rv) goto leave;
 leave:
     return rv;
 }
 
 
-static apr_status_t ocsp_status_save(const md_data_t *resp_der, const md_timeperiod_t *resp_valid,
+static apr_status_t ocsp_status_save(md_ocsp_cert_stat_t stat, const md_data_t *resp_der, 
+                                     const md_timeperiod_t *resp_valid,
                                      md_ocsp_status_t *ostat, apr_pool_t *ptemp)
 {
     md_store_t *store = ostat->reg->store;
@@ -241,7 +266,7 @@ static apr_status_t ocsp_status_save(const md_data_t *resp_der, const md_timeper
     apr_status_t rv;
     
     jprops = md_json_create(ptemp);
-    ostat_to_json(jprops, resp_der, resp_valid, ptemp);
+    ostat_to_json(jprops, stat, resp_der, resp_valid, ptemp);
     rv = md_store_save_json(store, ptemp, MD_SG_OCSP, ostat->md_name, ostat->file_name, jprops, 0);
     if (APR_SUCCESS != rv) goto leave;
     mtime = md_store_get_modified(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, ptemp);
@@ -346,7 +371,7 @@ leave:
 }
 
 apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
-                                md_ocsp_reg_t *reg, md_cert_t *cert,
+                                md_ocsp_reg_t *reg, const md_cert_t *cert,
                                 apr_pool_t *p, const md_t *md)
 {
     char id[MD_OCSP_ID_LENGTH];
@@ -379,7 +404,6 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     if (ostat->resp_der.len <= 0) {
         /* No resonse known, check the store if out watchdog retrieved one 
          * in the meantime. */
-        
         ocsp_status_refresh(ostat, p);
         if (ostat->resp_der.len <= 0) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
@@ -421,6 +445,49 @@ leave:
     return rv;
 }
 
+apr_status_t md_ocsp_get_meta(md_ocsp_cert_stat_t *pstat, md_timeperiod_t *pvalid,
+                              md_ocsp_reg_t *reg, const md_cert_t *cert,
+                              apr_pool_t *p, const md_t *md)
+{
+    char id[MD_OCSP_ID_LENGTH];
+    md_ocsp_status_t *ostat;
+    const char *name;
+    apr_status_t rv;
+    int locked = 0;
+    md_timeperiod_t valid;
+    md_ocsp_cert_stat_t stat;
+    
+    (void)p;
+    (void)md;
+    name = md? md->name : MD_OTHER;
+    memset(&valid, 0, sizeof(valid));
+    stat = MD_OCSP_CERT_ST_UNKNOWN;
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
+                  "md[%s]: OCSP, get_status", name);
+    
+    rv = init_cert_id(id, sizeof(id), cert);
+    if (APR_SUCCESS != rv) goto leave;
+    
+    ostat = apr_hash_get(reg->hash, id, sizeof(id));
+    if (!ostat) {
+        rv = APR_ENOENT;
+        goto leave;
+    }
+    if (ostat->resp_der.len <= 0) {
+        /* No resonse known, check the store if out watchdog retrieved one 
+         * in the meantime. */
+        ocsp_status_refresh(ostat, p);
+    }
+    
+    valid = ostat->resp_valid;
+    stat = ostat->resp_stat;
+leave:
+    if (locked) apr_thread_mutex_unlock(reg->mutex);
+    *pstat = stat;
+    *pvalid = valid;  
+    return rv;
+}
+
 apr_size_t md_ocsp_count(md_ocsp_reg_t *reg)
 {
     return apr_hash_count(reg->hash);
@@ -448,6 +515,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     ASN1_GENERALIZEDTIME *bup = NULL, *bnextup = NULL;
     md_data_t new_der;
     md_timeperiod_t valid;
+    md_ocsp_cert_stat_t nstat;
     
     md_result_activity_printf(update->result, "status of cert %s, reading response", ostat->hexid);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
@@ -511,24 +579,26 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             md_result_log(update->result, MD_LOG_WARNING);
             goto leave;
         }
+        nstat = (bstatus == V_OCSP_CERTSTATUS_GOOD)? MD_OCSP_CERT_ST_GOOD : MD_OCSP_CERT_ST_REVOKED;
         new_der.len = (apr_size_t)n;
         valid.start = bup? md_asn1_generalized_time_get(bup) : apr_time_now();
         valid.end = md_asn1_generalized_time_get(bnextup);
 
         /* First, update the instance with a copy */
         apr_thread_mutex_lock(ostat->reg->mutex);
-        ostat_set(ostat, &new_der, &valid, apr_time_now());
+        ostat_set(ostat, nstat, &new_der, &valid, apr_time_now());
         apr_thread_mutex_unlock(ostat->reg->mutex);
         
         /* Next, save the original response */
-        rv = ocsp_status_save(&new_der, &valid, ostat, req->pool); 
+        rv = ocsp_status_save(nstat, &new_der, &valid, ostat, req->pool); 
         if (APR_SUCCESS != rv) {
             md_result_set(update->result, rv, "error saving OCSP status");
             md_result_log(update->result, MD_LOG_ERR);
             goto leave;
         }
+        
         md_result_printf(update->result, rv, "certificate status is %s, status valid %s", 
-                         (bstatus == V_OCSP_CERTSTATUS_GOOD)? "GOOD" : "REVOKED",
+                         (nstat == MD_OCSP_CERT_ST_GOOD)? "GOOD" : "REVOKED",
                          md_timeperiod_print(req->pool, &ostat->resp_valid));
         md_result_log(update->result, MD_LOG_DEBUG);
     }

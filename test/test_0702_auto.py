@@ -596,6 +596,7 @@ class TestAutov2:
         # and that missing proto is detected
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(domain, dns_list)
+        
         md = self._get_md(domain)
         assert (not "proto" in md) or (not "acme-tls/1" in md["proto"])
         assert not TestEnv.is_renewing( domain )

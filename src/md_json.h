@@ -24,7 +24,7 @@ struct apr_file_t;
 
 struct md_http_t;
 struct md_http_response_t;
-
+struct md_timeperiod_t;
 
 typedef struct md_json_t md_json_t;
 
@@ -141,5 +141,7 @@ apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool,
 apr_status_t md_json_copy_to(md_json_t *dest, const md_json_t *src, ...);
 
 const char *md_json_dump_state(md_json_t *json, apr_pool_t *p);
+
+apr_status_t md_json_timeperiod_set(struct md_timeperiod_t *tp, md_json_t *json, ...);
 
 #endif /* md_json_h */

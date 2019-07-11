@@ -66,3 +66,11 @@ class TestStapling:
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
 
+        # ocsp status should be visible now in md-status resource 
+        stat = TestEnv.get_md_status(domain)
+        assert stat["stapling"]
+        assert stat["ocsp"]["status"] == "good"
+        assert stat["ocsp"]["valid"]
+        
+
+

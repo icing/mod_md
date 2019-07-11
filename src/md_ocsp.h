@@ -20,6 +20,15 @@
 struct md_store_t;
 struct md_timeslice_t;
 
+typedef enum {
+    MD_OCSP_CERT_ST_UNKNOWN,
+    MD_OCSP_CERT_ST_GOOD,
+    MD_OCSP_CERT_ST_REVOKED,
+} md_ocsp_cert_stat_t;
+
+const char *md_ocsp_cert_stat_name(md_ocsp_cert_stat_t stat);
+md_ocsp_cert_stat_t md_ocsp_cert_stat_value(const char *name);
+
 typedef struct md_ocsp_reg_t md_ocsp_reg_t;
 
 apr_status_t md_ocsp_reg_make(md_ocsp_reg_t **preg, apr_pool_t *p,
@@ -31,8 +40,12 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *x,
                            md_cert_t *issuer, const md_t *md);
 
 apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
-                                md_ocsp_reg_t *reg, md_cert_t *cert,
+                                md_ocsp_reg_t *reg, const md_cert_t *cert,
                                 apr_pool_t *p, const md_t *md);
+
+apr_status_t md_ocsp_get_meta(md_ocsp_cert_stat_t *pstat, md_timeperiod_t *pvalid,
+                              md_ocsp_reg_t *reg, const md_cert_t *cert,
+                              apr_pool_t *p, const md_t *md);
 
 apr_size_t md_ocsp_count(md_ocsp_reg_t *reg);
 

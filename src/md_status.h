@@ -21,18 +21,21 @@ struct md_json_t;
 struct md_reg_t;
 struct md_store_t;
 struct md_result_t;
+struct md_ocsp_reg_t;
 
 /** 
  * Get a JSON summary of the MD and its status (certificates, jobs, etc.).
  */
 apr_status_t md_status_get_md_json(struct md_json_t **pjson, const md_t *md, 
-                                   struct md_reg_t *reg, apr_pool_t *p);
+                                   struct md_reg_t *reg, struct md_ocsp_reg_t *ocsp,
+                                   apr_pool_t *p);
 
 /** 
  * Get a JSON summary of all MDs and their status.
  */
 apr_status_t md_status_get_json(struct md_json_t **pjson, apr_array_header_t *mds, 
-                                struct md_reg_t *reg, apr_pool_t *p);
+                                struct md_reg_t *reg, struct md_ocsp_reg_t *ocsp,
+                                apr_pool_t *p);
 
 /**
  * Take stock of all MDs given for a short overview. The JSON returned

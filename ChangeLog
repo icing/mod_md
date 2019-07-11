@@ -1,3 +1,4 @@
+ * OCSP status and validity now part of md-status resource.
  * The number of log entries for a single job is now limited to 128. New entries will
    cause the oldest ones to be removed.
  * OCSP Stapling renewal jobs are now also persisted in the store.

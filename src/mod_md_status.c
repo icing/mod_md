@@ -84,7 +84,8 @@ int md_http_cert_status(request_rec *r)
     ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
                   "requesting status for MD: %s", md->name);
 
-    if (APR_SUCCESS != (rv = md_status_get_md_json(&mdj, md, sc->mc->reg, r->pool))) {
+    rv = md_status_get_md_json(&mdj, md, sc->mc->reg, sc->mc->ocsp, r->pool);
+    if (APR_SUCCESS != rv) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO()
                       "loading md status for %s", md->name);
         return HTTP_INTERNAL_SERVER_ERROR;
@@ -468,7 +469,7 @@ int md_status_hook(request_rec *r, int flags)
         apr_brigade_puts(ctx.bb, NULL, NULL, "\n"); 
     }
     else if (mc->mds->nelts > 0) {
-        md_status_get_json(&jstatus, mds, mc->reg, r->pool);
+        md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
         apr_brigade_puts(ctx.bb, NULL, NULL, 
                          "<hr>\n<h2>Managed Domains</h2>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
@@ -523,12 +524,12 @@ int md_status_handler(request_rec *r)
     }
     
     if (md) {
-        md_status_get_md_json(&jstatus, md, mc->reg, r->pool);
+        md_status_get_md_json(&jstatus, md, mc->reg, mc->ocsp, r->pool);
     }
     else {
         mds = apr_array_copy(r->pool, mc->mds);
         qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
-        md_status_get_json(&jstatus, mds, mc->reg, r->pool);
+        md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
     }
 
     if (jstatus) {
