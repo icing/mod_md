@@ -44,33 +44,52 @@ class TestStapling:
 
     #-----------------------------------------------------------------------------------------------
     # MD with stapling enabled, mod_ssl stapling off
-    #@pytest.mark.skipif(True, reason="not implemented")
     def test_801_001(self):
         domain = self.test_domain
         dns_list = [ domain ]
-
+        # Start with default stapling (off), check that none is reported/used on connections
+        conf = HttpdConf()
+        conf.add_admin( "admin@" + domain )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ] )
+        assert TestEnv.apache_restart() == 0
+        TestEnv.check_md_complete(domain)
+        stat = TestEnv.get_ocsp_status(domain)
+        assert stat['ocsp'] == "no response sent" 
+        stat = TestEnv.get_md_status(domain)
+        assert not stat["stapling"]
+        #
+        # turn stapling on, wait for it to appear in connections
         conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_line("MDStapling on")
         conf.add_md( dns_list )
         conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
         conf.install()
-
-        # - restart (-> drive), check that md is in store
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ] )
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md_complete(domain)
-        # the mod_md stapling should report success, after a while
         stat = TestEnv.await_ocsp_status(domain)
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
-
-        # ocsp status should be visible now in md-status resource 
         stat = TestEnv.get_md_status(domain)
         assert stat["stapling"]
         assert stat["ocsp"]["status"] == "good"
         assert stat["ocsp"]["valid"]
+        #
+        # turn stapling off (explicitly) again, should disappear
+        conf = HttpdConf()
+        conf.add_admin( "admin@" + domain )
+        conf.add_line("MDStapling off")
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_ocsp_status(domain)
+        assert stat['ocsp'] == "no response sent" 
+        stat = TestEnv.get_md_status(domain)
+        assert not stat["stapling"]
         
 
 
