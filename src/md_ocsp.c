@@ -548,6 +548,30 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
+        /* The notion of nonce enabled freshness in OCSP responses, e.g. that the response
+         * contains the signed nonce we sent to the responder, does not scale well. Responders
+         * like to return cached response bytes and therefore do not add a nonce to it.
+         * So, in reality, we can only detect a mismatch when present and otherwise have
+         * to accept it. */
+        switch ((n = OCSP_check_nonce(ostat->ocsp_req, basic_resp))) {
+        case 1:
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
+                          "req[%d]: OCSP respoonse nonce does match", req->id);
+            break;
+        case 0:
+            rv = APR_EINVAL;
+            md_result_printf(update->result, rv, "OCSP nonce mismatch in response", n);
+            md_result_log(update->result, MD_LOG_WARNING);
+            goto leave;
+            
+        case -1:
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->pool, 
+                          "req[%d]: OCSP respoonse did not return the nonce", req->id);
+            break;
+        default:
+            break;
+        }
+
         n = OCSP_resp_find_status(basic_resp, ostat->certid, &bstatus,
                                    &breason, NULL, &bup, &bnextup);
         if (n != 1) {
@@ -568,6 +592,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
+        
         
         /* Coming here, we have a response for our certid and it is either GOOD
          * or REVOKED. Both cases we want to remember and use in stapling. */
@@ -665,6 +690,7 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
                 certid = OCSP_CERTID_dup(ostat->certid);
                 if (!certid) goto leave;
                 if (!OCSP_request_add0_id(ostat->ocsp_req, certid)) goto leave;
+                OCSP_request_add1_nonce(ostat->ocsp_req, 0, -1);
                 certid = NULL;
             }
             if (0 == ostat->req_der.len) {
