@@ -718,7 +718,7 @@ class TestEnv:
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, name="test.conf", local=True):
+    def __init__(self, name="test.conf", local=True, text=None):
         self.path = os.path.join(TestEnv.GEN_DIR, name)
         if os.path.isfile(self.path):
             os.remove(self.path)
@@ -728,6 +728,8 @@ class HttpdConf(object):
                 "MDCertificateAgreement %s\n") % 
                 (TestEnv.ACME_URL, 'accepted')
             );
+        if text:
+            open(self.path, "a").write(text + "\n")
 
     def clear(self):
         if os.path.isfile(self.path):
