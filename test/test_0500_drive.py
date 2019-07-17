@@ -18,7 +18,7 @@ def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.initv1()
     TestEnv.check_acme()
-    TestEnv.apache_err_reset()
+    TestEnv.httpd_error_log_clear()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
     assert TestEnv.apache_restart() == 0
 
@@ -86,7 +86,7 @@ class TestDrivev1:
         # drive
         prevMd = TestEnv.a2md([ "list", name ])['jout']['output'][0]
         assert TestEnv.a2md( [ "drive", "-c", "http-01", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
         self._check_account_key( name )
 
         # check archive content
@@ -125,7 +125,7 @@ class TestDrivev1:
         assert TestEnv.apache_start() == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", "-c", "http-01", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name, "test." + domain ])
+        TestEnv.check_md_credentials([ name, "test." + domain ])
 
     def test_500_102(self):
         # Driving an MD with 'tls-alpn-01' challenge without making it known to Apache
@@ -161,7 +161,7 @@ class TestDrivev1:
         assert TestEnv.a2md([ "update", name, "account", acct])['rv'] == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
 
     def test_500_104(self):
         # test case: md with one domain, TOS agreement, ACME account and authz challenge
@@ -193,7 +193,7 @@ class TestDrivev1:
             }, indent=2))
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
 
     def test_500_105(self):
         # test case: md with one domain, local TOS agreement and ACME account that is deleted (!) on server
@@ -214,7 +214,7 @@ class TestDrivev1:
         run = TestEnv.a2md( [ "drive", name ] )
         print run["stderr"]
         assert run['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
 
     def test_500_106(self):
         # Driving an MD with TLS only, without making it known to Apache
@@ -235,19 +235,19 @@ class TestDrivev1:
         assert TestEnv.apache_start() == 0
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
         orig_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
 
         # drive again
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
         cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
         assert cert.get_serial() == orig_cert.get_serial()
 
         # drive --force
         assert TestEnv.a2md( [ "-vv", "drive", "--force", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
         cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
         assert cert.get_serial() != orig_cert.get_serial()
@@ -269,7 +269,7 @@ class TestDrivev1:
 
         # drive it, working proxy url -> SUCCESS
         assert TestEnv.a2md( [ "-p", "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT), "drive", name ] )['rv'] == 0
-        TestEnv.check_md_credentials(name, [ name ])
+        TestEnv.check_md_credentials([ name ])
 
     def test_500_109(self):
         # test case: redirect on SSL-only domain
@@ -280,8 +280,8 @@ class TestDrivev1:
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
-        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[], docRoot="htdocs/test")
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[], docRoot="htdocs/test")
+        conf.add_vhost(name, port=TestEnv.HTTP_PORT, docRoot="htdocs/test")
+        conf.add_vhost(name, docRoot="htdocs/test")
         conf.install()
         # setup: create resource files
         self._write_res_file(os.path.join(TestEnv.APACHE_HTDOCS_DIR, "test"), "name.txt", name)
@@ -339,8 +339,8 @@ class TestDrivev1:
         conf.add_drive_mode( "manual" )
         conf.add_require_ssl("permanent")
         conf.add_md( [name] )
-        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[])
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[])
+        conf.add_vhost(name, port=TestEnv.HTTP_PORT)
+        conf.add_vhost(name)
         conf.install()
         assert TestEnv.apache_restart() == 0
         # drive it
@@ -380,8 +380,8 @@ class TestDrivev1:
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
         conf._add_line("  LogLevel alias:debug")
-        conf.add_vhost(TestEnv.HTTP_PORT, name, aliasList=[])
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[])
+        conf.add_vhost(name, port=TestEnv.HTTP_PORT)
+        conf.add_vhost(name)
         conf.install()
         assert TestEnv.apache_restart() == 0
         # drive it
@@ -418,7 +418,7 @@ class TestDrivev1:
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "manual" )
         conf.add_md( [name] )
-        conf.add_vhost(TestEnv.HTTPS_PORT, name, aliasList=[])
+        conf.add_vhost(name)
         conf.install()
         assert TestEnv.apache_restart() == 0
         r = TestEnv.run( [ "openssl", "s_client",  
@@ -427,7 +427,7 @@ class TestDrivev1:
               ], "GET https:// HTTP/1.1\nHost: example.com\n\n" )
         assert TestEnv.apache_restart() == 0
         # assert that no crash is reported in the log
-        assert not TestEnv.apache_err_scan( re.compile("^.* child pid \S+ exit .*$") )
+        assert not TestEnv.httpd_error_log_scan( re.compile("^.* child pid \S+ exit .*$") )
 
     # --------- critical state change -> drive again ---------
 
@@ -446,7 +446,7 @@ class TestDrivev1:
         # drive
         assert TestEnv.a2md( [ "-vv", "drive", name ] )['rv'] == 0
         # check new cert
-        TestEnv.check_md_credentials(name, [ name, "test." + domain ])
+        TestEnv.check_md_credentials([ name, "test." + domain ])
         new_cert = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert old_cert.get_serial() != new_cert.get_serial()
 
@@ -609,13 +609,13 @@ class TestDrivev1:
 
     # --------- _utils_ ---------
 
-    def _prepare_md(self, dnsList):
-        assert TestEnv.a2md(["add"] + dnsList)['rv'] == 0
+    def _prepare_md(self, domains):
+        assert TestEnv.a2md(["add"] + domains)['rv'] == 0
         assert TestEnv.a2md(
-            [ "update", dnsList[0], "contacts", "admin@" + dnsList[0] ]
+            [ "update", domains[0], "contacts", "admin@" + domains[0] ]
             )['rv'] == 0
         assert TestEnv.a2md( 
-            [ "update", dnsList[0], "agreement", TestEnv.ACME_TOS ]
+            [ "update", domains[0], "agreement", TestEnv.ACME_TOS ]
             )['rv'] == 0
 
     def _write_res_file(self, docRoot, name, content):

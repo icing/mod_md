@@ -33,7 +33,6 @@ class TestStatus:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.apache_err_reset();
         TestEnv.clear_store()
         self.test_domain = TestEnv.get_method_domain(method)
 
@@ -43,11 +42,11 @@ class TestStatus:
     def test_920_001(self):
         # simple MD, drive it, check status before activation
         domain = self.test_domain
-        dnsList = [ domain ]
+        domains = [ domain ]
         conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
-        conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_md( domains )
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ], restart=False )
@@ -74,11 +73,11 @@ class TestStatus:
     def test_920_002(self):
         # simple MD, drive it, manipulate staged credentials and check status
         domain = self.test_domain
-        dnsList = [ domain ]
+        domains = [ domain ]
         conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
-        conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_md( domains )
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ], restart=False )
@@ -103,12 +102,12 @@ class TestStatus:
     def test_920_003(self):
         # test if switching it off works
         domain = self.test_domain
-        dnsList = [ domain ]
+        domains = [ domain ]
         conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
-        conf.add_md( dnsList )
+        conf.add_md( domains )
         conf.add_line("MDCertificateStatus off")
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ], restart=False )

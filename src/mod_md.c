@@ -573,7 +573,7 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
     md_srv_conf_t *base_conf;
     md_t *md, *omd;
     const char *domain;
-    const md_timeslice_t *ts;
+    md_timeslice_t *ts;
     apr_status_t rv = APR_SUCCESS;
     int i, j;
 
@@ -675,22 +675,22 @@ static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     return rv;
 }
 
-static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *ptemp, server_rec *s)
+static int init_cert_watch_status(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *ptemp, server_rec *s)
 {
-    const md_t *md;
+    md_t *md;
     md_result_t *result;
-    int i;
+    int i, count;
     
     /* Calculate the list of MD names which we need to watch:
      * - all MDs that are used somewhere
      * - all MDs in drive mode 'AUTO' that are not in 'unused_names'
      */
+    count = 0;
     result = md_result_make(ptemp, APR_SUCCESS);
-    apr_array_clear(mc->watched_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
-        md = APR_ARRAY_IDX(mc->mds, i, const md_t *);
+        md = APR_ARRAY_IDX(mc->mds, i, md_t*);
         md_result_set(result, APR_SUCCESS, NULL);
-
+        md->watched = 0;
         if (md->state == MD_S_ERROR) {
             md_result_set(result, APR_EGENERAL, 
                           "in error state, unable to drive forward. This "
@@ -715,8 +715,10 @@ static void init_watched_names(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *pte
             }
         }
         
-        APR_ARRAY_PUSH(mc->watched_names, const char *) = md->name; 
+        md->watched = 1;
+        ++count;
     }
+    return count;
 }   
 
 static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
@@ -727,9 +729,9 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     md_srv_conf_t *sc;
     md_mod_conf_t *mc;
     apr_status_t rv = APR_SUCCESS;
-    int dry_run = 0, log_level = APLOG_DEBUG;
+    int dry_run = 0, log_level = APLOG_DEBUG, watched;
     md_store_t *store;
-    const md_timeslice_t *ocsp_renew_window;
+    md_timeslice_t *ocsp_renew_window;
 
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
     if (data == NULL) {
@@ -818,7 +820,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     /*7*/
     if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
     /*8*/
-    init_watched_names(mc, p, ptemp, s);
+    watched = init_cert_watch_status(mc, p, ptemp, s);
     /*9*/
     md_reg_cleanup_challenges(mc->reg, p, ptemp, mc->mds);
     
@@ -826,17 +828,16 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
      * and only staging/challenges may be manipulated */
     md_reg_freeze_domains(mc->reg, mc->mds);
     
-    if (mc->watched_names->nelts > 0) {
+    if (watched) {
         /*10*/
         ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10074)
-                     "%d out of %d mds need watching", 
-                     mc->watched_names->nelts, mc->mds->nelts);
+                     "%d out of %d mds need watching", watched, mc->mds->nelts);
     
         md_http_use_implementation(md_curl_get_impl(p));
         rv = md_renew_start_watching(mc, s, p);
     }
     else {
-        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075) "no mds to drive");
+        ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075) "no mds to supervise");
     }
 leave:
     return rv;

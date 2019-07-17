@@ -29,10 +29,9 @@ class TestRegAdd :
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    # --------- add ---------
 
+    # test case: add a single dns managed domain
     def test_100_000(self):
-        # test case: add a single dns managed domain
         dns = "greenbytes.de"
         jout1 = TestEnv.a2md( [ "add", dns ] )['jout']
         TestEnv.check_json_contains( jout1['output'][0],
@@ -46,11 +45,10 @@ class TestRegAdd :
                 },
                 "state": TestEnv.MD_S_INCOMPLETE
             })
-        # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
+    # test case: add > 1 dns managed domain
     def test_100_001(self):
-        # test case: add > 1 dns managed domain
         dns = [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de" ]
         jout1 = TestEnv.a2md( [ "add" ] + dns )['jout']
         TestEnv.check_json_contains( jout1['output'][0],
@@ -64,12 +62,10 @@ class TestRegAdd :
                 },
                 "state": TestEnv.MD_S_INCOMPLETE
             })
-        # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
+    # test case: add second managed domain
     def test_100_002(self):
-        # test case: add second managed domain
-        # setup: add first managed domain
         dns1 = [ "test100-002.com", "test100-002a.com", "test100-002b.com" ]
         TestEnv.a2md( [ "add" ] + dns1 )
         # add second managed domain
@@ -90,16 +86,14 @@ class TestRegAdd :
             })
         assert len(TestEnv.a2md( [ "list" ] )['jout']['output']) == 2
 
+    # test case: add existing domain 
     def test_100_003(self):
-        # test case: add existing domain 
-        # setup: add domain
         dns = "greenbytes.de"
         assert TestEnv.a2md( [ "add", dns ] )['rv'] == 0
-        # add same domain again
         assert TestEnv.a2md( [ "add", dns ] )['rv'] == 1
 
+    # test case: add without CA URL
     def test_100_004(self):
-        # test case: add without CA URL
         dns = "greenbytes.de"
         jout1 = TestEnv.run( [ TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j", "add", dns ] )['jout']
         assert len(jout1['output']) == 1
@@ -113,32 +107,28 @@ class TestRegAdd :
                 },
                 "state": TestEnv.MD_S_INCOMPLETE
             })
-        # list store content
         assert TestEnv.a2md( [ "list" ] )['jout'] == jout1
 
+    # test case: add with invalid DNS
     @pytest.mark.parametrize("invalidDNS", [
         ("tld"), ("white sp.ace"), ("invalid.*.wildcard.com"), ("k\xc3ller.idn.com")
     ])
     def test_100_005(self, invalidDNS):
-        # test case: add with invalid DNS
-        # dns as primary name
         assert TestEnv.a2md( [ "add", invalidDNS ] )["rv"] == 1
-        # dns as alternate name
         assert TestEnv.a2md( [ "add", "test-100.de", invalidDNS ] )["rv"] == 1
 
+    # test case: add with invalid ACME URL
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
     ])
     def test_100_006(self, invalidURL):
-        # test case: add with invalid ACME URL
         args = [TestEnv.A2MD, "-a", invalidURL, "-d", TestEnv.STORE_DIR, "-j" ]
         dns = "greenbytes.de"
         args.extend([ "add", dns ])
         assert TestEnv.run(args)["rv"] == 1
 
+    # test case: add overlapping dns names
     def test_100_007(self):
-        # test case: add overlapping dns names
-        # setup: add first managed domain
         assert TestEnv.a2md( [ "add", "test-100.com", "test-101.com" ] )['rv'] == 0
         # 1: alternate DNS exists as primary name
         assert TestEnv.a2md( [ "add", "greenbytes2.de", "test-100.com" ] )['rv'] == 1
@@ -147,16 +137,13 @@ class TestRegAdd :
         # 3: primary name exists as alternate DNS
         assert TestEnv.a2md( [ "add", "test-101.com" ] )['rv'] == 1
 
+    # test case: add subdomains as separate managed domain
     def test_100_008(self):
-        # test case: add subdomains as separate managed domain
-        # setup: add first managed domain
         assert TestEnv.a2md( [ "add", "test-100.com" ] )['rv'] == 0
-        # add second managed domain
         assert TestEnv.a2md( [ "add", "sub.test-100.com" ] )['rv'] == 0
 
+    # test case: add duplicate domain
     def test_100_009(self):
-        # test case: add duplicate domain
-        # setup: add managed domain
         dns1 = "test-100.com"
         dns2 = "test-101.com"
         jout = TestEnv.a2md( [ "add", dns1, dns2, dns1, dns2 ] )['jout']
@@ -165,13 +152,12 @@ class TestRegAdd :
         md = jout['output'][0]
         assert md['domains'] == [ dns1, dns2 ]
 
+    # test case: add pnuycode name
     def test_100_010(self):
-        # test case: add pnuycode name
         assert TestEnv.a2md( [ "add", "xn--kller-jua.punycode.de" ] )['rv'] == 0
 
+    # test case: don't sort alternate names
     def test_100_011(self):
-        # test case: don't sort alternate names
-        # setup: add managed domain
         dns = [ "test-100.com", "test-xxx.com", "test-aaa.com" ]
         jout = TestEnv.a2md( [ "add" ] + dns )['jout']
         # DNS is only listed as specified
@@ -179,9 +165,9 @@ class TestRegAdd :
         md = jout['output'][0]
         assert md['domains'] == dns
 
+    # test case: add DNS wildcard
     @pytest.mark.parametrize("wildDNS", [
         ("*.wildcard.com")
     ])
     def test_100_012(self, wildDNS):
-        # test case: add DNS wildcard
         assert TestEnv.a2md(["add", wildDNS])['rv'] == 0

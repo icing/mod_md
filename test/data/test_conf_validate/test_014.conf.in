@@ -1,8 +1,0 @@
-# global server name as managed domain name
-
-MDomain @SERVER_NAME@ www.example2.org
-
-<VirtualHost *:12346>
-    ServerName www.example2.org
-
-</VirtualHost>

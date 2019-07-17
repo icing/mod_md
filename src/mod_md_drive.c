@@ -295,13 +295,12 @@ apr_status_t md_renew_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_
     md_renew_ctx_t *dctx;
     apr_pool_t *dctxp;
     apr_status_t rv;
-    const char *name;
     md_t *md;
     md_job_t *job;
     int i;
     
     /* We use mod_watchdog to run a single thread in one of the child processes
-     * to monitor the MDs in mc->watched_names, using the const data in the list
+     * to monitor the MDs marked as watched, using the const data in the list
      * mc->mds of our MD structures.
      *
      * The data in mc cannot be changed, as we may spawn copies in new child processes
@@ -348,16 +347,15 @@ apr_status_t md_renew_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_
     dctx->s = s;
     dctx->mc = mc;
     
-    dctx->jobs = apr_array_make(dctx->p, mc->watched_names->nelts, sizeof(md_job_t *));
-    for (i = 0; i < mc->watched_names->nelts; ++i) {
-        name = APR_ARRAY_IDX(mc->watched_names, i, const char *);
-        md = md_get_by_name(mc->mds, name);
-        if (!md) continue;
+    dctx->jobs = apr_array_make(dctx->p, mc->mds->nelts, sizeof(md_job_t *));
+    for (i = 0; i < mc->mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mc->mds, i, md_t*);
+        if (!md || !md->watched) continue;
         
         job = md_job_make(p, MD_SG_STAGING, md->name);
         APR_ARRAY_PUSH(dctx->jobs, md_job_t*) = job;
         ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,  
-                     "md(%s): state=%d, created drive job", name, md->state);
+                     "md(%s): state=%d, created drive job", md->name, md->state);
         
         md_job_load(job, md_reg_store_get(mc->reg), dctx->p);
         if (job->error_runs) {
@@ -369,7 +367,7 @@ apr_status_t md_renew_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_
              */
             ap_log_error( APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10064) 
                          "md(%s): previous drive job showed %d errors, purging STAGING "
-                         "area to reset.", name, job->error_runs);
+                         "area to reset.", md->name, job->error_runs);
             md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_STAGING, md->name);
             md_store_purge(md_reg_store_get(dctx->mc->reg), p, MD_SG_CHALLENGES, md->name);
             job->error_runs = 0;

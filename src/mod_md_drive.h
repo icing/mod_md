@@ -25,7 +25,7 @@ typedef struct md_renew_ctx_t md_renew_ctx_t;
 int md_will_renew_cert(const md_t *md);
 
 /**
- * Start driving the certificate renewal for the domains mentioned in mc->watched_names.
+ * Start driving the certificate renewal for MDs marked with watched.
  */
 apr_status_t md_renew_start_watching(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p);
 

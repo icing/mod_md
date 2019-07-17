@@ -59,7 +59,6 @@ struct md_mod_conf_t {
     int hsts_max_age;                  /* max-age of HSTS (rfc6797) header */
     const char *hsts_header;           /* computed HTST header to use or NULL */
     apr_array_header_t *unused_names;  /* post config, names of all MDs not assigned to a vhost */
-    apr_array_header_t *watched_names; /* post config, names of all MDs that we need to watch */
     struct apr_hash_t *init_errors;    /* init errors reported with MD name as key */
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
@@ -80,8 +79,8 @@ typedef struct md_srv_conf_t {
     int renew_mode;                    /* mode of obtaining credentials */
     int must_staple;                   /* certificates should set the OCSP Must Staple extension */
     struct md_pkey_spec_t *pkey_spec;  /* specification for generating private keys */
-    const md_timeslice_t *renew_window; /* time before expiration that starts renewal */
-    const md_timeslice_t *warn_window;  /* time before expiration that warning are sent out */
+    md_timeslice_t *renew_window; /* time before expiration that starts renewal */
+    md_timeslice_t *warn_window;  /* time before expiration that warning are sent out */
     
     const char *ca_url;                /* url of CA certificate service */
     const char *ca_proto;              /* protocol used vs CA (e.g. ACME) */
@@ -113,7 +112,7 @@ md_srv_conf_t *md_config_get_unique(server_rec *s, apr_pool_t *p);
 const char *md_config_gets(const md_srv_conf_t *config, md_config_var_t var);
 int md_config_geti(const md_srv_conf_t *config, md_config_var_t var);
 
-void md_config_get_timespan(const md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var);
+void md_config_get_timespan(md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var);
 
 
 #endif /* md_config_h */

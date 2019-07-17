@@ -46,8 +46,8 @@ struct md_reg_t {
     int can_https;
     const char *proxy_url;
     int domains_frozen;
-    const md_timeslice_t *renew_window;
-    const md_timeslice_t *warn_window;
+    md_timeslice_t *renew_window;
+    md_timeslice_t *warn_window;
 };
 
 /**************************************************************************************************/
@@ -455,11 +455,11 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_RENEW_WINDOW & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update renew-window: %s", name);
-        nmd->renew_window = updates->renew_window;
+        *nmd->renew_window = *updates->renew_window;
     }
     if (MD_UPD_WARN_WINDOW & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update warn-window: %s", name);
-        nmd->warn_window = updates->warn_window;
+        *nmd->warn_window = *updates->warn_window;
     }
     if (MD_UPD_CA_CHALLENGES & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update ca challenges: %s", name);
@@ -844,11 +844,11 @@ apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
                     fields |= MD_UPD_CONTACTS;
                 }
                 if (!md_timeslice_eq(md->renew_window, smd->renew_window)) {
-                    smd->renew_window = md->renew_window;
+                    *smd->renew_window = *md->renew_window;
                     fields |= MD_UPD_RENEW_WINDOW;
                 }
                 if (!md_timeslice_eq(md->warn_window, smd->warn_window)) {
-                    smd->warn_window = md->warn_window;
+                    *smd->warn_window = *md->warn_window;
                     fields |= MD_UPD_WARN_WINDOW;
                 }
                 if (md->ca_challenges) {
@@ -1159,12 +1159,12 @@ leave:
     return rv;
 }
 
-void md_reg_set_renew_window_default(md_reg_t *reg, const md_timeslice_t *renew_window)
+void md_reg_set_renew_window_default(md_reg_t *reg, md_timeslice_t *renew_window)
 {
-    reg->renew_window = renew_window;
+    *reg->renew_window = *renew_window;
 }
 
-void md_reg_set_warn_window_default(md_reg_t *reg, const md_timeslice_t *warn_window)
+void md_reg_set_warn_window_default(md_reg_t *reg, md_timeslice_t *warn_window)
 {
-    reg->warn_window = warn_window;
+    *reg->warn_window = *warn_window;
 }

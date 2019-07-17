@@ -32,7 +32,6 @@ class TestCleanups:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.apache_err_reset();
         TestEnv.clear_store()
         self.test_domain = TestEnv.get_method_domain(method)
 
@@ -42,12 +41,12 @@ class TestCleanups:
     def test_910_01(self):
         # generate a simple MD
         domain = self.test_domain
-        dnsList = [ domain ]
+        domains = [ domain ]
         conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_drive_mode( "manual" )
-        conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_md( domains )
+        conf.add_vhost(domain)
         conf.install()
 
         # create valid/invalid challenges subdirs

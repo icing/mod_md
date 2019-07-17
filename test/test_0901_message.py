@@ -35,7 +35,6 @@ class TestMessage:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.apache_err_reset();
         TestEnv.clear_store()
         self.test_domain = TestEnv.get_method_domain(method)
         self.mcmd = ("%s/message.py" % TestEnv.TESTROOT)
@@ -49,13 +48,13 @@ class TestMessage:
     # test: signup with configured message cmd that is invalid
     def test_901_001(self):
         domain = self.test_domain
-        dnsList = [ domain, "www." + domain ]
+        domains = [ domain, "www." + domain ]
         conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_message_cmd( "blablabla" )
         conf.add_drive_mode( "auto" )
-        conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ])
+        conf.add_md( domains )
+        conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ], restart=False )
@@ -67,13 +66,13 @@ class TestMessage:
     def test_901_002(self):
         self.mcmd = ("%s/notifail.py" % TestEnv.TESTROOT)
         domain = self.test_domain
-        dnsList = [ domain, "www." + domain ]
+        domains = [ domain, "www." + domain ]
         conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_message_cmd( "%s %s" % (self.mcmd, self.mlog) )
         conf.add_drive_mode( "auto" )
-        conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ])
+        conf.add_md( domains )
+        conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ], restart=False )
@@ -84,13 +83,13 @@ class TestMessage:
     # test: signup with working message cmd and see that it logs the right things
     def test_901_003(self):
         domain = self.test_domain
-        dnsList = [ domain, "www." + domain ]
+        domains = [ domain, "www." + domain ]
         conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_message_cmd( "%s %s" % (self.mcmd, self.mlog) )
         conf.add_drive_mode( "auto" )
-        conf.add_md( dnsList )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ])
+        conf.add_md(domains)
+        conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ], restart=False )
@@ -106,10 +105,10 @@ class TestMessage:
     def test_901_010(self):
         # MD with static cert files, lifetime in renewal window, no message about renewal
         domain = self.test_domain
-        dnsList = [ domain, 'www.%s' % domain ]
+        domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_901_010')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(dnsList, { "notBefore": -70, "notAfter": 20  },
+        CertUtil.create_self_signed_cert(domains, { "notBefore": -70, "notAfter": 20  },
             serial=901010, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -118,11 +117,11 @@ class TestMessage:
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org" )
         conf.add_message_cmd( "%s %s" % (self.mcmd, self.mlog) )
-        conf.start_md(dnsList)
+        conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % (cert_file))
         conf.add_line("MDCertificateKeyFile %s" % (pkey_file))
         conf.end_md()
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert not os.path.isfile(self.mlog)
@@ -130,10 +129,10 @@ class TestMessage:
     def test_901_011(self):
         # MD with static cert files, lifetime in warn window, check message
         domain = self.test_domain
-        dnsList = [ domain, 'www.%s' % domain ]
+        domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_901_011')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(dnsList, { "notBefore": -85, "notAfter": 5  },
+        CertUtil.create_self_signed_cert(domains, { "notBefore": -85, "notAfter": 5  },
             serial=901011, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -142,11 +141,11 @@ class TestMessage:
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org" )
         conf.add_message_cmd( "%s %s" % (self.mcmd, self.mlog) )
-        conf.start_md(dnsList)
+        conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % (cert_file))
         conf.add_line("MDCertificateKeyFile %s" % (pkey_file))
         conf.end_md()
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         time.sleep(1)

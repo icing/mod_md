@@ -138,6 +138,7 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
         md_json_setj(certj, mdj, MD_KEY_CERT, NULL);
     }
     
+    md_json_setb(md->watched, mdj, MD_KEY_WATCHED, NULL);
     renew = md_reg_should_renew(reg, md, p);
     md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     if (renew) {

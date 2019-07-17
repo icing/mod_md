@@ -55,12 +55,12 @@ typedef struct {
     apr_interval_time_t len;  /* length of the timespan */
 } md_timeslice_t;
 
-apr_status_t md_timeslice_create(const md_timeslice_t **pts, apr_pool_t *p,
+apr_status_t md_timeslice_create(md_timeslice_t **pts, apr_pool_t *p,
                                  apr_interval_time_t norm, apr_interval_time_t len); 
 
 int md_timeslice_eq(const md_timeslice_t *ts1, const md_timeslice_t *ts2);
 
-const char *md_timeslice_parse(const md_timeslice_t **pts, apr_pool_t *p, 
+const char *md_timeslice_parse(md_timeslice_t **pts, apr_pool_t *p, 
                               const char *val, apr_interval_time_t defnorm);
 const char *md_timeslice_format(const md_timeslice_t *ts, apr_pool_t *p);
 

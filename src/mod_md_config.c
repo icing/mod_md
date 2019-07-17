@@ -60,7 +60,6 @@ static md_mod_conf_t defmc = {
     MD_HSTS_MAX_AGE_DEFAULT,   /* hsts max-age */
     NULL,                      /* hsts headers */
     NULL,                      /* unused names */
-    NULL,                      /* watched names */
     NULL,                      /* init errors hash */
     NULL,                      /* notify cmd */
     NULL,                      /* message cmd */
@@ -121,7 +120,6 @@ static md_mod_conf_t *md_mod_conf_get(apr_pool_t *pool, int create)
         memcpy(mod_md_config, &defmc, sizeof(*mod_md_config));
         mod_md_config->mds = apr_array_make(pool, 5, sizeof(const md_t *));
         mod_md_config->unused_names = apr_array_make(pool, 5, sizeof(const md_t *));
-        mod_md_config->watched_names = apr_array_make(pool, 5, sizeof(const md_t *));
         mod_md_config->env = apr_table_make(pool, 10);
         mod_md_config->init_errors = apr_hash_make(pool);
          
@@ -1018,7 +1016,7 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
     }
 }
 
-void md_config_get_timespan(const md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var)
+void md_config_get_timespan(md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var)
 {
     switch (var) {
         case MD_CONFIG_RENEW_WINDOW:

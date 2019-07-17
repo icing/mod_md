@@ -33,7 +33,6 @@ class TestStatus:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.apache_err_reset();
         TestEnv.clear_store()
         self.test_domain = TestEnv.get_method_domain(method)
 
@@ -43,10 +42,10 @@ class TestStatus:
     def test_730_001(self):
         # MD with static cert files, will not be driven
         domain = self.test_domain
-        dnsList = [ domain, 'www.%s' % domain ]
+        domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(dnsList, { "notBefore": -80, "notAfter": 10  },
+        CertUtil.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
             serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -54,16 +53,16 @@ class TestStatus:
         assert os.path.exists(pkey_file)
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org" )
-        conf.start_md(dnsList)
+        conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % (cert_file))
         conf.add_line("MDCertificateKeyFile %s" % (pkey_file))
         conf.end_md()
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         
         # check if the domain uses it, it appears in our stats and renewal is off
-        cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
+        cert = TestEnv.get_cert(domain)
         assert ('%X' % 730001) == cert.get_serial()
         stat = TestEnv.get_md_status(domain)
         assert stat
@@ -75,10 +74,10 @@ class TestStatus:
     def test_730_002(self):
         # MD with static cert files, force driving
         domain = self.test_domain
-        dnsList = [ domain, 'www.%s' % domain ]
+        domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(dnsList, { "notBefore": -80, "notAfter": 10  },
+        CertUtil.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
             serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -86,32 +85,32 @@ class TestStatus:
         assert os.path.exists(pkey_file)
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org" )
-        conf.start_md(dnsList)
+        conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % (cert_file))
         conf.add_line("MDCertificateKeyFile %s" % (pkey_file))
         conf.add_line("MDRenewMode always")
         conf.end_md()
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         
         # check if the domain uses it, it appears in our stats and renewal is off
-        cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
+        cert = TestEnv.get_cert(domain)
         assert ('%X' % 730001) == cert.get_serial()
         stat = TestEnv.get_md_status(domain)
         assert stat
         assert 'cert' in stat
         assert stat['renew'] == True
-        assert TestEnv.await_renewal(dnsList)
+        assert TestEnv.await_renewal(domains)
 
 
     def test_730_003(self):
         # just configuring one file will not work
         domain = self.test_domain
-        dnsList = [ domain, 'www.%s' % domain ]
+        domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(dnsList, { "notBefore": -80, "notAfter": 10  },
+        CertUtil.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
             serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -120,19 +119,19 @@ class TestStatus:
         
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org" )
-        conf.start_md(dnsList)
+        conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % (cert_file))
         conf.end_md()
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_fail() == 0
         
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org" )
-        conf.start_md(dnsList)
+        conf.start_md(domains)
         conf.add_line("MDCertificateKeyFile %s" % (pkey_file))
         conf.end_md()
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_fail() == 0
         

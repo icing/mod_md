@@ -46,27 +46,27 @@ class TestRoundtripv2:
         # test case: generate config with md -> restart -> drive -> generate config
         # with vhost and ssl -> restart -> check HTTPS access
         domain = self.test_domain
-        dnsList = [ domain, "www." + domain ]
+        domains = [ domain, "www." + domain ]
 
         # - generate config with one md
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("manual")
-        conf.add_md(dnsList)
+        conf.add_md(domains)
         conf.install()
         # - restart, check that md is in store
         assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domain, dnsList)
+        TestEnv.check_md(domains)
         # - drive
         assert TestEnv.a2md( [ "-v", "drive", domain ] )['rv'] == 0
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md_complete(domain)
         # - append vhost to config
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dnsList[1] ])
+        conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
         # check: SSL is running OK
-        cert = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
+        cert = TestEnv.get_cert(domain)
         assert domain in cert.get_san_list()
 
         # check file system permissions:
@@ -77,20 +77,20 @@ class TestRoundtripv2:
         domainA = "a-" + self.test_domain
         domainB = "b-" + self.test_domain
         # - generate config with one md
-        dnsListA = [ domainA, "www." + domainA ]
-        dnsListB = [ domainB, "www." + domainB ]
+        domainsA = [ domainA, "www." + domainA ]
+        domainsB = [ domainB, "www." + domainB ]
 
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org")
         conf.add_drive_mode("manual")
-        conf.add_md(dnsListA)
-        conf.add_md(dnsListB)
+        conf.add_md(domainsA)
+        conf.add_md(domainsB)
         conf.install()
 
         # - restart, check that md is in store
         assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domainA, dnsListA)
-        TestEnv.check_md(domainB, dnsListB)
+        TestEnv.check_md(domainsA)
+        TestEnv.check_md(domainsB)
 
         # - drive
         assert TestEnv.a2md( [ "drive", domainA ] )['rv'] == 0
@@ -100,34 +100,34 @@ class TestRoundtripv2:
         TestEnv.check_md_complete(domainB)
 
         # - append vhost to config
-        conf.add_vhost(TestEnv.HTTPS_PORT, domainA, aliasList=[ dnsListA[1] ])
-        conf.add_vhost(TestEnv.HTTPS_PORT, domainB, aliasList=[ dnsListB[1] ])
+        conf.add_vhost(domainsA)
+        conf.add_vhost(domainsB)
         conf.install()
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        certA = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainA)
-        assert dnsListA == certA.get_san_list()
-        certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainB)
-        assert dnsListB == certB.get_san_list()
+        certA = TestEnv.get_cert(domainA)
+        assert domainsA == certA.get_san_list()
+        certB = TestEnv.get_cert(domainB)
+        assert domainsB == certB.get_san_list()
 
     def test_602_002(self):
         # test case: one md, that covers two vhosts
         domain = self.test_domain
         nameA = "a." + domain
         nameB = "b." + domain
-        dnsList = [ domain, nameA, nameB ]
+        domains = [ domain, nameA, nameB ]
 
         # - generate config with one md
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("manual")
-        conf.add_md(dnsList)
+        conf.add_md(domains)
         conf.install()
         
         # - restart, check that md is in store
         assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domain, dnsList)
+        TestEnv.check_md(domains)
 
         # - drive
         assert TestEnv.a2md( [ "drive", domain ] )['rv'] == 0
@@ -135,8 +135,8 @@ class TestRoundtripv2:
         TestEnv.check_md_complete(domain)
 
         # - append vhost to config
-        conf.add_vhost(TestEnv.HTTPS_PORT, nameA, aliasList=[], docRoot="htdocs/a")
-        conf.add_vhost(TestEnv.HTTPS_PORT, nameB, aliasList=[], docRoot="htdocs/b")
+        conf.add_vhost(nameA, docRoot="htdocs/a")
+        conf.add_vhost(nameB, docRoot="htdocs/b")
         conf.install()
         
         # - create docRoot folder
@@ -145,9 +145,9 @@ class TestRoundtripv2:
 
         # check: SSL is running OK
         assert TestEnv.apache_restart() == 0
-        certA = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameA)
+        certA = TestEnv.get_cert(nameA)
         assert nameA in certA.get_san_list()
-        certB = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, nameB)
+        certB = TestEnv.get_cert(nameB)
         assert nameB in certB.get_san_list()
         assert certA.get_serial() == certB.get_serial()
         assert TestEnv.get_content(nameA, "/name.txt") == nameA

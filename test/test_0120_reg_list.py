@@ -30,28 +30,27 @@ class TestRegAdd :
         print("teardown_method: %s" % method.__name__)
 
 
+    # test case: list empty store
     def test_120_000(self):
-        # test case: list empty store
         assert TestEnv.a2md( [ "list" ] )['jout'] == TestEnv.EMPTY_JOUT
 
+    # test case: list two managed domains
     def test_120_001(self):
-        # test case: list two managed domains
-        # setup: add managed domains
-        dnslist = [ 
+        domains = [ 
             [ "test120-001.com", "test120-001a.com", "test120-001b.com" ],
             [ "greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"]
         ]
-        for dns in dnslist:
+        for dns in domains:
             assert TestEnv.a2md( [ "add" ] + dns )['rv'] == 0
-
+        #
         # list all store content
         jout = TestEnv.a2md( [ "list" ] )['jout']
-        assert len(jout['output']) == len(dnslist)
-        dnslist.reverse()
+        assert len(jout['output']) == len(domains)
+        domains.reverse()
         for i in range (0, len(jout['output'])):
             TestEnv.check_json_contains( jout['output'][i], {
-                "name": dnslist[i][0],
-                "domains": dnslist[i],
+                "name": domains[i][0],
+                "domains": domains[i],
                 "contacts": [],
                 "ca": {
                     "url": TestEnv.ACME_URL,
@@ -64,8 +63,8 @@ class TestRegAdd :
             md = TestEnv.a2md( [ "list", dns ] )['jout']['output'][0]
             assert md['name'] == dns
 
+    # test case: validate md state in store
     def test_120_002(self):
-        # test case: validate md state in store
         # check: md without pkey/cert -> INCOMPLETE
         domain = "not-forbidden.org"
         assert TestEnv.a2md(["add", domain])['rv'] == 0
@@ -83,9 +82,8 @@ class TestRegAdd :
         assert out['state'] == TestEnv.MD_S_INCOMPLETE
         assert out['renew'] == True
 
+    # test case: broken cert file
     def test_120_003(self):
-        # test case: broken cert file
-        #setup: prepare md in store
         domain = "not-forbidden.org"
         assert TestEnv.a2md(["add", domain])['rv'] == 0
         assert TestEnv.a2md([ "update", domain, "contacts", "admin@" + domain ])['rv'] == 0
@@ -102,8 +100,6 @@ class TestRegAdd :
     #          user of the key, e.g. mod_ssl. It is the ultimate arbiter of this.
     #def test_120_004(self):
     # test case: broken private key file
-
-    # --------- _utils_ ---------
 
     def _path_conf_ssl(self, name):
         return os.path.join(TestEnv.APACHE_SSL_DIR, name) 

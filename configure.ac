@@ -380,7 +380,6 @@ AC_CONFIG_FILES([
     test/conf/httpd.conf
     test/conf/modules.conf
     test/test.ini
-    test/data/test_conf_validate/test_014.conf
 ])
 
 AC_OUTPUT

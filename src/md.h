@@ -99,8 +99,8 @@ struct md_t {
     int renew_mode;                 /* mode of obtaining credentials */
     struct md_pkey_spec_t *pkey_spec;/* specification for generating new private keys */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
-    const md_timeslice_t *renew_window;  /* time before expiration that starts renewal */
-    const md_timeslice_t *warn_window;   /* time before expiration that warnings are sent out */
+    md_timeslice_t *renew_window;  /* time before expiration that starts renewal */
+    md_timeslice_t *warn_window;   /* time before expiration that warnings are sent out */
     
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
@@ -115,6 +115,7 @@ struct md_t {
     struct apr_array_header_t *acme_tls_1_domains; /* domains supporting "acme-tls/1" protocol */
     int stapling;                   /* if OCSP stapling is enabled */
     
+    int watched;               /* if certificate is supervised (renew or expiration warning) */
     const struct md_srv_conf_t *sc; /* server config where it was defined or NULL */
     const char *defn_name;          /* config file this MD was defined */
     unsigned defn_line_number;      /* line number of definition */
@@ -205,6 +206,7 @@ struct md_t {
 #define MD_KEY_VALID_UNTIL      "valid-until"
 #define MD_KEY_VALUE            "value"
 #define MD_KEY_VERSION          "version"
+#define MD_KEY_WATCHED          "watched"
 #define MD_KEY_WHEN             "when"
 #define MD_KEY_WARN_WINDOW      "warn-window"
 

@@ -16,59 +16,48 @@ from test_base import HttpdConf
 from test_base import CertUtil
 
 
-def setup_module(module):
-    print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
-    TestEnv.APACHE_CONF_SRC = "data/test_auto"
-    TestEnv.check_acme()
-    TestEnv.clear_store()
-    TestEnv.install_test_conf();
-    assert TestEnv.apache_start() == 0
-    
-
-def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
-
-
 class TestStapling:
 
-    def setup_method(self, method):
-        print("setup_method: %s" % method.__name__)
-        TestEnv.apache_err_reset();
+    @classmethod
+    def setup_class(cls):
+        print("setup_class:%s" % cls.__name__)
+        TestEnv.init()
         TestEnv.clear_store()
-        self.test_domain = TestEnv.get_method_domain(method)
+        TestEnv.check_acme()
+        cls.domain = TestEnv.get_class_domain(cls)
+        cls.configure_httpd(cls.domain)
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ cls.domain ] )
+        TestEnv.check_md_complete( cls.domain )
 
-    def teardown_method(self, method):
-        print("teardown_method: %s" % method.__name__)
-
-    #-----------------------------------------------------------------------------------------------
-    # MD with stapling enabled, mod_ssl stapling off
-    def test_801_001(self):
-        domain = self.test_domain
-        dns_list = [ domain ]
-        # Start with default stapling (off), check that none is reported/used on connections
+    @classmethod
+    def teardown_class(cls):
+        print("teardown_class:%s" % cls.__name__)
+        assert TestEnv.apache_stop() == 0
+    
+    @classmethod
+    def configure_httpd(cls, domain, add_lines=""):
+        cls.domain = domain 
         conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
-        conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
+        conf.add_line( add_lines )
+        conf.add_md([ domain ])
+        conf.add_vhost(domain)
         conf.install()
+        return domain
+    
+    # MD with stapling enabled, no mod_ssl stapling
+    def test_801_001(self):
+        domain = TestStapling.domain
+        TestStapling.configure_httpd(domain)
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ] )
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md_complete(domain)
         stat = TestEnv.get_ocsp_status(domain)
         assert stat['ocsp'] == "no response sent" 
         stat = TestEnv.get_md_status(domain)
         assert not stat["stapling"]
         #
         # turn stapling on, wait for it to appear in connections
-        conf = HttpdConf()
-        conf.add_admin( "admin@" + domain )
-        conf.add_line("MDStapling on")
-        conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
-        conf.install()
+        TestStapling.configure_httpd(domain, "MDStapling on")
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.await_ocsp_status(domain)
         assert stat['ocsp'] == "successful (0x0)" 
@@ -79,12 +68,7 @@ class TestStapling:
         assert stat["ocsp"]["valid"]
         #
         # turn stapling off (explicitly) again, should disappear
-        conf = HttpdConf()
-        conf.add_admin( "admin@" + domain )
-        conf.add_line("MDStapling off")
-        conf.add_md( dns_list )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domain, aliasList=[])
-        conf.install()
+        TestStapling.configure_httpd(domain, "MDStapling off")
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_ocsp_status(domain)
         assert stat['ocsp'] == "no response sent" 

@@ -212,7 +212,7 @@ static apr_status_t percentage_parse(const char *value, int *ppercent)
     return APR_EINVAL;
 }
 
-apr_status_t md_timeslice_create(const md_timeslice_t **pts, apr_pool_t *p,
+apr_status_t md_timeslice_create(md_timeslice_t **pts, apr_pool_t *p,
                                  apr_interval_time_t norm, apr_interval_time_t len)
 {
     md_timeslice_t *ts;
@@ -224,7 +224,7 @@ apr_status_t md_timeslice_create(const md_timeslice_t **pts, apr_pool_t *p,
     return APR_SUCCESS;
 }
 
-const char *md_timeslice_parse(const md_timeslice_t **pts, apr_pool_t *p, 
+const char *md_timeslice_parse(md_timeslice_t **pts, apr_pool_t *p, 
                                const char *val, apr_interval_time_t norm)
 {
     md_timeslice_t *ts;

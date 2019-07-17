@@ -36,6 +36,7 @@ class TestEnv:
         cls.GEN_DIR   = cls.config.get('global', 'gen_dir')
 
         cls.WEBROOT   = cls.config.get('global', 'server_dir')
+        cls.HOSTNAME  = cls.config.get('global', 'server_name')
         cls.TESTROOT  = os.path.join(cls.WEBROOT, '..', '..')
         
         cls.APACHECTL = os.path.join(cls.PREFIX, 'bin', 'apachectl')
@@ -119,7 +120,15 @@ class TestEnv:
 
     @classmethod
     def get_method_domain( cls, method ) :
-        return "%s-%s" % (re.sub(r'[_]', '-', method.__name__), TestEnv.DOMAIN_SUFFIX)
+        return "%s-%s" % (re.sub(r'[_]', '-', method.__name__.lower()), TestEnv.DOMAIN_SUFFIX)
+
+    @classmethod
+    def get_module_domain( cls, module ) :
+        return "%s-%s" % (re.sub(r'[_]', '-', module.__name__.lower()), TestEnv.DOMAIN_SUFFIX)
+
+    @classmethod
+    def get_class_domain( cls, c ) :
+        return "%s-%s" % (re.sub(r'[_]', '-', c.__name__.lower()), TestEnv.DOMAIN_SUFFIX)
 
     # --------- cmd execution ---------
 
@@ -349,13 +358,18 @@ class TestEnv:
         return os.listdir( os.path.join( TestEnv.STORE_DIR, 'accounts' ) )
     
     @classmethod
-    def check_md(cls, domain, dnsList=None, state=-1, ca=None, protocol=None, agreement=None, contacts=None):
+    def check_md(cls, domain, md=None, state=-1, ca=None, protocol=None, agreement=None, contacts=None):
+        if isinstance(domain, list):
+            domains = domain
+            domain = domains[0]
+        if md:
+            domain = md
         path = cls.store_domain_file(domain, 'md.json')
         with open( path ) as f:
             md = json.load(f)
         assert md
-        if dnsList:
-            assert md['domains'] == dnsList
+        if domains:
+            assert md['domains'] == domains
         if state >= 0:
             assert md['state'] == state
         if ca:
@@ -377,7 +391,10 @@ class TestEnv:
         assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
 
     @classmethod
-    def check_md_credentials(cls, domain, dnsList):
+    def check_md_credentials(cls, domain):
+        if isinstance(domain, list):
+            domains = domain
+            domain = domains[0]
         # check private key, validate certificate, etc
         CertUtil.validate_privkey( cls.store_domain_file(domain, 'privkey.pem') )
         cert = CertUtil(  cls.store_domain_file(domain, 'pubcert.pem') )
@@ -386,9 +403,9 @@ class TestEnv:
         assert cert.get_cn() == domain
         # compare lists twice in opposite directions: SAN may not respect ordering
         sanList = cert.get_san_list()
-        assert len(sanList) == len(dnsList)
-        assert set(sanList).issubset(dnsList)
-        assert set(dnsList).issubset(sanList)
+        assert len(sanList) == len(domains)
+        assert set(sanList).issubset(domains)
+        assert set(domains).issubset(sanList)
         # check valid dates interval
         notBefore = cert.get_not_before()
         notAfter = cert.get_not_after()
@@ -450,7 +467,7 @@ class TestEnv:
         return rv
         
     @classmethod
-    def apache_err_reset( cls ):
+    def httpd_error_log_clear( cls ):
         cls.apachectl_stderr = ""
         if os.path.isfile(cls.ERROR_LOG):
             os.remove(cls.ERROR_LOG)
@@ -460,7 +477,7 @@ class TestEnv:
     RE_MD_WARN  = re.compile('.*\[md:warn\].*')
 
     @classmethod
-    def apache_err_count( cls ):
+    def httpd_error_log_count( cls ):
         ecount = 0
         wcount = 0
         
@@ -482,7 +499,7 @@ class TestEnv:
         return (ecount, wcount)
 
     @classmethod
-    def apache_err_scan( cls, regex ):
+    def httpd_error_log_scan( cls, regex ):
         if not os.path.isfile(cls.ERROR_LOG):
             return False
         fin = open(cls.ERROR_LOG)
@@ -515,6 +532,10 @@ class TestEnv:
     def getStatus(cls, domain, path, useHTTPS=True):
         result = cls.get_meta(domain, path, useHTTPS)
         return result['http_status']
+
+    @classmethod
+    def get_cert(cls, domain):
+        return CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
 
     @classmethod
     def get_meta(cls, domain, path, useHTTPS=True):
@@ -697,15 +718,16 @@ class TestEnv:
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, name="test.conf"):
+    def __init__(self, name="test.conf", local=True):
         self.path = os.path.join(TestEnv.GEN_DIR, name)
         if os.path.isfile(self.path):
             os.remove(self.path)
-        open(self.path, "a").write((
-            "MDCertificateAuthority %s\n"
-            "MDCertificateAgreement %s\n") % 
-            (TestEnv.ACME_URL, 'accepted')
-        );
+        if local:
+            open(self.path, "a").write((
+                "MDCertificateAuthority %s\n"
+                "MDCertificateAgreement %s\n") % 
+                (TestEnv.ACME_URL, 'accepted')
+            );
 
     def clear(self):
         if os.path.isfile(self.path):
@@ -729,14 +751,14 @@ class HttpdConf(object):
     def add_admin(self, email):
         self._add_line("  ServerAdmin mailto:%s\n\n" % email)
 
-    def add_md(self, dnsList):
-        self._add_line("  MDomain %s\n\n" % " ".join(dnsList))
+    def add_md(self, domains):
+        self._add_line("  MDomain %s\n\n" % " ".join(domains))
 
-    def start_md(self, dnsList):
-        self._add_line("  <MDomain %s>\n" % " ".join(dnsList))
+    def start_md(self, domains):
+        self._add_line("  <MDomain %s>\n" % " ".join(domains))
         
-    def start_md2(self, dnsList):
-        self._add_line("  <MDomainSet %s>\n" % " ".join(dnsList))
+    def start_md2(self, domains):
+        self._add_line("  <MDomainSet %s>\n" % " ".join(domains))
 
     def end_md(self):
         self._add_line("  </MDomain>\n")
@@ -765,15 +787,19 @@ class HttpdConf(object):
     def add_dns01_cmd(self, cmd):
         self._add_line("  MDChallengeDns01 %s\n" % cmd)
 
-    def add_vhost(self, port, domain, aliasList=[], docRoot="htdocs"):
-        self.start_vhost(port, domain, aliasList, docRoot)
+    def add_vhost(self, domains, port=None, docRoot="htdocs"):
+        self.start_vhost(domains, port=port, docRoot=docRoot)
         self.end_vhost()
 
-    def start_vhost(self, port, domain, aliasList=[], docRoot="htdocs"):
+    def start_vhost(self, domains, port=None, docRoot="htdocs"):
+        if not isinstance(domains, list):
+            domains = [domains]
+        if not port:
+            port = TestEnv.HTTPS_PORT 
         f = open(self.path, "a") 
         f.write("<VirtualHost *:%s>\n" % port)
-        f.write("    ServerName %s\n" % domain)
-        for alias in aliasList:
+        f.write("    ServerName %s\n" % domains[0])
+        for alias in domains[1:]:
             f.write("    ServerAlias %s\n" % alias )
         f.write("    DocumentRoot %s\n\n" % docRoot)
         if TestEnv.HTTPS_PORT == port:

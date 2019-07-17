@@ -7,43 +7,10 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		755E223B1F68166C00819F08 /* req_https_perm.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_https_perm.conf; sourceTree = "<group>"; };
-		755E223C1F68166C00819F08 /* req_https_temp.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_https_temp.conf; sourceTree = "<group>"; };
 		755F874C1F273ECB00871895 /* global.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = global.conf.in; sourceTree = "<group>"; };
-		757260DC1F67E03600AA3D50 /* test_019a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_019a.conf; sourceTree = "<group>"; };
-		757260DD1F67E03600AA3D50 /* test_019b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_019b.conf; sourceTree = "<group>"; };
-		758572911F6FBB2B00A0FB3C /* staple_off.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = staple_off.conf; sourceTree = "<group>"; };
-		758572921F6FBB2B00A0FB3C /* staple_on.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = staple_on.conf; sourceTree = "<group>"; };
-		758572931F6FBB4000A0FB3C /* test_020a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_020a.conf; sourceTree = "<group>"; };
-		758572941F6FBB4000A0FB3C /* test_020b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_020b.conf; sourceTree = "<group>"; };
-		758572951F6FBB4000A0FB3C /* test_020c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_020c.conf; sourceTree = "<group>"; };
-		758B85561F263F740076B27A /* renew_10.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_10.conf; sourceTree = "<group>"; };
-		75AF53041F5E82160093DD5C /* key_rsa_2048.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = key_rsa_2048.conf; sourceTree = "<group>"; };
-		75AF53051F5E82160093DD5C /* key_rsa_4096.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = key_rsa_4096.conf; sourceTree = "<group>"; };
-		75AF53061F5E82160093DD5C /* renew_10p.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_10p.conf; sourceTree = "<group>"; };
-		75AF53071F5E82160093DD5C /* renew_14d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = renew_14d.conf; sourceTree = "<group>"; };
-		75AF53081F5E82460093DD5C /* test_017a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_017a.conf; sourceTree = "<group>"; };
-		75AF53091F5E82460093DD5C /* test_017b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_017b.conf; sourceTree = "<group>"; };
-		75AF530A1F5E82460093DD5C /* test_017c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_017c.conf; sourceTree = "<group>"; };
-		75AF530B1F5E82460093DD5C /* test_017d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_017d.conf; sourceTree = "<group>"; };
-		75AF530C1F66A9AE0093DD5C /* test_018a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018a.conf; sourceTree = "<group>"; };
-		75AF530D1F66A9AE0093DD5C /* test_018b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018b.conf; sourceTree = "<group>"; };
-		75AF530E1F66A9AE0093DD5C /* test_018c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018c.conf; sourceTree = "<group>"; };
-		75AF530F1F66A9AE0093DD5C /* test_018d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_018d.conf; sourceTree = "<group>"; };
-		75EAB2611F41BBEB00277D33 /* test_014.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_014.conf.in; sourceTree = "<group>"; };
-		75EAB2621F42C18D00277D33 /* challenge_all.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = challenge_all.conf; sourceTree = "<group>"; };
-		75EAB2631F42C18D00277D33 /* challenge_http.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = challenge_http.conf; sourceTree = "<group>"; };
-		75EAB2641F42C18D00277D33 /* challenge_tls-sni.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "challenge_tls-sni.conf"; sourceTree = "<group>"; };
-		75EAB2651F42C18D00277D33 /* drive_always.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = drive_always.conf; sourceTree = "<group>"; };
-		75EAB2661F432AA600277D33 /* member_auto.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = member_auto.conf; sourceTree = "<group>"; };
 		75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0600_roundtrip.py; sourceTree = "<group>"; };
 		75EDD0821F14E75A003CBD39 /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		75EDD0831F14E75A003CBD39 /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
-		75EDD0861F15063B003CBD39 /* one_md_caps.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_caps.conf; sourceTree = "<group>"; };
-		75EDD0871F15064A003CBD39 /* test_013.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_013.conf; sourceTree = "<group>"; };
-		75EDD0881F1CA2D4003CBD39 /* drive_auto.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = drive_auto.conf; sourceTree = "<group>"; };
-		75EDD0891F1CA2D4003CBD39 /* drive_manual.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = drive_manual.conf; sourceTree = "<group>"; };
-		75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = two_mds_vhosts_ca.conf; sourceTree = "<group>"; };
 		B20333361EDDA82300E5BE7E /* test_0001_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0001_store.py; sourceTree = "<group>"; };
 		B20333371EDDA82300E5BE7E /* test_0200_acme_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0200_acme_regs.py; sourceTree = "<group>"; };
 		B20333381EDDA82300E5BE7E /* test_0210_acme_tos.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0210_acme_tos.py; sourceTree = "<group>"; };
@@ -80,20 +47,6 @@
 		B255730B1EE6CF6100E0B132 /* test_0110_reg_update.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0110_reg_update.py; sourceTree = "<group>"; };
 		B255730C1EE6D11200E0B132 /* test_base.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_base.py; sourceTree = "<group>"; };
 		B255730D1EE956B000E0B132 /* test_0500_drive.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0500_drive.py; sourceTree = "<group>"; };
-		B262F6D01EFCFE1100D396A1 /* one_md.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md.conf; sourceTree = "<group>"; };
-		B262F6D11EFCFE1100D396A1 /* two_mds.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = two_mds.conf; sourceTree = "<group>"; };
-		B262F6D31EFCFE1100D396A1 /* test_001.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_001.conf; sourceTree = "<group>"; };
-		B262F6D41EFCFE1100D396A1 /* test_002.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_002.conf; sourceTree = "<group>"; };
-		B262F6D51EFCFE1100D396A1 /* test_003.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_003.conf; sourceTree = "<group>"; };
-		B262F6D61EFCFE1100D396A1 /* test_004.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_004.conf; sourceTree = "<group>"; };
-		B262F6D71EFCFE1100D396A1 /* test_005.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_005.conf; sourceTree = "<group>"; };
-		B262F6D81EFCFE1100D396A1 /* test_006.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_006.conf; sourceTree = "<group>"; };
-		B262F6D91EFCFE1100D396A1 /* test_007.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_007.conf; sourceTree = "<group>"; };
-		B262F6DA1EFCFE1100D396A1 /* test_008.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_008.conf; sourceTree = "<group>"; };
-		B262F6DB1EFCFE1100D396A1 /* test_009.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_009.conf; sourceTree = "<group>"; };
-		B262F6DC1EFCFE1100D396A1 /* test_010.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_010.conf; sourceTree = "<group>"; };
-		B262F6DD1EFCFE1100D396A1 /* test_011.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_011.conf; sourceTree = "<group>"; };
-		B262F6DE1EFCFE1100D396A1 /* test_012.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_012.conf; sourceTree = "<group>"; };
 		B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
 		B26A4BD822A5107F00D002BC /* test_0920_status.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0920_status.py; sourceTree = "<group>"; };
 		B26A4BDA22A65FFB00D002BC /* 002.pubcert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = 002.pubcert; sourceTree = "<group>"; };
@@ -102,7 +55,6 @@
 		B26A4BE022A7B8C100D002BC /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
 		B26A4BE122A7B8C100D002BC /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
 		B26A4BE222AAB30600D002BC /* mod_md_status.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mod_md_status.png; sourceTree = SOURCE_ROOT; };
-		B27308851FE924A9001E049F /* gh-issue-68.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gh-issue-68.conf"; sourceTree = "<group>"; };
 		B2830C2422B27C3F005DBFBF /* test_0730_static.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0730_static.py; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
 		B2944E3122B9353E00466BEE /* test_0901_message.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0901_message.py; sourceTree = "<group>"; };
@@ -143,12 +95,6 @@
 		B2B330171F39E9D500579179 /* md_cmd_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_cmd_store.c; sourceTree = "<group>"; };
 		B2B330181F39E9D500579179 /* md_cmd_store.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd_store.h; sourceTree = "<group>"; };
 		B2B330191F39E9D500579179 /* md_cmd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_cmd.h; sourceTree = "<group>"; };
-		B2B3301A1F3B44B100579179 /* test_011b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_011b.conf; sourceTree = "<group>"; };
-		B2B81E8D1F0A907900E35CA3 /* empty.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = empty.conf; sourceTree = "<group>"; };
-		B2B81E8E1F0A907900E35CA3 /* one_md_ca.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_ca.conf; sourceTree = "<group>"; };
-		B2B81E8F1F0A907900E35CA3 /* one_md_admin.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_admin.conf; sourceTree = "<group>"; };
-		B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = two_mds_vhosts.conf; sourceTree = "<group>"; };
-		B2B81E911F0A907900E35CA3 /* one_md_ca_admin.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = one_md_ca_admin.conf; sourceTree = "<group>"; };
 		B2B81E931F0BB4F300E35CA3 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
 		B2B81EA71F0E35B000E35CA3 /* test_0120_reg_list.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0120_reg_list.py; sourceTree = "<group>"; };
 		B2B81EA81F0E35B000E35CA3 /* test_0300_conf_validate.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0300_conf_validate.py; sourceTree = "<group>"; };
@@ -156,7 +102,6 @@
 		B2B81EBE1F0F981C00E35CA3 /* md_store_fs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_store_fs.c; sourceTree = "<group>"; };
 		B2B81EBF1F0F981C00E35CA3 /* md_store_fs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_store_fs.h; sourceTree = "<group>"; };
 		B2B81EC01F0F998F00E35CA3 /* md_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_store.c; sourceTree = "<group>"; };
-		B2B81EC11F0FAC2000E35CA3 /* other_base.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = other_base.conf; sourceTree = "<group>"; };
 		B2B81ECB1F13830600E35CA3 /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
 		B2B81ECC1F13830600E35CA3 /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
 		B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mytest.org.conf; sourceTree = "<group>"; };
@@ -207,11 +152,6 @@
 		B2FB5A541F570AAA00856773 /* pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pkey.pem; sourceTree = "<group>"; };
 		B2FB5A551F570AAA00856773 /* httpd.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = httpd.json; sourceTree = "<group>"; };
 		B2FB5A561F570AAA00856773 /* md_store.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = md_store.json; sourceTree = "<group>"; };
-		B2FC60711F5972C4005B7D9E /* test_015.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_015.conf; sourceTree = "<group>"; };
-		B2FC60721F597306005B7D9E /* test_016a.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016a.conf; sourceTree = "<group>"; };
-		B2FC60731F597352005B7D9E /* test_016b.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016b.conf; sourceTree = "<group>"; };
-		B2FC60741F597352005B7D9E /* test_016c.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016c.conf; sourceTree = "<group>"; };
-		B2FC60751F597352005B7D9E /* test_016d.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_016d.conf; sourceTree = "<group>"; };
 		B2FC60761F59894A005B7D9E /* TODO.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = SOURCE_ROOT; };
 		B2FEEDDF1FFB910D0029E19C /* test_0800_must_staple.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0800_must_staple.py; sourceTree = "<group>"; };
 		B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0900_notify.py; sourceTree = "<group>"; };
@@ -254,32 +194,6 @@
 		B262F6CE1EFCFE1100D396A1 /* test_conf_store */ = {
 			isa = PBXGroup;
 			children = (
-				75EAB2621F42C18D00277D33 /* challenge_all.conf */,
-				75EAB2631F42C18D00277D33 /* challenge_http.conf */,
-				75EAB2641F42C18D00277D33 /* challenge_tls-sni.conf */,
-				75EAB2651F42C18D00277D33 /* drive_always.conf */,
-				75EDD0881F1CA2D4003CBD39 /* drive_auto.conf */,
-				75EDD0891F1CA2D4003CBD39 /* drive_manual.conf */,
-				B2B81E8D1F0A907900E35CA3 /* empty.conf */,
-				75AF53041F5E82160093DD5C /* key_rsa_2048.conf */,
-				75AF53051F5E82160093DD5C /* key_rsa_4096.conf */,
-				75EAB2661F432AA600277D33 /* member_auto.conf */,
-				B262F6D01EFCFE1100D396A1 /* one_md.conf */,
-				B2B81E8F1F0A907900E35CA3 /* one_md_admin.conf */,
-				B2B81E8E1F0A907900E35CA3 /* one_md_ca.conf */,
-				B2B81E911F0A907900E35CA3 /* one_md_ca_admin.conf */,
-				75EDD0861F15063B003CBD39 /* one_md_caps.conf */,
-				758B85561F263F740076B27A /* renew_10.conf */,
-				75AF53061F5E82160093DD5C /* renew_10p.conf */,
-				75AF53071F5E82160093DD5C /* renew_14d.conf */,
-				755E223B1F68166C00819F08 /* req_https_perm.conf */,
-				755E223C1F68166C00819F08 /* req_https_temp.conf */,
-				758572911F6FBB2B00A0FB3C /* staple_off.conf */,
-				758572921F6FBB2B00A0FB3C /* staple_on.conf */,
-				B262F6D11EFCFE1100D396A1 /* two_mds.conf */,
-				B2B81E901F0A907900E35CA3 /* two_mds_vhosts.conf */,
-				75EDD08A1F1CFF0D003CBD39 /* two_mds_vhosts_ca.conf */,
-				B2B81EC11F0FAC2000E35CA3 /* other_base.conf */,
 			);
 			path = test_conf_store;
 			sourceTree = "<group>";
@@ -287,40 +201,6 @@
 		B262F6D21EFCFE1100D396A1 /* test_conf_validate */ = {
 			isa = PBXGroup;
 			children = (
-				B262F6D31EFCFE1100D396A1 /* test_001.conf */,
-				B262F6D41EFCFE1100D396A1 /* test_002.conf */,
-				B262F6D51EFCFE1100D396A1 /* test_003.conf */,
-				B262F6D61EFCFE1100D396A1 /* test_004.conf */,
-				B262F6D71EFCFE1100D396A1 /* test_005.conf */,
-				B262F6D81EFCFE1100D396A1 /* test_006.conf */,
-				B262F6D91EFCFE1100D396A1 /* test_007.conf */,
-				B262F6DA1EFCFE1100D396A1 /* test_008.conf */,
-				B262F6DB1EFCFE1100D396A1 /* test_009.conf */,
-				B262F6DC1EFCFE1100D396A1 /* test_010.conf */,
-				B262F6DD1EFCFE1100D396A1 /* test_011.conf */,
-				B2B3301A1F3B44B100579179 /* test_011b.conf */,
-				B262F6DE1EFCFE1100D396A1 /* test_012.conf */,
-				75EDD0871F15064A003CBD39 /* test_013.conf */,
-				75EAB2611F41BBEB00277D33 /* test_014.conf.in */,
-				B2FC60711F5972C4005B7D9E /* test_015.conf */,
-				B2FC60721F597306005B7D9E /* test_016a.conf */,
-				B2FC60731F597352005B7D9E /* test_016b.conf */,
-				B2FC60741F597352005B7D9E /* test_016c.conf */,
-				B2FC60751F597352005B7D9E /* test_016d.conf */,
-				75AF53081F5E82460093DD5C /* test_017a.conf */,
-				75AF53091F5E82460093DD5C /* test_017b.conf */,
-				75AF530A1F5E82460093DD5C /* test_017c.conf */,
-				75AF530B1F5E82460093DD5C /* test_017d.conf */,
-				75AF530C1F66A9AE0093DD5C /* test_018a.conf */,
-				75AF530D1F66A9AE0093DD5C /* test_018b.conf */,
-				75AF530E1F66A9AE0093DD5C /* test_018c.conf */,
-				75AF530F1F66A9AE0093DD5C /* test_018d.conf */,
-				757260DC1F67E03600AA3D50 /* test_019a.conf */,
-				757260DD1F67E03600AA3D50 /* test_019b.conf */,
-				758572931F6FBB4000A0FB3C /* test_020a.conf */,
-				758572941F6FBB4000A0FB3C /* test_020b.conf */,
-				758572951F6FBB4000A0FB3C /* test_020c.conf */,
-				B27308851FE924A9001E049F /* gh-issue-68.conf */,
 			);
 			path = test_conf_validate;
 			sourceTree = "<group>";

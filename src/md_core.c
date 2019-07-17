@@ -317,8 +317,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
                 break;
         }
         md_json_setb(md->must_staple > 0, json, MD_KEY_MUST_STAPLE, NULL);
-        if (!apr_is_empty_array(md->acme_tls_1_domains))
-            md_json_setsa(md->acme_tls_1_domains, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
+        md_json_setsa(md->acme_tls_1_domains, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         md_json_sets(md->cert_file, json, MD_KEY_CERT_FILE, NULL);
         md_json_sets(md->pkey_file, json, MD_KEY_PKEY_FILE, NULL);
         md_json_setb(md->stapling > 0, json, MD_KEY_STAPLING, NULL);
