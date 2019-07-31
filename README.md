@@ -1213,7 +1213,11 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
 * [MDWarnWindow](#mdwarnwindow)
 * [MDServerStatus](#mdserverstatus)
+* [MDStapling](#mdstapling)
+* [MDStapleOthers](#mdstapleothers)
+* [MDStaplingKeepResponse](#mdstaplingkeepresponse)
 * [MDStoreDir](#mdstoredir)
+
 
 ## MDomain
 
@@ -1524,6 +1528,46 @@ Controls if Managed Domains appear in the `server-status` handler of Apache.
 Default: `on`
 
 Controls if Managed Domains respond to public requests for `/.httpd/certificate-status` or not.
+
+## MDStapling
+
+***Enable stapling for all or a particular MDomain.***<BR/>
+`MDStapling on|off`<BR/>
+Default: `off`
+
+`mod_md` has its own implementation for providing OCSP stapling information. This is an 
+alternative to the one provided by `mod_ssl`. For backward compatiblity reasons, this is
+disabled by default.
+
+The new stapling can be switched on for all certificates on the server or for an individual MDomain. This
+will replace any stapling configurtion in `mod_ssl` for these hosts. When disabled, the `mod_ssl`
+stapling (if configured) will do the work. This allows for a gradual shift over from one 
+implementation to the other.
+
+The stapling of `mod_md` will also work for domains where the certificates are not managed
+by this module (see MDStapleOthers for how to control this). This allows use of the new stapling
+without using any ACME certificate management.
+
+## MDStapleOthers
+
+***Enable stapling for certificates not managed by mod_md.***<BR/>
+`MDStapling on|off`<BR/>
+Default: `on`
+
+This setting only takes effect when `MDStapling` is enabled. It controls if `mod_md` should
+also provide stapling information for certificates that are not directly controlled by it, e.g.
+renewed via an ACME CA.
+
+## MDStaplingKeepResponse
+
+***Controls when responses are considered old and will be removed.***<BR/>
+`MDStaplingKeepResponse duration`<BR/>
+Default: 7d
+
+This time window specifies when OCSP response data used in stapling shall be removed
+from the store again on start up. Response information older than 7 days (default) is
+deleted. This keeps the store from growing when certificates are renewed/reconfigured 
+frequently.
 
 
 ## ServerAdmin / Contact Information

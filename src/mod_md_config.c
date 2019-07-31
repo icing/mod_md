@@ -41,6 +41,11 @@
 #define MD_DEFAULT_BASE_DIR "md"
 #endif
 
+static md_timeslice_t def_ocsp_keep_window = {
+    0,
+    MD_TIME_OCSP_KEEP_NORM,
+};
+
 /* Default settings for the global conf */
 static md_mod_conf_t defmc = {
     NULL,                      /* list of mds */
@@ -67,6 +72,7 @@ static md_mod_conf_t defmc = {
     0,                         /* dry_run flag */
     1,                         /* server_status_enabled */
     1,                         /* certificate_status_enabled */
+    &def_ocsp_keep_window,     /* default time to keep ocsp responses */
 };
 
 static md_timeslice_t def_renew_window = {
@@ -852,6 +858,19 @@ static const char *md_config_set_certificate_status(cmd_parms *cmd, void *dc, co
     return set_on_off(&sc->mc->certificate_status_enabled, value, cmd->pool);
 }
 
+static const char *md_config_set_ocsp_keep_window(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    err = md_timeslice_parse(&sc->mc->ocsp_keep_window, cmd->pool, value, MD_TIME_OCSP_KEEP_NORM);
+    if (err) return apr_psprintf(cmd->pool, "MDStaplingKeepResponse %s", err);
+    return NULL;
+}
 
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
@@ -917,6 +936,8 @@ const command_rec md_cmds[] = {
                   "Enable/Disable OCSP Stapling for this/all Managed Domain(s)."),
     AP_INIT_TAKE1("MDStapleOthers", md_config_set_staple_others, NULL, RSRC_CONF, 
                   "Enable/Disable OCSP Stapling for certificates not in Managed Domains."),
+    AP_INIT_TAKE1("MDStaplingKeepResponse", md_config_set_ocsp_keep_window, NULL, RSRC_CONF, 
+                  "The amount of time to keep an OCSP response in the store."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

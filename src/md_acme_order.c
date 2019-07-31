@@ -468,7 +468,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
             case MD_ACME_AUTHZ_S_INVALID:
                 rv = APR_EINVAL;
                 if (authz->error_type) {
-                    md_result_problem_set(result, rv, authz->error_type, authz->error_detail);
+                    md_result_problem_set(result, rv, authz->error_type, authz->error_detail, NULL);
                     goto leave;
                 }
                 /* fall through */

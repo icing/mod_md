@@ -242,7 +242,7 @@ static apr_status_t ocsp_status_refresh(md_ocsp_status_t *ostat, apr_pool_t *pte
     md_data_t resp_der;
     md_timeperiod_t resp_valid;
     md_ocsp_cert_stat_t resp_stat;
-    
+    /* Check if the store holds a newer response than the one we have */
     mtime = md_store_get_modified(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, ptemp);
     if (mtime <= ostat->resp_mtime) goto leave;
     rv = md_store_load_json(store, MD_SG_OCSP, ostat->md_name, ostat->file_name, &jprops, ptemp);
@@ -402,8 +402,7 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     *pder = NULL;
     *pderlen = 0;
     if (ostat->resp_der.len <= 0) {
-        /* No resonse known, check the store if out watchdog retrieved one 
-         * in the meantime. */
+        /* No response known, check store for new response. */
         ocsp_status_refresh(ostat, p);
         if (ostat->resp_der.len <= 0) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 

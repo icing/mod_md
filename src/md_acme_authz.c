@@ -157,6 +157,7 @@ static int copy_challenge_error(void *baton, size_t index, md_json_t *json)
     if (md_json_has_key(json, MD_KEY_ERROR, NULL)) {
         ctx->authz->error_type = md_json_dups(ctx->p, json, MD_KEY_ERROR, MD_KEY_TYPE, NULL);
         ctx->authz->error_detail = md_json_dups(ctx->p, json, MD_KEY_ERROR, MD_KEY_DETAIL, NULL);
+        ctx->authz->error_subproblems = md_json_dupj(ctx->p, json, MD_KEY_ERROR, MD_KEY_SUBPROBLEMS, NULL);
     }
     return 1;
 }
@@ -177,6 +178,7 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, md_acme_t *acme, apr_p
     authz->state = MD_ACME_AUTHZ_S_UNKNOWN;
     json = NULL;
     authz->error_type = authz->error_detail = NULL;
+    authz->error_subproblems = NULL;
     err = "unable to parse response";
     log_level = MD_LOG_ERR;
     

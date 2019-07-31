@@ -107,12 +107,12 @@ void md_json_destroy(md_json_t *json)
     }
 }
 
-md_json_t *md_json_copy(apr_pool_t *pool, md_json_t *json)
+md_json_t *md_json_copy(apr_pool_t *pool, const md_json_t *json)
 {
     return json_create(pool, json_copy(json->j));
 }
 
-md_json_t *md_json_clone(apr_pool_t *pool, md_json_t *json)
+md_json_t *md_json_clone(apr_pool_t *pool, const md_json_t *json)
 {
     return json_create(pool, json_deep_copy(json->j));
 }
@@ -314,7 +314,7 @@ int md_json_is(const md_json_type_t jtype, md_json_t *json, ...)
     return 0;
 }
 
-static const char *md_json_type_name(md_json_t *json)
+static const char *md_json_type_name(const md_json_t *json)
 {
     json_t *j = json->j;
     if (json_is_object(j)) return "object";
@@ -463,6 +463,22 @@ md_json_t *md_json_getj(md_json_t *json, ...)
     return NULL;
 }
 
+md_json_t *md_json_dupj(apr_pool_t *p, const md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+    
+    if (j) {
+        json_incref(j);
+        return json_create(p, j);
+    }
+    return NULL;
+}
+
 const md_json_t *md_json_getcj(const md_json_t *json, ...)
 {
     json_t *j;
@@ -482,7 +498,7 @@ const md_json_t *md_json_getcj(const md_json_t *json, ...)
     return NULL;
 }
 
-apr_status_t md_json_setj(md_json_t *value, md_json_t *json, ...)
+apr_status_t md_json_setj(const md_json_t *value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -510,7 +526,7 @@ apr_status_t md_json_setj(md_json_t *value, md_json_t *json, ...)
     return rv;
 }
 
-apr_status_t md_json_addj(md_json_t *value, md_json_t *json, ...)
+apr_status_t md_json_addj(const md_json_t *value, md_json_t *json, ...)
 {
     va_list ap;
     apr_status_t rv;
@@ -675,7 +691,7 @@ apr_status_t md_json_clone_to(void *value, md_json_t *json, apr_pool_t *p, void 
     return md_json_setj(md_json_clone(p, value), json, NULL);
 }
 
-apr_status_t md_json_clone_from(void **pvalue, md_json_t *json, apr_pool_t *p, void *baton)
+apr_status_t md_json_clone_from(void **pvalue, const md_json_t *json, apr_pool_t *p, void *baton)
 {
     (void)baton;
     *pvalue = md_json_clone(p, json);
@@ -876,7 +892,7 @@ apr_status_t md_json_setsa(apr_array_header_t *a, md_json_t *json, ...)
 /* formatting, parsing */
 
 typedef struct {
-    md_json_t *json;
+    const md_json_t *json;
     md_json_fmt_t fmt;
     const char *fname;
     apr_file_t *f;
@@ -901,7 +917,7 @@ static int dump_cb(const char *buffer, size_t len, void *baton)
     return (rv == APR_SUCCESS)? 0 : -1;
 }
 
-apr_status_t md_json_writeb(md_json_t *json, md_json_fmt_t fmt, apr_bucket_brigade *bb)
+apr_status_t md_json_writeb(const md_json_t *json, md_json_fmt_t fmt, apr_bucket_brigade *bb)
 {
     int rv = json_dump_callback(json->j, dump_cb, bb, fmt_to_flags(fmt));
     return rv? APR_EGENERAL : APR_SUCCESS;
@@ -921,7 +937,7 @@ static int chunk_cb(const char *buffer, size_t len, void *baton)
     return 0;
 }
 
-const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
+const char *md_json_writep(const md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
 {
     apr_array_header_t *chunks;
     int rv;
@@ -944,7 +960,7 @@ const char *md_json_writep(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt)
     }
 }
 
-apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, apr_file_t *f)
+apr_status_t md_json_writef(const md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, apr_file_t *f)
 {
     apr_status_t rv;
     const char *s;
@@ -963,7 +979,7 @@ apr_status_t md_json_writef(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, a
     return rv;
 }
 
-apr_status_t md_json_fcreatex(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
+apr_status_t md_json_fcreatex(const md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
                               const char *fpath, apr_fileperms_t perms)
 {
     apr_status_t rv;
@@ -987,7 +1003,7 @@ static apr_status_t write_json(void *baton, apr_file_t *f, apr_pool_t *p)
     return rv;
 }
 
-apr_status_t md_json_freplace(md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
+apr_status_t md_json_freplace(const md_json_t *json, apr_pool_t *p, md_json_fmt_t fmt, 
                               const char *fpath, apr_fileperms_t perms)
 {
     j_write_ctx ctx;
@@ -1171,7 +1187,7 @@ apr_status_t md_json_copy_to(md_json_t *dest, const md_json_t *src, ...)
     return rv;
 }
 
-const char *md_json_dump_state(md_json_t *json, apr_pool_t *p)
+const char *md_json_dump_state(const md_json_t *json, apr_pool_t *p)
 {
     if (!json) return "NULL";
     return apr_psprintf(p, "%s, refc=%ld", md_json_type_name(json), (long)json->j->refcount);

@@ -1,3 +1,7 @@
+ * New directive "MDStaplingKeepResponse" for controlling how long OCSP responses are
+   kept in the store and older ones get removed at start up.
+ * Errors reports by an ACME CA may include "subproblems", where several causes may be reported. 
+   These are now part of the md-status reporting and also logged. Test cases added.
  * OCSP status and validity now part of md-status resource.
  * The number of log entries for a single job is now limited to 128. New entries will
    cause the oldest ones to be removed.

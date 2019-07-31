@@ -30,6 +30,7 @@ struct md_result_t {
     apr_status_t status;
     const char *problem;
     const char *detail;
+    const struct md_json_t *subproblems;
     const char *activity;
     apr_time_t ready_at;
     md_result_change_cb *on_change;
@@ -46,7 +47,8 @@ void md_result_activity_printf(md_result_t *result, const char *fmt, ...);
 
 void md_result_set(md_result_t *result, apr_status_t status, const char *detail);
 void md_result_problem_set(md_result_t *result, apr_status_t status, 
-                           const char *problem, const char *detail);
+                           const char *problem, const char *detail, 
+                           const struct md_json_t *subproblems);
 void md_result_problem_printf(md_result_t *result, apr_status_t status,
                               const char *problem, const char *fmt, ...);
 

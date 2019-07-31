@@ -75,6 +75,7 @@ void md_result_activity_setn(md_result_t *result, const char *activity)
 {
     result->activity = activity;
     result->problem = result->detail = NULL;
+    result->subproblems = NULL;
     on_change(result);
 }
 
@@ -92,15 +93,18 @@ void md_result_set(md_result_t *result, apr_status_t status, const char *detail)
     result->status = status;
     result->problem = NULL;
     result->detail = detail? apr_pstrdup(result->p, detail) : NULL;
+    result->subproblems = NULL;
     on_change(result);
 }
 
 void md_result_problem_set(md_result_t *result, apr_status_t status,
-                           const char *problem, const char *detail)
+                           const char *problem, const char *detail, 
+                           const md_json_t *subproblems)
 {
     result->status = status;
     result->problem = dup_trim(result->p, problem);
     result->detail = apr_pstrdup(result->p, detail);
+    result->subproblems = subproblems? md_json_clone(result->p, subproblems) : NULL;
     on_change(result);
 }
 
@@ -115,6 +119,7 @@ void md_result_problem_printf(md_result_t *result, apr_status_t status,
     va_start(ap, fmt);
     result->detail = apr_pvsprintf(result->p, fmt, ap);
     va_end(ap);
+    result->subproblems = NULL;
     on_change(result);
 }
 
@@ -126,6 +131,7 @@ void md_result_printf(md_result_t *result, apr_status_t status, const char *fmt,
     va_start(ap, fmt);
     result->detail = apr_pvsprintf(result->p, fmt, ap);
     va_end(ap);
+    result->subproblems = NULL;
     on_change(result);
 }
 
@@ -147,7 +153,7 @@ md_result_t*md_result_from_json(const struct md_json_t *json, apr_pool_t *p)
     result->activity = md_json_dups(p, json, MD_KEY_ACTIVITY, NULL);
     s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
     if (s && *s) result->ready_at = apr_date_parse_rfc(s);
-
+    result->subproblems = md_json_dupj(p, json, MD_KEY_SUBPROBLEMS, NULL);
     return result;
 }
 
@@ -169,6 +175,9 @@ struct md_json_t *md_result_to_json(const md_result_t *result, apr_pool_t *p)
     if (result->ready_at > 0) {
         apr_rfc822_date(ts, result->ready_at);
         md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
+    }
+    if (result->subproblems) {
+        md_json_setj(result->subproblems, json, MD_KEY_SUBPROBLEMS, NULL);
     }
     return json;
 }
@@ -201,6 +210,7 @@ void md_result_assign(md_result_t *dest, const md_result_t *src)
    dest->detail = src->detail;
    dest->activity = src->activity;
    dest->ready_at = src->ready_at;
+   dest->subproblems = src->subproblems;
 }
 
 void md_result_dup(md_result_t *dest, const md_result_t *src)
@@ -210,6 +220,7 @@ void md_result_dup(md_result_t *dest, const md_result_t *src)
    dest->detail = src->detail? apr_pstrdup(dest->p, src->detail) : NULL; 
    dest->activity = src->activity? apr_pstrdup(dest->p, src->activity) : NULL; 
    dest->ready_at = src->ready_at;
+   dest->subproblems = src->subproblems? md_json_clone(dest->p, src->subproblems) : NULL;
    on_change(dest);
 }
 
@@ -233,6 +244,11 @@ void md_result_log(md_result_t *result, int level)
         }
         if (result->detail) {
             msg = apr_psprintf(result->p, "%s%sdetail[%s]", msg, sep, result->detail);
+            sep = " ";
+        }
+        if (result->subproblems) {
+            msg = apr_psprintf(result->p, "%s%ssubproblems[%s]", msg, sep, 
+                md_json_writep(result->subproblems, result->p, MD_JSON_FMT_COMPACT));
             sep = " ";
         }
         md_log_perror(MD_LOG_MARK, (md_log_level_t)level, result->status, result->p, "%s", msg);

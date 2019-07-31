@@ -161,7 +161,20 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
     return APR_SUCCESS;
 }
 
-apr_status_t md_ocsp_start_watching(struct md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
+static apr_status_t ocsp_remove_old_responses(md_mod_conf_t *mc, apr_pool_t *p)
+{
+    md_timeperiod_t keep_norm, keep;
+    
+    keep_norm.end = apr_time_now();
+    keep_norm.start = keep.end - MD_TIME_OCSP_KEEP_NORM;
+    keep = md_timeperiod_slice_before_end(&keep_norm, mc->ocsp_keep_window);
+    /* remove any ocsp response older than keep.start */
+    /* TODO */
+    (void)p;
+    return APR_ENOTIMPL;
+}
+
+apr_status_t md_ocsp_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     apr_allocator_t *allocator;
     md_ocsp_ctx_t *octx;
@@ -196,9 +209,24 @@ apr_status_t md_ocsp_start_watching(struct md_mod_conf_t *mc, server_rec *s, apr
     octx->s = s;
     octx->mc = mc;
     
-    /* TODO: make sure that store is prepped, has correct permissions and
-     * perform house-keeping, such as removing OCSP responses no longer used
-     * and older than 24 hours. */
+    /* Time for some house keeping, before the server goes live (again):
+     * - we store OCSP responses for each certificate individually by its SHA-1 id
+     * - this means, as long as certificate do not change, the number of response
+     *   files remains stable.
+     * - But when a certificate changes (is replaced), the response is obsolete
+     * - we do not get notified when a certificate is no longer used. An admin
+     *   might just reconfigure or change the content of a file (backup/restore etc.)
+     * - also, certificates might be added by some openssl config commands or other
+     *   modules that we do not immediately see right at startup. We cannot assume
+     *   that any OCSP response we cannot relate to a certificate RIGHT NOW, is no
+     *   longer needed.
+     * - since the response files are relatively small, we have no problem with
+     *   keeping them around for a while. We just do not want an ever growing store. 
+     * - The simplest and effective way seems to be to just remove files older
+     *   a certain amount of time. Take a 7 day default and let the admin configure
+     *   it for very special setups. 
+     */ 
+    ocsp_remove_old_responses(mc, octx->p);
     
     rv = wd_get_instance(&octx->watchdog, MD_OCSP_WATCHDOG_NAME, 0, 1, octx->p);
     if (APR_SUCCESS != rv) {

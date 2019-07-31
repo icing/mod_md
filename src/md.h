@@ -41,6 +41,7 @@ struct md_pkey_spec_t;
 #define MD_TIME_LIFE_NORM           (apr_time_from_sec(100 * MD_SECS_PER_DAY))
 #define MD_TIME_RENEW_WINDOW_DEF    (apr_time_from_sec(33 * MD_SECS_PER_DAY))
 #define MD_TIME_WARN_WINDOW_DEF     (apr_time_from_sec(10 * MD_SECS_PER_DAY))
+#define MD_TIME_OCSP_KEEP_NORM      (apr_time_from_sec(7 * MD_SECS_PER_DAY))
 
 #define MD_OTHER                "other"
 
@@ -193,6 +194,7 @@ struct md_t {
 #define MD_KEY_STATE            "state"
 #define MD_KEY_STATUS           "status"
 #define MD_KEY_STORE            "store"
+#define MD_KEY_SUBPROBLEMS      "subproblems"
 #define MD_KEY_TEMPORARY        "temporary"
 #define MD_KEY_TOKEN            "token"
 #define MD_KEY_TOTAL            "total"

@@ -23,6 +23,7 @@
 		B2123B8D1F2DD7A200267CAF /* test_md_json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_json.c; sourceTree = "<group>"; };
 		B2123B8E1F2DD7A200267CAF /* test_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test_common.h; sourceTree = "<group>"; };
 		B2307ED520E2562100487AD7 /* test.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test.ini; sourceTree = "<group>"; };
+		B23C47E722F1A45900B8F494 /* test_0740_acme_errors.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0740_acme_errors.py; sourceTree = "<group>"; };
 		B24052151EF9145000E36701 /* md_core.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_core.c; sourceTree = "<group>"; };
 		B24052161EF9145000E36701 /* md_crypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_crypt.c; sourceTree = "<group>"; };
 		B24052171EF9145000E36701 /* md_crypt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_crypt.h; sourceTree = "<group>"; };
@@ -315,6 +316,7 @@
 				B2C1BE0621F5CB38002EF7B4 /* test_0710_migration.py */,
 				B2C1BE082201AC02002EF7B4 /* test_0720_wildcard.py */,
 				B2830C2422B27C3F005DBFBF /* test_0730_static.py */,
+				B23C47E722F1A45900B8F494 /* test_0740_acme_errors.py */,
 				B2FEEDDF1FFB910D0029E19C /* test_0800_must_staple.py */,
 				B2A3E34D22CA34C2009D35AE /* test_0801_stapling.py */,
 				B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */,
