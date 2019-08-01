@@ -1,3 +1,5 @@
+v2.0.9
+----------------------------------------------------------------------------------------------------
  * fixed a compile error on warn level about redefintion of AP_ENABLE_EXCEPTION_HOOK. Fixes #132.
 
 v2.0.8
