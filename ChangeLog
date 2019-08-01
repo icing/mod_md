@@ -1,3 +1,4 @@
+ * fixed a compile error on warn level about redefintion of AP_ENABLE_EXCEPTION_HOOK. Fixes #132.
  * New directive "MDStaplingKeepResponse" for controlling how long OCSP responses are
    kept in the store and older ones get removed at start up.
  * Errors reports by an ACME CA may include "subproblems", where several causes may be reported. 
