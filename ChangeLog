@@ -1,3 +1,5 @@
+ * fixed a compile error on warn level about redefintion of AP_ENABLE_EXCEPTION_HOOK. Fixes #132.
+
 v2.0.8
 ----------------------------------------------------------------------------------------------------
  * adapted to latest mod_ssl api changes in trunk
