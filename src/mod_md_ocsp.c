@@ -169,9 +169,7 @@ static apr_status_t ocsp_remove_old_responses(md_mod_conf_t *mc, apr_pool_t *p)
     keep_norm.start = keep.end - MD_TIME_OCSP_KEEP_NORM;
     keep = md_timeperiod_slice_before_end(&keep_norm, mc->ocsp_keep_window);
     /* remove any ocsp response older than keep.start */
-    /* TODO */
-    (void)p;
-    return APR_ENOTIMPL;
+    return md_ocsp_remove_responses_older_than(mc->ocsp, p, keep.start);
 }
 
 apr_status_t md_ocsp_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)

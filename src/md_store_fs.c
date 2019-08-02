@@ -77,6 +77,9 @@ static apr_status_t fs_remove(md_store_t *store, md_store_group_t group,
                               apr_pool_t *p, int force);
 static apr_status_t fs_purge(md_store_t *store, apr_pool_t *p, 
                              md_store_group_t group, const char *name);
+static apr_status_t fs_remove_nms(md_store_t *store, apr_pool_t *p, 
+                                  apr_time_t modified, md_store_group_t group, 
+                                  const char *name, const char *aspect);
 static apr_status_t fs_move(md_store_t *store, apr_pool_t *p, 
                             md_store_group_t from, md_store_group_t to, 
                             const char *name, int archive);
@@ -285,6 +288,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.get_fname = fs_get_fname;
     s_fs->s.is_newer = fs_is_newer;
     s_fs->s.get_modified = fs_get_modified;
+    s_fs->s.remove_nms = fs_remove_nms;
     
     /* by default, everything is only readable by the current user */ 
     s_fs->def_perms.dir = MD_FPROT_D_UONLY;
@@ -741,6 +745,7 @@ typedef struct {
     md_store_inspect *inspect;
     const char *dirname;
     void *baton;
+    apr_time_t ts;
 } inspect_ctx;
 
 static apr_status_t insp(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
@@ -833,6 +838,66 @@ static apr_status_t fs_iterate_names(md_store_inspect *inspect, void *baton, md_
     groupname = md_store_group_name(group);
 
     rv = md_util_files_do(insp_name, &ctx, p, ctx.s_fs->base, groupname, pattern, NULL);
+    
+    return rv;
+}
+
+static apr_status_t remove_nms_file(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                                    const char *dir, const char *name, apr_filetype_e ftype)
+{
+    inspect_ctx *ctx = baton;
+    const char *fname;
+    apr_finfo_t inf;
+    apr_status_t rv = APR_SUCCESS;
+
+    (void)p;
+    if (APR_DIR == ftype) goto leave;
+    if (APR_SUCCESS != (rv = md_util_path_merge(&fname, ptemp, dir, name, NULL))) goto leave;
+    if (APR_SUCCESS != (rv = apr_stat(&inf, fname, APR_FINFO_MTIME, ptemp))) goto leave;
+    if (inf.mtime >= ctx->ts) goto leave;
+
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "remove_nms file: %s/%s", dir, name);
+    rv = apr_file_remove(fname, ptemp);
+
+leave:
+    return rv;
+}
+
+static apr_status_t remove_nms_dir(void *baton, apr_pool_t *p, apr_pool_t *ptemp, 
+                                   const char *dir, const char *name, apr_filetype_e ftype)
+{
+    inspect_ctx *ctx = baton;
+    apr_status_t rv;
+    const char *fpath;
+ 
+    (void)ftype;
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, ptemp, "remove_nms dir at: %s/%s", dir, name);
+    if (MD_OK(md_util_path_merge(&fpath, p, dir, name, NULL))) {
+        ctx->dirname = name;
+        rv = md_util_files_do(remove_nms_file, ctx, p, fpath, ctx->aspect, NULL);
+        if (APR_STATUS_IS_ENOENT(rv)) {
+            rv = APR_SUCCESS;
+        }
+    } 
+    return rv;
+}
+
+static apr_status_t fs_remove_nms(md_store_t *store, apr_pool_t *p, 
+                                  apr_time_t modified, md_store_group_t group, 
+                                  const char *name, const char *aspect)
+{
+    const char *groupname;
+    apr_status_t rv;
+    inspect_ctx ctx;
+    
+    ctx.s_fs = FS_STORE(store);
+    ctx.group = group;
+    ctx.pattern = name;
+    ctx.aspect = aspect;
+    ctx.ts = modified;
+    groupname = md_store_group_name(group);
+
+    rv = md_util_files_do(remove_nms_dir, &ctx, p, ctx.s_fs->base, groupname, name, NULL);
     
     return rv;
 }

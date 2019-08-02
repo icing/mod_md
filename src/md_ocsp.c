@@ -787,3 +787,12 @@ leave:
     }
     return;
 }
+
+
+apr_status_t md_ocsp_remove_responses_older_than(md_ocsp_reg_t *reg, apr_pool_t *p, 
+                                                 apr_time_t timestamp)
+{
+    return md_store_remove_not_modified_since(reg->store, p, timestamp, 
+                                              MD_SG_OCSP, "*", "ocsp*.json");
+}
+

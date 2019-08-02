@@ -128,6 +128,16 @@ apr_status_t md_store_purge(md_store_t *store, apr_pool_t *p,
                             md_store_group_t group, const char *name);
 
 /**
+ * Remove all items matching the name/aspect patterns that have not been
+ * modified since the given timestamp.
+ */
+apr_status_t md_store_remove_not_modified_since(md_store_t *store, apr_pool_t *p, 
+                                                apr_time_t modified,
+                                                md_store_group_t group, 
+                                                const char *name, 
+                                                const char *aspect);
+
+/**
  * inspect callback function. Invoked for each matched value. Values allocated from
  * ptemp may disappear any time after the call returned. If this function returns
  * 0, the iteration is aborted. 
@@ -252,6 +262,10 @@ typedef int md_store_is_newer_cb(md_store_t *store,
 typedef apr_time_t md_store_get_modified_cb(md_store_t *store, md_store_group_t group,  
                                             const char *name, const char *aspect, apr_pool_t *p);
 
+typedef apr_status_t md_store_remove_nms_cb(md_store_t *store, apr_pool_t *p, 
+                                            apr_time_t modified, md_store_group_t group, 
+                                            const char *name, const char *aspect);
+
 struct md_store_t {
     md_store_save_cb *save;
     md_store_load_cb *load;
@@ -263,6 +277,7 @@ struct md_store_t {
     md_store_get_fname_cb *get_fname;
     md_store_is_newer_cb *is_newer;
     md_store_get_modified_cb *get_modified;
+    md_store_remove_nms_cb *remove_nms;
 };
 
 

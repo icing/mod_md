@@ -153,6 +153,15 @@ apr_status_t md_store_iter_names(md_store_inspect *inspect, void *baton, md_stor
     return store->iterate_names(inspect, baton, store, p, group, pattern);
 }
 
+apr_status_t md_store_remove_not_modified_since(md_store_t *store, apr_pool_t *p, 
+                                                apr_time_t modified,
+                                                md_store_group_t group, 
+                                                const char *name, 
+                                                const char *aspect)
+{
+    return store->remove_nms(store, p, modified, group, name, aspect);
+}
+
 /**************************************************************************************************/
 /* convenience */
 

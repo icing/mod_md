@@ -179,6 +179,49 @@ class TestStapling:
         stat = TestEnv.get_md_status(mdB)
         assert not stat["stapling"]
 
-
-
-
+    # MD, check that restart leaves response unchanged, reconfigure keep interval, 
+    # should remove the file on restart and get a new one
+    def test_801_005(self):
+        # TODO: mod_watchdog seems to have problems sometimes with fast restarts
+        # stopping first works.
+        assert TestEnv.apache_stop() == 0
+        # turn stapling on, wait for it to appear in connections
+        md = TestStapling.mdA
+        TestStapling.configure_httpd(md, "MDStapling on").install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.await_ocsp_status(md)
+        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['verify'] == "0 (ok)"
+        # fine the file where the ocsp response is stored
+        dir = os.path.join( TestEnv.STORE_DIR, 'ocsp', md )
+        files = os.listdir( dir )
+        ocsp_file = None
+        for name in files:
+            if name.startswith("ocsp-"):
+                ocsp_file = os.path.join(dir, name)
+        assert ocsp_file
+        mtime1 = os.path.getmtime( ocsp_file )
+        # wait a sec, restart and check that file does not change
+        time.sleep(1)
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.await_ocsp_status(md)
+        assert stat['ocsp'] == "successful (0x0)" 
+        mtime2 = os.path.getmtime( ocsp_file )
+        assert mtime1 == mtime2
+        # configure a keep time of 1 second, restart, the file is gone
+        # (which is a side effec that we load it before the cleanup removes it.
+        #  since it was valid, no new one needed fetching
+        TestStapling.configure_httpd(md, """
+            MDStapling on
+            MDStaplingKeepResponse 1s
+            """).install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.await_ocsp_status(md)
+        assert stat['ocsp'] == "successful (0x0)"
+        assert not os.path.exists( ocsp_file )
+        # if we restart again, a new file needs to appear
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.await_ocsp_status(md)
+        assert stat['ocsp'] == "successful (0x0)"
+        mtime3 = os.path.getmtime( ocsp_file )
+        assert mtime1 != mtime3

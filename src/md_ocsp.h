@@ -51,4 +51,7 @@ apr_size_t md_ocsp_count(md_ocsp_reg_t *reg);
 
 void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_time_t *pnext_run);
 
+apr_status_t md_ocsp_remove_responses_older_than(md_ocsp_reg_t *reg, apr_pool_t *p, 
+                                                 apr_time_t timestamp);
+
 #endif /* md_ocsp_h */
