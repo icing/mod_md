@@ -19,9 +19,10 @@
 
 struct md_json_t;
 struct md_reg_t;
-struct md_store_t;
 struct md_result_t;
 struct md_ocsp_reg_t;
+
+#include "md_store.h"
 
 /** 
  * Get a JSON summary of the MD and its status (certificates, jobs, etc.).
@@ -75,12 +76,12 @@ void md_job_set_group(md_job_t *job, md_store_group_t group);
 /**
  * Update the job from storage in <group>/job->name.
  */
-apr_status_t md_job_load(md_job_t *job, struct md_store_t *store, apr_pool_t *p);
+apr_status_t md_job_load(md_job_t *job, md_store_t *store, apr_pool_t *p);
 
 /**
  * Update storage from job in <group>/job->name.
  */
-apr_status_t md_job_save(md_job_t *job, struct md_store_t *store, 
+apr_status_t md_job_save(md_job_t *job, md_store_t *store, 
                          struct md_result_t *result, apr_pool_t *p);
 
 /**
@@ -103,7 +104,7 @@ md_json_t *md_job_log_get_latest(md_job_t *job, const char *type);
  */
 apr_time_t md_job_log_get_time_of_latest(md_job_t *job, const char *type);
 
-void md_job_start_run(md_job_t *job, struct md_result_t *result, struct md_store_t *store);
+void md_job_start_run(md_job_t *job, struct md_result_t *result, md_store_t *store);
 void md_job_end_run(md_job_t *job, struct md_result_t *result);
 void md_job_cancel(md_job_t *job);
 void md_job_retry_at(md_job_t *job, apr_time_t later);

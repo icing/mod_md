@@ -62,26 +62,6 @@ typedef enum {
 } md_require_t;
 
 typedef enum {
-    MD_SV_TEXT,
-    MD_SV_JSON,
-    MD_SV_CERT,
-    MD_SV_PKEY,
-    MD_SV_CHAIN,
-} md_store_vtype_t;
-
-typedef enum {
-    MD_SG_NONE,
-    MD_SG_ACCOUNTS,
-    MD_SG_CHALLENGES,
-    MD_SG_DOMAINS,
-    MD_SG_STAGING,
-    MD_SG_ARCHIVE,
-    MD_SG_TMP,
-    MD_SG_OCSP,
-    MD_SG_COUNT,
-} md_store_group_t;
-
-typedef enum {
     MD_RENEW_DEFAULT = -1,          /* default value */
     MD_RENEW_MANUAL,                /* manually triggered renewal of certificate */
     MD_RENEW_AUTO,                  /* automatic process performed by httpd */
@@ -211,16 +191,6 @@ struct md_t {
 #define MD_KEY_WATCHED          "watched"
 #define MD_KEY_WHEN             "when"
 #define MD_KEY_WARN_WINDOW      "warn-window"
-
-#define MD_FN_MD                "md.json"
-#define MD_FN_JOB               "job.json"
-#define MD_FN_PRIVKEY           "privkey.pem"
-#define MD_FN_PUBCERT           "pubcert.pem"
-#define MD_FN_CERT              "cert.pem"
-#define MD_FN_HTTPD_JSON        "httpd.json"
-
-#define MD_FN_FALLBACK_PKEY     "fallback-privkey.pem"
-#define MD_FN_FALLBACK_CERT     "fallback-cert.pem"
 
 /* Check if a string member of a new MD (n) has 
  * a value and if it differs from the old MD o

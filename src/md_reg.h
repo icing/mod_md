@@ -19,10 +19,11 @@
 
 struct apr_hash_t;
 struct apr_array_header_t;
-struct md_store_t;
 struct md_pkey_t;
 struct md_cert_t;
 struct md_result_t;
+
+#include "md_store.h"
 
 /**
  * A registry for managed domains with a md_store_t as persistence.
@@ -33,10 +34,10 @@ typedef struct md_reg_t md_reg_t;
 /**
  * Create the MD registry, using the pool and store.
  */
-apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *pm, struct md_store_t *store,
+apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *pm, md_store_t *store,
                            const char *proxy_url);
 
-struct md_store_t *md_reg_store_get(md_reg_t *reg);
+md_store_t *md_reg_store_get(md_reg_t *reg);
 
 apr_status_t md_reg_set_props(md_reg_t *reg, apr_pool_t *p, int can_http, int can_https);
 
@@ -189,7 +190,7 @@ struct md_proto_driver_t {
     struct apr_table_t *env;
 
     md_reg_t *reg;
-    struct md_store_t *store;
+    md_store_t *store;
     const char *proxy_url;
     const md_t *md;
 

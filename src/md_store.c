@@ -67,11 +67,6 @@ const char *md_store_group_name(int group)
     return "UNKNOWN";
 }
 
-void md_store_destroy(md_store_t *store)
-{
-    if (store->destroy) store->destroy(store);
-}
-
 apr_status_t md_store_load(md_store_t *store, md_store_group_t group, 
                            const char *name, const char *aspect, 
                            md_store_vtype_t vtype, void **pdata, 
