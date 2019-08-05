@@ -1,4 +1,5 @@
  * OCSP response cleanup implemented and test case added.
+ * bringing over APLOGNO() number assignments from apache subversion tree.
  * fixed a compile error on warn level about redefintion of AP_ENABLE_EXCEPTION_HOOK. Fixes #132.
  * New directive "MDStaplingKeepResponse" for controlling how long OCSP responses are
    kept in the store and older ones get removed at start up.

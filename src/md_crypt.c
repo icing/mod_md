@@ -1496,6 +1496,7 @@ out:
 #define MD_OID_CT_SCTS_SNAME        "CT-SCTs"
 #define MD_OID_CT_SCTS_LNAME        "CT Certificate SCTs" 
 
+#ifndef OPENSSL_NO_CT
 static int get_ct_scts_nid(void)
 {
     int nid = OBJ_txt2nid(MD_OID_CT_SCTS_NUM);
@@ -1505,6 +1506,7 @@ static int get_ct_scts_nid(void)
     }
     return nid;
 }
+#endif
 
 const char *md_nid_get_sname(int nid)
 {
