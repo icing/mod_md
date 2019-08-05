@@ -575,6 +575,24 @@ class TestAutov2:
         assert stat["proto"]["acme-tls/1"] == []
         
 
+    #-----------------------------------------------------------------------------------------------
+    # test case: 2.4.40 mod_ssl stumbles over a SSLCertificateChainFile when installing
+    # a fallback certificate
+    def test_702_042(self):
+        domain = self.test_domain
+        dns_list = [ domain ]
+        conf = HttpdConf()
+        conf.add_admin( "admin@" + domain )
+        conf.add_line( "LogLevel core:debug" )
+        conf.add_line( "LogLevel ssl:debug" )
+        conf.add_line( "SSLCertificateChainFile %s" % (self._path_conf_ssl("valid_cert.pem")) )
+        conf.add_drive_mode( "auto" )
+        conf.add_md( dns_list )
+        conf.add_vhost( TestEnv.HTTPS_PORT, dns_list)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        
+
     # --------- _utils_ ---------
 
     def _write_res_file(self, docRoot, name, content):
@@ -582,3 +600,5 @@ class TestAutov2:
             os.makedirs(docRoot)
         open(os.path.join(docRoot, name), "w").write(content)
 
+    def _path_conf_ssl(self, name):
+        return os.path.join(TestEnv.APACHE_SSL_DIR, name) 
