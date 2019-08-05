@@ -74,7 +74,7 @@ static void send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *m
     const char * const *argv;
     const char *cmdline;
     int exit_code;
-    apr_status_t rv;
+    apr_status_t rv = APR_SUCCESS;            
     
     if (!strcmp("renewed", reason)) {
         if (dctx->mc->notify_cmd) {
