@@ -1216,6 +1216,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDStapling](#mdstapling)
 * [MDStapleOthers](#mdstapleothers)
 * [MDStaplingKeepResponse](#mdstaplingkeepresponse)
+* [MDStaplingRenewWIndow](#mdstaplingrenewwindow)
 * [MDStoreDir](#mdstoredir)
 
 
@@ -1569,6 +1570,31 @@ from the store again on start up. Response information older than 7 days (defaul
 deleted. This keeps the store from growing when certificates are renewed/reconfigured 
 frequently.
 
+## MDStaplingRenewWindow
+
+***Control when the stapling responses will be renewed***<BR/>
+`MDStaplingRenewWindow duration`<BR/>
+Default: 33%
+
+If the validity of the OCSP response used in stapling falls below `duration`, `mod_md` will obtain a new OCSP response.
+
+The CA issueing a certificate commonly also operates the OCSP responder service and determines how long its
+signed response about the validity of a certificate are valid. The longer a response is valid, the longer it can be cached
+which mean better overall performance for everyone. The shorter the life time, the more rapidly certificate revocations 
+spread to clients. Then there is overall reliability which requires responses to outlive an eventual downtime of 
+OCSP responders.
+
+By adjusting the stapling renew window you can control parts of this yourself. If you make this very short, you
+gain maximum cache time, but service unavailablity will affect you. A very long window will make updates
+very frequent which may, driven to extremes, even affect your TLS connection setup times.
+
+The default is chosen as 33%, which means renewal is started when only  a third of the response lifetime
+is left. For a CA that issues OCSP responses with lifetime of 3 days, this means 2 days of caching and 1 day 
+of renewing. A service outage would have to last full 24 hours to affect you.
+
+Setting an absolute renew window, like `2d` (2 days), is also possible. Howwever, since this does not
+automatically adjusts to changes by the CA, this may result in renewals not taking place when needed.
+ 
 
 ## ServerAdmin / Contact Information
 

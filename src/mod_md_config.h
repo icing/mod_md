@@ -68,6 +68,7 @@ struct md_mod_conf_t {
     int server_status_enabled;         /* if module should add to server-status handler */
     int certificate_status_enabled;    /* if module should expose /.httpd/certificate-status */
     md_timeslice_t *ocsp_keep_window;  /* time that we keep ocsp responses around */
+    md_timeslice_t *ocsp_renew_window; /* time before exp. that we start renewing ocsp resp. */
 };
 
 typedef struct md_srv_conf_t {

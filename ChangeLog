@@ -1,3 +1,4 @@
+ * New directive "MDStaplingRenewWindow" to configure when OCSP response should be renewed.
  * OCSP response cleanup implemented and test case added.
  * bringing over APLOGNO() number assignments from apache subversion tree.
  * fixed a compile error on warn level about redefintion of AP_ENABLE_EXCEPTION_HOOK. Fixes #132.

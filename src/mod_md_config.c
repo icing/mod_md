@@ -46,6 +46,11 @@ static md_timeslice_t def_ocsp_keep_window = {
     MD_TIME_OCSP_KEEP_NORM,
 };
 
+static md_timeslice_t def_ocsp_renew_window = {
+    MD_TIME_LIFE_NORM,
+    MD_TIME_RENEW_WINDOW_DEF,
+};
+
 /* Default settings for the global conf */
 static md_mod_conf_t defmc = {
     NULL,                      /* list of mds */
@@ -73,6 +78,7 @@ static md_mod_conf_t defmc = {
     1,                         /* server_status_enabled */
     1,                         /* certificate_status_enabled */
     &def_ocsp_keep_window,     /* default time to keep ocsp responses */
+    &def_ocsp_renew_window,    /* default time to renew ocsp responses */
 };
 
 static md_timeslice_t def_renew_window = {
@@ -872,6 +878,24 @@ static const char *md_config_set_ocsp_keep_window(cmd_parms *cmd, void *dc, cons
     return NULL;
 }
 
+static const char *md_config_set_ocsp_renew_window(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    err = md_timeslice_parse(&sc->mc->ocsp_renew_window, cmd->pool, value, MD_TIME_LIFE_NORM);
+    if (!err && sc->mc->ocsp_renew_window->norm 
+        && (sc->mc->ocsp_renew_window->len >= sc->mc->ocsp_renew_window->norm)) {
+        err = "with a length of 100% or more is not allowed.";
+    }
+    if (err) return apr_psprintf(cmd->pool, "MDStaplingRenewWindow %s", err);
+    return NULL;
+}
+
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issuing the certificates"),
@@ -911,7 +935,7 @@ const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDStoreDir", md_config_set_store_dir, NULL, RSRC_CONF, 
                   "the directory for file system storage of managed domain data."),
     AP_INIT_TAKE1("MDRenewWindow", md_config_set_renew_window, NULL, RSRC_CONF, 
-                  "Time length for renewal before certificate expires (defaults to days)"),
+                  "Time length for renewal before certificate expires (defaults to days)."),
     AP_INIT_TAKE1("MDRequireHttps", md_config_set_require_https, NULL, RSRC_CONF, 
                   "Redirect non-secure requests to the https: equivalent."),
     AP_INIT_RAW_ARGS("MDNotifyCmd", md_config_set_notify_cmd, NULL, RSRC_CONF, 
@@ -938,6 +962,8 @@ const command_rec md_cmds[] = {
                   "Enable/Disable OCSP Stapling for certificates not in Managed Domains."),
     AP_INIT_TAKE1("MDStaplingKeepResponse", md_config_set_ocsp_keep_window, NULL, RSRC_CONF, 
                   "The amount of time to keep an OCSP response in the store."),
+    AP_INIT_TAKE1("MDStaplingRenewWindow", md_config_set_ocsp_renew_window, NULL, RSRC_CONF, 
+                  "Time length for renewal before OCSP responses expire (defaults to days)."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

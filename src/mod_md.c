@@ -727,7 +727,6 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     apr_status_t rv = APR_SUCCESS;
     int dry_run = 0, log_level = APLOG_DEBUG, watched;
     md_store_t *store;
-    md_timeslice_t *ocsp_renew_window;
 
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
     if (data == NULL) {
@@ -767,9 +766,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     }
 
     /* renew on 30% remaining /*/
-    md_timeslice_create(&ocsp_renew_window, ptemp, 
-                        apr_time_from_sec(100 * 3600), apr_time_from_sec(30 * 3600)); 
-    rv = md_ocsp_reg_make(&mc->ocsp, p, store, ocsp_renew_window,
+    rv = md_ocsp_reg_make(&mc->ocsp, p, store, mc->ocsp_renew_window,
                           AP_SERVER_BASEVERSION, mc->proxy_url);
     if (APR_SUCCESS != rv) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "setup ocsp registry");
