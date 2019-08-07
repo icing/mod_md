@@ -1,9 +1,20 @@
 
 # mod_md - Let's Encrypt for Apache
 
-This repository contains `mod_md`, a module for Apache httpd that adds support for Let's Encrypt (and other ACME CAs). 
+This repository contains `mod_md`, a module for Apache httpd that helps you to manage your domains.
 
 Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1.1.x. For a documentation of that version, [head over to the Apache documentation](https://httpd.apache.org/docs/2.4/mod/mod_md.html).
+
+## What is it good for?
+
+`mod_md` does two things:
+
+1. Provide ***SSL certificates*** for your domains (virtualhosts) from Let's Encrypt (or another Certificate Authority that supports the ACME protocol, rfc 8555)
+2. Offer robust ***OCSP Stapling*** of SSL certificates which is important for fast page loads in modern browsers.
+
+Both functions work well together, but you can use one without the other. This is important for people who get their server certificates by other means. Read the HowTos about stapling for more information.
+
+## Index
 
   - [HowTos](#howtos):
     * [Add a new `https:` Host](#how-to-add-a-new-host)
@@ -20,6 +31,10 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
     * [Backup, Restore or Start Over](#how-to-backup-restore-or-start-over)
     * [Get a Wildcard Cert](#how-to-get-a-wildcard-cert)
     * [Use Other Certificates](#how-to-use-other-certificates)
+  - Stapling
+    * [Staple all my certificates](#how-to-staple-all-my-certificates)
+    * [Staple some of my certificates](#how-to-staple-some-of-my-certificates)
+    * [Know which Stapling You Want](#how-to-know-which-stapling-you-want)
 
   - [Installation](#installation)
   - [Upgrading from v1.1.x](#upgrading)
@@ -36,6 +51,8 @@ Here, you find version 2 of the Apache Module. Apache 2.4.x ships with version 1
   - [File Storage](#file-storage)
   - [Configuration Directives](#directives)
 
+ 
+ 
 # HowTos
 
 This is a list of recipes on how you can use `mod_md` in your Apache configuration. This assumes that you are somewhat familiar with Apache's configuration directives `Listen`, `VirtualHost`, `SSLEngine` and friends. It also assumes that your Apache is running, has the basic modules loaded. You can see a document in your browser (maybe only on `http:` for now).
@@ -521,9 +538,125 @@ This not only saves you some copy&paste. It also makes all other features of `mo
 
 Such a domain will not be renewed by `mod_md` - unless you configure `MDRenewMode always` for it. But even then, the files you configured will be used as long as you do not remove them from the configuration.
 
+# How to Staple All My Certificates
+
+If you want to have Stapling for all your certificates in your Apache httpd, you have two options: either you use the `SSLStapling` provided by `mod_ssl` or the new one from `mod_md`. If you want to switch over to this implementation, you configure in your base server:
+
+```
+MDStapling on
+```
+
+and `mod_md` will manage all. This *overrides* any `SSLStapling` configuration. You can leave that on, but it will have no effect. However it makes experimentation quite easy, but it is a bit of a brave approach. Read the next chapter on how to experiment in a more controlled way.
+
+# How to Staple Some of My Certificates
+
+There are several variations possible here. You may try the new stapling on one of your managed domains only at first. Then your configure:
+
+```
+<MDomain mydomain.net>
+  MDStapling on
+</MDomain>
+```
+
+Reload the server and the stapling will be enabled just for `mydomain.org` (change that name to whatever you dns name is, of course). When that works well, maybe you want to enable this for all your managed domains, but *not* for the virtualhosts where you still have your `SSLCertificateFile...` configured manually. Then you would write:
+
+```
+MDStapling on
+MDStapleOthers off
+```
+
+You cannot configure this for individual `VirtualHost` sections. It is a global setting.
+
+
+# How to Know which Stapling You Want
+
+And why is Stapling important anway? A short introduction of what Stapling is might help:
+
+### Stapling
+
+When one of your certificates is compromised, you'd like to *revoke* it. The whole world should no 
+longer trust it. So you tell your Certificate Authority (CA) which gave it to you in the first place: 
+"Make it go away again!". Turns out, this is rather difficult for the CA.
+
+When the internet was young and the number of certificates was small, CAs used to publish *Revocation Lists*
+where all revoked certificates were listed. Clients were exepcted to download these lists regularly and no
+longer trust certificates on the list. As you can imagine, these just grew too large and cumbersome
+to use.
+
+Then, online services were invented that allow a client to ask the CA: "Hey, I see this certificate of yours. Is it still good?". And this was much better as the question and the answer are quite short. This protocol is called OCSP and
+it uses HTTP as transport. It has zero configuration since the URL to send the request to is part of the
+certificate.
+
+Since OCSP answers come with a valid lifetime, clients can cache them and do not have to ask the CA
+*all the time*. But still, when a client connects to a site for the first time (or after a while when any OCSP response has timed out), it needs to contact the CA. Browsers did not like this very much. It delays loading of web pages (they want to be the fastest!) and maybe the CA is unreachable at that moment. How long should it wait?
+
+The next innovation was then ***Stapling*** where the browser does not have to contact the CA. Instead, the
+web server does it and sends the response to the client immediately on connect (well, during the SSL handshake). This
+scales much better, browsers were happy. Only, servers now had one responsibility more to care about.
+
+To keep SSL connects as fast as they used to be, servers need a valid OCSP response at the ready. Always. Because not
+only browsers want to be fast, servers do care about that too! (I know, it's a shocker.)
+
+
+### Stapling in mod_ssl
+
+Apache's first stapling implementation was done in `mod_ssl`, naturally. The basic strategy is:
+
+1. On a client connect, get the stapling response from the internal cache.
+2. If it is not in the cache or no longer valid, retrieve a new response from the CA
+3. Store the response in the cache and continue the connect.
+
+This works. However, the first clients that connect will pay the penalty of waiting for
+the cache update. Same for clients that connect on a stale response. Small price to pay, you
+may think.
+
+But *should the OCSP responder of the CA be down or unreachable* at that time, you will have a
+long delay and eventually no response at all (there is a timeout). Which means that *all*
+clients connecting to your site could experience this. And if clients take a missing response
+as fatal, your whole site becomes unreachable (and they have to if you mark your certificates
+with the `must-staple` extension).
+
+On top of that, most examples of `mod_ssl` stapling configurations recommend a memory cache. This means that
+all stapling responses are lost when you reload your server. Never reload when your CA is
+down or unreachable? Hardly a manageable approach.
+
+
+### Stapling in mod_md
+
+Learning from this, the implementation in `mod_md` takes a different approach:
+
+1. Start a task with `mod_watchdog` that monitors availability of Stapling data.
+2. Retrieve missing data from the CA.
+3. Also retrieve new responses before existing ones become invalid.
+4. Store responses in the file system so they continue to be available after a server reload.
+
+This prevents having client connections waiting. Either response data is there or not. Renewals
+of the data are continuously happening in the background. They are attempted when less than
+a third of the response lifetime are left (configurable). Let's Encrypt responses have a life time
+of several days, for example. This gives more than a day to get a new one. 
+
+Server reloads do not affect the state of this and can be done all the time.
+
+That being said, it is a new implementation. There will be bugs lurking and it is probably
+good advice to switch from the old stapling in a controlled way. Start with some domains
+and see how it works for you.
+
+### Why Both?
+
+Firrst, since Stapling has become a vital function of a web server in the modern times of `https:`, it is
+a good idea to phase in something new and allow for a mixed configuration. 
+
+Second, Apache has a strong focus on remaining backward compatible. Shipping a new stapling
+in a 2.4.x versions forbids that we disrupt your working configurations.
+
+And third, the new implementation has new dependencies. `mod_md` requires `mod_watchdog`
+and `libcurl` and `libjansson`. Shipping a `mod_ssl` with those needs in a 2.4.x release
+would certainly upset some people.
+
+
 # Installation
 
-**mod_md requires Apache 2.4.33 or newer**_ with an installed ```apxs``` command. 2.4.33 comes with an older version of ```mod_md```, but you can build a newer one from here and install it into the server.
+This **mod_md requires Apache 2.4.40 or newer**_ with an installed ```apxs``` command. 
 
 ### Build and install `mod_md`
 
