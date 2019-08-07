@@ -72,6 +72,10 @@ const char *md_json_gets(const md_json_t *json, ...);
 const char *md_json_dups(apr_pool_t *p, const md_json_t *json, ...);
 apr_status_t md_json_sets(const char *s, md_json_t *json, ...);
 
+/* timestamp manipulation */
+apr_time_t md_json_get_time(const md_json_t *json, ...);
+apr_status_t md_json_set_time(apr_time_t value, md_json_t *json, ...);
+
 /* json manipulation */
 md_json_t *md_json_getj(md_json_t *json, ...);
 md_json_t *md_json_dupj(apr_pool_t *p, const md_json_t *json, ...);
@@ -143,6 +147,7 @@ apr_status_t md_json_copy_to(md_json_t *dest, const md_json_t *src, ...);
 
 const char *md_json_dump_state(const md_json_t *json, apr_pool_t *p);
 
-apr_status_t md_json_timeperiod_set(struct md_timeperiod_t *tp, md_json_t *json, ...);
+apr_status_t md_json_set_timeperiod(const struct md_timeperiod_t *tp, md_json_t *json, ...);
+apr_status_t md_json_get_timeperiod(struct md_timeperiod_t *tp, md_json_t *json, ...);
 
 #endif /* md_json_h */

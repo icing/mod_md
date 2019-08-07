@@ -17,6 +17,7 @@
 #ifndef md_ocsp_h
 #define md_ocsp_h
 
+struct md_json_t;
 struct md_store_t;
 struct md_timeslice_t;
 
@@ -53,5 +54,8 @@ void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_tim
 
 apr_status_t md_ocsp_remove_responses_older_than(md_ocsp_reg_t *reg, apr_pool_t *p, 
                                                  apr_time_t timestamp);
+
+void md_ocsp_get_summary(struct md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p);
+void md_ocsp_get_status_all(struct md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p);
 
 #endif /* md_ocsp_h */

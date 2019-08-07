@@ -55,11 +55,9 @@ class TestStatus:
         # to complete - to give information in 'renewal' about the new cert.
         status = TestEnv.get_certificate_status( domain )
         assert not 'sha256-fingerprint' in status
-        assert not 'valid-until' in status
-        assert not 'valid-from' in status
+        assert not 'valid' in status
         assert 'renewal' in status
-        assert 'valid-until' in status['renewal']
-        assert 'valid-from' in status['renewal']
+        assert 'valid' in status['renewal']
         assert 'sha256-fingerprint' in status['renewal']
         # restart and activate
         # once activated, the staging must be gone and attributes exist for the active cert
@@ -67,8 +65,8 @@ class TestStatus:
         status = TestEnv.get_certificate_status( domain )
         assert not 'renewal' in status
         assert 'sha256-fingerprint' in status
-        assert 'valid-until' in status
-        assert 'valid-from' in status
+        assert 'valid' in status
+        assert 'from' in status['valid']
 
     def test_920_002(self):
         # simple MD, drive it, manipulate staged credentials and check status
@@ -88,8 +86,8 @@ class TestStatus:
         status = TestEnv.get_certificate_status( domain )
         # status shows the copied cert's properties as staged
         assert 'renewal' in status
-        assert 'Thu, 29 Aug 2019 16:06:35 GMT' == status['renewal']['valid-until']
-        assert 'Fri, 31 May 2019 16:06:35 GMT' == status['renewal']['valid-from']
+        assert 'Thu, 29 Aug 2019 16:06:35 GMT' == status['renewal']['valid']['until']
+        assert 'Fri, 31 May 2019 16:06:35 GMT' == status['renewal']['valid']['from']
         assert '03039C464D454EDE79FCD2CAE859F668F269' ==  status['renewal']['serial'] 
         assert 'sha256-fingerprint' in status['renewal']
         if 0 == 1:

@@ -1,3 +1,5 @@
+ * "server-status" page now carries a new table of all OCSP stapling certificates managed
+   by mod_md stapling. Shifted ocsp related information in JSON "md-status" around a bit.
  * New directive "MDStaplingRenewWindow" to configure when OCSP response should be renewed.
  * OCSP response cleanup implemented and test case added.
  * bringing over APLOGNO() number assignments from apache subversion tree.

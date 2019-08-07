@@ -60,6 +60,7 @@ typedef struct md_ocsp_status_t md_ocsp_status_t;
 struct md_ocsp_status_t {
     md_data_t id;
     const char *hexid;
+    const char *hex_sha256;
     OCSP_CERTID *certid;
     const char *responder_url;
     
@@ -196,9 +197,9 @@ static apr_status_t ostat_from_json(md_ocsp_cert_stat_t *pstat,
     
     memset(resp_der, 0, sizeof(*resp_der));
     memset(resp_valid, 0, sizeof(*resp_valid));
-    s = md_json_dups(p, json, MD_KEY_VALID_FROM, NULL);
+    s = md_json_dups(p, json, MD_KEY_VALID, MD_KEY_FROM, NULL);
     if (s && *s) valid.start = apr_date_parse_rfc(s);
-    s = md_json_dups(p, json, MD_KEY_VALID_UNTIL, NULL);
+    s = md_json_dups(p, json, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
     if (s && *s) valid.end = apr_date_parse_rfc(s);
     s = md_json_dups(p, json, MD_KEY_RESPONSE, NULL);
     if (!s || !*s) goto leave;
@@ -214,22 +215,13 @@ static void ostat_to_json(md_json_t *json, md_ocsp_cert_stat_t stat,
                           const md_data_t *resp_der, const md_timeperiod_t *resp_valid, 
                           apr_pool_t *p)
 {
-    char ts[APR_RFC822_DATE_LEN];
     const char *s = NULL;
 
     if (resp_der->len > 0) {
         md_json_sets(md_util_base64url_encode(resp_der, p), json, MD_KEY_RESPONSE, NULL);
         s = md_ocsp_cert_stat_name(stat);
         if (s) md_json_sets(s, json, MD_KEY_STATUS, NULL);
-        
-        if (resp_valid->start > 0) {
-            apr_rfc822_date(ts, resp_valid->start);
-            md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
-        }
-        if (resp_valid->end > 0) {
-            apr_rfc822_date(ts, resp_valid->end);
-            md_json_sets(ts, json, MD_KEY_VALID_UNTIL, NULL);
-        }
+        md_json_set_timeperiod(resp_valid, json, MD_KEY_VALID, NULL);
     }
 }
 
@@ -336,8 +328,10 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     ostat->reg = reg;
     ostat->md_name = name;
     md_data_to_hex(&ostat->hexid, 0, reg->p, &ostat->id);
-    ostat->file_name = apr_psprintf(reg->p, "ocsp-%s.json", ostat->hexid); 
-    
+    ostat->file_name = apr_psprintf(reg->p, "ocsp-%s.json", ostat->hexid);
+    rv = md_cert_to_sha256_fingerprint(&ostat->hex_sha256, cert, reg->p); 
+    if (APR_SUCCESS != rv) goto leave;
+
     ssk = X509_get1_ocsp(md_cert_get_X509(cert));
     if (!ssk) {
         rv = APR_EGENERAL;
@@ -444,6 +438,20 @@ leave:
     return rv;
 }
 
+static void ocsp_get_meta(md_ocsp_cert_stat_t *pstat, md_timeperiod_t *pvalid, 
+                          md_ocsp_reg_t *reg, md_ocsp_status_t *ostat, apr_pool_t *p)
+{
+    apr_thread_mutex_lock(reg->mutex);
+    if (ostat->resp_der.len <= 0) {
+        /* No resonse known, check the store if out watchdog retrieved one 
+         * in the meantime. */
+        ocsp_status_refresh(ostat, p);
+    }
+    *pvalid = ostat->resp_valid;
+    *pstat = ostat->resp_stat;
+    apr_thread_mutex_unlock(reg->mutex);
+}
+
 apr_status_t md_ocsp_get_meta(md_ocsp_cert_stat_t *pstat, md_timeperiod_t *pvalid,
                               md_ocsp_reg_t *reg, const md_cert_t *cert,
                               apr_pool_t *p, const md_t *md)
@@ -452,7 +460,6 @@ apr_status_t md_ocsp_get_meta(md_ocsp_cert_stat_t *pstat, md_timeperiod_t *pvali
     md_ocsp_status_t *ostat;
     const char *name;
     apr_status_t rv;
-    int locked = 0;
     md_timeperiod_t valid;
     md_ocsp_cert_stat_t stat;
     
@@ -472,16 +479,8 @@ apr_status_t md_ocsp_get_meta(md_ocsp_cert_stat_t *pstat, md_timeperiod_t *pvali
         rv = APR_ENOENT;
         goto leave;
     }
-    if (ostat->resp_der.len <= 0) {
-        /* No resonse known, check the store if out watchdog retrieved one 
-         * in the meantime. */
-        ocsp_status_refresh(ostat, p);
-    }
-    
-    valid = ostat->resp_valid;
-    stat = ostat->resp_stat;
+    ocsp_get_meta(&stat, &valid, reg, ostat, p);
 leave:
-    if (locked) apr_thread_mutex_unlock(reg->mutex);
     *pstat = stat;
     *pvalid = valid;  
     return rv;
@@ -788,7 +787,6 @@ leave:
     return;
 }
 
-
 apr_status_t md_ocsp_remove_responses_older_than(md_ocsp_reg_t *reg, apr_pool_t *p, 
                                                  apr_time_t timestamp)
 {
@@ -796,3 +794,92 @@ apr_status_t md_ocsp_remove_responses_older_than(md_ocsp_reg_t *reg, apr_pool_t 
                                               MD_SG_OCSP, "*", "ocsp*.json");
 }
 
+typedef struct {
+    apr_pool_t *p;
+    md_ocsp_reg_t *reg;
+    int good;
+    int revoked;
+    int unknown;
+} ocsp_summary_ctx_t;
+
+static int add_to_summary(void *baton, const void *key, apr_ssize_t klen, const void *val)
+{
+    ocsp_summary_ctx_t *ctx = baton;
+    md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
+    md_ocsp_cert_stat_t stat;
+    md_timeperiod_t valid;
+    
+    (void)key;
+    (void)klen;
+    ocsp_get_meta(&stat, &valid, ctx->reg, ostat, ctx->p);
+    switch (stat) {
+        case MD_OCSP_CERT_ST_GOOD: ++ctx->good; break;
+        case MD_OCSP_CERT_ST_REVOKED: ++ctx->revoked; break;
+        case MD_OCSP_CERT_ST_UNKNOWN: ++ctx->unknown; break;
+    }
+    return 1;
+}
+
+void  md_ocsp_get_summary(md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p)
+{
+    md_json_t *json;
+    ocsp_summary_ctx_t ctx;
+    
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.p = p;
+    ctx.reg = reg;
+    apr_hash_do(add_to_summary, &ctx, reg->hash);
+
+    json = md_json_create(p);
+    md_json_setl(ctx.good+ctx.revoked+ctx.unknown, json, MD_KEY_TOTAL, NULL);
+    md_json_setl(ctx.good, json, MD_KEY_GOOD, NULL);
+    md_json_setl(ctx.revoked, json, MD_KEY_REVOKED, NULL);
+    md_json_setl(ctx.unknown, json, MD_KEY_UNKNOWN, NULL);
+    *pjson = json;
+}
+
+typedef struct {
+    apr_pool_t *p;
+    md_ocsp_reg_t *reg;
+    apr_array_header_t *jstats;
+} ocsp_status_ctx_t;
+
+static int add_jstat(void *baton, const void *key, apr_ssize_t klen, const void *val)
+{
+    ocsp_status_ctx_t *ctx = baton;
+    md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
+    md_ocsp_cert_stat_t stat;
+    md_timeperiod_t valid, renewal;
+    md_json_t *json;
+    
+    (void)key;
+    (void)klen;
+    json = md_json_create(ctx->p);
+    md_json_sets(ostat->md_name, json, MD_KEY_DOMAIN, NULL);
+    md_json_sets(ostat->hexid, json, MD_KEY_ID, NULL);
+    ocsp_get_meta(&stat, &valid, ctx->reg, ostat, ctx->p);
+    md_json_sets(md_ocsp_cert_stat_name(stat), json, MD_KEY_STATUS, NULL);
+    md_json_sets(ostat->hex_sha256, json, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
+    md_json_sets(ostat->responder_url, json, MD_KEY_URL, NULL);
+    md_json_set_timeperiod(&valid, json, MD_KEY_VALID, NULL);
+    renewal = md_timeperiod_slice_before_end(&valid, &ctx->reg->renew_window);
+    md_json_set_time(renewal.start, json, MD_KEY_RENEW_AT, NULL);
+    APR_ARRAY_PUSH(ctx->jstats, md_json_t*) = json;
+    return 1;
+}
+
+void md_ocsp_get_status_all(md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p)
+{
+    md_json_t *json;
+    ocsp_status_ctx_t ctx;
+    
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.p = p;
+    ctx.reg = reg;
+    ctx.jstats = apr_array_make(p, (int)apr_hash_count(reg->hash), sizeof(md_json_t*));
+    apr_hash_do(add_jstat, &ctx, reg->hash);
+
+    json = md_json_create(p);
+    md_json_seta(ctx.jstats, md_json_pass_to, NULL, json, MD_KEY_OCSPS, NULL);
+    *pjson = json;
+}

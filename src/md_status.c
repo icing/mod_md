@@ -41,16 +41,15 @@
 
 static apr_status_t status_get_cert_json(md_json_t **pjson, const md_cert_t *cert, apr_pool_t *p)
 {
-    char ts[APR_RFC822_DATE_LEN];
     const char *finger;
     apr_status_t rv = APR_SUCCESS;
+    md_timeperiod_t valid;
     md_json_t *json;
     
     json = md_json_create(p);
-    apr_rfc822_date(ts, md_cert_get_not_before(cert));
-    md_json_sets(ts, json, MD_KEY_VALID_FROM, NULL);
-    apr_rfc822_date(ts, md_cert_get_not_after(cert));
-    md_json_sets(ts, json, MD_KEY_VALID_UNTIL, NULL);
+    valid.start = md_cert_get_not_before(cert);
+    valid.end = md_cert_get_not_after(cert);
+    md_json_set_timeperiod(&valid, json, MD_KEY_VALID, NULL);
     md_json_sets(md_cert_get_serial_number(cert, p), json, MD_KEY_SERIAL, NULL);
     if (APR_SUCCESS != (rv = md_cert_to_sha256_fingerprint(&finger, cert, p))) goto leave;
     md_json_sets(finger, json, MD_KEY_SHA256_FINGERPRINT, NULL);
@@ -135,13 +134,23 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
     if (APR_SUCCESS == md_reg_get_pubcert(&pubcert, reg, md, p)) {
         cert = APR_ARRAY_IDX(pubcert->certs, 0, const md_cert_t*);
         if (APR_SUCCESS != (rv = status_get_cert_json(&certj, cert, p))) goto leave;
+        if (md->stapling && ocsp) {
+            rv = md_ocsp_get_meta(&cert_stat, &ocsp_valid, ocsp, cert, p, md);
+            if (APR_SUCCESS == rv) {
+                md_json_sets(md_ocsp_cert_stat_name(cert_stat), certj, MD_KEY_OCSP, MD_KEY_STATUS, NULL);
+                md_json_set_timeperiod(&ocsp_valid, certj, MD_KEY_OCSP, MD_KEY_VALID, NULL);
+            }
+            else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;
+            else goto leave;
+        }
         md_json_setj(certj, mdj, MD_KEY_CERT, NULL);
     }
     
+    md_json_setb(md->stapling, mdj, MD_KEY_STAPLING, NULL);
     md_json_setb(md->watched, mdj, MD_KEY_WATCHED, NULL);
     renew = md_reg_should_renew(reg, md, p);
-    md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
     if (renew) {
+        md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
         rv = job_loadj(&jobj, md->name, reg, p);
         if (APR_SUCCESS == rv) {
             rv = get_staging_cert_json(&certj, p, reg, md);
@@ -152,17 +161,6 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
         else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;
         else goto leave;
     }
-    
-    md_json_setb(md->stapling, mdj, MD_KEY_STAPLING, NULL);
-    if (md->stapling && ocsp && cert) {
-        rv = md_ocsp_get_meta(&cert_stat, &ocsp_valid, ocsp, cert, p, md);
-        if (APR_SUCCESS == rv) {
-            md_json_sets(md_ocsp_cert_stat_name(cert_stat), mdj, MD_KEY_OCSP, MD_KEY_STATUS, NULL);
-            md_json_timeperiod_set(&ocsp_valid, mdj, MD_KEY_OCSP, MD_KEY_VALID, NULL);
-        }
-        else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;
-        else goto leave;
-   }
     
 leave:
     *pjson = (APR_SUCCESS == rv)? mdj : NULL;

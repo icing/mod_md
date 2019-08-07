@@ -32,6 +32,7 @@
 #include "md_curl.h"
 #include "md_crypt.h"
 #include "md_http.h"
+#include "md_ocsp.h"
 #include "md_json.h"
 #include "md_status.h"
 #include "md_store.h"
@@ -96,13 +97,13 @@ int md_http_cert_status(request_rec *r)
 
     resp = md_json_create(r->pool);
     
-    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL), 
-                     resp, MD_KEY_VALID_UNTIL, NULL);
+    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_UNTIL, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_UNTIL, NULL), 
+                     resp, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
     }
-    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL), 
-                     resp, MD_KEY_VALID_FROM, NULL);
+    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_FROM, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_FROM, NULL), 
+                     resp, MD_KEY_VALID, MD_KEY_FROM, NULL);
     }
     if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL)) {
         md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL), 
@@ -225,76 +226,33 @@ static void si_val_time(status_ctx *ctx, apr_time_t timestamp)
     }
 }
 
-static void si_val_expires(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+static void si_val_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
-    const char *s;
+    const char *sfrom, *suntil;
     apr_time_t t;
     
     (void)info;
-    s = md_json_dups(ctx->p, mdj, MD_KEY_CERT, MD_KEY_VALID_UNTIL, NULL);
-    if (s) {
-        t = apr_date_parse_rfc(s);
+    sfrom = md_json_dups(ctx->p, mdj, MD_KEY_VALID, MD_KEY_FROM, NULL);
+    if (sfrom) {
+        t = apr_date_parse_rfc(sfrom);
+        si_val_date(ctx, t);
+    }
+    apr_brigade_puts(ctx->bb, NULL, NULL, " - ");
+    suntil = md_json_dups(ctx->p, mdj, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
+    if (suntil) {
+        t = apr_date_parse_rfc(suntil);
         si_val_date(ctx, t);
     }
 }
 
-static void si_val_valid_from(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+static void si_val_cert_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
-    const char *s;
-    apr_time_t t;
-    
-    (void)info;
-    s = md_json_dups(ctx->p, mdj, MD_KEY_CERT, MD_KEY_VALID_FROM, NULL);
-    if (s) {
-        t = apr_date_parse_rfc(s);
-        si_val_date(ctx, t);
-    }
+    md_json_t *jcert;
+
+    jcert = md_json_getj(mdj, MD_KEY_CERT, NULL);
+    if (jcert) si_val_valid_time(ctx, jcert, info);
 }
     
-static void si_val_props(status_ctx *ctx, md_json_t *mdj, const status_info *info)
-{
-    const char *s, *url;
-    md_pkey_type_t ptype;
-    int i = 0;
-    (void)info;
-
-    if (md_json_getb(mdj, MD_KEY_MUST_STAPLE, NULL)) {
-        ++i;
-        apr_brigade_puts(ctx->bb, NULL, NULL, "must-staple");
-    }
-    s = md_json_gets(mdj, MD_KEY_RENEW_WINDOW, NULL);
-    if (s) {
-        if (i++) apr_brigade_puts(ctx->bb, NULL, NULL, " \n"); 
-        apr_brigade_printf(ctx->bb, NULL, NULL, "renew-at[%s]", s);
-    }
-    url = s = md_json_gets(mdj, MD_KEY_CA, MD_KEY_URL, NULL);
-    if (s) {
-        if (i++) apr_brigade_puts(ctx->bb, NULL, NULL, " \n"); 
-        if (!strcmp(LE_ACMEv2_PROD, s)) s = "letsencrypt(v2)";
-        else if (!strcmp(LE_ACMEv1_PROD, s)) s = "letsencrypt(v1)";
-        else if (!strcmp(LE_ACMEv2_STAGING, s)) s = "letsencrypt(Testv2)";
-        else if (!strcmp(LE_ACMEv1_STAGING, s)) s = "letsencrypt(Testv1)";
-        
-        apr_brigade_printf(ctx->bb, NULL, NULL, "ca=[<a href=\"%s\">%s</a>]", url, s);
-    }
-    if (md_json_has_key(mdj, MD_KEY_CONTACTS, NULL)) {
-        if (i++) apr_brigade_puts(ctx->bb, NULL, NULL, " \n"); 
-        apr_brigade_puts(ctx->bb, NULL, NULL, "contacts=[");
-        add_json_val(ctx, md_json_getj(mdj, MD_KEY_CONTACTS, NULL));
-        apr_brigade_puts(ctx->bb, NULL, NULL, "]");
-    }
-    ptype = md_json_has_key(mdj, MD_KEY_PKEY, MD_KEY_TYPE, NULL)?
-            (unsigned)md_json_getl(mdj, MD_KEY_PKEY, MD_KEY_TYPE, NULL) : MD_PKEY_TYPE_DEFAULT; 
-    switch (ptype) {
-        case MD_PKEY_TYPE_RSA:
-            if (i++) apr_brigade_puts(ctx->bb, NULL, NULL, " \n"); 
-            apr_brigade_printf(ctx->bb, NULL, NULL, "key[RSA(%u)]", 
-                (unsigned)md_json_getl(mdj, MD_KEY_PKEY, MD_PKEY_RSA_BITS_MIN, NULL));
-        default:
-            break;
-    }
-}
-
 static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     char buffer[HUGE_STRING_LEN];
@@ -362,17 +320,12 @@ static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_in
     }
 }
 
-const status_info status_infos[] = {
-    { "Name", MD_KEY_NAME, NULL },
-    { "Domains", MD_KEY_DOMAINS, NULL },
-    { "Status", MD_KEY_STATUS, si_val_status },
-    { "Valid", MD_KEY_VALID_FROM, si_val_valid_from },
-    { "Expires", MD_KEY_VALID_UNTIL, si_val_expires },
-    { "Renew", MD_KEY_RENEW_MODE, si_val_renew_mode },
-    { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
-    { "Configuration", MD_KEY_MUST_STAPLE, si_val_props },
-    { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },
-};
+static void si_val_stapling(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    (void)info;
+    if (!md_json_getb(mdj, MD_KEY_STAPLING, NULL)) return;
+    apr_brigade_puts(ctx->bb, NULL, NULL, "on");
+}
 
 static int json_iter_val(void *data, size_t index, md_json_t *json)
 {
@@ -397,6 +350,9 @@ static void add_json_val(status_ctx *ctx, md_json_t *j)
     else if (md_json_is(MD_JSON_TYPE_OBJECT, j, NULL)) {
         md_json_writeb(j, MD_JSON_FMT_COMPACT, ctx->bb);
     }
+    else if (md_json_is(MD_JSON_TYPE_BOOL, j, NULL)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, md_json_getb(j, NULL)? "on" : "off");
+    }
 }
 
 static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -408,6 +364,17 @@ static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *
         add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
     }
 }
+
+static const status_info status_infos[] = {
+    { "Domain", MD_KEY_NAME, NULL },
+    { "Names", MD_KEY_DOMAINS, NULL },
+    { "Status", MD_KEY_STATUS, si_val_status },
+    { "Valid", MD_KEY_VALID, si_val_cert_valid_time },
+    { "Renew", MD_KEY_RENEW_MODE, si_val_renew_mode },
+    { "Stapling", MD_KEY_STAPLING, si_val_stapling },
+    { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
+    { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },
+};
 
 static int add_md_row(void *baton, apr_size_t index, md_json_t *mdj)
 {
@@ -429,7 +396,7 @@ static int md_name_cmp(const void *v1, const void *v2)
     return strcmp((*(const md_t**)v1)->name, (*(const md_t**)v2)->name);
 }
 
-int md_status_hook(request_rec *r, int flags)
+int md_domains_status_hook(request_rec *r, int flags)
 {
     const md_srv_conf_t *sc;
     const md_mod_conf_t *mc;
@@ -488,8 +455,95 @@ int md_status_hook(request_rec *r, int flags)
     return OK;
 }
 
+static void si_val_renew_at(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    apr_time_t t;
+    (void)info;
+    t = md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL);
+    if (t) si_val_date(ctx, t);
+}
+
+static const status_info ocsp_status_infos[] = {
+    { "Domain", MD_KEY_DOMAIN, NULL },
+    { "Certificate", MD_KEY_ID, NULL },
+    { "Status", MD_KEY_STATUS, NULL },
+    { "Valid", MD_KEY_VALID, si_val_valid_time },
+    { "Renew", MD_KEY_RENEW_AT, si_val_renew_at },
+    { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
+    { "OCSP Responder", MD_KEY_URL, NULL },
+};
+
+static int add_ocsp_row(void *baton, apr_size_t index, md_json_t *mdj)
+{
+    status_ctx *ctx = baton;
+    int i;
+    
+    apr_brigade_printf(ctx->bb, NULL, NULL, "<tr class=\"%s\">", (index % 2)? "odd" : "even");
+    for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
+        add_status_cell(ctx, mdj, &ocsp_status_infos[i]);
+        apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
+    }
+    apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
+    return 1;
+}
+
+int md_ocsp_status_hook(request_rec *r, int flags)
+{
+    const md_srv_conf_t *sc;
+    const md_mod_conf_t *mc;
+    int i, html;
+    status_ctx ctx;
+    md_json_t *jstatus, *jstock;
+    
+    sc = ap_get_module_config(r->server->module_config, &md_module);
+    if (!sc) return DECLINED;
+    mc = sc->mc;
+    if (!mc || !mc->server_status_enabled) return DECLINED;
+
+    html = !(flags & AP_STATUS_SHORT);
+    ctx.p = r->pool;
+    ctx.mc = mc;
+    ctx.bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
+    ctx.separator = " ";
+
+    if (!html) {
+        apr_brigade_puts(ctx.bb, NULL, NULL, "ManagedStapling: ");
+        if (md_ocsp_count(mc->ocsp) > 0) {
+            md_ocsp_get_summary(&jstock, mc->ocsp, r->pool);
+            apr_brigade_printf(ctx.bb, NULL, NULL, "total=%d, good=%d revoked=%d unknown=%d",
+                                (int)md_json_getl(jstock, MD_KEY_TOTAL, NULL), 
+                                (int)md_json_getl(jstock, MD_KEY_GOOD, NULL), 
+                                (int)md_json_getl(jstock, MD_KEY_REVOKED, NULL), 
+                                (int)md_json_getl(jstock, MD_KEY_UNKNOWN, NULL));
+        } 
+        else {
+            apr_brigade_puts(ctx.bb, NULL, NULL, "[]"); 
+        }
+        apr_brigade_puts(ctx.bb, NULL, NULL, "\n"); 
+    }
+    else if (md_ocsp_count(mc->ocsp) > 0) {
+        md_ocsp_get_status_all(&jstatus, mc->ocsp, r->pool);
+        apr_brigade_puts(ctx.bb, NULL, NULL, 
+                         "<hr>\n<h2>Managed Stapling</h2>\n<table class='md_status'><thead><tr>\n");
+        for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
+            apr_brigade_puts(ctx.bb, NULL, NULL, "<th>");
+            apr_brigade_puts(ctx.bb, NULL, NULL, ocsp_status_infos[i].label);
+            apr_brigade_puts(ctx.bb, NULL, NULL, "</th>");
+        }
+        apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
+        md_json_itera(add_ocsp_row, &ctx, jstatus, MD_KEY_OCSPS, NULL);
+        apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
+    }
+
+    ap_pass_brigade(r->output_filters, ctx.bb);
+    apr_brigade_cleanup(ctx.bb);
+    
+    return OK;
+}
+
 /**************************************************************************************************/
-/* Status handler */
+/* Status handlers */
 
 int md_status_handler(request_rec *r)
 {
@@ -543,3 +597,4 @@ int md_status_handler(request_rec *r)
     }
     return DECLINED;
 }
+

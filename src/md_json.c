@@ -18,6 +18,7 @@
 #include <apr_lib.h>
 #include <apr_strings.h>
 #include <apr_buckets.h>
+#include <apr_date.h>
 
 #include "md_json.h"
 #include "md_log.h"
@@ -437,6 +438,35 @@ apr_status_t md_json_sets(const char *value, md_json_t *json, ...)
     
     va_start(ap, json);
     rv = jselect_set_new(json_string(value), json, ap);
+    va_end(ap);
+    return rv;
+}
+
+/**************************************************************************************************/
+/* time */
+
+apr_time_t md_json_get_time(const md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+
+    if (!j || !json_is_string(j)) return 0;
+    return apr_date_parse_rfc(json_string_value(j));
+}
+
+apr_status_t md_json_set_time(apr_time_t value, md_json_t *json, ...)
+{
+    char ts[APR_RFC822_DATE_LEN];
+    va_list ap;
+    apr_status_t rv;
+    
+    apr_rfc822_date(ts, value);
+    va_start(ap, json);
+    rv = jselect_set_new(json_string(ts), json, ap);
     va_end(ap);
     return rv;
 }
@@ -1193,7 +1223,7 @@ const char *md_json_dump_state(const md_json_t *json, apr_pool_t *p)
     return apr_psprintf(p, "%s, refc=%ld", md_json_type_name(json), (long)json->j->refcount);
 }
 
-apr_status_t md_json_timeperiod_set(md_timeperiod_t *tp, md_json_t *json, ...)
+apr_status_t md_json_set_timeperiod(const md_timeperiod_t *tp, md_json_t *json, ...)
 {
     char ts[APR_RFC822_DATE_LEN];
     json_t *jn;
@@ -1210,4 +1240,26 @@ apr_status_t md_json_timeperiod_set(md_timeperiod_t *tp, md_json_t *json, ...)
     rv = jselect_set_new(jn, json, ap);
     va_end(ap);
     return rv;
+}
+
+apr_status_t md_json_get_timeperiod(md_timeperiod_t *tp, md_json_t *json, ...)
+{
+    json_t *j, *jts;
+    va_list ap;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+    
+    memset(tp, 0, sizeof(*tp));
+    if (!j) goto not_found;
+    jts = json_object_get(j, "from");
+    if (!jts || !json_is_string(jts)) goto not_found;
+    tp->start = apr_date_parse_rfc(json_string_value(jts)); 
+    jts = json_object_get(j, "until");
+    if (!jts || !json_is_string(jts)) goto not_found;
+    tp->end = apr_date_parse_rfc(json_string_value(jts)); 
+    return APR_SUCCESS;
+not_found:
+    return APR_ENOENT;
 }
