@@ -265,3 +265,60 @@ class TestStapling:
         time.sleep(1)
         mtime3 = os.path.getmtime( ocsp_file )
         assert mtime1 != mtime3
+
+    # MD, make a MDomain with static files, check that stapling works
+    def test_801_007(self):
+        assert TestEnv.apache_stop() == 0
+        # turn stapling on, wait for it to appear in connections
+        md = TestStapling.mdA
+        conf = TestStapling.configure_httpd()
+        conf.add_line("""
+            <MDomain %s>
+                MDCertificateKeyFile %s
+                MDCertificateFile %s
+                MDStapling on
+            </MDomain>
+            """ % (md, TestEnv.store_domain_file(md, 'privkey.pem'),
+                   TestEnv.store_domain_file(md, 'pubcert.pem') ))
+        conf.add_vhost(md)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.await_ocsp_status(md)
+        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['verify'] == "0 (ok)"
+        # fine the file where the ocsp response is stored
+        dir = os.path.join( TestEnv.STORE_DIR, 'ocsp', md )
+        files = os.listdir( dir )
+        ocsp_file = None
+        for name in files:
+            if name.startswith("ocsp-"):
+                ocsp_file = os.path.join(dir, name)
+        assert ocsp_file
+
+    # Use certificate files in old skool mod_ssl set, check that stapling works
+    def test_801_008(self):
+        assert TestEnv.apache_stop() == 0
+        # turn stapling on, wait for it to appear in connections
+        md = TestStapling.mdA
+        conf = TestStapling.configure_httpd()
+        conf.add_line("MDStapling on")
+        conf.start_vhost(md)
+        conf.add_line("""
+            SSLCertificateKeyFile %s
+            SSLCertificateFile %s
+            """ % (TestEnv.store_domain_file(md, 'privkey.pem'),
+                   TestEnv.store_domain_file(md, 'pubcert.pem') ))
+        conf.end_vhost()
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.await_ocsp_status(md)
+        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['verify'] == "0 (ok)"
+        # fine the file where the ocsp response is stored
+        dir = os.path.join( TestEnv.STORE_DIR, 'ocsp', 'other' )
+        files = os.listdir( dir )
+        ocsp_file = None
+        for name in files:
+            if name.startswith("ocsp-"):
+                ocsp_file = os.path.join(dir, name)
+        assert ocsp_file
