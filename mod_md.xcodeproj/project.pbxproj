@@ -64,7 +64,6 @@
 		B298D5C3229BE6FC00245316 /* md_status.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_status.c; sourceTree = "<group>"; };
 		B298D5C4229E7BF000245316 /* md_result.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_result.h; sourceTree = "<group>"; };
 		B298D5C5229E7BF000245316 /* md_result.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_result.c; sourceTree = "<group>"; };
-		B298D5CC229E8AA600245316 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		B29B931422B8D57D00CF8640 /* notifail.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = notifail.py; sourceTree = "<group>"; };
 		B29B931522B905FA00CF8640 /* md_time.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_time.h; sourceTree = "<group>"; };
 		B29B931622B905FA00CF8640 /* md_time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_time.c; sourceTree = "<group>"; };
@@ -233,15 +232,6 @@
 			path = ssl;
 			sourceTree = "<group>";
 		};
-		B298D5CB229E8AA600245316 /* mod_md_lib */ = {
-			isa = PBXGroup;
-			children = (
-				B298D5CC229E8AA600245316 /* main.c */,
-			);
-			name = mod_md_lib;
-			path = ../../mod_md/mod_md_lib;
-			sourceTree = "<group>";
-		};
 		B2B81EC81F13830600E35CA3 /* ssl */ = {
 			isa = PBXGroup;
 			children = (
@@ -272,7 +262,6 @@
 				B2D309A51EBA229F007BECC8 /* INSTALL */,
 				B2D309A61EBA229F007BECC8 /* LICENSE */,
 				B2D309A71EBA229F007BECC8 /* Makefile.am */,
-				B298D5CB229E8AA600245316 /* mod_md_lib */,
 				B26A4BE222AAB30600D002BC /* mod_md_status.png */,
 				B2D309A81EBA229F007BECC8 /* NEWS */,
 				B2FC60771F5D95DD005B7D9E /* patches */,
