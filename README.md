@@ -50,6 +50,7 @@ Both functions work well together, but you can use one without the other. This i
   - [Dipping the Toe](#dipping-the-toe)
   - [File Storage](#file-storage)
   - [Configuration Directives](#directives)
+  - [Test Suite](#test-suite)
 
  
  
@@ -1732,6 +1733,47 @@ automatically adjusts to changes by the CA, this may result in renewals not taki
 ## ServerAdmin / Contact Information
 
 Also, the ACME protocol requires you to give a contact url when you sign up. Currently, Let's Encrypt wants an email address (and it will use it to inform you about renewals or changed terms of service). ```mod_md``` uses the ```ServerAdmin``` email in your Apache configuration, so please specify the correct address there.
+
+
+# Test Suite
+
+The repository comes with test suites. There are some unit tests using `libcheck` and a large overall test
+suite that uses Apache, the LetsEncrypt ACME server and pytest in combination.
+
+For the pytest suite you need a `boulder` installation. You clone this from the [letsencrypt github repository](https://github.com/letsencrypt/boulder) and use `docker` to run it. Read its [Development](https://github.com/letsencrypt/boulder#development) documentation on how to do that.
+
+For the `pytest`, this is nowadays using `python3`. Please read up on your operating system on how to install python3. Commonly, you install components for it using the `pip3` command. For the test suite, you probably need:
+
+```
+> pip3 install pytest
+> pip3 install pyopenssl
+```
+
+Boulder has its main configuration in `docker-compose.yml` and there you will want to change
+
+```
+         environment:
+            FAKE_DNS: <ip of your machine>
+```
+which answers all DNS requests for boulder with the address of your machine. The default value of `127.0.0.1` will not do. Boulder runs in a docker image and localhost is its own image and not your local machine where Apache listens. But for the tests to succeed, `boulder` needs to reach the Apache started by the test suite.
+
+Start up boulder, see `All servers running. Hit ^C to kill.` after a while and start the test suite:
+
+```
+> make
+> make test
+...
+python3 -m pytest
+============================================================================ test session starts ============================================================================
+platform darwin -- Python 3.7.4, pytest-3.7.3, py-1.6.0, pluggy-0.7.1
+rootdir: /Users/sei/projects/mod_md/test, inifile:
+collected 354 items
+
+test_0001_store.py ...................
+...
+```
+
+The test suite will itself start the Apache (several times with varying configurations) and terminate it on shutdown.
 
 
 # Licensing

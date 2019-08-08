@@ -1,3 +1,4 @@
+ * Converted pytest suite from python2 to python3. "make test" now calls "python3 -m pytest".
  * "server-status" page now carries a new table of all OCSP stapling certificates managed
    by mod_md stapling. Shifted ocsp related information in JSON "md-status" around a bit.
  * New directive "MDStaplingRenewWindow" to configure when OCSP response should be renewed.

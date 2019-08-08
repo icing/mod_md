@@ -15,10 +15,10 @@ import OpenSSL
 from datetime import datetime
 from datetime import tzinfo
 from datetime import timedelta
-from ConfigParser import SafeConfigParser
-from httplib import HTTPConnection
+from configparser import SafeConfigParser
 from shutil import copyfile
-from urlparse import urlparse
+from http.client import HTTPConnection
+from urllib.parse import urlparse
 
 SEC_PER_DAY = 24 * 60 * 60
 
@@ -137,20 +137,17 @@ class TestEnv:
     
     @classmethod
     def run( cls, args, input=None ) :
-        #print "execute: ", " ".join(args)
-        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (output, errput) = p.communicate(input)
-        rv = p.wait()
+        p = subprocess.run(args, capture_output=True, text=True)
         try:
-            jout = json.loads(output)
+            jout = json.loads(p.stdout)
         except:
             jout = None
-            print "stderr: ", errput
-            print "stdout: ", output
+            print("stderr: ", p.stderr)
+            print("stdout: ", p.stdout)
         return { 
-            "rv": rv, 
-            "stdout": output, 
-            "stderr": errput,
+            "rv": p.returncode, 
+            "stdout": p.stdout, 
+            "stderr": p.stderr,
             "jout" : jout 
         }
 
@@ -187,13 +184,13 @@ class TestEnv:
                 resp = c.getresponse()
                 c.close()
                 return True
-            except IOError:
-                print "connect error:", sys.exc_info()[0]
+            except ConnectionRefusedError:
+                print("connection refused")
                 time.sleep(.1)
             except:
-                print "Unexpected error:", sys.exc_info()[0]
+                print("Unexpected error:", sys.exc_info()[0])
                 time.sleep(.1)
-        print "Unable to contact server after %d sec" % timeout
+        print("Unable to contact server after %d sec" % timeout)
         return False
 
     @classmethod
@@ -212,7 +209,7 @@ class TestEnv:
                 return True
             except:
                 return True
-        print "Server still responding after %d sec" % timeout
+        print("Server still responding after %d sec" % timeout)
         return False
 
     @classmethod
@@ -235,11 +232,11 @@ class TestEnv:
                 c.close()
                 return data
             except IOError:
-                print "connect error:", sys.exc_info()[0]
+                print("connect error:", sys.exc_info()[0])
                 time.sleep(.1)
             except:
-                print "Unexpected error:", sys.exc_info()[0]
-        print "Unable to contact server after %d sec" % timeout
+                print("Unexpected error:", sys.exc_info()[0])
+        print("Unable to contact server after %d sec" % timeout)
         return None
 
     @classmethod
@@ -259,16 +256,14 @@ class TestEnv:
 
     @classmethod
     def get_httpd_version( cls ) :
-        p = subprocess.Popen([ cls.APXS, "-q", "HTTPD_VERSION" ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (output, errput) = p.communicate()
-        rv = p.wait()
-        if rv != 0:
+        p = subprocess.run([ cls.APXS, "-q", "HTTPD_VERSION" ], capture_output=True, text=True)
+        if p.returncode != 0:
             return "unknown"
-        return output.strip()
+        return p.stdout.strip()
         
     @classmethod
     def _versiontuple( cls, v ):
-        return tuple(map(int, (v.split("."))))
+        return tuple(map(int, v.split('.')))
     
     @classmethod
     def httpd_is_at_least( cls, minv ) :
@@ -402,7 +397,7 @@ class TestEnv:
         # check SANs and CN
         assert cert.get_cn() == domain
         # compare lists twice in opposite directions: SAN may not respect ordering
-        sanList = cert.get_san_list()
+        sanList = list(cert.get_san_list())
         assert len(sanList) == len(domains)
         assert set(sanList).issubset(domains)
         assert set(domains).issubset(sanList)
@@ -432,18 +427,16 @@ class TestEnv:
         if conf:
             cls.install_test_conf(conf)
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd]
-        #print "execute: ", " ".join(args)
         cls.apachectl_stderr = ""
-        p = subprocess.Popen(args, stderr=subprocess.PIPE)
-        (output, cls.apachectl_stderr) = p.communicate()
-        sys.stderr.write(cls.apachectl_stderr)
-        rv = p.wait()
+        p = subprocess.run(args, capture_output=True, text=True)
+        cls.apachectl_stderr = p.stderr
+        rv = p.returncode
         if rv == 0:
             if check_live:
                 rv = 0 if cls.is_live(cls.HTTPD_CHECK_URL, 10) else -1
             else:
                 rv = 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 10) else -1
-                print ("waited for a apache.is_dead, rv=%d" % rv)
+                print("waited for a apache.is_dead, rv=%d" % rv)
         return rv
 
     @classmethod
@@ -462,7 +455,7 @@ class TestEnv:
     def apache_fail( cls ) :
         rv = cls.apachectl( "graceful", check_live=False )
         if rv != 0:
-            print "check, if dead: " + cls.HTTPD_CHECK_URL
+            print("check, if dead: " + cls.HTTPD_CHECK_URL)
             return 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 5) else -1
         return rv
         
@@ -521,7 +514,7 @@ class TestEnv:
 
     @classmethod
     def check_file_access(cls, path, expMask):
-         actualMask = os.lstat(path).st_mode & 0777
+         actualMask = os.lstat(path).st_mode & 0o777
          assert oct(actualMask) == oct(expMask)
 
     @classmethod
@@ -550,7 +543,7 @@ class TestEnv:
         result['http_status'] = int(m.group(2))
         # collect response headers
         h = {}
-        for m in re.findall("^(\\S+): (.*)\r$", result['stdout'], re.M) :
+        for m in re.findall("^(\\S+): (.*)\n", result['stdout'], re.M) :
             h[ m[0] ] = m[1]
         result['http_headers'] = h
         return result
@@ -593,7 +586,7 @@ class TestEnv:
             for name in names:
                 md = TestEnv.get_md_status(name, timeout)
                 if md == None:
-                    print "not managed by md: %s" % (name)
+                    print("not managed by md: %s" % (name))
                     return False
 
                 if 'renewal' in md:
@@ -625,7 +618,7 @@ class TestEnv:
             for name in names:
                 md = TestEnv.get_md_status(name, timeout)
                 if md == None:
-                    print "not managed by md: %s" % (name)
+                    print("not managed by md: %s" % (name))
                     return False
 
                 if 'renewal' in md:
@@ -655,22 +648,22 @@ class TestEnv:
         assert md
         acct = md['ca']['account']
         assert acct
-        cls.check_file_access( cls.path_store_json(), 0600 )
+        cls.check_file_access( cls.path_store_json(), 0o600 )
         # domains
-        cls.check_file_access( cls.store_domains(), 0700 )
-        cls.check_file_access( os.path.join( cls.store_domains(), domain ), 0700 )
-        cls.check_file_access( cls.store_domain_file( domain, 'privkey.pem' ), 0600 )
-        cls.check_file_access( cls.store_domain_file( domain, 'pubcert.pem' ), 0600 )
-        cls.check_file_access( cls.store_domain_file( domain, 'md.json' ), 0600 )
+        cls.check_file_access( cls.store_domains(), 0o700 )
+        cls.check_file_access( os.path.join( cls.store_domains(), domain ), 0o700 )
+        cls.check_file_access( cls.store_domain_file( domain, 'privkey.pem' ), 0o600 )
+        cls.check_file_access( cls.store_domain_file( domain, 'pubcert.pem' ), 0o600 )
+        cls.check_file_access( cls.store_domain_file( domain, 'md.json' ), 0o600 )
         # archive
-        cls.check_file_access( cls.store_archived_file( domain, 1, 'md.json' ), 0600 )
+        cls.check_file_access( cls.store_archived_file( domain, 1, 'md.json' ), 0o600 )
         # accounts
-        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts' ), 0755 )
-        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts', acct ), 0755 )
-        cls.check_file_access( cls.path_account( acct ), 0644 )
-        cls.check_file_access( cls.path_account_key( acct ), 0644 )
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts' ), 0o755 )
+        cls.check_file_access( os.path.join( cls.STORE_DIR, 'accounts', acct ), 0o755 )
+        cls.check_file_access( cls.path_account( acct ), 0o644 )
+        cls.check_file_access( cls.path_account_key( acct ), 0o644 )
         # staging
-        cls.check_file_access( cls.store_stagings(), 0755 )
+        cls.check_file_access( cls.store_stagings(), 0o755 )
 
     @classmethod
     def get_ocsp_status( cls, domain ):
@@ -852,15 +845,15 @@ class CertUtil(object):
         cert.set_issuer(cert.get_subject())
 
         cert.add_extensions([ OpenSSL.crypto.X509Extension(
-            b"subjectAltName", False, ", ".join( map(lambda n: "DNS:" + n, nameList) )
+            b"subjectAltName", False, b", ".join( map(lambda n: b"DNS:" + n.encode(), nameList) )
         ) ])
         cert.set_pubkey(k)
         cert.sign(k, 'sha1')
 
         open(cert_file, "wt").write(
-            OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert))
+            OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert).decode('utf-8'))
         open(pkey_file, "wt").write(
-            OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, k))
+            OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, k).decode('utf-8'))
 
     @classmethod
     def load_server_cert( cls, hostIP, hostPort, hostName ):
@@ -869,7 +862,7 @@ class CertUtil(object):
         connection = OpenSSL.SSL.Connection(ctx, s)
         connection.connect((hostIP, int(hostPort)))
         connection.setblocking(1)
-        connection.set_tlsext_host_name(hostName)
+        connection.set_tlsext_host_name(hostName.encode('utf-8'))
         connection.do_handshake()
         peer_cert = connection.get_peer_certificate()
         return CertUtil( None, cert=peer_cert )
@@ -921,14 +914,17 @@ class CertUtil(object):
         sans_list = []
         if m:
             sans_list = m.group(1).split(",")
-
-        def _strip_prefix(s): return s.split(":")[1]  if  s.strip().startswith("DNS:")  else  s.strip()
-        return map(_strip_prefix, sans_list)
+        def _strip_prefix(s): 
+            return s.split(":")[1]  if  s.strip().startswith("DNS:")  else  s.strip()
+        return list(map(_strip_prefix, sans_list))
 
     def get_must_staple(self):
         text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
         m = re.search(r"1.3.6.1.5.5.7.1.24:\s*\n\s*0....", text)
-        return m
+        if not m:
+            # Newer openssl versions print this differently
+            m = re.search(r"TLS Feature:\s*\n\s*status_request\s*\n", text)
+        return m != None
 
     @classmethod
     def validate_privkey(cls, privkey_path, passphrase=None):
@@ -951,14 +947,18 @@ class CertUtil(object):
 
     # --------- _utils_ ---------
 
+    def astr(self, s):
+        return s.decode('utf-8')
+        
     def _parse_tsp(self, tsp):
         # timestampss returned by PyOpenSSL are bytes
         # parse date and time part
-        tsp_reformat = [tsp[0:4], b"-", tsp[4:6], b"-", tsp[6:8], b" ", tsp[8:10], b":", tsp[10:12], b":", tsp[12:14]]
-        timestamp =  datetime.strptime(b"".join(tsp_reformat), '%Y-%m-%d %H:%M:%S')
+        s = ("%s-%s-%s %s:%s:%s" % (self.astr(tsp[0:4]), self.astr(tsp[4:6]), self.astr(tsp[6:8]), 
+            self.astr(tsp[8:10]), self.astr(tsp[10:12]), self.astr(tsp[12:14])))
+        timestamp =  datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
         # adjust timezone
         tz_h, tz_m = 0, 0
-        m = re.match(r"([+\-]\d{2})(\d{2})", b"".join([tsp[14:]]))
+        m = re.match(r"([+\-]\d{2})(\d{2})", self.astr(tsp[14:]))
         if m:
             tz_h, tz_m = int(m.group(1)),  int(m.group(2))  if  tz_h > 0  else  -1 * int(m.group(2))
         return timestamp.replace(tzinfo = self.FixedOffset(60 * tz_h + tz_m))

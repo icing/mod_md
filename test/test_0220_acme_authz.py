@@ -37,7 +37,7 @@ class TestAcmeAuthz :
         m = re.match("authz: " + domain + " (.*)$", run["stdout"])
         assert m
         authz_url = m.group(1)
-        print "authz for %s at %s\n" % (domain, authz_url)
+        print("authz for %s at %s\n" % (domain, authz_url))
 
         assert TestEnv.get_json(authz_url, 5)["status"] == "pending"
 

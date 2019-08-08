@@ -7,9 +7,8 @@ import subprocess
 import sys
 import time
 
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 from datetime import datetime
-from httplib import HTTPConnection
 from test_base import TestEnv
 from test_base import HttpdConf
 

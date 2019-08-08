@@ -7,7 +7,7 @@ import sys
 import time
 import pytest
 
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 from datetime import datetime
 from shutil import copyfile
 from test_base import TestEnv

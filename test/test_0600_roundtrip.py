@@ -9,7 +9,6 @@ import sys
 import time
 
 from datetime import datetime
-from httplib import HTTPSConnection
 from test_base import TestEnv
 from test_base import HttpdConf
 from test_base import CertUtil

@@ -40,7 +40,7 @@ class TestAcmeAcc :
         m = re.match("registered: (.*)$", run["stdout"])
         assert m
         acct = m.group(1)
-        print "newreg: %s" % (m.group(1))
+        print("newreg: %s" % m.group(1))
         self._check_account(acct, ["mailto:" + contact])
 
     # test case: register a new account without accepting ToS, must fail

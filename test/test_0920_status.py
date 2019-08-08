@@ -10,7 +10,6 @@ import sys
 import time
 
 from datetime import datetime
-from httplib import HTTPSConnection
 from test_base import TestEnv
 from test_base import HttpdConf
 from test_base import CertUtil
@@ -82,7 +81,7 @@ class TestStatus:
         # copy a real certificate from LE over to staging
         staged_cert = os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pubcert.pem') 
         real_cert = os.path.join('data', 'test_920', '002.pubcert')
-        assert copyfile(real_cert, staged_cert) == None
+        assert copyfile(real_cert, staged_cert)
         status = TestEnv.get_certificate_status( domain )
         # status shows the copied cert's properties as staged
         assert 'renewal' in status

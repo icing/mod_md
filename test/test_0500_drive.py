@@ -212,7 +212,7 @@ class TestDrivev1:
         assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
         # drive
         run = TestEnv.a2md( [ "drive", name ] )
-        print run["stderr"]
+        print(run["stderr"])
         assert run['rv'] == 0
         TestEnv.check_md_credentials([ name ])
 
@@ -485,9 +485,9 @@ class TestDrivev1:
         assert md['renew-window'] == renewWindow
 
         # replace cert by self-signed one -> check md status
-        print "TRACE: start testing renew window: %s" % renewWindow
+        print("TRACE: start testing renew window: %s" % renewWindow)
         for tc in testDataList:
-            print "TRACE: create self-signed cert: %s" % tc["valid"]
+            print("TRACE: create self-signed cert: %s" % tc["valid"])
             CertUtil.create_self_signed_cert( [name], tc["valid"])
             cert2 = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
             assert cert2.get_serial() != cert1.get_serial()

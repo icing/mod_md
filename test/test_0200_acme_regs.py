@@ -39,7 +39,7 @@ class TestAcmeAcc :
         m = re.match("registered: (.*)$", run["stdout"])
         assert m
         acct = m.group(1)
-        print "newreg: %s" % (m.group(1))
+        print("newreg: %s" % (m.group(1)))
         # verify account in local store
         self._check_account(acct, ["mailto:" + contact])
 

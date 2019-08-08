@@ -9,7 +9,7 @@ import time
 import pytest
 
 from datetime import datetime
-from urlparse import urlparse
+from urllib.parse import urlparse
 from test_base import TestEnv
 
 def setup_module(module):
