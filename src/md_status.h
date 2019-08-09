@@ -46,10 +46,13 @@ apr_status_t md_status_get_json(struct md_json_t **pjson, apr_array_header_t *md
 void  md_status_take_stock(struct md_json_t **pjson, apr_array_header_t *mds, 
                            struct md_reg_t *reg, apr_pool_t *p);
 
+
 typedef struct md_job_t md_job_t;
+
 struct md_job_t {
     md_store_group_t group;/* group where job is persisted */
-    const char *name;      /* Name of the MD this job is about */
+    const char *mdomain;   /* Name of the MD this job is about */
+    md_store_t *store;     /* store where it is persisted */
     apr_pool_t *p;     
     apr_time_t next_run;   /* Time this job wants to be processed next */
     apr_time_t last_run;   /* Time this job ran last (or 0) */
@@ -63,26 +66,29 @@ struct md_job_t {
     apr_size_t max_log;    /* max number of log entries, new ones replace oldest */
     int dirty;
     struct md_result_t *observing;
+    
+    md_job_notify_cb *notify;
+    void *notify_ctx;
 };
 
 /**
  * Create a new job instance for the given MD name. 
  * Job load/save will work using the name.
  */
-md_job_t *md_job_make(apr_pool_t *p, md_store_group_t group, const char *name);
+md_job_t *md_job_make(apr_pool_t *p, md_store_t *store, 
+                      md_store_group_t group, const char *name);
 
 void md_job_set_group(md_job_t *job, md_store_group_t group);
 
 /**
- * Update the job from storage in <group>/job->name.
+ * Update the job from storage in <group>/job->mdomain.
  */
-apr_status_t md_job_load(md_job_t *job, md_store_t *store, apr_pool_t *p);
+apr_status_t md_job_load(md_job_t *job);
 
 /**
- * Update storage from job in <group>/job->name.
+ * Update storage from job in <group>/job->mdomain.
  */
-apr_status_t md_job_save(md_job_t *job, md_store_t *store, 
-                         struct md_result_t *result, apr_pool_t *p);
+apr_status_t md_job_save(md_job_t *job, struct md_result_t *result, apr_pool_t *p);
 
 /**
  * Append to the job's log. Timestamp is automatically added.
@@ -111,5 +117,8 @@ void md_job_retry_at(md_job_t *job, apr_time_t later);
 
 /* Given the number of errors encountered, recommend a delay for the next attempt */
 apr_time_t md_job_delay_on_errors(int err_count);
+
+void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton);
+void md_job_notify(md_job_t *job, const char *reason, struct md_result_t *result);
 
 #endif /* md_status_h */

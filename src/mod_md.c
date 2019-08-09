@@ -40,6 +40,7 @@
 #include "md_ocsp.h"
 #include "md_result.h"
 #include "md_reg.h"
+#include "md_status.h"
 #include "md_util.h"
 #include "md_version.h"
 #include "md_acme.h"
@@ -131,7 +132,90 @@ static void init_setups(apr_pool_t *p, server_rec *base_server)
 }
 
 /**************************************************************************************************/
-/* store & registry setup */
+/* notification handling */
+
+typedef struct {
+    const char *reason;         /* what the notification is about */
+    apr_time_t min_interim;     /* minimum time between notifying for this reason */
+} notify_rate;
+
+static notify_rate notify_rates[] = {
+    { "renewed", apr_time_from_sec(28 * MD_SECS_PER_DAY) }, /* once per month */
+    { "expiring", apr_time_from_sec(MD_SECS_PER_DAY) },     /* once per day */
+    { "errored", apr_time_from_sec(MD_SECS_PER_HOUR) },     /* once per hour */
+    { "ocsp-renewed", apr_time_from_sec(MD_SECS_PER_DAY) }, /* once per day */
+    { "ocsp-errored", apr_time_from_sec(MD_SECS_PER_HOUR) }, /* once per hour */
+};
+
+static void notify(md_job_t *job, const char *reason, 
+                   md_result_t *result, apr_pool_t *p, void *baton)
+{
+    md_mod_conf_t *mc = baton;
+    const char * const *argv;
+    const char *cmdline;
+    int exit_code;
+    apr_status_t rv = APR_SUCCESS;
+    apr_time_t min_interim = 0;
+    md_timeperiod_t since_last;
+    const char *log_msg_reason;
+    int i;
+    
+    log_msg_reason = apr_psprintf(p, "message-%s", reason);
+    for (i = 0; i < (int)(sizeof(notify_rates)/sizeof(notify_rates[0])); ++i) {
+        if (!strcmp(reason, notify_rates[i].reason)) {
+            min_interim = notify_rates[i].min_interim;
+        }
+    }
+    if (min_interim > 0) {
+        since_last.start = md_job_log_get_time_of_latest(job, log_msg_reason);
+        since_last.end = apr_time_now();
+        if (md_timeperiod_length(&since_last) < min_interim) {
+            /* not enough time has passed since we sent the last notification
+             * for this reason. */
+            return;
+        }
+    }
+    
+    if (!strcmp("renewed", reason)) {
+        if (mc->notify_cmd) {
+            cmdline = apr_psprintf(p, "%s %s", mc->notify_cmd, job->mdomain); 
+            apr_tokenize_to_argv(cmdline, (char***)&argv, p);
+            rv = md_util_exec(p, argv[0], argv, &exit_code);
+            
+            if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
+            if (APR_SUCCESS != rv) {
+                md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10108)), 
+                                         "MDNotifyCmd %s failed with exit code %d.", 
+                                         mc->notify_cmd, exit_code);
+                md_result_log(result, MD_LOG_ERR);
+                md_job_log_append(job, "notify-error", result->problem, result->detail);
+                return;
+            }
+        }
+        md_log_perror(MD_LOG_MARK, MD_LOG_NOTICE, 0, p, APLOGNO(10059) 
+                     "The Managed Domain %s has been setup and changes "
+                     "will be activated on next (graceful) server restart.", job->mdomain);
+    }
+    if (mc->message_cmd) {
+        cmdline = apr_psprintf(p, "%s %s %s", mc->message_cmd, reason, job->mdomain); 
+        apr_tokenize_to_argv(cmdline, (char***)&argv, p);
+        rv = md_util_exec(p, argv[0], argv, &exit_code);
+        
+        if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
+        if (APR_SUCCESS != rv) {
+            md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10109)), 
+                                     "MDMessageCmd %s failed with exit code %d.", 
+                                     mc->message_cmd, exit_code);
+            md_result_log(result, MD_LOG_ERR);
+            md_job_log_append(job, "message-error", reason, result->detail);
+            return;
+        }
+    }
+    md_job_log_append(job, log_msg_reason, NULL, NULL);
+}
+
+/**************************************************************************************************/
+/* store setup */
 
 static apr_status_t store_file_ev(void *baton, struct md_store_t *store,
                                     md_store_fs_ev_t ev, unsigned int group, 
@@ -188,7 +272,7 @@ static apr_status_t setup_store(md_store_t **pstore, md_mod_conf_t *mc,
     
     if (APR_SUCCESS != (rv = md_store_fs_init(pstore, p, base_dir))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10046)"setup store for %s", base_dir);
-        goto out;
+        goto leave;
     }
 
     md_store_fs_set_event_cb(*pstore, store_file_ev, s);
@@ -199,9 +283,10 @@ static apr_status_t setup_store(md_store_t **pstore, md_mod_conf_t *mc,
         ) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10047) 
                      "setup challenges directory");
+        goto leave;
     }
     
-out:
+leave:
     return rv;
 }
 
@@ -764,6 +849,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072) "setup md registry");
         goto leave;
     }
+    md_reg_set_notify_cb(mc->reg, notify, mc);
 
     /* renew on 30% remaining /*/
     rv = md_ocsp_reg_make(&mc->ocsp, p, store, mc->ocsp_renew_window,
@@ -772,6 +858,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "setup ocsp registry");
         goto leave;
     }
+    md_ocsp_set_notify_cb(mc->ocsp, notify, mc);
     
     init_ssl();
 

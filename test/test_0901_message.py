@@ -158,6 +158,30 @@ class TestMessage:
         assert 1 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
 
+    # MD, check messages from stapling
+    def test_901_020(self):
+        domain = self.test_domain
+        domains = [ domain ]
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_message_cmd( "%s %s" % (self.mcmd, self.mlog) )
+        conf.add_drive_mode( "auto" )
+        conf.add_md(domains)
+        conf.add_line("MDStapling on")
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ] )
+        stat = TestEnv.await_ocsp_status(domain)
+        assert os.path.isfile(self.mlog)
+        nlines = open(self.mlog).readlines()
+        assert 2 == len(nlines)
+        assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1].strip()
+
+
+
+    
 
 
     

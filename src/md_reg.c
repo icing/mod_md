@@ -48,6 +48,8 @@ struct md_reg_t {
     int domains_frozen;
     md_timeslice_t *renew_window;
     md_timeslice_t *warn_window;
+    md_job_notify_cb *notify;
+    void *notify_ctx;
 };
 
 /**************************************************************************************************/
@@ -1110,10 +1112,10 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     if (APR_SUCCESS != rv) goto out;
 
     /* If we had a job saved in STAGING, copy it over too */
-    job = md_job_make(ptemp, MD_SG_STAGING, md->name);
-    if (APR_SUCCESS == md_job_load(job, reg->store, ptemp)) {
+    job = md_reg_job_make(reg, md->name, ptemp);
+    if (APR_SUCCESS == md_job_load(job)) {
         md_job_set_group(job, MD_SG_TMP);
-        md_job_save(job, reg->store, NULL, ptemp);
+        md_job_save(job, NULL, ptemp);
     }
     
     /* swap */
@@ -1167,4 +1169,19 @@ void md_reg_set_renew_window_default(md_reg_t *reg, md_timeslice_t *renew_window
 void md_reg_set_warn_window_default(md_reg_t *reg, md_timeslice_t *warn_window)
 {
     *reg->warn_window = *warn_window;
+}
+
+void md_reg_set_notify_cb(md_reg_t *reg, md_job_notify_cb *cb, void *baton)
+{
+    reg->notify = cb;
+    reg->notify_ctx = baton;
+}
+
+md_job_t *md_reg_job_make(md_reg_t *reg, const char *mdomain, apr_pool_t *p)
+{
+    md_job_t *job;
+    
+    job = md_job_make(p, reg->store, MD_SG_STAGING, mdomain);
+    md_job_set_notify_cb(job, reg->notify, reg->notify_ctx);
+    return job;
 }

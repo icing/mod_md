@@ -244,4 +244,7 @@ apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, struct apr_table
 void md_reg_set_renew_window_default(md_reg_t *reg, md_timeslice_t *renew_window);
 void md_reg_set_warn_window_default(md_reg_t *reg, md_timeslice_t *warn_window);
 
+void md_reg_set_notify_cb(md_reg_t *reg, md_job_notify_cb *cb, void *baton);
+struct md_job_t *md_reg_job_make(md_reg_t *reg, const char *mdomain, apr_pool_t *p);
+
 #endif /* mod_md_md_reg_h */

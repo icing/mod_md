@@ -1,3 +1,4 @@
+ * MDMessageCmd is now also invoked for stapling with reasons 'ocsp-renewed' and 'ocsp-errored'.
  * Fixed a bug where notifications about an expiring certificate were sent out too often.
  * Patch files for Apache trunk and 2.4.x branch are now empty. mod_md will work with
    unpatched copies of those.
