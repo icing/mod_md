@@ -68,17 +68,48 @@ struct md_renew_ctx_t {
     apr_array_header_t *jobs;
 };
 
-static void send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
+typedef struct {
+    const char *reason;         /* what the notification is about */
+    apr_time_t min_interim;     /* minimum time between notifying for this reason */
+} notify_rate;
+
+static notify_rate notify_rates[] = {
+    { "renewed", apr_time_from_sec(28 * MD_SECS_PER_DAY) }, /* once per month */
+    { "expiring", apr_time_from_sec(MD_SECS_PER_DAY) },     /* once per day */
+    { "errored", apr_time_from_sec(MD_SECS_PER_HOUR) },     /* once per hour */
+};
+
+static void send_notification(md_renew_ctx_t *dctx, md_job_t *job, const char *mdomain, 
                               const char *reason, md_result_t *result, apr_pool_t *ptemp)
 {
     const char * const *argv;
     const char *cmdline;
     int exit_code;
-    apr_status_t rv = APR_SUCCESS;            
+    apr_status_t rv = APR_SUCCESS;
+    apr_time_t min_interim = 0;
+    md_timeperiod_t since_last;
+    const char *log_msg_reason;
+    int i;
+    
+    log_msg_reason = apr_psprintf(ptemp, "message-%s", reason);
+    for (i = 0; i < (int)(sizeof(notify_rates)/sizeof(notify_rates[0])); ++i) {
+        if (!strcmp(reason, notify_rates[i].reason)) {
+            min_interim = notify_rates[i].min_interim;
+        }
+    }
+    if (min_interim > 0) {
+        since_last.start = md_job_log_get_time_of_latest(job, log_msg_reason);
+        since_last.end = apr_time_now();
+        if (md_timeperiod_length(&since_last) < min_interim) {
+            /* not enough time has passed since we sent the last notification
+             * for this reason. */
+            return;
+        }
+    }
     
     if (!strcmp("renewed", reason)) {
         if (dctx->mc->notify_cmd) {
-            cmdline = apr_psprintf(ptemp, "%s %s", dctx->mc->notify_cmd, md->name); 
+            cmdline = apr_psprintf(ptemp, "%s %s", dctx->mc->notify_cmd, mdomain); 
             apr_tokenize_to_argv(cmdline, (char***)&argv, ptemp);
             rv = md_util_exec(ptemp, argv[0], argv, &exit_code);
             
@@ -94,10 +125,10 @@ static void send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *m
         }
         ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
                      "The Managed Domain %s has been setup and changes "
-                     "will be activated on next (graceful) server restart.", md->name);
+                     "will be activated on next (graceful) server restart.", mdomain);
     }
     if (dctx->mc->message_cmd) {
-        cmdline = apr_psprintf(ptemp, "%s %s %s", dctx->mc->message_cmd, reason, md->name); 
+        cmdline = apr_psprintf(ptemp, "%s %s %s", dctx->mc->message_cmd, reason, mdomain); 
         ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, dctx->s, "Message command: %s", cmdline);
         apr_tokenize_to_argv(cmdline, (char***)&argv, ptemp);
         rv = md_util_exec(ptemp, argv[0], argv, &exit_code);
@@ -106,31 +137,21 @@ static void send_notification(md_renew_ctx_t *dctx, md_job_t *job, const md_t *m
         if (APR_SUCCESS != rv) {
             md_result_problem_printf(result, rv, MD_RESULT_LOG_ID(APLOGNO(10109)), 
                                      "MDMessageCmd %s failed with exit code %d.", 
-                                     dctx->mc->notify_cmd, exit_code);
+                                     dctx->mc->message_cmd, exit_code);
             md_result_log(result, MD_LOG_ERR);
             md_job_log_append(job, "message-error", reason, result->detail);
             return;
         }
     }
+    md_job_log_append(job, log_msg_reason, NULL, NULL);
 }
 
 static void check_expiration(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
                              md_result_t *result, apr_pool_t *ptemp)
 {
-    md_timeperiod_t since_last;
-    
     ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s, "md(%s): check expiration", md->name);
     if (!md_reg_should_warn(dctx->mc->reg, md, dctx->p)) return;
-    
-    /* Sends these out at most once per day */
-    since_last.start = md_job_log_get_time_of_latest(job, "message-expiring");
-    since_last.end = apr_time_now();
-
-    if (md_timeperiod_length(&since_last) >= apr_time_from_sec(MD_SECS_PER_DAY)) {
-        ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, dctx->s, 
-                     "md(%s): message expiration warning", md->name);
-        send_notification(dctx, job, md, "expiring", result, ptemp);
-    }
+    send_notification(dctx, job, md->name, "expiring", result, ptemp);
 }
 
 static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *ptemp)
@@ -185,21 +206,23 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
                 goto leave;
             }
             
-            if (md_job_log_get_time_of_latest(job, "notified") == 0) {
-                send_notification(dctx, job, md, "renewed", result, ptemp);
+            if (md_job_log_get_time_of_latest(job, "message-renewed") == 0) {
+                ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
+                             "The Managed Domain %s has been setup and changes "
+                             "will be activated on next (graceful) server restart.", md->name);
+                send_notification(dctx, job, md->name, "renewed", result, ptemp);
                 if (APR_SUCCESS != result->status) {
                     /* we treat this as an error that triggers retries */
                     md_job_end_run(job, result);
                     goto leave;
                 }
-                md_job_log_append(job, "notified", NULL, NULL);
             }
         }
         else {
             ap_log_error( APLOG_MARK, APLOG_ERR, result->status, dctx->s, APLOGNO(10056) 
                          "processing %s: %s", job->name, result->detail);
             md_job_log_append(job, "renewal-error", result->problem, result->detail);
-            send_notification(dctx, job, md, "errored", result, ptemp);
+            send_notification(dctx, job, md->name, "errored", result, ptemp);
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
                          "%s: encountered error for the %d. time, next run in %s",
                          job->name, job->error_runs, 

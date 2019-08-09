@@ -320,9 +320,10 @@ md_json_t *md_job_log_get_latest(md_job_t *job, const char *type)
 
 {
     log_find_ctx ctx;
+
+    memset(&ctx, 0, sizeof(ctx));
     ctx.job = job;
     ctx.type = type;
-    memset(&ctx, 0, sizeof(ctx));
     if (job->log) md_json_itera(find_first_log_entry, &ctx, job->log, MD_KEY_ENTRIES, NULL);
     return ctx.entry;
 }

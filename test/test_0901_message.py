@@ -96,7 +96,7 @@ class TestMessage:
         # this command did not fail and logged itself the correct information
         assert stat["renewal"]["last"]["status"] == 0
         assert stat["renewal"]["log"]["entries"]
-        assert stat["renewal"]["log"]["entries"][0]["type"] == "notified"
+        assert stat["renewal"]["log"]["entries"][0]["type"] == "message-renewed"
         nlines = open(self.mlog).readlines()
         assert 1 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
@@ -151,7 +151,12 @@ class TestMessage:
         nlines = open(self.mlog).readlines()
         assert 1 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
-        
+        # check that we do not get it resend right away again
+        assert TestEnv.apache_restart() == 0
+        time.sleep(1)
+        nlines = open(self.mlog).readlines()
+        assert 1 == len(nlines)
+        assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
 
 
 

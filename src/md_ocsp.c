@@ -647,6 +647,8 @@ static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status
         md_result_printf(update->result, status, "OCSP status update failed (%d. time)",  
                          ostat->errors);
         md_result_log(update->result, MD_LOG_DEBUG);
+        md_job_log_append(update->job, "ocsp-error", 
+                          update->result->problem, update->result->detail);
     }
 
     md_job_save(update->job, update->store, update->result, update->p);
