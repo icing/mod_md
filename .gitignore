@@ -43,3 +43,4 @@ src/a2md
 /test/unit/**/*.trs
 /test/unit/main
 wiki
+test/.pytest_cache
