@@ -1,3 +1,4 @@
+ * "md-status" handler now also adds OCSP stapling logs to the JSON output.
  * Patch files for Apache trunk and 2.4.x branch are now empty. mod_md will work with
    unpatched copies of those.
  * Converted pytest suite from python2 to python3. "make test" now calls "python3 -m pytest".

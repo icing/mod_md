@@ -616,16 +616,16 @@ apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile
     return APR_SUCCESS;
 }
 
-int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p) 
+apr_time_t md_reg_renew_at(md_reg_t *reg, const md_t *md, apr_pool_t *p)
 {
     const md_pubcert_t *pub;
     const md_cert_t *cert;
     md_timeperiod_t certlife, renewal;
     apr_status_t rv;
     
-    if (md->state == MD_S_INCOMPLETE) return 1;
+    if (md->state == MD_S_INCOMPLETE) return apr_time_now();
     rv = md_reg_get_pubcert(&pub, reg, md, p);
-    if (APR_STATUS_IS_ENOENT(rv)) return 1;
+    if (APR_STATUS_IS_ENOENT(rv)) return apr_time_now();
     if (APR_SUCCESS == rv) {
         cert = APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*);
         certlife.start = md_cert_get_not_before(cert);
@@ -638,9 +638,17 @@ int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p)
                           md_timeperiod_print(p, &certlife),
                           md_timeperiod_print(p, &renewal));
         }
-        return md_timeperiod_has_started(&renewal, apr_time_now());
+        return renewal.start;
     }
     return 0;
+}
+
+int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p) 
+{
+    apr_time_t renew_at;
+    
+    renew_at = md_reg_renew_at(reg, md, p);
+    return renew_at && (renew_at <= apr_time_now());
 }
 
 int md_reg_should_warn(md_reg_t *reg, const md_t *md, apr_pool_t *p)

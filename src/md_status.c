@@ -112,11 +112,11 @@ leave:
     return rv;
 }
 
-static apr_status_t job_loadj(md_json_t **pjson, const char *name, 
+static apr_status_t job_loadj(md_json_t **pjson, md_store_group_t group, const char *name, 
                               struct md_reg_t *reg, apr_pool_t *p)
 {
     md_store_t *store = md_reg_store_get(reg);
-    return md_store_load_json(store, MD_SG_STAGING, name, MD_FN_JOB, pjson, p);
+    return md_store_load_json(store, group, name, MD_FN_JOB, pjson, p);
 }
 
 apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md, 
@@ -129,6 +129,7 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
     md_ocsp_cert_stat_t cert_stat;
     md_timeperiod_t ocsp_valid; 
     apr_status_t rv = APR_SUCCESS;
+    apr_time_t renew_at;
 
     mdj = md_to_json(md, p);
     if (APR_SUCCESS == md_reg_get_pubcert(&pubcert, reg, md, p)) {
@@ -140,10 +141,18 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
                 md_json_sets(md_ocsp_cert_stat_name(cert_stat), certj, MD_KEY_OCSP, MD_KEY_STATUS, NULL);
                 md_json_set_timeperiod(&ocsp_valid, certj, MD_KEY_OCSP, MD_KEY_VALID, NULL);
             }
-            else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;
-            else goto leave;
+            else if (!APR_STATUS_IS_ENOENT(rv)) goto leave;
+            rv = job_loadj(&jobj, MD_SG_OCSP, md->name, reg, p);
+            if (APR_SUCCESS == rv) {
+                md_json_setj(jobj, certj, MD_KEY_OCSP, MD_KEY_RENEWAL, NULL);
+            }
         }
         md_json_setj(certj, mdj, MD_KEY_CERT, NULL);
+
+        renew_at = md_reg_renew_at(reg, md, p);
+        if (renew_at) {
+            md_json_set_time(renew_at, mdj, MD_KEY_RENEW_AT, NULL);
+        }
     }
     
     md_json_setb(md->stapling, mdj, MD_KEY_STAPLING, NULL);
@@ -151,7 +160,7 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
     renew = md_reg_should_renew(reg, md, p);
     if (renew) {
         md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
-        rv = job_loadj(&jobj, md->name, reg, p);
+        rv = job_loadj(&jobj, MD_SG_STAGING, md->name, reg, p);
         if (APR_SUCCESS == rv) {
             rv = get_staging_cert_json(&certj, p, reg, md);
             if (APR_SUCCESS != rv) goto leave;

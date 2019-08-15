@@ -170,18 +170,6 @@ static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *in
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-static void si_val_renew_mode(status_ctx *ctx, md_json_t *mdj, const status_info *info)
-{
-    const char *s;
-    switch (md_json_getl(mdj, info->key, NULL)) {
-        case MD_RENEW_MANUAL: s = "manual"; break;
-        case MD_RENEW_ALWAYS: s = "always"; break;
-        default: s = "auto"; break;
-    }
-    apr_brigade_puts(ctx->bb, NULL, NULL, s);
-}
-
-
 static void si_val_date(status_ctx *ctx, apr_time_t timestamp)
 {
     if (timestamp > 0) {
@@ -203,6 +191,24 @@ static void si_val_date(status_ctx *ctx, apr_time_t timestamp)
         apr_brigade_puts(ctx->bb, NULL, NULL, "-");
     }
 }
+
+static void si_val_renew_mode(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    const char *s;
+    
+    if (md_json_has_key(mdj, MD_KEY_RENEW_AT, NULL)) {
+        si_val_date(ctx, md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL));
+    }
+    else {
+        switch (md_json_getl(mdj, info->key, NULL)) {
+            case MD_RENEW_MANUAL: s = "manual"; break;
+            case MD_RENEW_ALWAYS: s = "always"; break;
+            default: s = "auto"; break;
+        }
+        apr_brigade_puts(ctx->bb, NULL, NULL, s);
+    }
+}
+
 
 static void si_val_time(status_ctx *ctx, apr_time_t timestamp)
 {
@@ -253,7 +259,7 @@ static void si_val_cert_valid_time(status_ctx *ctx, md_json_t *mdj, const status
     if (jcert) si_val_valid_time(ctx, jcert, info);
 }
     
-static void si_val_renewal(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     char buffer[HUGE_STRING_LEN];
     apr_status_t rv;
@@ -327,6 +333,14 @@ static void si_val_stapling(status_ctx *ctx, md_json_t *mdj, const status_info *
     apr_brigade_puts(ctx->bb, NULL, NULL, "on");
 }
 
+static void si_val_renew_at(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    apr_time_t t;
+    (void)info;
+    t = md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL);
+    if (t) si_val_date(ctx, t);
+}
+
 static int json_iter_val(void *data, size_t index, md_json_t *json)
 {
     status_ctx *ctx = data;
@@ -370,10 +384,10 @@ static const status_info status_infos[] = {
     { "Names", MD_KEY_DOMAINS, NULL },
     { "Status", MD_KEY_STATUS, si_val_status },
     { "Valid", MD_KEY_VALID, si_val_cert_valid_time },
-    { "Renew", MD_KEY_RENEW_MODE, si_val_renew_mode },
+    { "Renewal", MD_KEY_RENEW_MODE, si_val_renew_mode },
     { "Stapling", MD_KEY_STAPLING, si_val_stapling },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
-    { "Renewal",  MD_KEY_NOTIFIED, si_val_renewal },
+    { "Activity",  MD_KEY_NOTIFIED, si_val_activity },
 };
 
 static int add_md_row(void *baton, apr_size_t index, md_json_t *mdj)
@@ -438,7 +452,7 @@ int md_domains_status_hook(request_rec *r, int flags)
     else if (mc->mds->nelts > 0) {
         md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
         apr_brigade_puts(ctx.bb, NULL, NULL, 
-                         "<hr>\n<h2>Managed Domains</h2>\n<table class='md_status'><thead><tr>\n");
+                         "<hr>\n<h3>Managed Domains</h3>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
             apr_brigade_puts(ctx.bb, NULL, NULL, "<th>");
             apr_brigade_puts(ctx.bb, NULL, NULL, status_infos[i].label);
@@ -455,14 +469,6 @@ int md_domains_status_hook(request_rec *r, int flags)
     return OK;
 }
 
-static void si_val_renew_at(status_ctx *ctx, md_json_t *mdj, const status_info *info)
-{
-    apr_time_t t;
-    (void)info;
-    t = md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL);
-    if (t) si_val_date(ctx, t);
-}
-
 static const status_info ocsp_status_infos[] = {
     { "Domain", MD_KEY_DOMAIN, NULL },
     { "Certificate", MD_KEY_ID, NULL },
@@ -470,7 +476,7 @@ static const status_info ocsp_status_infos[] = {
     { "Valid", MD_KEY_VALID, si_val_valid_time },
     { "Renew", MD_KEY_RENEW_AT, si_val_renew_at },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
-    { "OCSP Responder", MD_KEY_URL, NULL },
+    { "Responder", MD_KEY_URL, NULL },
 };
 
 static int add_ocsp_row(void *baton, apr_size_t index, md_json_t *mdj)
@@ -508,7 +514,7 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     ctx.separator = " ";
 
     if (!html) {
-        apr_brigade_puts(ctx.bb, NULL, NULL, "ManagedStapling: ");
+        apr_brigade_puts(ctx.bb, NULL, NULL, "OCSPStapling: ");
         if (md_ocsp_count(mc->ocsp) > 0) {
             md_ocsp_get_summary(&jstock, mc->ocsp, r->pool);
             apr_brigade_printf(ctx.bb, NULL, NULL, "total=%d, good=%d revoked=%d unknown=%d",
@@ -525,7 +531,7 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     else if (md_ocsp_count(mc->ocsp) > 0) {
         md_ocsp_get_status_all(&jstatus, mc->ocsp, r->pool);
         apr_brigade_puts(ctx.bb, NULL, NULL, 
-                         "<hr>\n<h2>Managed Stapling</h2>\n<table class='md_status'><thead><tr>\n");
+                         "<hr>\n<h3>OCSP Stapling</h3>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
             apr_brigade_puts(ctx.bb, NULL, NULL, "<th>");
             apr_brigade_puts(ctx.bb, NULL, NULL, ocsp_status_infos[i].label);
