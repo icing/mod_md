@@ -24,7 +24,9 @@ struct apr_array_header_t;
 struct apr_hash_t;
 struct md_json_t;
 struct md_cert_t;
+struct md_job_t;
 struct md_pkey_t;
+struct md_result_t;
 struct md_store_t;
 struct md_srv_conf_t;
 struct md_pkey_spec_t;
@@ -290,6 +292,12 @@ int md_is_covered_by_alt_names(const md_t *md, const struct apr_array_header_t* 
 #define LE_ACMEv2_PROD      "https://acme-v02.api.letsencrypt.org/directory"  
 #define LE_ACMEv2_STAGING   "https://acme-staging-v02.api.letsencrypt.org/directory"
 
+
+/**************************************************************************************************/
+/* notifications */
+
+typedef void md_job_notify_cb(struct md_job_t *job, const char *reason, 
+                              struct md_result_t *result, apr_pool_t *p, void *baton);
 
 /**************************************************************************************************/
 /* domain credentials */

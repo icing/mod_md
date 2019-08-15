@@ -200,11 +200,13 @@ leave:
 /**************************************************************************************************/
 /* drive job persistence */
 
-md_job_t *md_job_make(apr_pool_t *p, md_store_group_t group, const char *name)
+md_job_t *md_job_make(apr_pool_t *p, md_store_t *store,
+                      md_store_group_t group, const char *name)
 {
     md_job_t *job = apr_pcalloc(p, sizeof(*job));
     job->group = group;
-    job->name = apr_pstrdup(p, name);
+    job->mdomain = apr_pstrdup(p, name);
+    job->store = store;
     job->p = p;
     job->max_log = 128;
     return job;
@@ -220,7 +222,7 @@ static void md_job_from_json(md_job_t *job, md_json_t *json, apr_pool_t *p)
     const char *s;
     
     /* not good, this is malloced from a temp pool */
-    /*job->name = md_json_gets(json, MD_KEY_NAME, NULL);*/
+    /*job->mdomain = md_json_gets(json, MD_KEY_NAME, NULL);*/
     job->finished = md_json_getb(json, MD_KEY_FINISHED, NULL);
     s = md_json_dups(p, json, MD_KEY_NEXT_RUN, NULL);
     if (s && *s) job->next_run = apr_date_parse_rfc(s);
@@ -240,7 +242,7 @@ static void job_to_json(md_json_t *json, const md_job_t *job,
 {
     char ts[APR_RFC822_DATE_LEN];
 
-    md_json_sets(job->name, json, MD_KEY_NAME, NULL);
+    md_json_sets(job->mdomain, json, MD_KEY_NAME, NULL);
     md_json_setb(job->finished, json, MD_KEY_FINISHED, NULL);
     if (job->next_run > 0) {
         apr_rfc822_date(ts, job->next_run);
@@ -262,26 +264,26 @@ static void job_to_json(md_json_t *json, const md_job_t *job,
     if (job->log) md_json_setj(job->log, json, MD_KEY_LOG, NULL);
 }
 
-apr_status_t md_job_load(md_job_t *job, md_store_t *store, apr_pool_t *p)
+apr_status_t md_job_load(md_job_t *job)
 {
     md_json_t *jprops;
     apr_status_t rv;
     
-    rv = md_store_load_json(store, job->group, job->name, MD_FN_JOB, &jprops, p);
+    rv = md_store_load_json(job->store, job->group, job->mdomain, MD_FN_JOB, &jprops, job->p);
     if (APR_SUCCESS == rv) {
-        md_job_from_json(job, jprops, p);
+        md_job_from_json(job, jprops, job->p);
     }
     return rv;
 }
 
-apr_status_t md_job_save(md_job_t *job, md_store_t *store, md_result_t *result, apr_pool_t *p)
+apr_status_t md_job_save(md_job_t *job, md_result_t *result, apr_pool_t *p)
 {
     md_json_t *jprops;
     apr_status_t rv;
     
     jprops = md_json_create(p);
     job_to_json(jprops, job, result, p);
-    rv = md_store_save_json(store, p, job->group, job->name, MD_FN_JOB, jprops, 0);
+    rv = md_store_save_json(job->store, p, job->group, job->mdomain, MD_FN_JOB, jprops, 0);
     if (APR_SUCCESS == rv) job->dirty = 0;
     return rv;
 }
@@ -329,9 +331,10 @@ md_json_t *md_job_log_get_latest(md_job_t *job, const char *type)
 
 {
     log_find_ctx ctx;
+
+    memset(&ctx, 0, sizeof(ctx));
     ctx.job = job;
     ctx.type = type;
-    memset(&ctx, 0, sizeof(ctx));
     if (job->log) md_json_itera(find_first_log_entry, &ctx, job->log, MD_KEY_ENTRIES, NULL);
     return ctx.entry;
 }
@@ -352,7 +355,6 @@ apr_time_t md_job_log_get_time_of_latest(md_job_t *job, const char *type)
 void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds, 
                            md_reg_t *reg, apr_pool_t *p)
 {
-    md_store_t *store = md_reg_store_get(reg);
     const md_t *md;
     md_job_t job;
     int i, complete, renewing, errored, ready, total;
@@ -369,8 +371,8 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
                 if (md_reg_should_renew(reg, md, p)) {
                     ++renewing;
                     memset(&job, 0, sizeof(job));
-                    job.name = md->name;
-                    if (APR_SUCCESS == md_job_load(&job, store, p)) {
+                    job.mdomain = md->name;
+                    if (APR_SUCCESS == md_job_load(&job)) {
                         if (job.error_runs > 0 
                             || (job.last_result && job.last_result->status != APR_SUCCESS)) {
                             ++errored;
@@ -426,7 +428,7 @@ static void job_result_update(md_result_t *result, void *data)
             md_job_log_append(ctx->job, "progress", NULL, msg);
 
             if (ctx->store && apr_time_as_msec(now - ctx->last_save) > 500) {
-                md_job_save(ctx->job, ctx->store, result, ctx->p);
+                md_job_save(ctx->job, result, ctx->p);
                 ctx->last_save = now;
             }
         }
@@ -505,3 +507,13 @@ void md_job_retry_at(md_job_t *job, apr_time_t later)
     job->dirty = 1;
 }
 
+void md_job_notify(md_job_t *job, const char *reason, md_result_t *result)
+{
+    if (job->notify) job->notify(job, reason, result, job->p, job->notify_ctx);
+}
+
+void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton)
+{
+    job->notify = cb;
+    job->notify_ctx = baton;
+}

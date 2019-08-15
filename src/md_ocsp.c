@@ -54,6 +54,8 @@ struct md_ocsp_reg_t {
     apr_hash_t *hash;
     apr_thread_mutex_t *mutex;
     md_timeslice_t renew_window;
+    md_job_notify_cb *notify;
+    void *notify_ctx;
 };
 
 typedef struct md_ocsp_status_t md_ocsp_status_t; 
@@ -80,7 +82,6 @@ struct md_ocsp_status_t {
     
     apr_time_t resp_mtime;
     apr_time_t resp_last_check;
-    
 };
 
 const char *md_ocsp_cert_stat_name(md_ocsp_cert_stat_t stat)
@@ -494,7 +495,6 @@ apr_size_t md_ocsp_count(md_ocsp_reg_t *reg)
 typedef struct {
     apr_pool_t *p;
     md_ocsp_status_t *ostat;
-    md_store_t *store;
     md_result_t *result;
     md_job_t *job;
 } md_ocsp_update_t;
@@ -647,9 +647,15 @@ static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status
         md_result_printf(update->result, status, "OCSP status update failed (%d. time)",  
                          ostat->errors);
         md_result_log(update->result, MD_LOG_DEBUG);
+        md_job_log_append(update->job, "ocsp-error", 
+                          update->result->problem, update->result->detail);
+        md_job_notify(update->job, "ocsp-errored", update->result);
+        goto leave;
     }
+    md_job_notify(update->job, "ocsp-renewed", update->result);
 
-    md_job_save(update->job, update->store, update->result, update->p);
+leave:
+    md_job_save(update->job, update->result, update->p);
     ostat_req_cleanup(ostat);
     return APR_SUCCESS;
 }
@@ -679,7 +685,8 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
             update = *pupdate;
             ostat = update->ostat;
             
-            md_job_load(update->job, update->store, update->p);
+            update->job = md_ocsp_job_make(ctx->reg, ostat->md_name, update->p);
+            md_job_load(update->job);
             md_job_start_run(update->job, update->result, ctx->reg->store);
              
             if (!ostat->ocsp_req) {
@@ -724,9 +731,8 @@ static int select_updates(void *baton, const void *key, apr_ssize_t klen, const 
         update = apr_pcalloc(ctx->ptemp, sizeof(*update));
         update->p = ctx->ptemp;
         update->ostat = ostat;
-        update->store = ctx->reg->store;
         update->result = md_result_md_make(update->p, ostat->md_name);
-        update->job = md_job_make(update->p, MD_SG_OCSP, ostat->md_name);
+        update->job = NULL;
         APR_ARRAY_PUSH(ctx->todos, md_ocsp_update_t*) = update;
     }
     return 1;
@@ -882,4 +888,19 @@ void md_ocsp_get_status_all(md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p
     json = md_json_create(p);
     md_json_seta(ctx.jstats, md_json_pass_to, NULL, json, MD_KEY_OCSPS, NULL);
     *pjson = json;
+}
+
+void md_ocsp_set_notify_cb(md_ocsp_reg_t *ocsp, md_job_notify_cb *cb, void *baton)
+{
+    ocsp->notify = cb;
+    ocsp->notify_ctx = baton;
+}
+
+md_job_t *md_ocsp_job_make(md_ocsp_reg_t *ocsp, const char *mdomain, apr_pool_t *p)
+{
+    md_job_t *job;
+    
+    job = md_job_make(p, ocsp->store, MD_SG_OCSP, mdomain);
+    md_job_set_notify_cb(job, ocsp->notify, ocsp->notify_ctx);
+    return job;
 }

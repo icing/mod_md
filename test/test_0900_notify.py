@@ -132,6 +132,3 @@ class TestNotify:
         nlines = open(args).readlines()
         assert 2 == len(nlines)
 
-
-
-    

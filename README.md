@@ -1497,6 +1497,10 @@ Define a program to be called when something happened concerning a managed domai
  * `renewed`: the certificate for the managed domain has been renewed successfully. Should the command return != 0 for this reason, it will be called repeatedly until it does.
  * `expiring`: will warn about an expiring domain that could not be renewed (or where renewal is not performed by `mod_md` itself). See `MDWarnWindow` on how to configure its timing.
  * `errored`: errors were encountered during certificate renewal. `mod_md` will continue trying.
+ * `ocsp-renewed`: when MDStapling is enabled for a domain, this indicates that an OCSP response from the Certificate Authority has been updated successfully.
+ * `ocsp-errored`: when MDStapling is enabled for a domain, this indicates that an error was encountered retrieveing the OCSP response from the Certificate Authority. `mod_md` will continue trying.
+ 
+ The calls are rate limited. The successfull renewal will only be called once, errrors will triggers this only once per hour. The warning on an expiring certificate will run only once per day.
 
 If you have configured:
 
