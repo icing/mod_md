@@ -469,14 +469,55 @@ int md_domains_status_hook(request_rec *r, int flags)
     return OK;
 }
 
+static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    char buffer[HUGE_STRING_LEN];
+    apr_status_t rv;
+    int finished, errors;
+    apr_time_t t;
+    const char *s;
+    
+    (void)info;
+    if (!md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
+        return;
+    }
+    
+    finished = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_FINISHED, NULL);
+    errors = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_ERRORS, NULL);
+    rv = (apr_status_t)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_STATUS, NULL);
+    
+    if (rv != APR_SUCCESS) {
+        s = md_json_gets(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
+        apr_brigade_printf(ctx->bb, NULL, NULL, "Error[%s]: %s", 
+                           apr_strerror(rv, buffer, sizeof(buffer)), s? s : "");
+    }
+    
+    s = md_json_gets(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
+    if (s) apr_brigade_puts(ctx->bb, NULL, NULL, s);
+    
+    errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL);
+    if (errors > 0) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, ", Had %d errors.", errors);
+    } 
+    
+    s = md_json_gets(mdj,  MD_KEY_RENEWAL, MD_KEY_NEXT_RUN, NULL);
+    if (s) {
+        t = apr_date_parse_rfc(s);
+        apr_brigade_puts(ctx->bb, NULL, NULL, "Next attempt: ");
+        si_val_time(ctx, t);
+        apr_brigade_puts(ctx->bb, NULL, NULL, ".");
+    }
+}
+
 static const status_info ocsp_status_infos[] = {
     { "Domain", MD_KEY_DOMAIN, NULL },
     { "Certificate", MD_KEY_ID, NULL },
     { "Status", MD_KEY_STATUS, NULL },
     { "Valid", MD_KEY_VALID, si_val_valid_time },
     { "Renew", MD_KEY_RENEW_AT, si_val_renew_at },
-    { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Responder", MD_KEY_URL, NULL },
+    { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
+    { "Activity",  MD_KEY_NOTIFIED, si_val_ocsp_activity },
 };
 
 static int add_ocsp_row(void *baton, apr_size_t index, md_json_t *mdj)
@@ -485,7 +526,7 @@ static int add_ocsp_row(void *baton, apr_size_t index, md_json_t *mdj)
     int i;
     
     apr_brigade_printf(ctx->bb, NULL, NULL, "<tr class=\"%s\">", (index % 2)? "odd" : "even");
-    for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+    for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
         add_status_cell(ctx, mdj, &ocsp_status_infos[i]);
         apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
