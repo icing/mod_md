@@ -376,6 +376,8 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     
     (void)p;
     (void)md;
+    *pder = NULL;
+    *pderlen = 0;
     name = md? md->name : MD_OTHER;
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
                   "md[%s]: OCSP, get_status", name);
@@ -393,8 +395,6 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
     apr_thread_mutex_lock(reg->mutex);
     locked = 1;
     
-    *pder = NULL;
-    *pderlen = 0;
     if (ostat->resp_der.len <= 0) {
         /* No response known, check store for new response. */
         ocsp_status_refresh(ostat, p);
