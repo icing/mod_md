@@ -494,11 +494,7 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
         print_time(ctx->bb, t);
         apr_brigade_puts(ctx->bb, NULL, NULL, ". ");
     }
-    else {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Is not available. ");
-    }
     print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
-    md_json_writeb(mdj, MD_JSON_FMT_COMPACT, ctx->bb);
 }
 
 static const status_info ocsp_status_infos[] = {
