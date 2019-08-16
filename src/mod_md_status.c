@@ -210,7 +210,7 @@ static void si_val_renew_mode(status_ctx *ctx, md_json_t *mdj, const status_info
 }
 
 
-static void si_val_time(status_ctx *ctx, apr_time_t timestamp)
+static void print_time(apr_bucket_brigade *bb, apr_time_t timestamp)
 {
     if (timestamp > 0) {
         char ts[128];
@@ -223,12 +223,12 @@ static void si_val_time(status_ctx *ctx, apr_time_t timestamp)
         ts[len] = '\0';
         apr_strftime(ts2, &len, sizeof(ts2)-1, "%H:%M:%SZ", &texp);
         ts2[len] = '\0';
-        apr_brigade_printf(ctx->bb, NULL, NULL, 
+        apr_brigade_printf(bb, NULL, NULL, 
                            "<span title='%s' style='white-space: nowrap;'>%s</span>", 
                            ts, ts2);
     }
     else {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
+        apr_brigade_puts(bb, NULL, NULL, "-");
     }
 }
 
@@ -259,7 +259,7 @@ static void si_val_cert_valid_time(status_ctx *ctx, md_json_t *mdj, const status
     if (jcert) si_val_valid_time(ctx, jcert, info);
 }
     
-static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char *key)
 {
     char buffer[HUGE_STRING_LEN];
     apr_status_t rv;
@@ -267,48 +267,52 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
     apr_time_t t;
     const char *s;
     
-    (void)info;
-    if (!md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
+    if (!md_json_has_key(mdj, key, NULL)) {
         return;
     }
     
-    finished = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_FINISHED, NULL);
-    errors = (int)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_ERRORS, NULL);
-    rv = (apr_status_t)md_json_getl(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_STATUS, NULL);
+    finished = (int)md_json_getl(mdj, key, MD_KEY_FINISHED, NULL);
+    errors = (int)md_json_getl(mdj, key, MD_KEY_ERRORS, NULL);
+    rv = (apr_status_t)md_json_getl(mdj, key, MD_KEY_LAST, MD_KEY_STATUS, NULL);
     
     if (rv != APR_SUCCESS) {
-        s = md_json_gets(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
-        apr_brigade_printf(ctx->bb, NULL, NULL, "Error[%s]: %s", 
+        s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
+        apr_brigade_printf(bb, NULL, NULL, "Error[%s]: %s", 
                            apr_strerror(rv, buffer, sizeof(buffer)), s? s : "");
     }
     
     if (finished) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Finished");
-        if (md_json_has_key(mdj, MD_KEY_RENEWAL, MD_KEY_VALID_FROM, NULL)) {
-            s = md_json_gets(mdj,  MD_KEY_RENEWAL, MD_KEY_VALID_FROM, NULL);
+        apr_brigade_puts(bb, NULL, NULL, "Finished");
+        if (md_json_has_key(mdj, key, MD_KEY_VALID_FROM, NULL)) {
+            s = md_json_gets(mdj,  key, MD_KEY_VALID_FROM, NULL);
             t = apr_date_parse_rfc(s);
-            apr_brigade_puts(ctx->bb, NULL, NULL, (apr_time_now() >= t)?
+            apr_brigade_puts(bb, NULL, NULL, (apr_time_now() >= t)?
                              ", valid since: " : ", activate at: ");
-            si_val_time(ctx, t);
+            print_time(bb, t);
         }
-        apr_brigade_puts(ctx->bb, NULL, NULL, ".");
+        apr_brigade_puts(bb, NULL, NULL, ".");
     } 
     
-    s = md_json_gets(mdj, MD_KEY_RENEWAL, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
-    if (s) apr_brigade_puts(ctx->bb, NULL, NULL, s);
+    s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
+    if (s) apr_brigade_puts(bb, NULL, NULL, s);
     
     errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL);
     if (errors > 0) {
-        apr_brigade_printf(ctx->bb, NULL, NULL, ", Had %d errors.", errors);
+        apr_brigade_printf(bb, NULL, NULL, ", Had %d errors.", errors);
     } 
     
-    s = md_json_gets(mdj,  MD_KEY_RENEWAL, MD_KEY_NEXT_RUN, NULL);
+    s = md_json_gets(mdj, key, MD_KEY_NEXT_RUN, NULL);
     if (s) {
         t = apr_date_parse_rfc(s);
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Next attempt: ");
-        si_val_time(ctx, t);
-        apr_brigade_puts(ctx->bb, NULL, NULL, ".");
+        apr_brigade_puts(bb, NULL, NULL, "Next attempt: ");
+        print_time(bb, t);
+        apr_brigade_puts(bb, NULL, NULL, ".");
     }
+}
+
+static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
 }
 
 static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -481,19 +485,20 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
     if (t > apr_time_now()) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "Next renewal: ");
-        si_val_time(ctx, t);
+        print_time(ctx->bb, t);
         apr_brigade_puts(ctx->bb, NULL, NULL, ".");
         return;
     }
     else if (t > 0) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "Should have been renewed since: ");
-        si_val_time(ctx, t);
-        apr_brigade_puts(ctx->bb, NULL, NULL, ".");
+        print_time(ctx->bb, t);
+        apr_brigade_puts(ctx->bb, NULL, NULL, ". ");
     }
     else {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Is not available.");
+        apr_brigade_puts(ctx->bb, NULL, NULL, "Is not available. ");
     }
-    // TODO: load job and print errors
+    print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
+    md_json_writeb(mdj, MD_JSON_FMT_COMPACT, ctx->bb);
 }
 
 static const status_info ocsp_status_infos[] = {
