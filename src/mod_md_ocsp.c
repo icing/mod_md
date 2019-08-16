@@ -55,15 +55,19 @@ apr_status_t md_ocsp_init_stapling_status(server_rec *s, apr_pool_t *p,
 {
     md_srv_conf_t *sc;
     const md_t *md;
+    apr_status_t rv;
 
     sc = md_config_get(s);
     if (!staple_here(sc)) goto declined;
     
     md = sc->assigned;
-    ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, s, "init stapling for: %s", 
+    rv = md_ocsp_prime(sc->mc->ocsp, md_cert_wrap(p, cert), 
+                       md_cert_wrap(p, issuer), md);
+    ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, s, "init stapling for: %s", 
                  md? md->name : s->server_hostname);
-    return md_ocsp_prime(sc->mc->ocsp, md_cert_wrap(p, cert), 
-                         md_cert_wrap(p, issuer), md);
+    if (APR_SUCCESS == rv) {
+        return OK;
+    }
 declined:
     return DECLINED;
 }

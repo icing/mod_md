@@ -335,7 +335,7 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
 
     ssk = X509_get1_ocsp(md_cert_get_X509(cert));
     if (!ssk) {
-        rv = APR_EGENERAL;
+        rv = APR_ENOENT;
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, reg->p, 
                       "md[%s]: certificate with serial %s has not OCSP responder URL", 
                       name, md_cert_get_serial_number(cert, reg->p));
@@ -355,7 +355,6 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     
     /* See, if we have something in store */
     ocsp_status_refresh(ostat, reg->p);
-    
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, reg->p, 
                   "md[%s]: adding ocsp info (responder=%s)", 
                   name, ostat->responder_url);
@@ -574,7 +573,9 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                                    &breason, NULL, &bup, &bnextup);
         if (n != 1) {
             rv = APR_EINVAL;
-            md_result_set(update->result, rv, "OCSP basicresponse, unable to find cert status");
+            md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
+                             "cert status in the %d included responses",
+                             OCSP_resp_count(basic_resp));
             md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
