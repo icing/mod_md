@@ -845,6 +845,12 @@ void  md_ocsp_get_summary(md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p)
     *pjson = json;
 }
 
+static apr_status_t job_loadj(md_json_t **pjson, const char *name, 
+                              md_ocsp_reg_t *reg, apr_pool_t *p)
+{
+    return md_store_load_json(reg->store, MD_SG_OCSP, name, MD_FN_JOB, pjson, p);
+}
+
 typedef struct {
     apr_pool_t *p;
     md_ocsp_reg_t *reg;
@@ -857,7 +863,8 @@ static int add_jstat(void *baton, const void *key, apr_ssize_t klen, const void 
     md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
     md_ocsp_cert_stat_t stat;
     md_timeperiod_t valid, renewal;
-    md_json_t *json;
+    md_json_t *json, *jobj;
+    apr_status_t rv;
     
     (void)key;
     (void)klen;
@@ -871,6 +878,13 @@ static int add_jstat(void *baton, const void *key, apr_ssize_t klen, const void 
     md_json_set_timeperiod(&valid, json, MD_KEY_VALID, NULL);
     renewal = md_timeperiod_slice_before_end(&valid, &ctx->reg->renew_window);
     md_json_set_time(renewal.start, json, MD_KEY_RENEW_AT, NULL);
+    if ((MD_OCSP_CERT_ST_UNKNOWN == stat) || renewal.start < apr_time_now()) {
+        /* We have no answer yet, or it should be in renew now. Add job information */
+        rv = job_loadj(&jobj, ostat->md_name, ctx->reg, ctx->p);
+        if (APR_SUCCESS == rv) {
+            md_json_setj(jobj, json, MD_KEY_RENEWAL, NULL);
+        }
+    }
     APR_ARRAY_PUSH(ctx->jstats, md_json_t*) = json;
     return 1;
 }
