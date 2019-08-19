@@ -1226,20 +1226,33 @@ const char *md_json_dump_state(const md_json_t *json, apr_pool_t *p)
 apr_status_t md_json_set_timeperiod(const md_timeperiod_t *tp, md_json_t *json, ...)
 {
     char ts[APR_RFC822_DATE_LEN];
-    json_t *jn;
+    json_t *jn, *j;
     va_list ap;
+    const char *key;
     apr_status_t rv;
     
-    jn = json_object();
-    apr_rfc822_date(ts, tp->start);
-    json_object_set_new(jn, "from", json_string(ts));
-    apr_rfc822_date(ts, tp->end);
-    json_object_set_new(jn, "until", json_string(ts));
-
-    va_start(ap, json);
-    rv = jselect_set_new(jn, json, ap);
-    va_end(ap);
-    return rv;
+    if (!tp || tp->start || tp->end) {
+        jn = json_object();
+        apr_rfc822_date(ts, tp->start);
+        json_object_set_new(jn, "from", json_string(ts));
+        apr_rfc822_date(ts, tp->end);
+        json_object_set_new(jn, "until", json_string(ts));
+        
+        va_start(ap, json);
+        rv = jselect_set_new(jn, json, ap);
+        va_end(ap);
+        return rv;
+    }
+    else {
+        va_start(ap, json);
+        j = jselect_parent(&key, 0, json, ap);
+        va_end(ap);
+        
+        if (key && j && json_is_object(j)) {
+            json_object_del(j, key);
+        }
+        return APR_SUCCESS;
+    }
 }
 
 apr_status_t md_json_get_timeperiod(md_timeperiod_t *tp, md_json_t *json, ...)
