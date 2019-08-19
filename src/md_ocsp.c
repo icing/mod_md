@@ -100,14 +100,16 @@ md_ocsp_cert_stat_t md_ocsp_cert_stat_value(const char *name)
     return MD_OCSP_CERT_ST_UNKNOWN;
 }
 
-static apr_status_t init_cert_id(char *buffer, apr_size_t len, const md_cert_t *cert)
+static apr_status_t init_cert_id(md_data_t *data, const md_cert_t *cert)
 {
     X509 *x = md_cert_get_X509(cert);
+    unsigned int ulen = 0;
     
-    assert(len == SHA_DIGEST_LENGTH);
-    if (X509_digest(x, EVP_sha1(), (unsigned char*)buffer, NULL) != 1) {
+    assert(data->len == SHA_DIGEST_LENGTH);
+    if (X509_digest(x, EVP_sha1(), (unsigned char*)data->data, &ulen) != 1) {
         return APR_EGENERAL;
     }
+    data->len = ulen;
     return APR_SUCCESS;
 }
 
@@ -318,7 +320,7 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     name = md? md->name : MD_OTHER;
     id.data = iddata; id.len = sizeof(iddata);
     
-    rv = init_cert_id((char*)id.data, id.len, cert);
+    rv = init_cert_id(&id, cert);
     if (APR_SUCCESS != rv) goto leave;
     
     ostat = apr_hash_get(reg->hash, id.data, (apr_ssize_t)id.len);
@@ -368,23 +370,25 @@ apr_status_t md_ocsp_get_status(unsigned char **pder, int *pderlen,
                                 md_ocsp_reg_t *reg, const md_cert_t *cert,
                                 apr_pool_t *p, const md_t *md)
 {
-    char id[MD_OCSP_ID_LENGTH];
+    char iddata[MD_OCSP_ID_LENGTH];
     md_ocsp_status_t *ostat;
     const char *name;
     apr_status_t rv;
     int locked = 0;
+    md_data_t id;
     
     (void)p;
     (void)md;
+    id.data = iddata; id.len = sizeof(iddata);
     *pder = NULL;
     *pderlen = 0;
     name = md? md->name : MD_OTHER;
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
                   "md[%s]: OCSP, get_status", name);
-    rv = init_cert_id(id, sizeof(id), cert);
+    rv = init_cert_id(&id, cert);
     if (APR_SUCCESS != rv) goto leave;
     
-    ostat = apr_hash_get(reg->hash, id, sizeof(id));
+    ostat = apr_hash_get(reg->hash, id.data, (apr_ssize_t)id.len);
     if (!ostat) {
         rv = APR_ENOENT;
         goto leave;
@@ -456,25 +460,27 @@ apr_status_t md_ocsp_get_meta(md_ocsp_cert_stat_t *pstat, md_timeperiod_t *pvali
                               md_ocsp_reg_t *reg, const md_cert_t *cert,
                               apr_pool_t *p, const md_t *md)
 {
-    char id[MD_OCSP_ID_LENGTH];
+    char iddata[MD_OCSP_ID_LENGTH];
     md_ocsp_status_t *ostat;
     const char *name;
     apr_status_t rv;
     md_timeperiod_t valid;
     md_ocsp_cert_stat_t stat;
+    md_data_t id;
     
     (void)p;
     (void)md;
+    id.data = iddata; id.len = sizeof(iddata);
     name = md? md->name : MD_OTHER;
     memset(&valid, 0, sizeof(valid));
     stat = MD_OCSP_CERT_ST_UNKNOWN;
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
                   "md[%s]: OCSP, get_status", name);
     
-    rv = init_cert_id(id, sizeof(id), cert);
+    rv = init_cert_id(&id, cert);
     if (APR_SUCCESS != rv) goto leave;
     
-    ostat = apr_hash_get(reg->hash, id, sizeof(id));
+    ostat = apr_hash_get(reg->hash, id.data, (apr_ssize_t)id.len);
     if (!ostat) {
         rv = APR_ENOENT;
         goto leave;
@@ -579,12 +585,10 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     OCSP_RESPONSE *ocsp_resp = NULL;
     OCSP_BASICRESP *basic_resp = NULL;
     OCSP_SINGLERESP *single_resp;
-    char *der;
-    apr_size_t der_len;
     apr_status_t rv = APR_SUCCESS;
     int n, breason = 0, bstatus;
     ASN1_GENERALIZEDTIME *bup = NULL, *bnextup = NULL;
-    md_data_t new_der;
+    md_data_t der, new_der;
     md_timeperiod_t valid;
     md_ocsp_cert_stat_t nstat;
     
@@ -595,36 +599,38 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                   apr_table_get(resp->headers, "Content-Type"));
     new_der.data = NULL;
     new_der.len = 0;
-    if (APR_SUCCESS == (rv = apr_brigade_pflatten(resp->body, &der, &der_len, req->pool))) {
-        const unsigned char *bf = (const unsigned char*)der;
-        
-        if (NULL == (ocsp_resp = d2i_OCSP_RESPONSE(NULL, &bf, (long)der_len))) {
-            rv = APR_EINVAL;
-            md_result_set(update->result, rv, "response body does not parse as OCSP response");
-            md_result_log(update->result, MD_LOG_DEBUG);
-            goto leave;
-        }
-        /* got a response! but what does it say? */
-        n = OCSP_response_status(ocsp_resp);
-        if (OCSP_RESPONSE_STATUS_SUCCESSFUL != n) {
-            rv = APR_EINVAL;
-            md_result_printf(update->result, rv, "OCSP response status is, unsuccessfully, %d", n);
-            md_result_log(update->result, MD_LOG_DEBUG);
-            goto leave;
-        }
-        basic_resp = OCSP_response_get1_basic(ocsp_resp);
-        if (!basic_resp) {
-            rv = APR_EINVAL;
-            md_result_set(update->result, rv, "OCSP response has no basicresponse");
-            md_result_log(update->result, MD_LOG_DEBUG);
-            goto leave;
-        }
-        /* The notion of nonce enabled freshness in OCSP responses, e.g. that the response
-         * contains the signed nonce we sent to the responder, does not scale well. Responders
-         * like to return cached response bytes and therefore do not add a nonce to it.
-         * So, in reality, we can only detect a mismatch when present and otherwise have
-         * to accept it. */
-        switch ((n = OCSP_check_nonce(ostat->ocsp_req, basic_resp))) {
+    if (APR_SUCCESS != (rv = apr_brigade_pflatten(resp->body, (char**)&der.data, 
+                                                  &der.len, req->pool))) {
+        goto leave;
+    }
+    if (NULL == (ocsp_resp = d2i_OCSP_RESPONSE(NULL, (const unsigned char**)&der.data, 
+                                               (long)der.len))) {
+        rv = APR_EINVAL;
+        md_result_set(update->result, rv, "response body does not parse as OCSP response");
+        md_result_log(update->result, MD_LOG_DEBUG);
+        goto leave;
+    }
+    /* got a response! but what does it say? */
+    n = OCSP_response_status(ocsp_resp);
+    if (OCSP_RESPONSE_STATUS_SUCCESSFUL != n) {
+        rv = APR_EINVAL;
+        md_result_printf(update->result, rv, "OCSP response status is, unsuccessfully, %d", n);
+        md_result_log(update->result, MD_LOG_DEBUG);
+        goto leave;
+    }
+    basic_resp = OCSP_response_get1_basic(ocsp_resp);
+    if (!basic_resp) {
+        rv = APR_EINVAL;
+        md_result_set(update->result, rv, "OCSP response has no basicresponse");
+        md_result_log(update->result, MD_LOG_DEBUG);
+        goto leave;
+    }
+    /* The notion of nonce enabled freshness in OCSP responses, e.g. that the response
+     * contains the signed nonce we sent to the responder, does not scale well. Responders
+     * like to return cached response bytes and therefore do not add a nonce to it.
+     * So, in reality, we can only detect a mismatch when present and otherwise have
+     * to accept it. */
+    switch ((n = OCSP_check_nonce(ostat->ocsp_req, basic_resp))) {
         case 1:
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
                           "req[%d]: OCSP respoonse nonce does match", req->id);
@@ -641,71 +647,70 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             break;
         default:
             break;
-        }
-
-        if (!OCSP_resp_find_status(basic_resp, ostat->certid, &bstatus,
-                                   &breason, NULL, &bup, &bnextup)) {
-            const char *prefix, *slist = "", *sep = "";
-            int i;
-            
-            rv = APR_EINVAL;
-            prefix = apr_psprintf(req->pool, "OCSP response, no matching status reported for  %s",
-                                  certid_summary(ostat->certid, req->pool));
-            for (i = 0; i < OCSP_resp_count(basic_resp); ++i) {
-                single_resp = OCSP_resp_get0(basic_resp, i);
-                slist = apr_psprintf(req->pool, "%s%s%s", slist, sep, 
-                                     single_resp_summary(single_resp, req->pool));
-                sep = ", ";
-            }
-            md_result_printf(update->result, rv, "%s, status list [%s]", prefix, slist);
-            md_result_log(update->result, MD_LOG_DEBUG);
-            goto leave;
-        }
-        if (V_OCSP_CERTSTATUS_UNKNOWN == bstatus) {
-            rv = APR_ENOENT;
-            md_result_set(update->result, rv, "OCSP basicresponse says cert is unknown");
-            md_result_log(update->result, MD_LOG_DEBUG);
-            goto leave;
-        }
-        if (!bnextup) {
-            rv = APR_EINVAL;
-            md_result_set(update->result, rv, "OCSP basicresponse reports not valid dates");
-            md_result_log(update->result, MD_LOG_DEBUG);
-            goto leave;
-        }
-        
-        /* Coming here, we have a response for our certid and it is either GOOD
-         * or REVOKED. Both cases we want to remember and use in stapling. */
-        n = i2d_OCSP_RESPONSE(ocsp_resp, (unsigned char**)&new_der.data);
-        if (n <= 0) {
-            rv = APR_EGENERAL;
-            md_result_set(update->result, rv, "error DER encoding OCSP response");
-            md_result_log(update->result, MD_LOG_WARNING);
-            goto leave;
-        }
-        nstat = (bstatus == V_OCSP_CERTSTATUS_GOOD)? MD_OCSP_CERT_ST_GOOD : MD_OCSP_CERT_ST_REVOKED;
-        new_der.len = (apr_size_t)n;
-        valid.start = bup? md_asn1_generalized_time_get(bup) : apr_time_now();
-        valid.end = md_asn1_generalized_time_get(bnextup);
-
-        /* First, update the instance with a copy */
-        apr_thread_mutex_lock(ostat->reg->mutex);
-        ostat_set(ostat, nstat, &new_der, &valid, apr_time_now());
-        apr_thread_mutex_unlock(ostat->reg->mutex);
-        
-        /* Next, save the original response */
-        rv = ocsp_status_save(nstat, &new_der, &valid, ostat, req->pool); 
-        if (APR_SUCCESS != rv) {
-            md_result_set(update->result, rv, "error saving OCSP status");
-            md_result_log(update->result, MD_LOG_ERR);
-            goto leave;
-        }
-        
-        md_result_printf(update->result, rv, "certificate status is %s, status valid %s", 
-                         (nstat == MD_OCSP_CERT_ST_GOOD)? "GOOD" : "REVOKED",
-                         md_timeperiod_print(req->pool, &ostat->resp_valid));
-        md_result_log(update->result, MD_LOG_DEBUG);
     }
+    
+    if (!OCSP_resp_find_status(basic_resp, ostat->certid, &bstatus,
+                               &breason, NULL, &bup, &bnextup)) {
+        const char *prefix, *slist = "", *sep = "";
+        int i;
+        
+        rv = APR_EINVAL;
+        prefix = apr_psprintf(req->pool, "OCSP response, no matching status reported for  %s",
+                              certid_summary(ostat->certid, req->pool));
+        for (i = 0; i < OCSP_resp_count(basic_resp); ++i) {
+            single_resp = OCSP_resp_get0(basic_resp, i);
+            slist = apr_psprintf(req->pool, "%s%s%s", slist, sep, 
+                                 single_resp_summary(single_resp, req->pool));
+            sep = ", ";
+        }
+        md_result_printf(update->result, rv, "%s, status list [%s]", prefix, slist);
+        md_result_log(update->result, MD_LOG_DEBUG);
+        goto leave;
+    }
+    if (V_OCSP_CERTSTATUS_UNKNOWN == bstatus) {
+        rv = APR_ENOENT;
+        md_result_set(update->result, rv, "OCSP basicresponse says cert is unknown");
+        md_result_log(update->result, MD_LOG_DEBUG);
+        goto leave;
+    }
+    if (!bnextup) {
+        rv = APR_EINVAL;
+        md_result_set(update->result, rv, "OCSP basicresponse reports not valid dates");
+        md_result_log(update->result, MD_LOG_DEBUG);
+        goto leave;
+    }
+    
+    /* Coming here, we have a response for our certid and it is either GOOD
+     * or REVOKED. Both cases we want to remember and use in stapling. */
+    n = i2d_OCSP_RESPONSE(ocsp_resp, (unsigned char**)&new_der.data);
+    if (n <= 0) {
+        rv = APR_EGENERAL;
+        md_result_set(update->result, rv, "error DER encoding OCSP response");
+        md_result_log(update->result, MD_LOG_WARNING);
+        goto leave;
+    }
+    nstat = (bstatus == V_OCSP_CERTSTATUS_GOOD)? MD_OCSP_CERT_ST_GOOD : MD_OCSP_CERT_ST_REVOKED;
+    new_der.len = (apr_size_t)n;
+    valid.start = bup? md_asn1_generalized_time_get(bup) : apr_time_now();
+    valid.end = md_asn1_generalized_time_get(bnextup);
+    
+    /* First, update the instance with a copy */
+    apr_thread_mutex_lock(ostat->reg->mutex);
+    ostat_set(ostat, nstat, &new_der, &valid, apr_time_now());
+    apr_thread_mutex_unlock(ostat->reg->mutex);
+    
+    /* Next, save the original response */
+    rv = ocsp_status_save(nstat, &new_der, &valid, ostat, req->pool); 
+    if (APR_SUCCESS != rv) {
+        md_result_set(update->result, rv, "error saving OCSP status");
+        md_result_log(update->result, MD_LOG_ERR);
+        goto leave;
+    }
+    
+    md_result_printf(update->result, rv, "certificate status is %s, status valid %s", 
+                     (nstat == MD_OCSP_CERT_ST_GOOD)? "GOOD" : "REVOKED",
+                     md_timeperiod_print(req->pool, &ostat->resp_valid));
+    md_result_log(update->result, MD_LOG_DEBUG);
 
 leave:
     if (new_der.data) OPENSSL_free((void*)new_der.data);
