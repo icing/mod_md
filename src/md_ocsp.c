@@ -503,23 +503,30 @@ static const char *certid_as_hex(const OCSP_CERTID *certid, apr_pool_t *p)
     return hex;
 }
 
-static const char *certid_get_sn(const OCSP_CERTID *certid, apr_pool_t *p)
+static const char *certid_summary(const OCSP_CERTID *certid, apr_pool_t *p)
 {
-    const char *s = "";
+    const char *serial, *issuer, *s;
     ASN1_INTEGER *aserial;
+    ASN1_OCTET_STRING *aname_hash, *akey_hash;
+    ASN1_OBJECT *amd_nid;
+    BIGNUM *bn; 
     
-    OCSP_id_get0_info(NULL, NULL, NULL, &aserial, (OCSP_CERTID*)certid);
-    if (aserial) {
-        BIGNUM *bn; 
-        const char *hex;
-        
-        bn = ASN1_INTEGER_to_BN(aserial, NULL);
-        hex = BN_bn2hex(bn);
-        s = apr_pstrdup(p, hex);
-        OPENSSL_free((void*)bn);
-        OPENSSL_free((void*)hex);
+    serial = issuer = "???";
+    OCSP_id_get0_info(&aname_hash, &amd_nid, &akey_hash, &aserial, (OCSP_CERTID*)certid);
+    if (aname_hash) {
+        ASN1_STRING_to_UTF8((unsigned char**)&s, aname_hash);
+        issuer = apr_pstrdup(p, s);
+        OPENSSL_free((void*)s);
     }
-    return s;
+    if (aserial) {
+        bn = ASN1_INTEGER_to_BN(aserial, NULL);
+        s = BN_bn2hex(bn);
+        serial = apr_pstrdup(p, s);
+        OPENSSL_free((void*)bn);
+        OPENSSL_free((void*)s);
+    }
+    return apr_psprintf(p, "certid[der=%s, issuer=%s, serial=%s]",
+                        certid_as_hex(certid, p), issuer, serial);
 }
 
 static const char *certstatus_string(int status)
@@ -531,13 +538,6 @@ static const char *certstatus_string(int status)
         default: return "???";
     }
 
-}
-
-static const char *certid_summary(const OCSP_CERTID *certid, apr_pool_t *p)
-{
-    return apr_psprintf(p, "certid[der=%s, serial=%s]",
-                        certid_as_hex(certid, p),
-                        certid_get_sn(certid, p)); 
 }
 
 static const char *single_resp_summary(OCSP_SINGLERESP* resp, apr_pool_t *p)
