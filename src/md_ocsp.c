@@ -533,6 +533,31 @@ static const char *certstatus_string(int status)
 
 }
 
+static const char *certid_summary(const OCSP_CERTID *certid, apr_pool_t *p)
+{
+    return apr_psprintf(p, "certid[der=%s, serial=%s]",
+                        certid_as_hex(certid, p),
+                        certid_get_sn(certid, p)); 
+}
+
+static const char *single_resp_summary(OCSP_SINGLERESP* resp, apr_pool_t *p)
+{
+    const OCSP_CERTID *certid;
+    int status, reason;
+    ASN1_GENERALIZEDTIME *bup = NULL, *bnextup = NULL;
+    md_timeperiod_t valid;
+    
+    certid = OCSP_SINGLERESP_get0_id(resp);
+    status = OCSP_single_get0_status(resp, &reason, NULL, &bup, &bnextup);
+    valid.start = bup? md_asn1_generalized_time_get(bup) : apr_time_now();
+    valid.end = md_asn1_generalized_time_get(bnextup);
+
+    return apr_psprintf(p, "ocsp-single-resp[%s, status=%s, reason=%d, valid=%s]",
+                        certid_summary(certid, p),
+                        certstatus_string(status), reason,
+                        md_timeperiod_print(p, &valid));
+}
+
 typedef struct {
     apr_pool_t *p;
     md_ocsp_status_t *ostat;
@@ -548,7 +573,6 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     OCSP_RESPONSE *ocsp_resp = NULL;
     OCSP_BASICRESP *basic_resp = NULL;
     OCSP_SINGLERESP *single_resp;
-    const OCSP_CERTID *single_id;
     char *der;
     apr_size_t der_len;
     apr_status_t rv = APR_SUCCESS;
@@ -615,30 +639,19 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
 
         if (!OCSP_resp_find_status(basic_resp, ostat->certid, &bstatus,
                                    &breason, NULL, &bup, &bnextup)) {
+            const char *prefix, *slist = "", *sep = "";
+            int i;
+            
             rv = APR_EINVAL;
-            switch (OCSP_resp_count(basic_resp)) {
-                case 0:
-                    md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
-                                     "cert status as no SINGLERESP was included");
-                    break;
-                case 1:
-                    single_resp = OCSP_resp_get0(basic_resp, 0);
-                    single_id = OCSP_SINGLERESP_get0_id(single_resp);
-                    bstatus = OCSP_single_get0_status(single_resp, &breason, NULL, &bup, &bnextup);
-                    md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
-                                     "cert status in the 1 SINGLERESP included. That one reports "
-                                     "status=%s, reason=%d for a certificate with id %s "
-                                     "(serial number %s)", 
-                                     certstatus_string(bstatus), breason,
-                                     certid_as_hex(single_id, req->pool),
-                                     certid_get_sn(single_id, req->pool));
-                    break;
-                default:
-                    md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
-                                     "cert status in the %d SINGLERESP included",
-                                     OCSP_resp_count(basic_resp));
-                    break;
+            prefix = apr_psprintf(req->pool, "OCSP response, no matching status reported for  %s",
+                                  certid_summary(ostat->certid, req->pool));
+            for (i = 0; i < OCSP_resp_count(basic_resp); ++i) {
+                single_resp = OCSP_resp_get0(basic_resp, i);
+                slist = apr_psprintf(req->pool, "%s%s%s", slist, sep, 
+                                     single_resp_summary(single_resp, req->pool));
+                sep = ", ";
             }
+            md_result_printf(update->result, rv, "%s, status list [%s]", prefix, slist);
             md_result_log(update->result, MD_LOG_DEBUG);
             goto leave;
         }
