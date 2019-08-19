@@ -569,9 +569,8 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             break;
         }
 
-        n = OCSP_resp_find_status(basic_resp, ostat->certid, &bstatus,
-                                   &breason, NULL, &bup, &bnextup);
-        if (n != 1) {
+        if (!OCSP_resp_find_status(basic_resp, ostat->certid, &bstatus,
+                                   &breason, NULL, &bup, &bnextup)) {
             rv = APR_EINVAL;
             md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
                              "cert status in the %d included responses",
@@ -592,10 +591,8 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
             goto leave;
         }
         
-        
         /* Coming here, we have a response for our certid and it is either GOOD
          * or REVOKED. Both cases we want to remember and use in stapling. */
-        
         n = i2d_OCSP_RESPONSE(ocsp_resp, (unsigned char**)&new_der.data);
         if (n <= 0) {
             rv = APR_EGENERAL;
