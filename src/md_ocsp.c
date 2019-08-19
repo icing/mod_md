@@ -491,6 +491,18 @@ apr_size_t md_ocsp_count(md_ocsp_reg_t *reg)
     return apr_hash_count(reg->hash);
 }
 
+static const char *certid_as_hex(const OCSP_CERTID *certid, apr_pool_t *p)
+{
+    md_data_t der;
+    const char *hex;
+    
+    memset(&der, 0, sizeof(der));
+    der.len = (apr_size_t)i2d_OCSP_CERTID((OCSP_CERTID*)certid, (unsigned char**)&der.data);
+    md_data_to_hex(&hex, 0, p, &der);
+    OPENSSL_free((void*)der.data);
+    return hex;
+}
+
 static const char *certid_get_sn(const OCSP_CERTID *certid, apr_pool_t *p)
 {
     const char *s = "";
@@ -615,8 +627,10 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                     bstatus = OCSP_single_get0_status(single_resp, &breason, NULL, &bup, &bnextup);
                     md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
                                      "cert status in the 1 SINGLERESP included. That one reports "
-                                     "status=%s, reason=%d for a certificate with serial number %s", 
-                                     certstatus_string(bstatus), breason, 
+                                     "status=%s, reason=%d for a certificate with id %s "
+                                     "(serial number %s)", 
+                                     certstatus_string(bstatus), breason,
+                                     certid_as_hex(single_id, req->pool),
                                      certid_get_sn(single_id, req->pool));
                     break;
                 default:
