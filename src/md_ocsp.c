@@ -510,6 +510,16 @@ static const char *certid_get_sn(const OCSP_CERTID *certid, apr_pool_t *p)
     return s;
 }
 
+static const char *certstatus_string(int status)
+{
+    switch (status) {
+        case V_OCSP_CERTSTATUS_GOOD: return "good";
+        case V_OCSP_CERTSTATUS_REVOKED: return "revoked";
+        case V_OCSP_CERTSTATUS_UNKNOWN: return "unknown";
+        default: return "???";
+    }
+
+}
 
 typedef struct {
     apr_pool_t *p;
@@ -606,7 +616,8 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                     md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
                                      "cert status in the 1 SINGLERESP included. That one reports "
                                      "status=%d, reason=%d for a certificate with serial number %s", 
-                                     bstatus, breason, certid_get_sn(single_id, req->pool));
+                                     certstatus_string(bstatus), breason, 
+                                     certid_get_sn(single_id, req->pool));
                     break;
                 default:
                     md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
