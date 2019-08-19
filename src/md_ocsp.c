@@ -591,11 +591,13 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     md_data_t der, new_der;
     md_timeperiod_t valid;
     md_ocsp_cert_stat_t nstat;
+    const char *hex;
     
     der.data = new_der.data = NULL;
     der.len  = new_der.len = 0;
     
-    md_result_activity_printf(update->result, "status of cert %s, reading response", ostat->hexid);
+
+    md_result_activity_printf(update->result, "status of cert %s, reading response %s", ostat->hexid);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
                   "req[%d]: OCSP respoonse: %d, cl=%s, ct=%s",  req->id, resp->status,
                   apr_table_get(resp->headers, "Content-Length"),
@@ -604,6 +606,9 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                                                   &der.len, req->pool))) {
         goto leave;
     }
+    md_data_to_hex(&hex, 0, req->pool, &der);
+    md_result_activity_printf(update->result, "resp data: %s", hex);
+    
     if (NULL == (ocsp_resp = d2i_OCSP_RESPONSE(NULL, (const unsigned char**)&der.data, 
                                                (long)der.len))) {
         rv = APR_EINVAL;
@@ -765,6 +770,7 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
     md_http_request_t *req = NULL;
     apr_status_t rv = APR_ENOENT;
     int len;
+    const char *hex;
     
     if (in_flight < ctx->max_parallel) {
         pupdate = apr_array_pop(ctx->todos);
@@ -782,7 +788,7 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
                 certid = OCSP_CERTID_dup(ostat->certid);
                 if (!certid) goto leave;
                 if (!OCSP_request_add0_id(ostat->ocsp_req, certid)) goto leave;
-                OCSP_request_add1_nonce(ostat->ocsp_req, 0, -1);
+                /*OCSP_request_add1_nonce(ostat->ocsp_req, 0, -1);*/
                 certid = NULL;
             }
             if (0 == ostat->req_der.len) {
@@ -790,8 +796,10 @@ static apr_status_t next_todo(md_http_request_t **preq, void *baton,
                 if (len < 0) goto leave;
                 ostat->req_der.len = (apr_size_t)len;
             }
-            md_result_activity_printf(update->result, "status of cert %s, contacting %s",
-                                      ostat->hexid, ostat->responder_url);
+            md_data_to_hex(&hex, 0, update->p, &ostat->req_der);
+            md_result_activity_printf(update->result, "status of certid %s, "
+                                      "contacting %s, sending %s",
+                                      ostat->hexid, ostat->responder_url, hex);
             rv = md_http_POSTd_create(&req, http, ostat->responder_url, NULL, 
                                       "application/ocsp-request", &ostat->req_der);
             if (APR_SUCCESS != rv) goto leave;
