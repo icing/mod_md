@@ -526,7 +526,7 @@ static const char *certid_summary(const OCSP_CERTID *certid, apr_pool_t *p)
     }
     if (aserial) {
         bn = ASN1_INTEGER_to_BN(aserial, NULL);
-        s = BN_bn2hex(bn);
+        s = BN_bn2dec(bn);
         serial = apr_pstrdup(p, s);
         OPENSSL_free((void*)bn);
         OPENSSL_free((void*)s);
@@ -549,7 +549,7 @@ static const char *certstatus_string(int status)
 static const char *single_resp_summary(OCSP_SINGLERESP* resp, apr_pool_t *p)
 {
     const OCSP_CERTID *certid;
-    int status, reason;
+    int status, reason = 0;
     ASN1_GENERALIZEDTIME *bup = NULL, *bnextup = NULL;
     md_timeperiod_t valid;
     
