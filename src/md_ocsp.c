@@ -532,7 +532,7 @@ static const char *certid_summary(const OCSP_CERTID *certid, apr_pool_t *p)
     }
     if (aserial) {
         bn = ASN1_INTEGER_to_BN(aserial, NULL);
-        s = BN_bn2dec(bn);
+        s = BN_bn2hex(bn);
         serial = apr_pstrdup(p, s);
         OPENSSL_free((void*)bn);
         OPENSSL_free((void*)s);
@@ -592,13 +592,14 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     md_timeperiod_t valid;
     md_ocsp_cert_stat_t nstat;
     
+    der.data = new_der.data = NULL;
+    der.len  = new_der.len = 0;
+    
     md_result_activity_printf(update->result, "status of cert %s, reading response", ostat->hexid);
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, req->pool, 
                   "req[%d]: OCSP respoonse: %d, cl=%s, ct=%s",  req->id, resp->status,
                   apr_table_get(resp->headers, "Content-Length"),
                   apr_table_get(resp->headers, "Content-Type"));
-    new_der.data = NULL;
-    new_der.len = 0;
     if (APR_SUCCESS != (rv = apr_brigade_pflatten(resp->body, (char**)&der.data, 
                                                   &der.len, req->pool))) {
         goto leave;
