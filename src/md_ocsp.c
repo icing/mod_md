@@ -615,7 +615,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
                     bstatus = OCSP_single_get0_status(single_resp, &breason, NULL, &bup, &bnextup);
                     md_result_printf(update->result, rv, "OCSP basicresponse, unable to find "
                                      "cert status in the 1 SINGLERESP included. That one reports "
-                                     "status=%d, reason=%d for a certificate with serial number %s", 
+                                     "status=%s, reason=%d for a certificate with serial number %s", 
                                      certstatus_string(bstatus), breason, 
                                      certid_get_sn(single_id, req->pool));
                     break;
