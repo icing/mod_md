@@ -312,6 +312,7 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
 
 static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
+    (void)info;
     print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
 }
 
@@ -475,11 +476,7 @@ int md_domains_status_hook(request_rec *r, int flags)
 
 static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
-    char buffer[HUGE_STRING_LEN];
-    apr_status_t rv;
-    int errors;
     apr_time_t t;
-    const char *s;
     
     (void)info;
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
