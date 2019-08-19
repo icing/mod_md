@@ -540,7 +540,7 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     char *der;
     apr_size_t der_len;
     apr_status_t rv = APR_SUCCESS;
-    int n, breason, bstatus;
+    int n, breason = 0, bstatus;
     ASN1_GENERALIZEDTIME *bup = NULL, *bnextup = NULL;
     md_data_t new_der;
     md_timeperiod_t valid;
