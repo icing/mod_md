@@ -694,13 +694,13 @@ const char *md_cert_get_serial_number(const md_cert_t *cert, apr_pool_t *p)
 {
     const char *s = "";
     BIGNUM *bn; 
-    const char *dec;
+    const char *serial;
     const ASN1_INTEGER *ai = X509_get_serialNumber(cert->x509);
     if (ai) {
         bn = ASN1_INTEGER_to_BN(ai, NULL);
-        dec = BN_bn2dec(bn);
-        s = apr_pstrdup(p, dec);
-        OPENSSL_free((void*)dec);
+        serial = BN_bn2hex(bn);
+        s = apr_pstrdup(p, serial);
+        OPENSSL_free((void*)serial);
         OPENSSL_free((void*)bn);
     }
     return s;
