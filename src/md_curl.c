@@ -111,7 +111,7 @@ static size_t resp_data_cb(void *data, size_t len, size_t nmemb, void *baton)
         if (res->req->resp_limit) {
             apr_off_t body_len = 0;
             apr_brigade_length(res->body, 0, &body_len);
-            if (body_len + (apr_off_t)len > res->req->resp_limit) {
+            if (body_len + (apr_off_t)blen > res->req->resp_limit) {
                 return 0; /* signal curl failure */
             }
         }
@@ -210,10 +210,28 @@ static int curl_debug_log(CURL *curl, curl_infotype type, char *data, size_t siz
         case CURLINFO_DATA_OUT:
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->pool, 
                           "req[%d]: data --> %ld bytes", req->id, (long)size);
+            if (md_log_is_level(req->pool, MD_LOG_TRACE5)) {
+                md_data_t d;
+                const char *s;
+                d.data = data;
+                d.len = size;
+                md_data_to_hex(&s, 0, req->pool, &d);
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE5, 0, req->pool, 
+                              "req[%d]: data(hex) -->  %s", req->id, s);
+            }
             break;
         case CURLINFO_DATA_IN:
             md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->pool, 
                           "req[%d]: data <-- %ld bytes", req->id, (long)size);
+            if (md_log_is_level(req->pool, MD_LOG_TRACE5)) {
+                md_data_t d;
+                const char *s;
+                d.data = data;
+                d.len = size;
+                md_data_to_hex(&s, 0, req->pool, &d);
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE5, 0, req->pool, 
+                              "req[%d]: data(hex) <-- %s", req->id, s);
+            }
             break;
         default:
             break;

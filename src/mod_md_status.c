@@ -170,7 +170,7 @@ static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *in
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-static void si_val_date(status_ctx *ctx, apr_time_t timestamp)
+static void print_date(apr_bucket_brigade *bb, apr_time_t timestamp)
 {
     if (timestamp > 0) {
         char ts[128];
@@ -183,52 +183,51 @@ static void si_val_date(status_ctx *ctx, apr_time_t timestamp)
         ts[len] = '\0';
         apr_strftime(ts2, &len, sizeof(ts2)-1, "%Y-%m-%d", &texp);
         ts2[len] = '\0';
-        apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<span title='%s' style='white-space: nowrap;'>%s</span>", 
-                           ts, ts2);
-    }
-    else {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "-");
-    }
-}
-
-static void si_val_renew_mode(status_ctx *ctx, md_json_t *mdj, const status_info *info)
-{
-    const char *s;
-    
-    if (md_json_has_key(mdj, MD_KEY_RENEW_AT, NULL)) {
-        si_val_date(ctx, md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL));
-    }
-    else {
-        switch (md_json_getl(mdj, info->key, NULL)) {
-            case MD_RENEW_MANUAL: s = "manual"; break;
-            case MD_RENEW_ALWAYS: s = "always"; break;
-            default: s = "auto"; break;
-        }
-        apr_brigade_puts(ctx->bb, NULL, NULL, s);
-    }
-}
-
-
-static void print_time(apr_bucket_brigade *bb, apr_time_t timestamp)
-{
-    if (timestamp > 0) {
-        char ts[128];
-        char ts2[128];
-        apr_time_exp_t texp;
-        apr_size_t len;
-        
-        apr_time_exp_gmt(&texp, timestamp);
-        apr_strftime(ts, &len, sizeof(ts)-1, "%Y-%m-%dT%H:%M:%SZ", &texp);
-        ts[len] = '\0';
-        apr_strftime(ts2, &len, sizeof(ts2)-1, "%H:%M:%SZ", &texp);
-        ts2[len] = '\0';
         apr_brigade_printf(bb, NULL, NULL, 
                            "<span title='%s' style='white-space: nowrap;'>%s</span>", 
                            ts, ts2);
     }
+}
+
+static void print_time(apr_bucket_brigade *bb, const char *label, apr_time_t t)
+{
+    apr_time_t now;
+    const char *s, *pre, *post, *sep;
+    char ts[128];
+    char ts2[128];
+    apr_time_exp_t texp;
+    apr_size_t len;
+    apr_interval_time_t delta;
+    
+    if (t == 0) {
+        /* timestamp is 0, we use that for "not set" */
+        return;
+    }
+    apr_time_exp_gmt(&texp, t);
+    apr_strftime(ts, &len, sizeof(ts)-1, "%Y-%m-%dT%H:%M:%SZ", &texp);
+    ts[len] = '\0';
+    now = apr_time_now();
+    pre = post = "";
+    sep = (label && strlen(label))? " " : "";
+    delta = 0;
+    if (t > now) {
+        delta = t - now;
+        pre = "in ";
+    }
     else {
-        apr_brigade_puts(bb, NULL, NULL, "-");
+        delta = now - t;
+        post = " ago";
+    }
+    if (delta >= (4 * apr_time_from_sec(MD_SECS_PER_DAY))) {
+        apr_strftime(ts2, &len, sizeof(ts2)-1, "%Y-%m-%d", &texp);
+        ts2[len] = '\0';
+        apr_brigade_printf(bb, NULL, NULL, "%s%s<span title='%s' "
+                           "style='white-space: nowrap;'>%s</span>", 
+                           label, sep, ts, ts2); 
+    }
+    else {
+        apr_brigade_printf(bb, NULL, NULL, "%s%s<span title='%s'>%s%s%s</span>", 
+                           label, sep, ts, pre, md_duration_roughly(bb->p, delta), post); 
     }
 }
 
@@ -241,13 +240,13 @@ static void si_val_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info
     sfrom = md_json_dups(ctx->p, mdj, MD_KEY_VALID, MD_KEY_FROM, NULL);
     if (sfrom) {
         t = apr_date_parse_rfc(sfrom);
-        si_val_date(ctx, t);
+        print_date(ctx->bb, t);
     }
     apr_brigade_puts(ctx->bb, NULL, NULL, " - ");
     suntil = md_json_dups(ctx->p, mdj, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
     if (suntil) {
         t = apr_date_parse_rfc(suntil);
-        si_val_date(ctx, t);
+        print_date(ctx->bb, t);
     }
 }
 
@@ -286,9 +285,7 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
         if (md_json_has_key(mdj, key, MD_KEY_VALID_FROM, NULL)) {
             s = md_json_gets(mdj,  key, MD_KEY_VALID_FROM, NULL);
             t = apr_date_parse_rfc(s);
-            apr_brigade_puts(bb, NULL, NULL, (apr_time_now() >= t)?
-                             ", valid since: " : ", activate at: ");
-            print_time(bb, t);
+            print_time(bb, ", valid", t);
         }
         apr_brigade_puts(bb, NULL, NULL, ".");
     } 
@@ -304,16 +301,22 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
     s = md_json_gets(mdj, key, MD_KEY_NEXT_RUN, NULL);
     if (s) {
         t = apr_date_parse_rfc(s);
-        apr_brigade_puts(bb, NULL, NULL, "Next attempt: ");
-        print_time(bb, t);
-        apr_brigade_puts(bb, NULL, NULL, ".");
+        print_time(bb, "Next", t);
     }
 }
 
 static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     (void)info;
-    print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
+    if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
+        print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
+    }
+    else if (md_json_has_key(mdj, MD_KEY_RENEW_AT, NULL)) {
+        print_time(ctx->bb, "Renew", md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL));
+    }
+    else if (MD_RENEW_MANUAL == md_json_getl(mdj, MD_KEY_RENEW_MODE, NULL)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "manual renew");
+    }
 }
 
 static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -336,14 +339,6 @@ static void si_val_stapling(status_ctx *ctx, md_json_t *mdj, const status_info *
     (void)info;
     if (!md_json_getb(mdj, MD_KEY_STAPLING, NULL)) return;
     apr_brigade_puts(ctx->bb, NULL, NULL, "on");
-}
-
-static void si_val_renew_at(status_ctx *ctx, md_json_t *mdj, const status_info *info)
-{
-    apr_time_t t;
-    (void)info;
-    t = md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL);
-    if (t) si_val_date(ctx, t);
 }
 
 static int json_iter_val(void *data, size_t index, md_json_t *json)
@@ -389,7 +384,6 @@ static const status_info status_infos[] = {
     { "Names", MD_KEY_DOMAINS, NULL },
     { "Status", MD_KEY_STATUS, si_val_status },
     { "Valid", MD_KEY_VALID, si_val_cert_valid_time },
-    { "Renewal", MD_KEY_RENEW_MODE, si_val_renew_mode },
     { "Stapling", MD_KEY_STAPLING, si_val_stapling },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Activity",  MD_KEY_NOTIFIED, si_val_activity },
@@ -480,17 +474,7 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
     
     (void)info;
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
-    if (t > apr_time_now()) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Next renewal: ");
-        print_time(ctx->bb, t);
-        apr_brigade_puts(ctx->bb, NULL, NULL, ".");
-        return;
-    }
-    else if (t > 0) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Should have been renewed since: ");
-        print_time(ctx->bb, t);
-        apr_brigade_puts(ctx->bb, NULL, NULL, ". ");
-    }
+    print_time(ctx->bb, "Renew", t);
     print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
 }
 
@@ -499,7 +483,6 @@ static const status_info ocsp_status_infos[] = {
     { "Certificate", MD_KEY_ID, NULL },
     { "Status", MD_KEY_STATUS, NULL },
     { "Valid", MD_KEY_VALID, si_val_valid_time },
-    { "Renew", MD_KEY_RENEW_AT, si_val_renew_at },
     { "Responder", MD_KEY_URL, NULL },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Activity",  MD_KEY_NOTIFIED, si_val_ocsp_activity },

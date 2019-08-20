@@ -61,21 +61,24 @@ char *md_timeperiod_print(apr_pool_t *p, const md_timeperiod_t *period)
     return apr_pstrcat(p, tstart, " - ", tend, NULL);
 }
 
-const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
+static const char *duration_print(apr_pool_t *p, int roughly, apr_interval_time_t duration)
 {
     const char *s = "", *sep = "";
     long days = (long)(apr_time_sec(duration) / MD_SECS_PER_DAY);
     int rem = (int)(apr_time_sec(duration) % MD_SECS_PER_DAY);
     
+    s = roughly? "~" : "";
     if (days > 0) {
-        s = apr_psprintf(p, "%ld days", days);
-        sep = " "; 
+        s = apr_psprintf(p, "%s%ld days", s, days);
+        if (roughly) return s;
+        sep = " ";
     }
     if (rem > 0) {
         int hours = (rem / MD_SECS_PER_HOUR);
         rem = (rem % MD_SECS_PER_HOUR);
         if (hours > 0) {
             s = apr_psprintf(p, "%s%s%02d hours", s, sep, hours); 
+        if (roughly) return s;
             sep = " "; 
         }
         if (rem > 0) {
@@ -83,10 +86,12 @@ const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
             rem = (rem % 60);
             if (minutes > 0) {
                 s = apr_psprintf(p, "%s%s%02d minutes", s, sep, minutes); 
+                if (roughly) return s;
                 sep = " "; 
             }
             if (rem > 0) {
                 s = apr_psprintf(p, "%s%s%02d seconds", s, sep, rem); 
+                if (roughly) return s;
                 sep = " "; 
             }
         }
@@ -98,6 +103,16 @@ const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
         }
     }
     return s;
+}
+
+const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration)
+{
+    return duration_print(p, 0, duration);
+}
+
+const char *md_duration_roughly(apr_pool_t *p, apr_interval_time_t duration)
+{
+    return duration_print(p, 1, duration);
 }
 
 static const char *duration_format(apr_pool_t *p, apr_interval_time_t duration)

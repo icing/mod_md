@@ -635,7 +635,7 @@ apr_time_t md_reg_renew_at(md_reg_t *reg, const md_t *md, apr_pool_t *p)
 
         renewal = md_timeperiod_slice_before_end(&certlife, md->renew_window);
         if (md_log_is_level(p, MD_LOG_TRACE1)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, 
                           "md[%s]: cert-life[%s] renewal[%s]", md->name, 
                           md_timeperiod_print(p, &certlife),
                           md_timeperiod_print(p, &renewal));
@@ -670,7 +670,7 @@ int md_reg_should_warn(md_reg_t *reg, const md_t *md, apr_pool_t *p)
 
         warn = md_timeperiod_slice_before_end(&certlife, md->warn_window);
         if (md_log_is_level(p, MD_LOG_TRACE1)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, p, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, 
                           "md[%s]: cert-life[%s] warn[%s]", md->name, 
                           md_timeperiod_print(p, &certlife),
                           md_timeperiod_print(p, &warn));

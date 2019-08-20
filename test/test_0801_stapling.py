@@ -67,7 +67,10 @@ class TestStapling:
         assert not stat["stapling"]
         #
         # turn stapling on, wait for it to appear in connections
-        TestStapling.configure_httpd(md, "MDStapling on").install()
+        TestStapling.configure_httpd(md, """
+            MDStapling on
+            LogLevel md:trace5
+            """).install()
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 

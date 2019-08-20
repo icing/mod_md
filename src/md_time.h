@@ -42,6 +42,7 @@ char *md_timeperiod_print(apr_pool_t *p, const md_timeperiod_t *period);
  * Print a human readable form of the give duration in days/hours/min/sec 
  */
 const char *md_duration_print(apr_pool_t *p, apr_interval_time_t duration);
+const char *md_duration_roughly(apr_pool_t *p, apr_interval_time_t duration);
 
 /**
  * Parse a machine readable string duration in the form of NN[unit], where
