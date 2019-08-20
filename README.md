@@ -1343,6 +1343,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCertificateAuthority](#mdcertificateauthority)
 * [MDCertificateFile](##mdcertificatefile)
 * [MDCertificateKeyFile](##mdcertificatekeyfile)
+* [MDCertificateMonitor](#mdcertificatemonitor)
 * [MDCertificateProtocol](#mdcertificateprotocol)
 * [MDCertificateStatus](#mdcertificatestatus)
 * [MDChallengeDns01](#mdchallengedns01)
@@ -1743,6 +1744,19 @@ of renewing. A service outage would have to last full 24 hours to affect you.
 Setting an absolute renew window, like `2d` (2 days), is also possible. Howwever, since this does not
 automatically adjusts to changes by the CA, this may result in renewals not taking place when needed.
  
+## MDCertificateMonitor
+
+***Adds links to the server-status page for checking the status of a certificate***<BR/>
+`MDCertificateMonitor name url`<BR/>
+Default: crt.sh https://crt.sh?q=
+
+This is part of the 'server-status' HTML user interface and has nothing to do with the core
+functioning itself. It defines the link offered on that page for easy checking of a certificate
+monitor. The SHA256 fingerprint of the certificate is appended to the configured url.
+
+Certificate Monitors offer supervision of Certificate Transparency (CT) Logs to
+track the use of certificates for domains. The least you may see is that Let's Encrypt (or whichever
+CA you have configured) has entered your certificates into the CTLogs.
 
 ## ServerAdmin / Contact Information
 

@@ -1,3 +1,5 @@
+ * new directive 'MDCertificateMonitor' to allow configuration of the check HTML links rendered
+   in the server-status page.
  * server-status timestamps now in a better readable format. Some columns have been merged.
  * Much more verbose data logging when OCSP responses could not be parsed.
  * Fixed a bug with suppressing "Expect" header sending.

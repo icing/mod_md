@@ -324,13 +324,11 @@ static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_in
     const char *fingerprint;
     
     (void)info;
-    fingerprint = md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
-    if (fingerprint) {
+    if (ctx->mc->cert_check_name && ctx->mc->cert_check_url) {
+        fingerprint = md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
         apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<a href=\"https://censys.io/certificates/%s\">censys.io</a> ", 
-                           fingerprint);
-        apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<a href=\"https://crt.sh?q=%s\">crt.sh</a> ", fingerprint);
+                           "<a href=\"%s%s\">%s</a> ", 
+                           ctx->mc->cert_check_url, fingerprint, ctx->mc->cert_check_name);
     }
 }
 

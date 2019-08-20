@@ -69,6 +69,8 @@ struct md_mod_conf_t {
     int certificate_status_enabled;    /* if module should expose /.httpd/certificate-status */
     md_timeslice_t *ocsp_keep_window;  /* time that we keep ocsp responses around */
     md_timeslice_t *ocsp_renew_window; /* time before exp. that we start renewing ocsp resp. */
+    const char *cert_check_name;       /* name of the linked certificate check site */
+    const char *cert_check_url;        /* url "template for" checking a certificate */
 };
 
 typedef struct md_srv_conf_t {

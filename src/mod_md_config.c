@@ -79,6 +79,8 @@ static md_mod_conf_t defmc = {
     1,                         /* certificate_status_enabled */
     &def_ocsp_keep_window,     /* default time to keep ocsp responses */
     &def_ocsp_renew_window,    /* default time to renew ocsp responses */
+    "crt.sh",                  /* default cert checker site name */
+    "https://crt.sh?q=",       /* default cert checker site url */
 };
 
 static md_timeslice_t def_renew_window = {
@@ -896,6 +898,22 @@ static const char *md_config_set_ocsp_renew_window(cmd_parms *cmd, void *dc, con
     return NULL;
 }
 
+static const char *md_config_set_cert_check(cmd_parms *cmd, void *dc, 
+                                            const char *name, const char *url)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+        return err;
+    }
+    sc->mc->cert_check_name = name;
+    sc->mc->cert_check_url = url;
+    return NULL;
+}
+
+
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issuing the certificates"),
@@ -964,6 +982,8 @@ const command_rec md_cmds[] = {
                   "The amount of time to keep an OCSP response in the store."),
     AP_INIT_TAKE1("MDStaplingRenewWindow", md_config_set_ocsp_renew_window, NULL, RSRC_CONF, 
                   "Time length for renewal before OCSP responses expire (defaults to days)."),
+    AP_INIT_TAKE2("MDCertificateCheck", md_config_set_cert_check, NULL, RSRC_CONF, 
+                  "Set name and URL pattern for a certificate monitoring site."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };
