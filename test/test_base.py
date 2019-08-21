@@ -290,6 +290,14 @@ class TestEnv:
             shutil.rmtree(os.path.join(TestEnv.STORE_DIR, dir), ignore_errors=True)
 
     @classmethod
+    def clear_ocsp_store( cls ) : 
+        assert len(TestEnv.STORE_DIR) > 1
+        dir = os.path.join(TestEnv.STORE_DIR, "ocsp")
+        print("clear ocsp store dir: %s" % dir)
+        if os.path.exists(dir):
+            shutil.rmtree(dir, ignore_errors=True)
+
+    @classmethod
     def authz_save( cls, name, content ) :
         dir = os.path.join(TestEnv.STORE_DIR, 'staging', name)
         os.makedirs(dir)
@@ -575,6 +583,10 @@ class TestEnv:
     def get_md_status(cls, domain, timeout=60):
         stat = TestEnv.get_json_content("localhost", "/md-status/%s" % (domain))
         return stat
+
+    @classmethod
+    def get_server_status(cls, timeout=60):
+        return TestEnv.get_content("localhost", "/server-status/")
 
     @classmethod
     def await_completion(cls, names, must_renew=False, restart=True, timeout=60):

@@ -255,7 +255,7 @@ apr_status_t md_acme_drive_cert_poll(md_proto_driver_t *d, int only_once)
         rv = md_util_try(get_cert, d, 1, ad->cert_poll_timeout, 0, 0, 1);
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "poll for cert at %s", ad->order->certificate);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "poll for cert at %s", ad->order->certificate);
     return rv;
 }
 
@@ -628,7 +628,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                 apr_array_cat(ad->certs, staged_certs);
             }
             if (!md_array_is_empty(ad->certs)) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: all data staged", d->md->name);
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: all data staged", d->md->name);
                 goto ready;
             }
         }
@@ -650,7 +650,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     if (!ad->md || strcmp(ad->md->ca_url, d->md->ca_url)) {
         md_result_activity_printf(result, "Resetting staging for %s", d->md->name);
         /* re-initialize staging */
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: setup staging", d->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: setup staging", d->md->name);
         md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
         ad->md = md_copy(d->p, d->md);
         ad->order = NULL;
@@ -693,7 +693,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     
     if (md_array_is_empty(ad->certs) || ad->next_up_link) {
         md_result_activity_printf(result, "Retrieving certificate chain for %s", d->md->name);
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
                       "%s: retrieving certificate chain", d->md->name);
         rv = ad_chain_retrieve(d);
         if (APR_SUCCESS != rv) {

@@ -557,7 +557,9 @@ If you want to have Stapling for all your certificates in your Apache httpd, you
 MDStapling on
 ```
 
-and `mod_md` will manage all. This *overrides* any `SSLStapling` configuration. You can leave that on, but it will have no effect. However it makes experimentation quite easy, but it is a bit of a brave approach. Read the next chapter on how to experiment in a more controlled way.
+and `mod_md` will manage all. This *overrides* any `SSLStapling` configuration. You can leave that on, but it will have no effect. 
+
+This is a bit of a bold approach, however. A more controlled rollout might be better. Read the next chapter on the options.
 
 # How to Staple Some of My Certificates
 
@@ -576,12 +578,29 @@ MDStapling on
 MDStapleOthers off
 ```
 
-You cannot configure this for individual `VirtualHost` sections. It is a global setting.
+These settings are global.
+
+# How Would You Know It Works?
+
+If you have Apache's `server-status`handler enabled, you can open that page in your browser. With `MDStapling on`
+there will be a new section, like:
+
+![A server-status with mod_md stapling information](mod_md_ocsp_status.png)
+
+Here you see all domains listed for which `MDStapling` is enabled. For most sites, there will be one certificate per domain, but it is possible to have more. Certificates are listed with their SHA1 fingerprint. The `Status` is the one reported by your Certificate Authority (the one listed under `Responder`). It is one of `good`, `revoked` or `unknown`.
+
+`Valid` gives the times the *OCSP information*, not the certificate itself, are valid. If you hover, you get the exact timestamp. Before an OCSP answer times out, there will be an `Activity` to get an updated one. If something goes wrong, the last error encountered is also listed here.
+
+All your certificates should have status `good`. If not, the `Check` link might help you further. It points to the page on `https://crt.sh` where that specific certificate is listed. This gives you a second opinion about your certificate. `crt.sh` is just on of the certificate monitors that are available. If you prefer using another, you can configure this via `MDCertificateMonitor` directive.
+
+More detailled information about OCSP status/activities can also be retrieved from the `md-status` handler in JSON format (you need to enable that handler).
+
+And last, but not least, a configured `MDMessageCmd` gets invoked whenever OCSP Stapling information is renewed or encounters errors. More in the description of that directive.
 
 
 # How to Know which Stapling You Want
 
-And why is Stapling important anway? A short introduction of what Stapling is might help:
+And why is Stapling important anway? A short introduction might help:
 
 ### Stapling
 
@@ -654,7 +673,7 @@ and see how it works for you.
 
 ### Why Both?
 
-Firrst, since Stapling has become a vital function of a web server in the modern times of `https:`, it is
+First, since Stapling has become a vital function of a web server in the modern times of `https:`, it is
 a good idea to phase in something new and allow for a mixed configuration. 
 
 Second, Apache has a strong focus on remaining backward compatible. Shipping a new stapling
@@ -667,7 +686,7 @@ would certainly upset some people.
 
 # Installation
 
-This **mod_md requires Apache 2.4.40 or newer**_ with an installed ```apxs``` command. 
+This **mod_md requires Apache 2.4.41 or newer**.
 
 ### Build and install `mod_md`
 

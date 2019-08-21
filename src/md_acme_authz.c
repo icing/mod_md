@@ -267,7 +267,7 @@ static apr_status_t authz_http_set(md_acme_t *acme, apr_pool_t *p, const apr_tab
     (void)p;
     (void)hdrs;
     (void)body;
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, ctx->p, "updated authz %s", ctx->authz->url);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ctx->p, "updated authz %s", ctx->authz->url);
     return APR_SUCCESS;
 }
 
@@ -606,7 +606,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                     rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_spec, 
                                             acme_tls_1_domains, env, p);
                     if (APR_SUCCESS == rv) {
-                        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
+                        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                                       "%s: set up challenge '%s'", 
                                       authz->domain, fctx.accepted->type);
                         challenge_setup = CHA_TYPES[i].name; 

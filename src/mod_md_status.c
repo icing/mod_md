@@ -192,7 +192,7 @@ static void print_date(apr_bucket_brigade *bb, apr_time_t timestamp)
 static void print_time(apr_bucket_brigade *bb, const char *label, apr_time_t t)
 {
     apr_time_t now;
-    const char *s, *pre, *post, *sep;
+    const char *pre, *post, *sep;
     char ts[128];
     char ts2[128];
     apr_time_exp_t texp;

@@ -142,8 +142,8 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
                 md_json_set_timeperiod(&ocsp_valid, certj, MD_KEY_OCSP, MD_KEY_VALID, NULL);
             }
             else if (!APR_STATUS_IS_ENOENT(rv)) goto leave;
-            rv = job_loadj(&jobj, MD_SG_OCSP, md->name, reg, p);
-            if (APR_SUCCESS == rv) {
+            rv = APR_SUCCESS;
+            if (APR_SUCCESS == job_loadj(&jobj, MD_SG_OCSP, md->name, reg, p)) {
                 md_json_setj(jobj, certj, MD_KEY_OCSP, MD_KEY_RENEWAL, NULL);
             }
         }
@@ -172,7 +172,10 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
     }
     
 leave:
-    *pjson = (APR_SUCCESS == rv)? mdj : NULL;
+    if (APR_SUCCESS != rv) {
+        md_json_setl(rv, mdj, MD_KEY_ERROR, NULL);
+    }
+    *pjson = mdj; /* we return even incomplete results, maybe someone can figure out the rest */
     return rv;
 }
 
@@ -180,7 +183,6 @@ apr_status_t md_status_get_json(md_json_t **pjson, apr_array_header_t *mds,
                                 md_reg_t *reg, md_ocsp_reg_t *ocsp, apr_pool_t *p) 
 {
     md_json_t *json, *mdj;
-    apr_status_t rv = APR_SUCCESS;
     const md_t *md;
     int i;
     
@@ -188,13 +190,11 @@ apr_status_t md_status_get_json(md_json_t **pjson, apr_array_header_t *mds,
     md_json_sets(MOD_MD_VERSION, json, MD_KEY_VERSION, NULL);
     for (i = 0; i < mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mds, i, const md_t *);
-        rv = md_status_get_md_json(&mdj, md, reg, ocsp, p);
-        if (APR_SUCCESS != rv) goto leave;
+        md_status_get_md_json(&mdj, md, reg, ocsp, p);
         md_json_addj(mdj, json, MD_KEY_MDS, NULL);
     }
-leave:
-    *pjson = (APR_SUCCESS == rv)? json : NULL;
-    return rv;
+    *pjson = json;
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/

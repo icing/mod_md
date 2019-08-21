@@ -312,7 +312,7 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     char iddata[MD_OCSP_ID_LENGTH];
     md_ocsp_status_t *ostat;
     STACK_OF(OPENSSL_STRING) *ssk = NULL;
-    const char *name;
+    const char *name, *s;
     md_data_t id;
     apr_status_t rv;
     
@@ -320,6 +320,8 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     name = md? md->name : MD_OTHER;
     id.data = iddata; id.len = sizeof(iddata);
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, reg->p, 
+                  "md[%s]: priming OCSP status", name);
     rv = init_cert_id(&id, cert);
     if (APR_SUCCESS != rv) goto leave;
     
@@ -335,6 +337,8 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
     rv = md_cert_to_sha256_fingerprint(&ostat->hex_sha256, cert, reg->p); 
     if (APR_SUCCESS != rv) goto leave;
 
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, reg->p, 
+                  "md[%s]: getting ocsp responder from cert", name);
     ssk = X509_get1_ocsp(md_cert_get_X509(cert));
     if (!ssk) {
         rv = APR_ENOENT;
@@ -343,7 +347,10 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t *reg, md_cert_t *cert, md_cert_t *issue
                       name, md_cert_get_serial_number(cert, reg->p));
         goto leave;
     }
-    ostat->responder_url = apr_pstrdup(reg->p, sk_OPENSSL_STRING_value(ssk, 0));
+    s = sk_OPENSSL_STRING_value(ssk, 0);
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, reg->p, 
+                  "md[%s]: ocsp responder found '%s'", name, s);
+    ostat->responder_url = apr_pstrdup(reg->p, s);
     X509_email_free(ssk);
 
     ostat->certid = OCSP_cert_to_id(NULL, md_cert_get_X509(cert), md_cert_get_X509(issuer));
@@ -591,7 +598,6 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
     md_data_t der, new_der;
     md_timeperiod_t valid;
     md_ocsp_cert_stat_t nstat;
-    const char *hex;
     
     der.data = new_der.data = NULL;
     der.len  = new_der.len = 0;

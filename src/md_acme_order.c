@@ -548,7 +548,7 @@ apr_status_t md_acme_order_monitor_authzs(md_acme_order_t *order, md_acme_t *acm
     
     md_result_activity_printf(result, "Monitoring challenge status for %s", md->name);
     rv = md_util_try(check_challenges, &ctx, 0, timeout, 0, 0, 1);
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, "%s: checked authorizations", md->name);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: checked authorizations", md->name);
     return rv;
 }
 

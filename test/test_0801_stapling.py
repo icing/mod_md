@@ -324,3 +324,49 @@ class TestStapling:
             if name.startswith("ocsp-"):
                 ocsp_file = os.path.join(dir, name)
         assert ocsp_file
+
+    # Turn on stapling for a certificate without OCSP responder and issuer
+    # (certificates without issuer prevent mod_ssl asking around for stapling)
+    def test_801_009(self):
+        assert TestEnv.apache_stop() == 0
+        md = TestStapling.mdA
+        domains = [ md ]
+        testpath = os.path.join(TestEnv.GEN_DIR, 'test_801_009')
+        # cert that is 30 more days valid
+        CertUtil.create_self_signed_cert(domains, { "notBefore": -60, "notAfter": 30  },
+            serial=801009, path=testpath)
+        cert_file = os.path.join(testpath, 'pubcert.pem')
+        pkey_file = os.path.join(testpath, 'privkey.pem')
+        assert os.path.exists(cert_file)
+        assert os.path.exists(pkey_file)
+        conf = HttpdConf()
+        conf.add_admin("admin@not-forbidden.org" )
+        conf.start_md(domains)
+        conf.add_line("MDCertificateFile %s" % (cert_file))
+        conf.add_line("MDCertificateKeyFile %s" % (pkey_file))
+        conf.add_line("MDStapling on")
+        conf.end_md()
+        conf.add_vhost(md)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        time.sleep(1)
+        stat = TestEnv.get_ocsp_status(md)
+        assert stat['ocsp'] == "no response sent" 
+
+    # Turn on stapling for an MDomain not used in any virtualhost
+    # There was a crash in server-status in this case
+    def test_801_010(self):
+        assert TestEnv.apache_stop() == 0
+        TestEnv.clear_ocsp_store()
+        md = TestStapling.mdA
+        domains = [ md ]
+        conf = HttpdConf()
+        conf.add_admin("admin@not-forbidden.org" )
+        conf.start_md(domains)
+        conf.add_line("MDStapling on")
+        conf.end_md()
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_server_status()
+        assert stat
+

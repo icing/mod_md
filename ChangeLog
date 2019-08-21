@@ -1,3 +1,6 @@
+ * fixed a crash in "server-status" handler when stapling was enabled but not status information
+   could be found.
+ * toning down some INFO level logging to DEBUG or lower.
  * new directive 'MDCertificateMonitor' to allow configuration of the check HTML links rendered
    in the server-status page.
  * server-status timestamps now in a better readable format. Some columns have been merged.
