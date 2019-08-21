@@ -1160,7 +1160,7 @@ Then, the new challenge type is usable.
 # Wildcard Certificates
 
 
-Wildcard certificates are possible with version 2.x of `mod_md``. But they are not straight-forward. Let's Encrypt requires the `dns-01` challenge verification for those. No other is considered good enough.
+Wildcard certificates are possible with version 2.x of `mod_md`. But they are not straight-forward. Let's Encrypt requires the `dns-01` challenge verification for those. No other is considered good enough.
 
 The difficulty here is that Apache cannot do that on its own. (which is also a security benefit, since corrupting a web server or the communication path to it is the scenario `dns-01` protects against). As the name implies, `dns-01` requires you to show some specific DNS records for your domain that contain some challenge data. So you need to _write_ your domain's DNS records
 
