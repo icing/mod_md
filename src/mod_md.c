@@ -344,7 +344,7 @@ static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, 
     if (md_contains(md, domain, 0)) {
         return APR_SUCCESS;
     }
-    else if (md->transitive) {
+    else if (p && md->transitive) {
         APR_ARRAY_PUSH(md->domains, const char*) = apr_pstrdup(p, domain);
         return APR_SUCCESS;
     }
@@ -358,7 +358,7 @@ static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, 
     }
 }
 
-static apr_status_t md_covers_server(md_t *md, server_rec *s, apr_pool_t *p)
+static apr_status_t md_cover_server(md_t *md, server_rec *s, apr_pool_t *p)
 {
     apr_status_t rv;
     const char *name;
@@ -438,7 +438,7 @@ static apr_status_t detect_supported_ports(md_mod_conf_t *mc, server_rec *s,
     return md_reg_set_props(mc->reg, p, mc->can_http, mc->can_https); 
 }
 
-static server_rec *get_https_server(const char *domain, server_rec *base_server)
+static server_rec *get_https_server(md_t *md, const char *domain, server_rec *base_server)
 {
     md_srv_conf_t *sc;
     md_mod_conf_t *mc;
@@ -449,15 +449,15 @@ static server_rec *get_https_server(const char *domain, server_rec *base_server)
     mc = sc->mc;
     memset(&r, 0, sizeof(r));
     
-    for (s = base_server; s && (mc->local_443 > 0); s = s->next) {
-        if (!mc->manage_base_server && s == base_server) {
-            /* we shall not assign ourselves to the base server */
-            continue;
-        }
+    for (s = base_server->next; s && (mc->local_443 > 0); s = s->next) {
         r.server = s;
         if (ap_matches_request_vhost(&r, domain, s->port) && uses_port(s, mc->local_443)) {
             return s;
         }
+    }
+    if (mc->manage_base_server && 
+        APR_SUCCESS == check_coverage(md, domain, base_server, NULL)) {
+        return base_server;
     }
     return NULL;
 }
@@ -471,10 +471,10 @@ static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
     /* Collect those domains that support the "acme-tls/1" protocol. This
      * is part of the MD (and not tested dynamically), since challenge selection
      * may be done outside the server, e.g. in the a2md command. */
-     apr_array_clear(md->acme_tls_1_domains);
+    apr_array_clear(md->acme_tls_1_domains);
     for (i = 0; i < md->domains->nelts; ++i) {
         domain = APR_ARRAY_IDX(md->domains, i, const char*);
-        if (NULL == (s = get_https_server(domain, base_server))) {
+        if (NULL == (s = get_https_server(md, domain, base_server))) {
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10168)
                          "%s: no https server_rec found for %s", md->name, domain);
             continue;
@@ -545,7 +545,7 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
                  * If mode is "manual", a generated certificate will not match
                  * all necessary names. */
                 if (!mc->local_80 || !uses_port(s, mc->local_80)) {
-                    if (APR_SUCCESS != (rv = md_covers_server(md, s, p))) {
+                    if (APR_SUCCESS != (rv = md_cover_server(md, s, p))) {
                         return rv;
                     }
                 }
