@@ -574,7 +574,6 @@ class TestAutov2:
         assert stat["proto"]["acme-tls/1"] == []
         
 
-    #-----------------------------------------------------------------------------------------------
     # test case: 2.4.40 mod_ssl stumbles over a SSLCertificateChainFile when installing
     # a fallback certificate
     def test_702_042(self):
@@ -591,6 +590,52 @@ class TestAutov2:
         conf.install()
         assert TestEnv.apache_restart() == 0
         
+    # Make a setup using the base server. It will use http-01 challenge.
+    def test_702_050(self):
+        domain = self.test_domain
+        conf = HttpdConf()
+        conf.add_line("""
+            MDBaseServer on
+            ServerAdmin admin@%s
+            ServerName %s
+            """ % (domain, domain))
+        conf.add_md( [ domain ] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ] )
+
+    # Make a setup using the base server without http:, will fail.
+    def test_702_051(self):
+        domain = self.test_domain
+        conf = HttpdConf()
+        conf.add_line("""
+            MDBaseServer on
+            MDPortMap http:-
+            ServerAdmin admin@%s
+            ServerName %s
+            """ % (domain, domain))
+        conf.add_md( [ domain ] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_error( domain )
+
+    # Make a setup using the base server without http:, but with acme-tls/1, should work.
+    def test_702_052(self):
+        domain = self.test_domain
+        conf = HttpdConf()
+        conf.add_line("""
+            MDBaseServer on
+            MDPortMap http:-
+            Protocols h2 http/1.1 acme-tls/1
+            ServerAdmin admin@%s
+            ServerName %s
+            """ % (domain, domain))
+        conf.add_md( [ domain ] )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_md_status(domain)
+        assert stat["proto"]["acme-tls/1"] == [ domain ]
+        assert TestEnv.await_completion( [ domain ] )
 
     # --------- _utils_ ---------
 

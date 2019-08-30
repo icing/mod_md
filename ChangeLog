@@ -1,3 +1,12 @@
+v2.1.1
+----------------------------------------------------------------------------------------------------
+ * Fixed a bug where the "acme-tls/1" protocol setting was not recognized on the base server
+   (with "MDBaseServer on").
+ * ACME errors returned during account creation are now added to the job log.
+ * A missing ServerAdmin is now properly logged at the renewal job.
+
+v2.1.0
+----------------------------------------------------------------------------------------------------
  * fixed a crash in "server-status" handler when stapling was enabled but not status information
    could be found.
  * toning down some INFO level logging to DEBUG or lower.

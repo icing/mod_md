@@ -47,7 +47,7 @@ class TestDrivev2:
         assert TestEnv.a2md( [ "add", name ] )['rv'] == 0
         run = TestEnv.a2md( [ "drive", name ] )
         assert run['rv'] == 1
-        assert re.search("no contact information", run["stderr"])
+        assert re.search("No contact information", run["stderr"])
 
     def test_502_001(self):
         # test case: md with contact, but without TOS

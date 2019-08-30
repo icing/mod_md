@@ -1115,7 +1115,7 @@ MDomain www.mydomain.com
 
 If you open links like `https://mydomain/` right away, your browser might show you an error. This happens because it takes some short amount of time to contact [Let's Encrypt](https://letsencrypt.org) and get a certificate from them that your browser trusts. After that succeeded, you will need to reload your server (mod_md tells you in the server log when this is necessary).
 
-Assume that this worked (and if not, check [trouble shooting](Trouble) to find out what to do), you now see your site with ```https:``` the same as with ```http:```. If your browser still has some concerns, the reasons for that may be
+Assume that this worked (and if not, check [how to fix problems](#how-to-fix-problems) to find out what to do), you now see your site with ```https:``` the same as with ```http:```. If your browser still has some concerns, the reasons for that may be
 
  * Your default settings for ```mod_ssl``` are not considered _good enough_ by the browser
  * Your ```https:``` page still contains links/images which start with ```http:```. Which could be corrupted by someone, so your browser does not consider this safe. It wants _all_ resources to come via ```https:```.

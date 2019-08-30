@@ -94,7 +94,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-using staged account");
     }
     else if (!APR_STATUS_IS_ENOENT(rv)) {
-        goto out;
+        goto leave;
     }
     
     /* Get an account for the ACME server for this MD */
@@ -107,7 +107,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
             update_md = 1;
         }
         else if (APR_SUCCESS != rv) {
-            goto out;
+            goto leave;
         }
     }
 
@@ -130,10 +130,11 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
                       d->proto->protocol);
         
         if (!ad->md->contacts || apr_is_empty_array(md->contacts)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p, 
-                          "no contact information for md %s", md->name);            
             rv = APR_EINVAL;
-            goto out;
+            md_result_printf(result, rv, "No contact information is available for MD %s. "
+                             "Configure one using the ServerAdmin directive.", md->name);            
+            md_result_log(result, MD_LOG_ERR);
+            goto leave;
         }
         
         /* ACMEv1 allowed registration of accounts without accepted Terms-of-Service.
@@ -150,18 +151,24 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
                   ad->acme->ca_agreement);
             md_result_log(result, MD_LOG_ERR);
             rv = result->status;
-            goto out;
+            goto leave;
         }
     
         rv = md_acme_acct_register(ad->acme, d->store, d->p, md->contacts, md->ca_agreement);
-        if (APR_SUCCESS == rv) {
-            md->ca_account = NULL;
-            update_md = 1;
-            update_acct = 1;
+        if (APR_SUCCESS != rv) {
+            if (APR_SUCCESS != ad->acme->last->status) {
+                md_result_dup(result, ad->acme->last);
+                md_result_log(result, MD_LOG_ERR);
+            }
+            goto leave;
         }
+
+        md->ca_account = NULL;
+        update_md = 1;
+        update_acct = 1;
     }
     
-out:
+leave:
     /* Persist MD changes in STAGING, so we pick them up on next run */
     if (APR_SUCCESS == rv&& update_md) {
         rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
@@ -697,7 +704,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                       "%s: retrieving certificate chain", d->md->name);
         rv = ad_chain_retrieve(d);
         if (APR_SUCCESS != rv) {
-            md_result_printf(result, rv, "Unable to retrive certificate chain.");
+            md_result_printf(result, rv, "Unable to retrieve certificate chain.");
             goto out;
         }
         
