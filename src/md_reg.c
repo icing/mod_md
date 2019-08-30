@@ -988,11 +988,13 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     md_proto_driver_t *driver, **pdriver;
     md_result_t *result;
     apr_table_t *env;
+    int preload;
     
     (void)p;
     va_start(ap, p);
     pdriver = va_arg(ap, md_proto_driver_t **);
     md = va_arg(ap, const md_t *);
+    preload = va_arg(ap, int);
     env = va_arg(ap, apr_table_t *);
     result = va_arg(ap, md_result_t *); 
     va_end(ap);
@@ -1020,7 +1022,12 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
         goto leave;
     }
     
-    result->status = driver->proto->init(driver, result);
+    if (preload) {
+        result->status = driver->proto->init_preload(driver, result);
+    }
+    else {
+        result->status = driver->proto->init(driver, result);
+    }
 
 leave:
     if (APR_SUCCESS != result->status) {
@@ -1045,7 +1052,7 @@ static apr_status_t run_test_init(void *baton, apr_pool_t *p, apr_pool_t *ptemp,
     env = va_arg(ap, apr_table_t *);
     result = va_arg(ap, md_result_t *); 
 
-    return run_init(baton, ptemp, &driver, md, env, result, NULL);
+    return run_init(baton, ptemp, &driver, md, 0, env, result, NULL);
 }
 
 apr_status_t md_reg_test_init(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
@@ -1069,7 +1076,7 @@ static apr_status_t run_renew(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_
     reset = va_arg(ap, int); 
     result = va_arg(ap, md_result_t *); 
 
-    rv = run_init(baton, ptemp, &driver, md, env, result, NULL);
+    rv = run_init(baton, ptemp, &driver, md, 0, env, result, NULL);
     if (APR_SUCCESS == rv) { 
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "%s: run staging", md->name);
         driver->reset = reset;
@@ -1111,7 +1118,7 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
         goto out;
     }
     
-    rv = run_init(baton, ptemp, &driver, md, env, result, NULL);
+    rv = run_init(baton, ptemp, &driver, md, 1, env, result, NULL);
     if (APR_SUCCESS != rv) goto out;
     
     apr_hash_set(reg->certs, md->name, (apr_ssize_t)strlen(md->name), NULL);

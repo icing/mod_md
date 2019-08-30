@@ -629,6 +629,7 @@ class TestAutov2:
             Protocols h2 http/1.1 acme-tls/1
             ServerAdmin admin@%s
             ServerName %s
+            SSLEngine on
             """ % (domain, domain))
         conf.add_md( [ domain ] )
         conf.install()

@@ -64,8 +64,8 @@ static md_mod_conf_t defmc = {
     NULL,                      /* md_ocsp_reg_t */
     80,                        /* local http: port */
     443,                       /* local https: port */
-    0,                         /* can http: */
-    0,                         /* can https: */
+    -1,                        /* can http: */
+    -1,                        /* can https: */
     0,                         /* manage base server */
     MD_HSTS_MAX_AGE_DEFAULT,   /* hsts max-age */
     NULL,                      /* hsts headers */
@@ -1063,10 +1063,6 @@ int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
     switch (var) {
         case MD_CONFIG_DRIVE_MODE:
             return (sc->renew_mode != DEF_VAL)? sc->renew_mode : defconf.renew_mode;
-        case MD_CONFIG_LOCAL_80:
-            return sc->mc->local_80;
-        case MD_CONFIG_LOCAL_443:
-            return sc->mc->local_443;
         case MD_CONFIG_TRANSITIVE:
             return (sc->transitive != DEF_VAL)? sc->transitive : defconf.transitive;
         case MD_CONFIG_REQUIRE_HTTPS:

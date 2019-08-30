@@ -409,56 +409,67 @@ static int uses_port(server_rec *s, int port)
     return match;
 }
 
-static apr_status_t detect_supported_ports(md_mod_conf_t *mc, server_rec *s, 
-                                           apr_pool_t *p, int log_level)
+static apr_status_t detect_supported_protocols(md_mod_conf_t *mc, server_rec *s, 
+                                               apr_pool_t *p, int log_level)
 {
     ap_listen_rec *lr;
     apr_sockaddr_t *sa;
+    int can_http, can_https;
 
-    mc->can_http = 0;
-    mc->can_https = 0;
+    if (mc->can_http >= 0 && mc->can_https >= 0) goto set_and_leave;
+    
+    can_http = can_https = 0;
     for (lr = ap_listeners; lr; lr = lr->next) {
         for (sa = lr->bind_addr; sa; sa = sa->next) {
             if  (sa->port == mc->local_80 
                  && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
-                mc->can_http = 1;
+                can_http = 1;
             }
             else if (sa->port == mc->local_443
                      && (!lr->protocol || !strncmp("http", lr->protocol, 4))) {
-                mc->can_https = 1;
+                can_https = 1;
             }
         }
     }
-
+    if (mc->can_http < 0) mc->can_http = can_http; 
+    if (mc->can_https < 0) mc->can_https = can_https;
     ap_log_error(APLOG_MARK, log_level, 0, s, APLOGNO(10037)
-                 "server seems%s reachable via http: (port 80->%d) "
-                 "and%s reachable via https: (port 443->%d) ",
-                 mc->can_http? "" : " not", mc->local_80,
-                 mc->can_https? "" : " not", mc->local_443);
+                 "server seems%s reachable via http: and%s reachable via https:",
+                 mc->can_http? "" : " not", mc->can_https? "" : " not");
+set_and_leave:
     return md_reg_set_props(mc->reg, p, mc->can_http, mc->can_https); 
 }
 
-static server_rec *get_https_server(md_t *md, const char *domain, server_rec *base_server)
+static server_rec *get_public_https_server(md_t *md, const char *domain, server_rec *base_server)
 {
     md_srv_conf_t *sc;
     md_mod_conf_t *mc;
     server_rec *s;
     request_rec r;
+    int i;
 
     sc = md_config_get(base_server);
     mc = sc->mc;
     memset(&r, 0, sizeof(r));
     
-    for (s = base_server->next; s && (mc->local_443 > 0); s = s->next) {
-        r.server = s;
-        if (ap_matches_request_vhost(&r, domain, s->port) && uses_port(s, mc->local_443)) {
-            return s;
+    /* find an ssl server matching domain from MD */
+    for (s = base_server->next; s; s = s->next) {
+        sc = md_config_get(s);
+        if (!sc || !sc->is_ssl || !sc->assigned) continue;
+        if (mc->local_443 > 0 && !uses_port(s, mc->local_443)) continue;
+        for (i = 0; i < sc->assigned->nelts; ++i) {
+            if (md == APR_ARRAY_IDX(sc->assigned, i, md_t*)) {
+                r.server = s;
+                if (ap_matches_request_vhost(&r, domain, s->port)) {
+                    return s;
+                }
+            }
         }
     }
-    if (mc->manage_base_server && 
-        APR_SUCCESS == check_coverage(md, domain, base_server, NULL)) {
+    if (mc->manage_base_server && mc->local_443 > 0
+        && APR_SUCCESS == check_coverage(md, domain, base_server, NULL)) {
         return base_server;
-    }
+    } 
     return NULL;
 }
 
@@ -474,7 +485,7 @@ static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
     apr_array_clear(md->acme_tls_1_domains);
     for (i = 0; i < md->domains->nelts; ++i) {
         domain = APR_ARRAY_IDX(md->domains, i, const char*);
-        if (NULL == (s = get_https_server(md, domain, base_server))) {
+        if (NULL == (s = get_public_https_server(md, domain, base_server))) {
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10168)
                          "%s: no https server_rec found for %s", md->name, domain);
             continue;
@@ -696,8 +707,6 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
             return APR_EINVAL;
         }
 
-        init_acme_tls_1_domains(md, base_server);
-
         if (APLOG_IS_LEVEL(base_server, log_level)) {
             ap_log_error(APLOG_MARK, log_level, 0, base_server, APLOGNO(10039)
                          "Completed MD[%s, CA=%s, Proto=%s, Agreement=%s, renew-mode=%d "
@@ -739,6 +748,9 @@ static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, md_t *);
+
+        init_acme_tls_1_domains(md, s);
+
         if (APR_SUCCESS != (rv = md_reg_reinit_state(mc->reg, (md_t*)md, p))) {
             ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10172)
                          "%s: error reinitiazing from store", md->name);
@@ -802,7 +814,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     md_srv_conf_t *sc;
     md_mod_conf_t *mc;
     apr_status_t rv = APR_SUCCESS;
-    int dry_run = 0, log_level = APLOG_DEBUG, watched;
+    int dry_run = 0, log_level = APLOG_DEBUG;
     md_store_t *store;
 
     apr_pool_userdata_get(&data, mod_md_init_key, s->process->pool);
@@ -855,7 +867,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     init_ssl();
 
     /* How to bootstrap this module:
-     * 1. find out if we know where http: and https: requests will arrive
+     * 1. find out if we know if http: and/or https: requests will arrive
      * 2. apply the now complete configuration setttings to the MDs
      * 3. Link MDs to the server_recs they are used in. Detect unused MDs.
      * 4. Update the store with the MDs. Change domain names, create new MDs, etc.
@@ -874,7 +886,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
      * 10. If this list is non-empty, setup a watchdog to run. 
      */
     /*1*/
-    if (APR_SUCCESS != (rv = detect_supported_ports(mc, s, p, log_level))) goto leave;
+    if (APR_SUCCESS != (rv = detect_supported_protocols(mc, s, p, log_level))) goto leave;
     /*2*/
     if (APR_SUCCESS != (rv = merge_mds_with_conf(mc, p, s, log_level))) goto leave;
     /*3*/
@@ -887,8 +899,26 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     }
     /*5*/
     load_staged_data(mc, s, p);
+leave:
+    return rv;
+}
+
+static apr_status_t md_post_config_after_ssl(apr_pool_t *p, apr_pool_t *plog,
+                                             apr_pool_t *ptemp, server_rec *s)
+{
+    md_srv_conf_t *sc;
+    apr_status_t rv = APR_SUCCESS;
+    md_mod_conf_t *mc;
+    int watched;
+
+    (void)ptemp;
+    (void)plog;
+    sc = md_config_get(s);
+
     /*6*/
-    if (dry_run) goto leave;
+    if (!sc || !sc->mc || sc->mc->dry_run) goto leave;
+    mc = sc->mc;
+    
     /*7*/
     if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
     /*8*/
@@ -911,24 +941,11 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     else {
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10075) "no mds to supervise");
     }
-leave:
-    return rv;
-}
 
-static apr_status_t md_post_config_after_ssl(apr_pool_t *p, apr_pool_t *plog,
-                                             apr_pool_t *ptemp, server_rec *s)
-{
-    md_srv_conf_t *sc;
-    apr_status_t rv = APR_SUCCESS;
-
-    (void)ptemp;
-    (void)plog;
-    sc = md_config_get(s);
-    if (!sc || !sc->mc || !sc->mc->ocsp || sc->mc->dry_run) goto leave;
-    if (md_ocsp_count(sc->mc->ocsp) == 0) goto leave;
+    if (!mc->ocsp || md_ocsp_count(mc->ocsp) == 0) goto leave;
     
     md_http_use_implementation(md_curl_get_impl(p));
-    rv = md_ocsp_start_watching(sc->mc, s, p);
+    rv = md_ocsp_start_watching(mc, s, p);
     
 leave:
     return rv;

@@ -484,11 +484,9 @@ out:
 /**************************************************************************************************/
 /* ACME driver init */
 
-static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
+static apr_status_t acme_driver_preload_init(md_proto_driver_t *d, md_result_t *result)
 {
     md_acme_driver_t *ad;
-    int dis_http, dis_https, dis_alpn_acme, dis_dns;
-    const char *challenge;
     
     md_result_set(result, APR_SUCCESS, NULL);
     
@@ -502,6 +500,23 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
     ad->ca_challenges = apr_array_make(d->p, 3, sizeof(const char*));
     ad->certs = apr_array_make(d->p, 5, sizeof(md_cert_t*));
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, result->status, d->p, 
+                  "%s: init_base driver", d->md->name);
+    return result->status;
+}
+
+static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
+{
+    md_acme_driver_t *ad;
+    int dis_http, dis_https, dis_alpn_acme, dis_dns;
+    const char *challenge;
+
+    acme_driver_preload_init(d, result);
+    md_result_set(result, APR_SUCCESS, NULL);
+    if (APR_SUCCESS != result->status) goto leave;
+    
+    ad = d->baton;
+
     /* We can only support challenges if the server is reachable from the outside
      * via port 80 and/or 443. These ports might be mapped for httpd to something
      * else, but a mapping needs to exist. */
@@ -553,9 +568,9 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
     if (apr_is_empty_array(ad->ca_challenges)) {
         md_result_printf(result, APR_EGENERAL, 
             "None of the ACME challenge methods configured for this domain are suitable.%s%s%s%s",
-            dis_http? " The http: challenge 'http-01' is disabled because the server seems not reachable on port 80." : "",
-            dis_https? " The https: challenge 'tls-alpn-01' is disabled because the server seems not reachable on port 443." : "",
-            dis_alpn_acme? "The https: challenge 'tls-alpn-01' is disabled because the Protocols configuration does not include the 'acme-tls/1' protocol." : "",
+            dis_http? " The http: challenge 'http-01' is disabled because the server seems not reachable on public port 80." : "",
+            dis_https? " The https: challenge 'tls-alpn-01' is disabled because the server seems not reachable on public port 443." : "",
+            dis_alpn_acme? " The https: challenge 'tls-alpn-01' is disabled because the Protocols configuration does not include the 'acme-tls/1' protocol." : "",
             dis_dns? "The DNS challenge 'dns-01' is disabled because the directive 'MDChallengeDns01' is not configured." : ""
             );
         goto leave;
@@ -897,7 +912,8 @@ static apr_status_t acme_driver_preload(md_proto_driver_t *d,
 }
 
 static md_proto_t ACME_PROTO = {
-    MD_PROTO_ACME, acme_driver_init, acme_driver_renew, acme_driver_preload
+    MD_PROTO_ACME, acme_driver_init, acme_driver_renew, 
+    acme_driver_preload_init, acme_driver_preload
 };
  
 apr_status_t md_acme_protos_add(apr_hash_t *protos, apr_pool_t *p)

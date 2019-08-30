@@ -207,6 +207,7 @@ struct md_proto_driver_t {
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, struct md_result_t *result);
 typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver, struct md_result_t *result);
+typedef apr_status_t md_proto_init_preload_cb(md_proto_driver_t *driver, struct md_result_t *result);
 typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, 
                                          md_store_group_t group, struct md_result_t *result);
 
@@ -214,6 +215,7 @@ struct md_proto_t {
     const char *protocol;
     md_proto_init_cb *init;
     md_proto_renew_cb *renew;
+    md_proto_init_preload_cb *init_preload;
     md_proto_preload_cb *preload;
 };
 
