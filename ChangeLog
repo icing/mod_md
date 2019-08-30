@@ -1,3 +1,6 @@
+ * Refactoring the initialization to distinguish between VirtualHosts where
+   SSLEngine is on or not.
+
 v2.1.1
 ----------------------------------------------------------------------------------------------------
  * Fixed a bug where the "acme-tls/1" protocol setting was not recognized on the base server

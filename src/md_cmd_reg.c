@@ -220,7 +220,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
 
     if (fields) {
-        if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, ctx->p, md->name, nmd, fields))) {
+        if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, ctx->p, md->name, nmd, fields, 1))) {
             md = md_reg_get(ctx->reg, md->name, ctx->p);
         }
     }

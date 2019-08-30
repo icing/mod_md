@@ -109,7 +109,8 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
  * values from the given md, all other values remain unchanged.
  */
 apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p, 
-                           const char *name, const md_t *md, int fields);
+                           const char *name, const md_t *md, 
+                           int fields, int check_consistency);
 
 /**
  * Get the chain of public certificates of the managed domain md, starting with the cert

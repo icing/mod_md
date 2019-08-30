@@ -339,13 +339,15 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     }
 }
 
-static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, apr_pool_t *p)
+static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, 
+                                   int *pupdates, apr_pool_t *p)
 {
     if (md_contains(md, domain, 0)) {
         return APR_SUCCESS;
     }
-    else if (p && md->transitive) {
+    else if (md->transitive) {
         APR_ARRAY_PUSH(md->domains, const char*) = apr_pstrdup(p, domain);
+        *pupdates |= MD_UPD_DOMAINS;
         return APR_SUCCESS;
     }
     else {
@@ -358,38 +360,25 @@ static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s, 
     }
 }
 
-static apr_status_t md_cover_server(md_t *md, server_rec *s, apr_pool_t *p)
+static apr_status_t md_cover_server(md_t *md, server_rec *s, int *pupdates, apr_pool_t *p)
 {
     apr_status_t rv;
     const char *name;
     int i;
     
-    if (APR_SUCCESS == (rv = check_coverage(md, s->server_hostname, s, p)) && s->names) {
-        for (i = 0; i < s->names->nelts; ++i) {
+    if (APR_SUCCESS == (rv = check_coverage(md, s->server_hostname, s, pupdates, p))) {
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, 
+                     "md[%s]: auto add, covers name %s", md->name, s->server_hostname);
+        for (i = 0; s->names && i < s->names->nelts; ++i) {
             name = APR_ARRAY_IDX(s->names, i, const char*);
-            if (APR_SUCCESS != (rv = check_coverage(md, name, s, p))) {
+            if (APR_SUCCESS != (rv = check_coverage(md, name, s, pupdates, p))) {
                 break;
             }
+            ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, 
+                         "md[%s]: auto add, covers alias %s", md->name, name);
         }
     }
     return rv;
-}
-
-static int matches_port_somewhere(server_rec *s, int port)
-{
-    server_addr_rec *sa;
-    
-    for (sa = s->addrs; sa; sa = sa->next) {
-        if (sa->host_port == port) {
-            /* host_addr might be general (0.0.0.0) or specific, we count this as match */
-            return 1;
-        }
-        if (sa->host_port == 0) {
-            /* wildcard port, answers to all ports. Rare, but may work. */
-            return 1;
-        }
-    }
-    return 0;
 }
 
 static int uses_port(server_rec *s, int port)
@@ -467,10 +456,36 @@ static server_rec *get_public_https_server(md_t *md, const char *domain, server_
         }
     }
     if (mc->manage_base_server && mc->local_443 > 0
-        && APR_SUCCESS == check_coverage(md, domain, base_server, NULL)) {
+        && md_contains(md, domain, 0)) {
         return base_server;
     } 
     return NULL;
+}
+
+static apr_status_t auto_add_domains(md_mod_conf_t *mc, md_t *md, 
+                                     server_rec *base_server, apr_pool_t *p)
+{
+    md_srv_conf_t *sc;
+    server_rec *s;
+    apr_status_t rv = APR_SUCCESS;
+    int updates;
+    
+    /* Ad all domain names used in SSL VirtualHosts, if not already there */
+    ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, base_server, 
+                 "md[%s]: auto add domains", md->name);
+    updates = 0;
+    for (s = base_server; s; s = s->next) {
+        sc = md_config_get(s);
+        if (!sc || !sc->is_ssl || !sc->assigned || sc->assigned->nelts != 1) continue;
+        if (md != APR_ARRAY_IDX(sc->assigned, 0, md_t*)) continue;
+        if (APR_SUCCESS != (rv = md_cover_server(md, s, &updates, p))) {
+            return rv;
+        }
+    }
+    if (updates) {
+        rv = md_reg_update(mc->reg, p, md->name, md, updates, 0); 
+    }
+    return rv;
 }
 
 static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
@@ -503,22 +518,19 @@ static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
 static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *base_server, 
                                        apr_pool_t *p, apr_pool_t *ptemp)
 {
-    server_rec *s, *s_https;
+    server_rec *s;
     request_rec r;
     md_srv_conf_t *sc;
-    apr_status_t rv = APR_SUCCESS;
     int i;
-    const char *domain;
-    apr_array_header_t *servers;
+    const char *domain, *uri;
     
+    (void)ptemp;
     sc = md_config_get(base_server);
 
     /* Assign the MD to all server_rec configs that it matches. If there already
      * is an assigned MD not equal this one, the configuration is in error.
      */
     memset(&r, 0, sizeof(r));
-    servers = apr_array_make(ptemp, 5, sizeof(server_rec*));
-    
     for (s = base_server; s; s = s->next) {
         if (!mc->manage_base_server && s == base_server) {
             /* we shall not assign ourselves to the base server */
@@ -532,56 +544,15 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
             if (ap_matches_request_vhost(&r, domain, s->port)) {
                 /* Create a unique md_srv_conf_t record for this server, if there is none yet */
                 sc = md_config_get_unique(s, p);
-                
-                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10041)
-                             "Server %s:%d matches md %s (config %s)", 
-                             s->server_hostname, s->port, md->name, sc->name);
-
                 if (!sc->assigned) sc->assigned = apr_array_make(p, 2, sizeof(md_t*));
+                
                 APR_ARRAY_PUSH(sc->assigned, md_t*) = md;
-
-                /* If this server_rec is only for http: requests. Defined
-                 * alias names do not matter for this MD.
-                 * (see gh issue https://github.com/icing/mod_md/issues/57)
-                 * Otherwise, if server has name or an alias not covered,
-                 * it is by default auto-added (config transitive).
-                 * If mode is "manual", a generated certificate will not match
-                 * all necessary names. */
-                if (!mc->local_80 || !uses_port(s, mc->local_80)) {
-                    if (APR_SUCCESS != (rv = md_cover_server(md, s, p))) {
-                        return rv;
-                    }
-                }
-
-                APR_ARRAY_PUSH(servers, server_rec*) = s;
+                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10041)
+                             "Server %s:%d matches md %s (config %s) for domain %s, "
+                             "has now %d MDs", 
+                             s->server_hostname, s->port, md->name, sc->name,
+                             domain, (int)sc->assigned->nelts);
                 
-                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10043)
-                             "Managed Domain %s applies to vhost %s:%d", md->name,
-                             s->server_hostname, s->port);
-                
-                goto next_server;
-            }
-        }
-    next_server:
-        continue;
-    }
-
-    if (APR_SUCCESS == rv) {
-        if (apr_is_empty_array(servers)) {
-            if (md->renew_mode != MD_RENEW_ALWAYS) {
-                /* Not an error, but looks suspicious */
-                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(10045)
-                             "No VirtualHost matches Managed Domain %s", md->name);
-                APR_ARRAY_PUSH(mc->unused_names, const char*)  = md->name;
-            }
-        }
-        else {
-            const char *uri;
-            
-            /* Found matching server_rec's. Collect all 'ServerAdmin's into MD's contact list */
-            apr_array_clear(md->contacts);
-            for (i = 0; i < servers->nelts; ++i) {
-                s = APR_ARRAY_IDX(servers, i, server_rec*);
                 if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
                     uri = md_util_schemify(p, s->server_admin, "mailto");
                     if (md_array_str_index(md->contacts, uri, 0, 0) < 0) {
@@ -590,47 +561,11 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
                                      "%s: added contact %s", md->name, uri);
                     }
                 }
+                break;
             }
-            
-            /* FIXME: need to check after mod_ssl has run */
-            if (md->require_https > MD_REQUIRE_OFF) {
-                /* We require https for this MD, but do we have port 443 (or a mapped one)
-                 * available? */
-                if (mc->local_443 <= 0) {
-                    ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10105)
-                                 "MDPortMap says there is no port for https (443), "
-                                 "but MD %s is configured to require https. This "
-                                 "only works when a 443 port is available.", md->name);
-                    return APR_EINVAL;
-                    
-                }
-                
-                /* Ok, we know which local port represents 443, do we have a server_rec
-                 * for MD that has addresses with port 443? */
-                s_https = NULL;
-                for (i = 0; i < servers->nelts; ++i) {
-                    s = APR_ARRAY_IDX(servers, i, server_rec*);
-                    if (matches_port_somewhere(s, mc->local_443)) {
-                        s_https = s;
-                        break;
-                    }
-                }
-                
-                if (!s_https) {
-                    /* Did not find any server_rec that matches this MD *and* has an
-                     * s->addrs match for the https port. Suspicious. */
-                    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(10106)
-                                 "MD %s is configured to require https, but there seems to be "
-                                 "no VirtualHost for it that has port %d in its address list. "
-                                 "This looks as if it will not work.", 
-                                 md->name, mc->local_443);
-                }
-            }
-            
         }
-        
     }
-    return rv;
+    return APR_SUCCESS;
 }
 
 static apr_status_t link_mds_to_servers(md_mod_conf_t *mc, server_rec *s, 
@@ -740,23 +675,96 @@ static void load_staged_data(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
     }
 }
 
-static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
+static apr_status_t check_invalid_duplicates(server_rec *base_server)
+{
+    server_rec *s;
+    md_srv_conf_t *sc;
+    
+    ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, base_server, 
+                 "cecking duplicate ssl assignments");
+    for (s = base_server; s; s = s->next) {
+        sc = md_config_get(s);
+        if (!sc || !sc->assigned) continue;
+        
+        if (sc->assigned->nelts > 1 && sc->is_ssl) {
+            /* duplicate assignment to SSL VirtualHost, not allowed */
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10042)
+                         "conflict: %d MDs match to SSL VirtualHost %s, there can at most be one.",
+                         (int)sc->assigned->nelts, s->server_hostname);
+            return APR_EINVAL;
+        }
+    }
+    return APR_SUCCESS;
+}
+
+static apr_status_t check_usage(md_mod_conf_t *mc, md_t *md, server_rec *base_server, 
+                                apr_pool_t *p, apr_pool_t *ptemp)
+{
+    server_rec *s;
+    md_srv_conf_t *sc;
+    apr_status_t rv = APR_SUCCESS;
+    int i, has_ssl;
+    apr_array_header_t *servers;
+
+    (void)p;
+    servers = apr_array_make(ptemp, 5, sizeof(server_rec*));
+    has_ssl = 0;
+    for (s = base_server; s; s = s->next) {
+        sc = md_config_get(s);
+        if (!sc || !sc->assigned) continue;
+        for (i = 0; i < sc->assigned->nelts; ++i) {
+            if (md == APR_ARRAY_IDX(sc->assigned, i, md_t*)) {
+                APR_ARRAY_PUSH(servers, server_rec*) = s;
+                if (sc->is_ssl) has_ssl = 1;
+            }
+        }
+    }
+
+    if (!has_ssl && md->require_https > MD_REQUIRE_OFF) {
+        /* We require https for this MD, but do we have a SSL vhost? */
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(10105)
+                     "MD %s does not match any VirtualHost with 'SSLEngine on', "
+                     "but is configured to require https. This cannot work.", md->name);
+    }
+    if (apr_is_empty_array(servers)) {
+        if (md->renew_mode != MD_RENEW_ALWAYS) {
+            /* Not an error, but looks suspicious */
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, base_server, APLOGNO(10045)
+                         "No VirtualHost matches Managed Domain %s", md->name);
+            APR_ARRAY_PUSH(mc->unused_names, const char*)  = md->name;
+        }
+    }
+    return rv;
+}
+
+static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, 
+                               apr_pool_t *p, apr_pool_t *ptemp)
 {
     md_t *md; 
     apr_status_t rv = APR_SUCCESS;
     int i;
     
+    if (APR_SUCCESS != (rv = check_invalid_duplicates(s))) {
+        goto leave;
+    }
+    apr_array_clear(mc->unused_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, md_t *);
 
+        if (APR_SUCCESS != (rv = auto_add_domains(mc, md, s, p))) {
+            goto leave;
+        }
         init_acme_tls_1_domains(md, s);
-
-        if (APR_SUCCESS != (rv = md_reg_reinit_state(mc->reg, (md_t*)md, p))) {
+        if (APR_SUCCESS != (rv = check_usage(mc, md, s, p, ptemp))) {
+            goto leave;
+        }
+        if (APR_SUCCESS != (rv = md_reg_reinit_state(mc->reg, md, p))) {
             ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10172)
                          "%s: error reinitiazing from store", md->name);
-            break;
+            goto leave;
         }
     }
+leave:
     return rv;
 }
 
@@ -920,7 +928,7 @@ static apr_status_t md_post_config_after_ssl(apr_pool_t *p, apr_pool_t *plog,
     mc = sc->mc;
     
     /*7*/
-    if (APR_SUCCESS != (rv = reinit_mds(mc, s, p))) goto leave;
+    if (APR_SUCCESS != (rv = reinit_mds(mc, s, p, ptemp))) goto leave;
     /*8*/
     watched = init_cert_watch_status(mc, p, ptemp, s);
     /*9*/
@@ -1067,10 +1075,12 @@ static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
         return APR_ENOENT;
     }
     else if (sc->assigned->nelts != 1) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(10042)
-                     "conflict: %d MDs match Virtualhost %s which uses SSL, however "
-                     "there can be at most 1.",
-                     (int)sc->assigned->nelts, s->server_hostname);
+        if (!fallback) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(10042)
+                         "conflict: %d MDs match Virtualhost %s which uses SSL, however "
+                         "there can be at most 1.",
+                         (int)sc->assigned->nelts, s->server_hostname);
+        }
         return APR_EINVAL;
     }
     md = APR_ARRAY_IDX(sc->assigned, 0, const md_t*);

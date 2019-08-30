@@ -124,6 +124,7 @@ class TestConf:
     def test_300_009(self):
         assert TestEnv.apache_stop() == 0
         HttpdConf(text="""
+            ServerAdmin admin@not-forbidden.org
             MDMembers manual
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             MDomain example2.org www.example2.org www.example3.org
@@ -131,16 +132,19 @@ class TestConf:
             <VirtualHost *:12346>
                 ServerName example2.org
                 ServerAlias www.example3.org
+                SSLEngine on
             </VirtualHost>
 
             <VirtualHost *:12346>
                 ServerName www.example2.org
                 ServerAlias example2.org
+                SSLEngine on
             </VirtualHost>
 
             <VirtualHost *:12346>
                 ServerName not-forbidden.org
                 ServerAlias example2.org
+                SSLEngine on
             </VirtualHost>
             """).install()
         assert TestEnv.apache_fail() == 0
@@ -163,12 +167,13 @@ class TestConf:
         HttpdConf(text="""
             MDomain not-forbidden.org manual www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
 
-            <VirtualHost *:12346>
+            <VirtualHost *:%s>
                 ServerName not-forbidden.org
                 ServerAlias test3.not-forbidden.org
                 ServerAlias test4.not-forbidden.org
+                SSLEngine on
             </VirtualHost>
-            """).install()
+            """ % (TestEnv.HTTPS_PORT)).install()
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.httpd_error_log_count()
 
@@ -178,12 +183,13 @@ class TestConf:
         HttpdConf(text="""
             MDomain not-forbidden.org auto mail.not-forbidden.org
 
-            <VirtualHost *:12346>
+            <VirtualHost *:%s>
                 ServerName not-forbidden.org
                 ServerAlias test3.not-forbidden.org
                 ServerAlias test4.not-forbidden.org
+                SSLEngine on
             </VirtualHost>
-            """).install()
+            """ % (TestEnv.HTTPS_PORT)).install()
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.httpd_error_log_count()
 
@@ -299,7 +305,7 @@ class TestConf:
                 SSLEngine on
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_fail() == 0, "Server did start for {}".format(line)
+        assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.httpd_error_log_count()
         assert TestEnv.httpd_error_log_scan( re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', but the name/alias not.secret.com itself is not managed. A requested MD certificate will not match ServerName.*") )
 

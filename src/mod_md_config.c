@@ -1015,6 +1015,7 @@ static md_srv_conf_t *config_get_int(server_rec *s, apr_pool_t *p)
     ap_assert(sc);
     if (sc->s != s && p) {
         sc = md_config_merge(p, &defconf, sc);
+        sc->s = s;
         sc->name = apr_pstrcat(p, CONF_S_NAME(s), sc->name, NULL);
         sc->mc = md_mod_conf_get(p, 1);
         ap_set_module_config(s->module_config, &md_module, sc);

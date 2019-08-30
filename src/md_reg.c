@@ -419,7 +419,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
         return APR_ENOENT;
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "update md %s", name);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "md[%s]: update store", name);
     
     if (do_checks && APR_SUCCESS != (rv = check_values(reg, ptemp, updates, fields))) {
         return rv;
@@ -510,9 +510,10 @@ static apr_status_t update_md(md_reg_t *reg, apr_pool_t *p,
 }
 
 apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p, 
-                           const char *name, const md_t *md, int fields)
+                           const char *name, const md_t *md, int fields, 
+                           int check_consistency)
 {
-    return update_md(reg, p, name, md, fields, 1);
+    return update_md(reg, p, name, md, fields, check_consistency);
 }
 
 apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_id) 
@@ -1114,7 +1115,7 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     result =  va_arg(ap, md_result_t*);
     
     if (APR_STATUS_IS_ENOENT(rv = md_load(reg->store, MD_SG_STAGING, md->name, NULL, ptemp))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, ptemp, "%s: nothing staged", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, ptemp, "%s: nothing staged", md->name);
         goto out;
     }
     
@@ -1146,7 +1147,9 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     md_result_set(result, APR_SUCCESS, "new certificate successfully saved in domains");
 
 out:
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ptemp, "%s: load done", md->name);
+    if (!APR_STATUS_IS_ENOENT(rv)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ptemp, "%s: load done", md->name);
+    }
     return rv;
 }
 
