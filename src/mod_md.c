@@ -525,18 +525,10 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10041)
                              "Server %s:%d matches md %s (config %s)", 
                              s->server_hostname, s->port, md->name, sc->name);
-                
-                if (sc->assigned == md) {
-                    /* already matched via another domain name */
-                    goto next_server;
-                }
-                else if (sc->assigned) {
-                    ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10042)
-                                 "conflict: MD %s matches server %s, but MD %s also matches.",
-                                 md->name, s->server_hostname, sc->assigned->name);
-                    return APR_EINVAL;
-                }
-                
+
+                if (!sc->assigned) sc->assigned = apr_array_make(p, 2, sizeof(md_t*));
+                APR_ARRAY_PUSH(sc->assigned, md_t*) = md;
+
                 /* If this server_rec is only for http: requests. Defined
                  * alias names do not matter for this MD.
                  * (see gh issue https://github.com/icing/mod_md/issues/57)
@@ -550,7 +542,6 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
                     }
                 }
 
-                sc->assigned = md;
                 APR_ARRAY_PUSH(servers, server_rec*) = s;
                 
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10043)
@@ -590,6 +581,7 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
                 }
             }
             
+            /* FIXME: need to check after mod_ssl has run */
             if (md->require_https > MD_REQUIRE_OFF) {
                 /* We require https for this MD, but do we have port 443 (or a mapped one)
                  * available? */
@@ -999,20 +991,6 @@ static int md_protocol_switch(conn_rec *c, request_rec *r, server_rec *s,
 /**************************************************************************************************/
 /* Access API to other httpd components */
 
-static int md_is_managed(server_rec *s)
-{
-    md_srv_conf_t *conf = md_config_get(s);
-
-    if (conf && conf->assigned) {
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10076) 
-                     "%s: manages server %s", conf->assigned->name, s->server_hostname);
-        return 1;
-    }
-    ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,  
-                 "server %s is not managed", s->server_hostname);
-    return 0;
-}
-
 static apr_status_t setup_fallback_cert(md_store_t *store, const md_t *md, 
                                         server_rec *s, apr_pool_t *p)
 {
@@ -1060,23 +1038,25 @@ static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
         return APR_ENOENT;
     }
     
+    assert(sc->mc);
+    reg = sc->mc->reg;
+    assert(reg);
+
+    sc->is_ssl = 1;
+
     if (!sc->assigned) {
         /* With the new hooks in mod_ssl, we are invoked for all server_rec. It is
          * therefore normal, when we have nothing to add here. */
         return APR_ENOENT;
     }
-    
-    assert(sc->mc);
-    reg = sc->mc->reg;
-    assert(reg);
-    
-    md = sc->assigned;
-    if (!md) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10115) 
-                     "unable to hand out certificates, as registry can no longer "
-                     "find MD '%s'.", sc->assigned->name);
-        return APR_ENOENT;
+    else if (sc->assigned->nelts != 1) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(10042)
+                     "conflict: %d MDs match Virtualhost %s which uses SSL, however "
+                     "there can be at most 1.",
+                     (int)sc->assigned->nelts, s->server_hostname);
+        return APR_EINVAL;
     }
+    md = APR_ARRAY_IDX(sc->assigned, 0, const md_t*);
     
     rv = md_reg_get_cred_files(pkeyfile, pcertfile, reg, MD_SG_DOMAINS, md, p);
     if (APR_STATUS_IS_ENOENT(rv)) {
@@ -1110,12 +1090,6 @@ static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
                  "%s[state=%d]: providing certificate for server %s", 
                  md->name, md->state, s->server_hostname);
     return rv;
-}
-
-static apr_status_t md_get_certificate(server_rec *s, apr_pool_t *p,
-                                       const char **pkeyfile, const char **pcertfile)
-{
-    return get_certificate(s, p, 1, pcertfile, pkeyfile);
 }
 
 static int md_add_cert_files(server_rec *s, apr_pool_t *p,
@@ -1298,51 +1272,62 @@ static int md_require_https_maybe(request_rec *r)
 {
     const md_srv_conf_t *sc;
     apr_uri_t uri;
-    const char *s;
+    const char *s, *host;
+    const md_t *md;
     int status;
     
-    if (opt_ssl_is_https && r->parsed_uri.path
-        && strncmp(WELL_KNOWN_PREFIX, r->parsed_uri.path, sizeof(WELL_KNOWN_PREFIX)-1)) {
+    /* Requests outside the /.well-known path are subject to possible
+     * https: redirects or HSTS header additions.
+     */
+    sc = ap_get_module_config(r->server->module_config, &md_module);
+    if (!sc || !sc->assigned || !sc->assigned->nelts 
+        || !opt_ssl_is_https || !r->parsed_uri.path
+        || !strncmp(WELL_KNOWN_PREFIX, r->parsed_uri.path, sizeof(WELL_KNOWN_PREFIX)-1)) {
+        goto declined;
+    }
         
-        sc = ap_get_module_config(r->server->module_config, &md_module);
-        if (sc && sc->assigned && sc->assigned->require_https > MD_REQUIRE_OFF) {
-            if (opt_ssl_is_https(r->connection)) {
-                /* Using https:
-                 * if 'permanent' and no one else set a HSTS header already, do it */
-                if (sc->assigned->require_https == MD_REQUIRE_PERMANENT 
-                    && sc->mc->hsts_header && !apr_table_get(r->headers_out, MD_HSTS_HEADER)) {
-                    apr_table_setn(r->headers_out, MD_HSTS_HEADER, sc->mc->hsts_header);
-                }
+    host = ap_get_server_name_for_url(r);
+    md = md_get_for_domain(r->server, host);
+    if (!md) goto declined;
+    
+    if (opt_ssl_is_https(r->connection)) {
+        /* Using https:
+         * if 'permanent' and no one else set a HSTS header already, do it */
+        if (md->require_https == MD_REQUIRE_PERMANENT 
+            && sc->mc->hsts_header && !apr_table_get(r->headers_out, MD_HSTS_HEADER)) {
+            apr_table_setn(r->headers_out, MD_HSTS_HEADER, sc->mc->hsts_header);
+        }
+    }
+    else {
+        if (md->require_https > MD_REQUIRE_OFF) {
+            /* Not using https:, but require it. Redirect. */
+            if (r->method_number == M_GET) {
+                /* safe to use the old-fashioned codes */
+                status = ((MD_REQUIRE_PERMANENT == md->require_https)? 
+                          HTTP_MOVED_PERMANENTLY : HTTP_MOVED_TEMPORARILY);
             }
             else {
-                /* Not using https:, but require it. Redirect. */
-                if (r->method_number == M_GET) {
-                    /* safe to use the old-fashioned codes */
-                    status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
-                              HTTP_MOVED_PERMANENTLY : HTTP_MOVED_TEMPORARILY);
-                }
-                else {
-                    /* these should keep the method unchanged on retry */
-                    status = ((MD_REQUIRE_PERMANENT == sc->assigned->require_https)? 
-                              HTTP_PERMANENT_REDIRECT : HTTP_TEMPORARY_REDIRECT);
-                }
-                
-                s = ap_construct_url(r->pool, r->uri, r);
-                if (APR_SUCCESS == apr_uri_parse(r->pool, s, &uri)) {
-                    uri.scheme = (char*)"https";
-                    uri.port = 443;
-                    uri.port_str = (char*)"443";
-                    uri.query = r->parsed_uri.query;
-                    uri.fragment = r->parsed_uri.fragment;
-                    s = apr_uri_unparse(r->pool, &uri, APR_URI_UNP_OMITUSERINFO);
-                    if (s && *s) {
-                        apr_table_setn(r->headers_out, "Location", s);
-                        return status;
-                    }
+                /* these should keep the method unchanged on retry */
+                status = ((MD_REQUIRE_PERMANENT == md->require_https)? 
+                          HTTP_PERMANENT_REDIRECT : HTTP_TEMPORARY_REDIRECT);
+            }
+            
+            s = ap_construct_url(r->pool, r->uri, r);
+            if (APR_SUCCESS == apr_uri_parse(r->pool, s, &uri)) {
+                uri.scheme = (char*)"https";
+                uri.port = 443;
+                uri.port_str = (char*)"443";
+                uri.query = r->parsed_uri.query;
+                uri.fragment = r->parsed_uri.fragment;
+                s = apr_uri_unparse(r->pool, &uri, APR_URI_UNP_OMITUSERINFO);
+                if (s && *s) {
+                    apr_table_setn(r->headers_out, "Location", s);
+                    return status;
                 }
             }
         }
     }
+declined:
     return DECLINED;
 }
 
@@ -1390,21 +1375,14 @@ static void md_hooks(apr_pool_t *pool)
     APR_OPTIONAL_HOOK(ap, status_hook, md_ocsp_status_hook, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(md_status_handler, NULL, NULL, APR_HOOK_MIDDLE);
 
-#ifdef SSL_CERT_HOOKS
-    (void)md_is_managed;
-    (void)md_get_certificate;
+
+#ifndef SSL_CERT_HOOKS
+#error "This version of mod_md requires Apache httpd 2.4.41 or newer."
+#endif
     APR_OPTIONAL_HOOK(ssl, add_cert_files, md_add_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, add_fallback_cert_files, md_add_fallback_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, answer_challenge, md_answer_challenge, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, init_stapling_status, md_ocsp_init_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, get_stapling_status, md_ocsp_get_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
-#else
-    (void)md_add_cert_files;
-    (void)md_add_fallback_cert_files;
-    (void)md_answer_challenge;
-    APR_REGISTER_OPTIONAL_FN(md_is_challenge);
-    APR_REGISTER_OPTIONAL_FN(md_is_managed);
-    APR_REGISTER_OPTIONAL_FN(md_get_certificate);
-#endif
 }
 

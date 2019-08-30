@@ -112,6 +112,7 @@ static md_srv_conf_t defconf = {
     1,                         /* staple others */
     NULL,                      /* currently defined md */
     NULL,                      /* assigned md, post config */
+    0,                         /* is_ssl, set during mod_ssl post_config */
 };
 
 static md_mod_conf_t *mod_md_config;
@@ -218,7 +219,6 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc = (md_srv_conf_t *)apr_pcalloc(pool, sizeof(md_srv_conf_t));
     nsc->name = name;
     nsc->mc = add->mc? add->mc : base->mc;
-    nsc->assigned = add->assigned? add->assigned : base->assigned;
 
     nsc->transitive = (add->transitive != DEF_VAL)? add->transitive : base->transitive;
     nsc->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
@@ -236,7 +236,6 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->stapling = (add->stapling != DEF_VAL)? add->stapling : base->stapling;
     nsc->staple_others = (add->staple_others != DEF_VAL)? add->staple_others : base->staple_others;
     nsc->current = NULL;
-    nsc->assigned = NULL;
     
     return nsc;
 }
@@ -1095,5 +1094,21 @@ void md_config_get_timespan(md_timeslice_t **pspan, const md_srv_conf_t *sc, md_
         default:
             break;
     }
+}
+
+const md_t *md_get_for_domain(server_rec *s, const char *domain)
+{
+    md_srv_conf_t *sc;
+    const md_t *md;
+    int i;
+    
+    sc = md_config_get(s);
+    for (i = 0; sc && sc->assigned && i < sc->assigned->nelts; ++i) {
+        md = APR_ARRAY_IDX(sc->assigned, i, const md_t*);
+        if (md_contains(md, domain, 0)) goto leave;
+    }
+    md = NULL;
+leave:
+    return md;
 }
 

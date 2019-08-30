@@ -95,7 +95,8 @@ typedef struct md_srv_conf_t {
     int staple_others;                 /* Provide OCSP stapling for non-MD certificates */
 
     md_t *current;                     /* md currently defined in <MDomainSet xxx> section */
-    md_t *assigned;                    /* post_config: MD that applies to this server or NULL */
+    struct apr_array_header_t *assigned; /* post_config: MDs that apply to this server */
+    int is_ssl;                        /* SSLEngine is enabled here */
 } md_srv_conf_t;
 
 void *md_config_create_svr(apr_pool_t *pool, server_rec *s);
@@ -118,5 +119,6 @@ int md_config_geti(const md_srv_conf_t *config, md_config_var_t var);
 
 void md_config_get_timespan(md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var);
 
+const md_t *md_get_for_domain(server_rec *s, const char *domain);
 
 #endif /* md_config_h */
