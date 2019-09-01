@@ -1366,7 +1366,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCertificateProtocol](#mdcertificateprotocol)
 * [MDCertificateStatus](#mdcertificatestatus)
 * [MDChallengeDns01](#mdchallengedns01)
-* [MDRenewMode](#mdrenewemode--renew-mode)
+* [MDRenewMode](#mdrenewmode--renew-mode)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
 * [MDNotifyCmd](#mdnotifycmd)
