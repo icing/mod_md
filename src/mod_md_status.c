@@ -473,7 +473,7 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
     (void)info;
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
     print_time(ctx->bb, "Renew", t);
-    apr_brigade_puts(ctx.bb, NULL, NULL, ": ");
+    apr_brigade_puts(ctx->bb, NULL, NULL, ": ");
     print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
 }
 

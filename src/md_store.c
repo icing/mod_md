@@ -162,6 +162,12 @@ apr_status_t md_store_remove_not_modified_since(md_store_t *store, apr_pool_t *p
     return store->remove_nms(store, p, modified, group, name, aspect);
 }
 
+apr_status_t md_store_rename(md_store_t *store, apr_pool_t *p,
+                             md_store_group_t group, const char *name, const char *to)
+{
+    return store->rename(store, p, group, name, to);
+}
+
 /**************************************************************************************************/
 /* convenience */
 

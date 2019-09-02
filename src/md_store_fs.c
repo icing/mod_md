@@ -83,6 +83,8 @@ static apr_status_t fs_remove_nms(md_store_t *store, apr_pool_t *p,
 static apr_status_t fs_move(md_store_t *store, apr_pool_t *p, 
                             md_store_group_t from, md_store_group_t to, 
                             const char *name, int archive);
+static apr_status_t fs_rename(md_store_t *store, apr_pool_t *p, 
+                            md_store_group_t group, const char *from, const char *to);
 static apr_status_t fs_iterate(md_store_inspect *inspect, void *baton, md_store_t *store, 
                                apr_pool_t *p, md_store_group_t group,  const char *pattern,
                                const char *aspect, md_store_vtype_t vtype);
@@ -282,6 +284,7 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->s.save = fs_save;
     s_fs->s.remove = fs_remove;
     s_fs->s.move = fs_move;
+    s_fs->s.rename = fs_rename;
     s_fs->s.purge = fs_purge;
     s_fs->s.iterate = fs_iterate;
     s_fs->s.iterate_names = fs_iterate_names;
@@ -1031,4 +1034,39 @@ static apr_status_t fs_move(md_store_t *store, apr_pool_t *p,
 {
     md_store_fs_t *s_fs = FS_STORE(store);
     return md_util_pool_vdo(pfs_move, s_fs, p, from, to, name, archive, NULL);
+}
+
+static apr_status_t pfs_rename(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_list ap)
+{
+    md_store_fs_t *s_fs = baton;
+    const char *group_name, *from_dir, *to_dir;
+    md_store_group_t group;
+    const char *from, *to;
+    apr_status_t rv;
+    
+    (void)p;
+    group = (md_store_group_t)va_arg(ap, int);
+    from = va_arg(ap, const char*);
+    to = va_arg(ap, const char*);
+    
+    group_name = md_store_group_name(group);
+    if (   !MD_OK(md_util_path_merge(&from_dir, ptemp, s_fs->base, group_name, from, NULL))
+        || !MD_OK(md_util_path_merge(&to_dir, ptemp, s_fs->base, group_name, to, NULL))) {
+        goto out;
+    }
+    
+    if (APR_SUCCESS != (rv = apr_file_rename(from_dir, to_dir, ptemp))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "rename from %s to %s", 
+                      from_dir, to_dir);
+        goto out;
+    }
+out:
+    return rv;
+}
+
+static apr_status_t fs_rename(md_store_t *store, apr_pool_t *p, 
+                            md_store_group_t group, const char *from, const char *to)
+{
+    md_store_fs_t *s_fs = FS_STORE(store);
+    return md_util_pool_vdo(pfs_rename, s_fs, p, group, from, to, NULL);
 }

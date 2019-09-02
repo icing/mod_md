@@ -196,7 +196,7 @@ class TestConf:
     # test case: MDomain does not match any vhost
     def test_300_012(self):
         HttpdConf(text="""
-            MDomain example3.org www.example3.org
+            MDomain example012.org www.example012.org
             <VirtualHost *:12346>
                 ServerName not-forbidden.org
                 ServerAlias test3.not-forbidden.org

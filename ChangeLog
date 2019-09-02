@@ -1,5 +1,19 @@
- * Refactoring the initialization to distinguish between VirtualHosts where
-   SSLEngine is on or not.
+v2.1.2
+----------------------------------------------------------------------------------------------------
+ * Refactoring the initialization to distinguish between VirtualHost definitions that have 
+   SSLEngine on and those who do not. The advantages are:
+   - No MDPortMap definition is necessary to detect where SSL certificates are needed.
+   - mod_md will only collect ServerName/ServerAlias from VirtualHosts that use SSL.
+   - One can have a 'catch-all' VirtualHost on port 80 using all domains without them 
+     bleeding back into the MD definitions.
+ * Initialization no longer traverses the complete md store, reads configured MD JSON
+   files only once and writes them only when changed. When a new MD is added or
+   an existing one renamed (the first domain member changes), will the store be searched
+   for old definitions and certificates. This search only looks at MDs outside the current
+   set and should remain efficient with many MDs configured.
+   Example: if you have 100 MDs and rename 1, mod_md will see the 99 directories that stayed
+   and load the one unmatched to check for a rename.
+   
 
 v2.1.1
 ----------------------------------------------------------------------------------------------------

@@ -141,6 +141,23 @@ apr_status_t md_data_to_hex(const char **phex, char separator,
 /**************************************************************************************************/
 /* generic arrays */
 
+int md_array_remove_at(struct apr_array_header_t *a, int idx)
+{
+    char *ps, *pe;
+
+    if (idx < 0 || idx >= a->nelts) return 0;
+    if (idx+1 == a->nelts) {
+        --a->nelts;
+    }
+    else {
+        ps = (a->elts + (idx * a->elt_size));
+        pe = ps + a->elt_size;
+        memmove(ps, pe, (a->nelts - (idx+1)) * a->elt_size);
+        --a->nelts;
+    }
+    return 1;
+}
+
 int md_array_remove(struct apr_array_header_t *a, void *elem)
 {
     int i, n, m;
@@ -544,7 +561,7 @@ static apr_status_t match_and_do(md_util_fwalk_t *ctx, const char *path, int dep
                           "candidate=%s matches pattern", finfo.name);
             if (ndepth < ctx->patterns->nelts) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ptemp, "match_and_do "
-                              "need to go deepter");
+                              "need to go deeper");
                 if (APR_DIR == finfo.filetype) { 
                     /* deeper and deeper, irgendwo in der tiefe leuchtet ein licht */
                     rv = md_util_path_merge(&npath, ptemp, path, finfo.name, NULL);

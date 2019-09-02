@@ -162,6 +162,12 @@ apr_status_t md_store_move(md_store_t *store, apr_pool_t *p,
                            const char *name, int archive);
 
 /**
+ * Rename a group member.
+ */
+apr_status_t md_store_rename(md_store_t *store, apr_pool_t *p,
+                             md_store_group_t group, const char *name, const char *to);
+
+/**
  * Get the filename of an item stored in "group/name/aspect". The item does
  * not have to exist.
  */
@@ -178,7 +184,7 @@ int md_store_is_newer(md_store_t *store, md_store_group_t group1, md_store_group
 
 /**
  * Iterate over all names that exist in a group, e.g. there are items matching
- * "group/pattern". The inspect function is called witht the name and NULL aspect
+ * "group/pattern". The inspect function is called with the name and NULL aspect
  * and value.
  */
 apr_status_t md_store_iter_names(md_store_inspect *inspect, void *baton, md_store_t *store, 
@@ -250,6 +256,9 @@ typedef apr_status_t md_store_names_iter_cb(md_store_inspect *inspect, void *bat
 typedef apr_status_t md_store_move_cb(md_store_t *store, apr_pool_t *p, md_store_group_t from, 
                                       md_store_group_t to, const char *name, int archive);
 
+typedef apr_status_t md_store_rename_cb(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
+                                        const char *from, const char *to);
+
 typedef apr_status_t md_store_get_fname_cb(const char **pfname, 
                                            md_store_t *store, md_store_group_t group, 
                                            const char *name, const char *aspect, 
@@ -271,6 +280,7 @@ struct md_store_t {
     md_store_load_cb *load;
     md_store_remove_cb *remove;
     md_store_move_cb *move;
+    md_store_rename_cb *rename;
     md_store_iter_cb *iterate;
     md_store_names_iter_cb *iterate_names;
     md_store_purge_cb *purge;

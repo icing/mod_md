@@ -361,9 +361,9 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert TestEnv.apache_restart() == 0
-        # check: md stays with previous name, complete dns list
+        # check: md overwrite previous name and changes name
         TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 
-                         md="name.testdomain.org", state=1)
+                         md="testdomain.org", state=1)
 
     # test case: remove one md, keep another
     def test_310_203(self):
@@ -397,10 +397,8 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert TestEnv.apache_restart() == 0
-        # check: md keeps its CA and ToS.
         TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
-            ca=TestEnv.ACME_URL_DEFAULT, protocol="ACME", 
-            agreement="http://acme.test.org:4000/terms/v1")
+            ca=TestEnv.ACME_URL_DEFAULT, protocol="ACME")
 
     # test case: remove server admin from md
     def test_310_205(self):
@@ -528,8 +526,8 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert TestEnv.apache_restart() == 0
-        # check: dns list stays as before
-        TestEnv.check_md(dnsList, state=1)
+        # check: dns list changes
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
     # test case: move DNS from one md to another
     def test_310_301(self):

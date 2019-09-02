@@ -251,12 +251,6 @@ md_t *md_get_by_domain(struct apr_array_header_t *mds, const char *domain);
 md_t *md_get_by_dns_overlap(struct apr_array_header_t *mds, const md_t *md);
 
 /**
- * Find the managed domain in the list that, for the given md, 
- * has the same name, or the most number of overlaps in domains
- */
-md_t *md_find_closest_match(struct apr_array_header_t *mds, const md_t *md);
-
-/**
  * Create and empty md record, structures initialized.
  */
 md_t *md_create_empty(apr_pool_t *p);

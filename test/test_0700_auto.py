@@ -408,7 +408,7 @@ class TestAutov1:
         conf.install()
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
-        TestEnv.check_md( new_list, md=nameX )
+        TestEnv.check_md( new_list )
         status = TestEnv.get_certificate_status( nameA )
         assert status['serial'] == certA.get_serial() 
 
@@ -454,7 +454,7 @@ class TestAutov1:
         conf.install()
         # restart, check that host still works and have same cert
         assert TestEnv.apache_restart() == 0
-        TestEnv.check_md( new_list, md=nameX )
+        TestEnv.check_md( new_list )
         status = TestEnv.get_certificate_status( nameA )
         assert status['serial'] == certA.get_serial() 
 

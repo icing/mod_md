@@ -462,8 +462,7 @@ static server_rec *get_public_https_server(md_t *md, const char *domain, server_
     return NULL;
 }
 
-static apr_status_t auto_add_domains(md_mod_conf_t *mc, md_t *md, 
-                                     server_rec *base_server, apr_pool_t *p)
+static apr_status_t auto_add_domains(md_t *md, server_rec *base_server, apr_pool_t *p)
 {
     md_srv_conf_t *sc;
     server_rec *s;
@@ -481,9 +480,6 @@ static apr_status_t auto_add_domains(md_mod_conf_t *mc, md_t *md,
         if (APR_SUCCESS != (rv = md_cover_server(md, s, &updates, p))) {
             return rv;
         }
-    }
-    if (updates) {
-        rv = md_reg_update(mc->reg, p, md->name, md, updates, 0); 
     }
     return rv;
 }
@@ -737,37 +733,6 @@ static apr_status_t check_usage(md_mod_conf_t *mc, md_t *md, server_rec *base_se
     return rv;
 }
 
-static apr_status_t reinit_mds(md_mod_conf_t *mc, server_rec *s, 
-                               apr_pool_t *p, apr_pool_t *ptemp)
-{
-    md_t *md; 
-    apr_status_t rv = APR_SUCCESS;
-    int i;
-    
-    if (APR_SUCCESS != (rv = check_invalid_duplicates(s))) {
-        goto leave;
-    }
-    apr_array_clear(mc->unused_names);
-    for (i = 0; i < mc->mds->nelts; ++i) {
-        md = APR_ARRAY_IDX(mc->mds, i, md_t *);
-
-        if (APR_SUCCESS != (rv = auto_add_domains(mc, md, s, p))) {
-            goto leave;
-        }
-        init_acme_tls_1_domains(md, s);
-        if (APR_SUCCESS != (rv = check_usage(mc, md, s, p, ptemp))) {
-            goto leave;
-        }
-        if (APR_SUCCESS != (rv = md_reg_reinit_state(mc->reg, md, p))) {
-            ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10172)
-                         "%s: error reinitiazing from store", md->name);
-            goto leave;
-        }
-    }
-leave:
-    return rv;
-}
-
 static int init_cert_watch_status(md_mod_conf_t *mc, apr_pool_t *p, apr_pool_t *ptemp, server_rec *s)
 {
     md_t *md;
@@ -900,7 +865,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     /*3*/
     if (APR_SUCCESS != (rv = link_mds_to_servers(mc, s, p, ptemp))) goto leave;
     /*4*/
-    if (APR_SUCCESS != (rv = md_reg_sync(mc->reg, p, ptemp, mc->mds))) {
+    if (APR_SUCCESS != (rv = md_reg_sync_start(mc->reg, p, ptemp, mc->mds))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
                      "synching %d mds to registry", mc->mds->nelts);
         goto leave;
@@ -917,7 +882,8 @@ static apr_status_t md_post_config_after_ssl(apr_pool_t *p, apr_pool_t *plog,
     md_srv_conf_t *sc;
     apr_status_t rv = APR_SUCCESS;
     md_mod_conf_t *mc;
-    int watched;
+    int watched, i;
+    md_t *md;
 
     (void)ptemp;
     (void)plog;
@@ -928,7 +894,26 @@ static apr_status_t md_post_config_after_ssl(apr_pool_t *p, apr_pool_t *plog,
     mc = sc->mc;
     
     /*7*/
-    if (APR_SUCCESS != (rv = reinit_mds(mc, s, p, ptemp))) goto leave;
+    if (APR_SUCCESS != (rv = check_invalid_duplicates(s))) {
+        goto leave;
+    }
+    apr_array_clear(mc->unused_names);
+    for (i = 0; i < mc->mds->nelts; ++i) {
+        md = APR_ARRAY_IDX(mc->mds, i, md_t *);
+
+        if (APR_SUCCESS != (rv = auto_add_domains(md, s, p))) {
+            goto leave;
+        }
+        init_acme_tls_1_domains(md, s);
+        if (APR_SUCCESS != (rv = check_usage(mc, md, s, p, ptemp))) {
+            goto leave;
+        }
+        if (APR_SUCCESS != (rv = md_reg_sync_finish(mc->reg, md, p, ptemp))) {
+            ap_log_error( APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10172)
+                         "md[%s]: error synching to store", md->name);
+            goto leave;
+        }
+    }
     /*8*/
     watched = init_cert_watch_status(mc, p, ptemp, s);
     /*9*/

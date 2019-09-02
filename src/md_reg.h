@@ -67,11 +67,6 @@ md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, a
 md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p);
 
 /**
- * Re-compute the state of the MD, given current store contents.
- */
-apr_status_t md_reg_reinit_state(md_reg_t *reg, md_t *md, apr_pool_t *p);
-
-/**
  * Callback invoked for every md in the registry. If 0 is returned, iteration stops.
  */
 typedef int md_reg_do_cb(void *baton, md_reg_t *reg, md_t *md);
@@ -130,8 +125,13 @@ apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile
 /**
  * Synchronise the give master mds with the store.
  */
-apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
-                         apr_array_header_t *master_mds);
+apr_status_t md_reg_sync_start(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
+                               apr_array_header_t *master_mds);
+/**
+ * Re-compute the state of the MD, given current store contents.
+ */
+apr_status_t md_reg_sync_finish(md_reg_t *reg, md_t *md, apr_pool_t *p, apr_pool_t *ptemp);
+
 
 apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int archive);
 

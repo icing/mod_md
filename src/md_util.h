@@ -60,6 +60,12 @@ apr_status_t md_data_to_hex(const char **phex, char separator,
  */
 int md_array_remove(struct apr_array_header_t *a, void *elem);
 
+/* 
+ * Remove the ith entry from the array.
+ * @return != 0 iff an entry was removed, e.g. idx was not outside range 
+ */
+int md_array_remove_at(struct apr_array_header_t *a, int idx);
+
 /**************************************************************************************************/
 /* string related */
 char *md_util_str_tolower(char *s);
