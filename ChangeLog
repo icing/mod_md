@@ -1,3 +1,5 @@
+ * Removing the ": " in OCSP server-status again when no other information follows.
+
 v2.1.2
 ----------------------------------------------------------------------------------------------------
  * Refactoring the initialization to distinguish between VirtualHost definitions that have 
