@@ -125,8 +125,8 @@ apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile
 /**
  * Synchronise the give master mds with the store.
  */
-apr_status_t md_reg_sync_start(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
-                               apr_array_header_t *master_mds);
+apr_status_t md_reg_sync_start(md_reg_t *reg, apr_array_header_t *master_mds, apr_pool_t *p);
+
 /**
  * Re-compute the state of the MD, given current store contents.
  */

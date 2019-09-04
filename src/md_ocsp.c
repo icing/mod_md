@@ -947,54 +947,77 @@ static apr_status_t job_loadj(md_json_t **pjson, const char *name,
 typedef struct {
     apr_pool_t *p;
     md_ocsp_reg_t *reg;
-    apr_array_header_t *jstats;
+    apr_array_header_t *ostats;
 } ocsp_status_ctx_t;
 
-static int add_jstat(void *baton, const void *key, apr_ssize_t klen, const void *val)
+static md_json_t *mk_jstat(md_ocsp_status_t *ostat, md_ocsp_reg_t *reg, apr_pool_t *p)
 {
-    ocsp_status_ctx_t *ctx = baton;
-    md_ocsp_status_t *ostat = (md_ocsp_status_t *)val;
     md_ocsp_cert_stat_t stat;
     md_timeperiod_t valid, renewal;
     md_json_t *json, *jobj;
     apr_status_t rv;
     
-    (void)key;
-    (void)klen;
-    json = md_json_create(ctx->p);
+    json = md_json_create(p);
     md_json_sets(ostat->md_name, json, MD_KEY_DOMAIN, NULL);
     md_json_sets(ostat->hexid, json, MD_KEY_ID, NULL);
-    ocsp_get_meta(&stat, &valid, ctx->reg, ostat, ctx->p);
+    ocsp_get_meta(&stat, &valid, reg, ostat, p);
     md_json_sets(md_ocsp_cert_stat_name(stat), json, MD_KEY_STATUS, NULL);
     md_json_sets(ostat->hex_sha256, json, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
     md_json_sets(ostat->responder_url, json, MD_KEY_URL, NULL);
     md_json_set_timeperiod(&valid, json, MD_KEY_VALID, NULL);
-    renewal = md_timeperiod_slice_before_end(&valid, &ctx->reg->renew_window);
+    renewal = md_timeperiod_slice_before_end(&valid, &reg->renew_window);
     md_json_set_time(renewal.start, json, MD_KEY_RENEW_AT, NULL);
     if ((MD_OCSP_CERT_ST_UNKNOWN == stat) || renewal.start < apr_time_now()) {
         /* We have no answer yet, or it should be in renew now. Add job information */
-        rv = job_loadj(&jobj, ostat->md_name, ctx->reg, ctx->p);
+        rv = job_loadj(&jobj, ostat->md_name, reg, p);
         if (APR_SUCCESS == rv) {
             md_json_setj(jobj, json, MD_KEY_RENEWAL, NULL);
         }
     }
-    APR_ARRAY_PUSH(ctx->jstats, md_json_t*) = json;
+    return json;
+}
+
+static int add_ostat(void *baton, const void *key, apr_ssize_t klen, const void *val)
+{
+    ocsp_status_ctx_t *ctx = baton;
+    const md_ocsp_status_t *ostat = val;
+    
+    (void)key;
+    (void)klen;
+    APR_ARRAY_PUSH(ctx->ostats, const md_ocsp_status_t*) = ostat;
     return 1;
+}
+
+static int md_ostat_cmp(const void *v1, const void *v2)
+{
+    int n;
+    n = strcmp((*(md_ocsp_status_t**)v1)->md_name, (*(md_ocsp_status_t**)v2)->md_name);
+    if (!n) {
+        n = strcmp((*(md_ocsp_status_t**)v1)->hexid, (*(md_ocsp_status_t**)v2)->hexid);
+    }
+    return n;
 }
 
 void md_ocsp_get_status_all(md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p)
 {
     md_json_t *json;
     ocsp_status_ctx_t ctx;
+    md_ocsp_status_t *ostat;
+    int i;
     
     memset(&ctx, 0, sizeof(ctx));
     ctx.p = p;
     ctx.reg = reg;
-    ctx.jstats = apr_array_make(p, (int)apr_hash_count(reg->hash), sizeof(md_json_t*));
-    apr_hash_do(add_jstat, &ctx, reg->hash);
-
+    ctx.ostats = apr_array_make(p, (int)apr_hash_count(reg->hash), sizeof(md_ocsp_status_t*));
     json = md_json_create(p);
-    md_json_seta(ctx.jstats, md_json_pass_to, NULL, json, MD_KEY_OCSPS, NULL);
+    
+    apr_hash_do(add_ostat, &ctx, reg->hash);
+    qsort(ctx.ostats->elts, (size_t)ctx.ostats->nelts, sizeof(md_json_t*), md_ostat_cmp);
+    
+    for (i = 0; i < ctx.ostats->nelts; ++i) {
+        ostat = APR_ARRAY_IDX(ctx.ostats, i, md_ocsp_status_t*);
+        md_json_addj(mk_jstat(ostat, reg, p), json, MD_KEY_OCSPS, NULL);
+    }
     *pjson = json;
 }
 

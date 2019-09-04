@@ -77,7 +77,7 @@ static const char *duration_print(apr_pool_t *p, int roughly, apr_interval_time_
         int hours = (rem / MD_SECS_PER_HOUR);
         rem = (rem % MD_SECS_PER_HOUR);
         if (hours > 0) {
-            s = apr_psprintf(p, "%s%s%02d hours", s, sep, hours); 
+            s = apr_psprintf(p, "%s%s%d hours", s, sep, hours); 
         if (roughly) return s;
             sep = " "; 
         }
@@ -85,12 +85,12 @@ static const char *duration_print(apr_pool_t *p, int roughly, apr_interval_time_
             int minutes = (rem / 60);
             rem = (rem % 60);
             if (minutes > 0) {
-                s = apr_psprintf(p, "%s%s%02d minutes", s, sep, minutes); 
+                s = apr_psprintf(p, "%s%s%d minutes", s, sep, minutes); 
                 if (roughly) return s;
                 sep = " "; 
             }
             if (rem > 0) {
-                s = apr_psprintf(p, "%s%s%02d seconds", s, sep, rem); 
+                s = apr_psprintf(p, "%s%s%d seconds", s, sep, rem); 
                 if (roughly) return s;
                 sep = " "; 
             }

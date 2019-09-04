@@ -756,8 +756,7 @@ static int iter_add_name(void *baton, const char *dir, const char *name,
  *      - if not, MD is completely new.
  *  4. Any MD in store that does not match the "master_mds" will just be left as is. 
  */
-apr_status_t md_reg_sync_start(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
-                               apr_array_header_t *master_mds) 
+apr_status_t md_reg_sync_start(md_reg_t *reg, apr_array_header_t *master_mds, apr_pool_t *p) 
 {
     sync_ctx_v2 ctx;
     apr_status_t rv;
@@ -765,18 +764,18 @@ apr_status_t md_reg_sync_start(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     const char *name;
     int i, idx;
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, "sync MDs, start");
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "sync MDs, start");
      
-    ctx.p = ptemp;
+    ctx.p = p;
     ctx.master_mds = master_mds;
-    ctx.store_names = apr_array_make(ptemp, master_mds->nelts + 100, sizeof(const char*));
-    ctx.maybe_new_mds = apr_array_make(ptemp, master_mds->nelts, sizeof(md_t*));
-    ctx.new_mds = apr_array_make(ptemp, master_mds->nelts, sizeof(md_t*));
-    ctx.unassigned_mds = apr_array_make(ptemp, master_mds->nelts, sizeof(md_t*));
+    ctx.store_names = apr_array_make(p, master_mds->nelts + 100, sizeof(const char*));
+    ctx.maybe_new_mds = apr_array_make(p, master_mds->nelts, sizeof(md_t*));
+    ctx.new_mds = apr_array_make(p, master_mds->nelts, sizeof(md_t*));
+    ctx.unassigned_mds = apr_array_make(p, master_mds->nelts, sizeof(md_t*));
     
     rv = md_store_iter_names(iter_add_name, &ctx, reg->store, p, MD_SG_DOMAINS, "*");
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ptemp, "listing existing store MD names"); 
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "listing existing store MD names"); 
         goto leave;
     }
     
@@ -793,33 +792,33 @@ apr_status_t md_reg_sync_start(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     if (ctx.maybe_new_mds->nelts == 0) goto leave; /* none new */
     if (ctx.store_names->nelts == 0) goto leave;   /* all new */
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                   "sync MDs, %d potentially new MDs detected, looking for renames among "
                   "the %d unassigned store domains", (int)ctx.maybe_new_mds->nelts,
                   (int)ctx.store_names->nelts);
     for (i = 0; i < ctx.store_names->nelts; ++i) {
         name = APR_ARRAY_IDX(ctx.store_names, i, const char*);
-        if (APR_SUCCESS == md_load(reg->store, MD_SG_DOMAINS, name, &md, ptemp)) {
+        if (APR_SUCCESS == md_load(reg->store, MD_SG_DOMAINS, name, &md, p)) {
             APR_ARRAY_PUSH(ctx.unassigned_mds, md_t*) = md;
         } 
     }
     
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                   "sync MDs, %d MDs maybe new, checking store", (int)ctx.maybe_new_mds->nelts);
     for (i = 0; i < ctx.maybe_new_mds->nelts; ++i) {
         md = APR_ARRAY_IDX(ctx.maybe_new_mds, i, md_t*);
         oldmd = find_closest_match(ctx.unassigned_mds, md);
         if (oldmd) {
             /* found the rename, move the domains and possible staging directory */
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, 
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                           "sync MDs, found MD %s under previous name %s", md->name, oldmd->name);
-            rv = md_store_rename(reg->store, ptemp, MD_SG_DOMAINS, oldmd->name, md->name);
+            rv = md_store_rename(reg->store, p, MD_SG_DOMAINS, oldmd->name, md->name);
             if (APR_SUCCESS != rv) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, ptemp, 
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
                               "sync MDs, renaming MD %s to %s failed", oldmd->name, md->name);
                 /* ignore it? */
             }
-            md_store_rename(reg->store, ptemp, MD_SG_STAGING, oldmd->name, md->name);
+            md_store_rename(reg->store, p, MD_SG_STAGING, oldmd->name, md->name);
             md_array_remove(ctx.unassigned_mds, oldmd);
         }
         else {
@@ -828,7 +827,7 @@ apr_status_t md_reg_sync_start(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp,
     }
 
 leave:
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ptemp, 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                   "sync MDs, %d existing, %d moved, %d new.", 
                   (int)ctx.master_mds->nelts - ctx.maybe_new_mds->nelts,
                   (int)ctx.maybe_new_mds->nelts - ctx.new_mds->nelts,

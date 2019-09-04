@@ -512,7 +512,7 @@ static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
 }
 
 static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *base_server, 
-                                       apr_pool_t *p, apr_pool_t *ptemp)
+                                       apr_pool_t *p)
 {
     server_rec *s;
     request_rec r;
@@ -520,7 +520,6 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
     int i;
     const char *domain, *uri;
     
-    (void)ptemp;
     sc = md_config_get(base_server);
 
     /* Assign the MD to all server_rec configs that it matches. If there already
@@ -564,8 +563,7 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
     return APR_SUCCESS;
 }
 
-static apr_status_t link_mds_to_servers(md_mod_conf_t *mc, server_rec *s, 
-                                            apr_pool_t *p, apr_pool_t *ptemp)
+static apr_status_t link_mds_to_servers(md_mod_conf_t *mc, server_rec *s, apr_pool_t *p)
 {
     int i;
     md_t *md;
@@ -574,7 +572,7 @@ static apr_status_t link_mds_to_servers(md_mod_conf_t *mc, server_rec *s,
     apr_array_clear(mc->unused_names);
     for (i = 0; i < mc->mds->nelts; ++i) {
         md = APR_ARRAY_IDX(mc->mds, i, md_t*);
-        if (APR_SUCCESS != (rv = link_md_to_servers(mc, md, s, p, ptemp))) {
+        if (APR_SUCCESS != (rv = link_md_to_servers(mc, md, s, p))) {
             goto leave;
         }
     }
@@ -863,9 +861,9 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     /*2*/
     if (APR_SUCCESS != (rv = merge_mds_with_conf(mc, p, s, log_level))) goto leave;
     /*3*/
-    if (APR_SUCCESS != (rv = link_mds_to_servers(mc, s, p, ptemp))) goto leave;
+    if (APR_SUCCESS != (rv = link_mds_to_servers(mc, s, p))) goto leave;
     /*4*/
-    if (APR_SUCCESS != (rv = md_reg_sync_start(mc->reg, p, ptemp, mc->mds))) {
+    if (APR_SUCCESS != (rv = md_reg_sync_start(mc->reg, mc->mds, ptemp))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10073)
                      "synching %d mds to registry", mc->mds->nelts);
         goto leave;

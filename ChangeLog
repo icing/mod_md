@@ -1,3 +1,9 @@
+ * OCSP Stapling information in "server-status" is now sorted alphabetically.
+ * add a CA column to Managed Domains table
+ * urls are now displayed as links with the hostname or known name as text.
+ * similary to ocsp status, certificate status 'ok' is now 'good'. Will turn to 'expired'
+   should the certificate validity pass the current clock.
+
 v2.1.2
 ----------------------------------------------------------------------------------------------------
  * Refactoring the initialization to distinguish between VirtualHost definitions that have 

@@ -158,11 +158,15 @@ struct status_info {
 static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     const char *s = "unknown";
+    apr_time_t until;
     (void)info;
-    switch (md_json_getl(mdj, MD_KEY_STATE, NULL)) {
+    switch (md_json_getl(mdj, info->key, NULL)) {
         case MD_S_INCOMPLETE: s = "incomplete"; break;
         case MD_S_EXPIRED_DEPRECATED:
-        case MD_S_COMPLETE: s = "ok"; break;
+        case MD_S_COMPLETE:
+            until = md_json_get_time(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
+            s = (!until || until > apr_time_now())? "good" : "expired"; 
+            break;
         case MD_S_ERROR: s = "error"; break;
         case MD_S_MISSING_INFORMATION: s = "missing information"; break;
         default: break;
@@ -170,7 +174,36 @@ static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *in
     apr_brigade_puts(ctx->bb, NULL, NULL, s);
 }
 
-static void print_date(apr_bucket_brigade *bb, apr_time_t timestamp)
+static void si_val_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    const char *url, *s;
+    apr_uri_t uri_parsed;
+
+    
+    s = url = md_json_gets(mdj, info->key, NULL);
+    if (!url) return;
+    if (!strcmp(LE_ACMEv2_PROD, url)) {
+        s = "Let's Encrypt";
+    }
+    else if (!strcmp(LE_ACMEv2_STAGING, url)) {
+        s = "Let's Encrypt (staging)";
+    }
+    else if (!strcmp(LE_ACMEv1_PROD, url)) {
+        s = "Let's Encrypt (v1)";
+    }
+    else if (!strcmp(LE_ACMEv1_STAGING, url)) {
+        s = "Let's Encrypt (v1,staging)";
+    }
+    else if (APR_SUCCESS == apr_uri_parse(ctx->p, url, &uri_parsed)) {
+        s = uri_parsed.hostname;
+        
+    }
+    apr_brigade_printf(ctx->bb, NULL, NULL, "<a href='%s'>%s</a>", 
+                       ap_escape_html2(ctx->p, url, 1), 
+                       ap_escape_html2(ctx->p, s, 1));
+}
+
+static void print_date(apr_bucket_brigade *bb, apr_time_t timestamp, const char *title)
 {
     if (timestamp > 0) {
         char ts[128];
@@ -179,13 +212,16 @@ static void print_date(apr_bucket_brigade *bb, apr_time_t timestamp)
         apr_size_t len;
         
         apr_time_exp_gmt(&texp, timestamp);
-        apr_strftime(ts, &len, sizeof(ts)-1, "%Y-%m-%dT%H:%M:%SZ", &texp);
+        apr_strftime(ts, &len, sizeof(ts2)-1, "%Y-%m-%d", &texp);
         ts[len] = '\0';
-        apr_strftime(ts2, &len, sizeof(ts2)-1, "%Y-%m-%d", &texp);
-        ts2[len] = '\0';
+        if (!title) {
+            apr_strftime(ts2, &len, sizeof(ts)-1, "%Y-%m-%dT%H:%M:%SZ", &texp);
+            ts2[len] = '\0';
+            title = ts2;
+        }
         apr_brigade_printf(bb, NULL, NULL, 
                            "<span title='%s' style='white-space: nowrap;'>%s</span>", 
-                           ts, ts2);
+                           ap_escape_html2(bb->p, title, 1), ts);
     }
 }
 
@@ -193,7 +229,7 @@ static void print_time(apr_bucket_brigade *bb, const char *label, apr_time_t t)
 {
     apr_time_t now;
     const char *pre, *post, *sep;
-    char ts[128];
+    char ts[APR_RFC822_DATE_LEN];
     char ts2[128];
     apr_time_exp_t texp;
     apr_size_t len;
@@ -204,12 +240,11 @@ static void print_time(apr_bucket_brigade *bb, const char *label, apr_time_t t)
         return;
     }
     apr_time_exp_gmt(&texp, t);
-    apr_strftime(ts, &len, sizeof(ts)-1, "%Y-%m-%dT%H:%M:%SZ", &texp);
-    ts[len] = '\0';
     now = apr_time_now();
     pre = post = "";
     sep = (label && strlen(label))? " " : "";
     delta = 0;
+    apr_rfc822_date(ts, t);
     if (t > now) {
         delta = t - now;
         pre = "in ";
@@ -233,32 +268,56 @@ static void print_time(apr_bucket_brigade *bb, const char *label, apr_time_t t)
 
 static void si_val_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
-    const char *sfrom, *suntil;
-    apr_time_t t;
+    const char *sfrom, *suntil, *sep, *title;
+    apr_time_t from, until;
     
-    (void)info;
-    sfrom = md_json_dups(ctx->p, mdj, MD_KEY_VALID, MD_KEY_FROM, NULL);
-    if (sfrom) {
-        t = apr_date_parse_rfc(sfrom);
-        print_date(ctx->bb, t);
+    sep = NULL;
+    sfrom = md_json_gets(mdj, info->key, MD_KEY_FROM, NULL);
+    from = sfrom? apr_date_parse_rfc(sfrom) : 0;
+    suntil = md_json_gets(mdj, info->key, MD_KEY_UNTIL, NULL);
+    until = suntil?apr_date_parse_rfc(suntil) : 0;
+    
+    if (from > apr_time_now()) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "from ");
+        print_date(ctx->bb, from, sfrom);
+        sep = " ";
     }
-    apr_brigade_puts(ctx->bb, NULL, NULL, " - ");
-    suntil = md_json_dups(ctx->p, mdj, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
-    if (suntil) {
-        t = apr_date_parse_rfc(suntil);
-        print_date(ctx->bb, t);
+    if (until) {
+        if (sep) apr_brigade_puts(ctx->bb, NULL, NULL, sep);
+        apr_brigade_puts(ctx->bb, NULL, NULL, "until ");
+        title = sfrom? apr_psprintf(ctx->p, "%s - %s", sfrom, suntil) : suntil;
+        print_date(ctx->bb, until, title);
     }
+}
+
+static void si_add_header(status_ctx *ctx, const status_info *info)
+{
+    const char *html = ap_escape_html2(ctx->p, info->label, 1);
+    apr_brigade_printf(ctx->bb, NULL, NULL, "<th class=\"%s\">%s</th>", html, html);
 }
 
 static void si_val_cert_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     md_json_t *jcert;
+    status_info sub = *info;
+    
+    sub.key = MD_KEY_VALID;
+    jcert = md_json_getj(mdj, info->key, NULL);
+    if (jcert) si_val_valid_time(ctx, jcert, &sub);
+}
 
-    jcert = md_json_getj(mdj, MD_KEY_CERT, NULL);
-    if (jcert) si_val_valid_time(ctx, jcert, info);
+static void si_val_ca_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    md_json_t *jcert;
+    status_info sub = *info;
+    
+    sub.key = MD_KEY_URL;
+    jcert = md_json_getj(mdj, info->key, NULL);
+    if (jcert) si_val_url(ctx, jcert, &sub);
 }
     
-static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char *key)
+static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char *key, 
+                              const char *separator)
 {
     char buffer[HUGE_STRING_LEN];
     apr_status_t rv;
@@ -274,6 +333,8 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
     errors = (int)md_json_getl(mdj, key, MD_KEY_ERRORS, NULL);
     rv = (apr_status_t)md_json_getl(mdj, key, MD_KEY_LAST, MD_KEY_STATUS, NULL);
     
+    if (separator) apr_brigade_puts(bb, NULL, NULL, separator);
+
     if (rv != APR_SUCCESS) {
         s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
         apr_brigade_printf(bb, NULL, NULL, "Error[%s]: %s", 
@@ -309,7 +370,7 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
 {
     (void)info;
     if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
-        print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
+        print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, NULL);
     }
     else if (md_json_has_key(mdj, MD_KEY_RENEW_AT, NULL)) {
         print_time(ctx->bb, "Renew", md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL));
@@ -380,8 +441,9 @@ static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *
 static const status_info status_infos[] = {
     { "Domain", MD_KEY_NAME, NULL },
     { "Names", MD_KEY_DOMAINS, NULL },
-    { "Status", MD_KEY_STATUS, si_val_status },
-    { "Valid", MD_KEY_VALID, si_val_cert_valid_time },
+    { "Status", MD_KEY_STATE, si_val_status },
+    { "Valid", MD_KEY_CERT, si_val_cert_valid_time },
+    { "CA", MD_KEY_CA, si_val_ca_url },
     { "Stapling", MD_KEY_STAPLING, si_val_stapling },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Activity",  MD_KEY_NOTIFIED, si_val_activity },
@@ -451,9 +513,7 @@ int md_domains_status_hook(request_rec *r, int flags)
         apr_brigade_puts(ctx.bb, NULL, NULL, 
                          "<hr>\n<h3>Managed Domains</h3>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
-            apr_brigade_puts(ctx.bb, NULL, NULL, "<th>");
-            apr_brigade_puts(ctx.bb, NULL, NULL, status_infos[i].label);
-            apr_brigade_puts(ctx.bb, NULL, NULL, "</th>");
+            si_add_header(&ctx, &status_infos[i]);
         }
         apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
         md_json_itera(add_md_row, &ctx, jstatus, MD_KEY_MDS, NULL);
@@ -473,8 +533,7 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
     (void)info;
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
     print_time(ctx->bb, "Renew", t);
-    apr_brigade_puts(ctx->bb, NULL, NULL, ": ");
-    print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL);
+    print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, ": ");
 }
 
 static const status_info ocsp_status_infos[] = {
@@ -482,7 +541,7 @@ static const status_info ocsp_status_infos[] = {
     { "Certificate", MD_KEY_ID, NULL },
     { "Status", MD_KEY_STATUS, NULL },
     { "Valid", MD_KEY_VALID, si_val_valid_time },
-    { "Responder", MD_KEY_URL, NULL },
+    { "Responder", MD_KEY_URL, si_val_url },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Activity",  MD_KEY_NOTIFIED, si_val_ocsp_activity },
 };
@@ -539,11 +598,9 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     else if (md_ocsp_count(mc->ocsp) > 0) {
         md_ocsp_get_status_all(&jstatus, mc->ocsp, r->pool);
         apr_brigade_puts(ctx.bb, NULL, NULL, 
-                         "<hr>\n<h3>OCSP Stapling</h3>\n<table class='md_status'><thead><tr>\n");
+                         "<hr>\n<h3>OCSP Stapling</h3>\n<table class='md_ocsp_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
-            apr_brigade_puts(ctx.bb, NULL, NULL, "<th>");
-            apr_brigade_puts(ctx.bb, NULL, NULL, ocsp_status_infos[i].label);
-            apr_brigade_puts(ctx.bb, NULL, NULL, "</th>");
+            si_add_header(&ctx, &ocsp_status_infos[i]);
         }
         apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
         md_json_itera(add_ocsp_row, &ctx, jstatus, MD_KEY_OCSPS, NULL);
