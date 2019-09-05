@@ -38,8 +38,8 @@ class TestStatus:
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
+    # simple MD, drive it, check status before activation
     def test_920_001(self):
-        # simple MD, drive it, check status before activation
         domain = self.test_domain
         domains = [ domain ]
         conf = HttpdConf()
@@ -67,8 +67,8 @@ class TestStatus:
         assert 'valid' in status
         assert 'from' in status['valid']
 
+    # simple MD, drive it, manipulate staged credentials and check status
     def test_920_002(self):
-        # simple MD, drive it, manipulate staged credentials and check status
         domain = self.test_domain
         domains = [ domain ]
         conf = HttpdConf()
@@ -96,8 +96,8 @@ class TestStatus:
             assert status['renewal']['scts'][1]['logid'] == '293c519654c83965baaa50fc5807d4b76fbf587a2972dca4c30cf4e54547f478'
             assert status['renewal']['scts'][1]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
 
+    # test if switching status off has effect
     def test_920_003(self):
-        # test if switching it off works
         domain = self.test_domain
         domains = [ domain ]
         conf = HttpdConf()

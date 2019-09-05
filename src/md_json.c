@@ -170,18 +170,15 @@ static apr_status_t jselect_add(json_t *val, md_json_t *json, va_list ap)
     j = jselect_parent(&key, 1, json, ap);
     
     if (!j || !json_is_object(j)) {
-        json_decref(val);
         return APR_EINVAL;
     }
     
     aj = json_object_get(j, key);
     if (!aj) {
-        aj = json_array();
         json_object_set_new(j, key, aj);
     }
     
     if (!json_is_array(aj)) {
-        json_decref(val);
         return APR_EINVAL;
     }
 
@@ -229,13 +226,11 @@ static apr_status_t jselect_set(json_t *val, md_json_t *json, va_list ap)
     j = jselect_parent(&key, 1, json, ap);
     
     if (!j) {
-        json_decref(val);
         return APR_EINVAL;
     }
     
     if (key) {
         if (!json_is_object(j)) {
-            json_decref(val);
             return APR_EINVAL;
         }
         json_object_set(j, key, val);

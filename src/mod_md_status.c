@@ -478,6 +478,7 @@ int md_domains_status_hook(request_rec *r, int flags)
     apr_array_header_t *mds;
     md_json_t *jstatus, *jstock;
     
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "server-status for managed domains, start");
     sc = ap_get_module_config(r->server->module_config, &md_module);
     if (!sc) return DECLINED;
     mc = sc->mc;
@@ -493,9 +494,11 @@ int md_domains_status_hook(request_rec *r, int flags)
     qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
 
     if (!html) {
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "no-html summary");
         apr_brigade_puts(ctx.bb, NULL, NULL, "ManagedDomains: ");
         if (mc->mds->nelts > 0) {
             md_status_take_stock(&jstock, mds, mc->reg, r->pool);
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "got JSON summary");
             apr_brigade_printf(ctx.bb, NULL, NULL, "total=%d, ok=%d renew=%d errored=%d ready=%d",
                                 (int)md_json_getl(jstock, MD_KEY_TOTAL, NULL), 
                                 (int)md_json_getl(jstock, MD_KEY_COMPLETE, NULL), 
@@ -509,7 +512,9 @@ int md_domains_status_hook(request_rec *r, int flags)
         apr_brigade_puts(ctx.bb, NULL, NULL, "\n"); 
     }
     else if (mc->mds->nelts > 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "html table");
         md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "got JSON status");
         apr_brigade_puts(ctx.bb, NULL, NULL, 
                          "<hr>\n<h3>Managed Domains</h3>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
@@ -522,6 +527,7 @@ int md_domains_status_hook(request_rec *r, int flags)
 
     ap_pass_brigade(r->output_filters, ctx.bb);
     apr_brigade_cleanup(ctx.bb);
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "server-status for managed domains, end");
     
     return OK;
 }
@@ -569,6 +575,7 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     status_ctx ctx;
     md_json_t *jstatus, *jstock;
     
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "server-status for ocsp stapling, start");
     sc = ap_get_module_config(r->server->module_config, &md_module);
     if (!sc) return DECLINED;
     mc = sc->mc;
@@ -609,6 +616,7 @@ int md_ocsp_status_hook(request_rec *r, int flags)
 
     ap_pass_brigade(r->output_filters, ctx.bb);
     apr_brigade_cleanup(ctx.bb);
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "server-status for ocsp stapling, end");
     
     return OK;
 }

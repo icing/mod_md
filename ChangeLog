@@ -1,3 +1,10 @@
+v2.1.3
+----------------------------------------------------------------------------------------------------
+ * added more trace2 level logging in server-status collection to help issue #141
+ * fixed the status handling to return job information from staging also when the certificate
+   is not there yet.
+ * fixed a bug in JSON handling that decremented refcounters wrongly when setting another
+   JSON object at a key where none was allowed. Added test case.   
  * OCSP Stapling information in "server-status" is now sorted alphabetically.
  * add a CA column to Managed Domains table
  * urls are now displayed as links with the hostname or known name as text.
