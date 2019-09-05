@@ -441,11 +441,13 @@ static server_rec *get_public_https_server(md_t *md, const char *domain, server_
     mc = sc->mc;
     memset(&r, 0, sizeof(r));
     
+    if (!mc->can_https) return NULL;
     /* find an ssl server matching domain from MD */
-    for (s = base_server->next; s; s = s->next) {
+    for (s = base_server; s; s = s->next) {
         sc = md_config_get(s);
         if (!sc || !sc->is_ssl || !sc->assigned) continue;
-        if (mc->local_443 > 0 && !uses_port(s, mc->local_443)) continue;
+        if (base_server == s && !mc->manage_base_server) continue;
+        if (base_server != s && mc->local_443 > 0 && !uses_port(s, mc->local_443)) continue;
         for (i = 0; i < sc->assigned->nelts; ++i) {
             if (md == APR_ARRAY_IDX(sc->assigned, i, md_t*)) {
                 r.server = s;
@@ -455,10 +457,6 @@ static server_rec *get_public_https_server(md_t *md, const char *domain, server_
             }
         }
     }
-    if (mc->manage_base_server && mc->local_443 > 0
-        && md_contains(md, domain, 0)) {
-        return base_server;
-    } 
     return NULL;
 }
 

@@ -533,49 +533,49 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_HTTP01;
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_TLSALPN01;
         APR_ARRAY_PUSH(ad->ca_challenges, const char*) = MD_AUTHZ_TYPE_DNS01;
+
+        if (!d->can_http && !d->can_https 
+            && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0, 0) < 0) {
+            md_result_printf(result, APR_EGENERAL,
+                             "the server seems neither reachable via http (port 80) nor https (port 443). "
+                             "Please look at the MDPortMap configuration directive on how to correct this. "
+                             "The ACME protocol needs at least one of those so the CA can talk to the server "
+                             "and verify a domain ownership. Alternatively, you may configure support "
+                             "for the %s challenge directive.", MD_AUTHZ_TYPE_DNS01);
+            goto leave;
+        }
+
+        dis_http = dis_https = dis_alpn_acme = dis_dns = 0;
+        if (!d->can_http && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_HTTP01, 0, 1) >= 0) {
+            ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_HTTP01, 0);
+            dis_http = 1;
+        }
+        if (!d->can_https && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0, 1) >= 0) {
+            ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
+            dis_https = 1;
+        }
+        if (apr_is_empty_array(d->md->acme_tls_1_domains)
+            && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0, 1) >= 0) {
+            ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
+            dis_alpn_acme = 1;
+        }
+        if (!apr_table_get(d->env, MD_KEY_CMD_DNS01) && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0, 1) >= 0) {
+            ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0);
+            dis_dns = 1;
+        }
+
+        if (apr_is_empty_array(ad->ca_challenges)) {
+            md_result_printf(result, APR_EGENERAL, 
+                             "None of the ACME challenge methods configured for this domain are suitable.%s%s%s%s",
+                             dis_http? " The http: challenge 'http-01' is disabled because the server seems not reachable on public port 80." : "",
+                             dis_https? " The https: challenge 'tls-alpn-01' is disabled because the server seems not reachable on public port 443." : "",
+                             dis_alpn_acme? " The https: challenge 'tls-alpn-01' is disabled because the Protocols configuration does not include the 'acme-tls/1' protocol." : "",
+                             dis_dns? "The DNS challenge 'dns-01' is disabled because the directive 'MDChallengeDns01' is not configured." : ""
+                             );
+            goto leave;
+        }
     }
     
-    if (!d->can_http && !d->can_https 
-        && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0, 0) < 0) {
-        md_result_printf(result, APR_EGENERAL,
-            "the server seems neither reachable via http (port 80) nor https (port 443). "
-            "Please look at the MDPortMap configuration directive on how to correct this. "
-            "The ACME protocol needs at least one of those so the CA can talk to the server "
-            "and verify a domain ownership. Alternatively, you may configure support "
-            "for the %s challenge directive.", MD_AUTHZ_TYPE_DNS01);
-        goto leave;
-    }
-    
-    dis_http = dis_https = dis_alpn_acme = dis_dns = 0;
-    if (!d->can_http && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_HTTP01, 0, 1) >= 0) {
-        ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_HTTP01, 0);
-        dis_http = 1;
-    }
-    if (!d->can_https && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0, 1) >= 0) {
-        ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
-        dis_https = 1;
-    }
-    if (apr_is_empty_array(d->md->acme_tls_1_domains)
-        && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0, 1) >= 0) {
-        ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
-        dis_alpn_acme = 1;
-    }
-    if (!apr_table_get(d->env, MD_KEY_CMD_DNS01) && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0, 1) >= 0) {
-        ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0);
-        dis_dns = 1;
-    }
-
-    if (apr_is_empty_array(ad->ca_challenges)) {
-        md_result_printf(result, APR_EGENERAL, 
-            "None of the ACME challenge methods configured for this domain are suitable.%s%s%s%s",
-            dis_http? " The http: challenge 'http-01' is disabled because the server seems not reachable on public port 80." : "",
-            dis_https? " The https: challenge 'tls-alpn-01' is disabled because the server seems not reachable on public port 443." : "",
-            dis_alpn_acme? " The https: challenge 'tls-alpn-01' is disabled because the Protocols configuration does not include the 'acme-tls/1' protocol." : "",
-            dis_dns? "The DNS challenge 'dns-01' is disabled because the directive 'MDChallengeDns01' is not configured." : ""
-            );
-        goto leave;
-    }
-
 leave:    
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, result->status, d->p, "%s: init driver", d->md->name);
     return result->status;
@@ -595,8 +595,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
 
     if (md_log_is_level(d->p, MD_LOG_DEBUG)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: staging started, "
-                      "state=%d, can_http=%d, can_https=%d, challenges='%s'",
-                      d->md->name, d->md->state, d->can_http, d->can_https,
+                      "state=%d, challenges='%s'", d->md->name, d->md->state, 
                       apr_array_pstrcat(d->p, ad->ca_challenges, ' '));
     }
 
