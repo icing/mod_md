@@ -110,3 +110,20 @@ class TestStatus:
         assert TestEnv.await_completion( [ domain ], restart=False )
         status = TestEnv.get_certificate_status( domain )
         assert not status
+
+    # get the complete md-status JSON, check that it
+    def test_920_004(self):
+        domain = self.test_domain
+        domains = [ domain ]
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_md( domains )
+        conf.add_line("MDCertificateStatus off")
+        conf.add_vhost(domain)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ] )
+        status = TestEnv.get_md_status( "" )
+        assert "version" in status
+        assert "managed-domains" in status
+        assert 1 == len(status["managed-domains"])
