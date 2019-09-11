@@ -22,9 +22,11 @@ BOULDER_DIR    = @BOULDER_DIR@
 EXTRA_DIST     = conf data htdocs
  	
 dist-hook:
-	rm -rf $(distdir)/conf/httpd_http.conf
-	rm -rf $(distdir)/conf/httpd_https.conf
+	rm -rf $(distdir)/conf/httpd.conf
+	rm -rf $(distdir)/conf/proxy.conf
 	rm -rf $(distdir)/conf/modules.conf
+	rm -rf $(distdir)/conf/modules.conf
+	rm -rf $(distdir)/conf/std_vhosts.conf
 	cp -p $(srcdir)/*.py $(distdir)
 
 
@@ -102,10 +104,11 @@ $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/conf/ssl/valid_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_pkey.pem \
+                $(wildcard conf/*.conf) \
                 $(GEN)/ca.pem      
 	@mkdir -p $(SERVER_DIR)/conf/ssl
 	@mkdir -p $(SERVER_DIR)/logs
-	rsync -a --exclude="httpd*" --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
+	rsync -a --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
 	@touch $(SERVER_DIR)/.test-setup
 
 $(SERVER_DIR)/conf/ssl/expired_cert.pem: data/ssl/expired_cert.pem

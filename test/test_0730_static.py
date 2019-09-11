@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 from shutil import copyfile
 
 
@@ -22,7 +22,7 @@ def setup_module(module):
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
-    TestEnv.install_test_conf();
+    HttpdConf().install();
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
@@ -44,7 +44,7 @@ class TestStatus:
         domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
+        TestEnv.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
             serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -76,7 +76,7 @@ class TestStatus:
         domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
+        TestEnv.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
             serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -109,7 +109,7 @@ class TestStatus:
         domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
+        TestEnv.create_self_signed_cert(domains, { "notBefore": -80, "notAfter": 10  },
             serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')

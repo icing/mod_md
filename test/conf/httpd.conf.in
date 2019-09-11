@@ -1,46 +1,13 @@
+User @HTTPD_USER@
 
-Include "conf/global.conf"
+Include "conf/modules.conf"
 
-Listen @HTTP_PORT@
-Listen @HTTPS_PORT@
-Listen @HTTP_PROXY_PORT@
-
-MDPortMap 80:@HTTP_PORT@ 443:@HTTPS_PORT@
-
-<VirtualHost *:@HTTP_PORT@>
-    DocumentRoot "@SERVER_DIR@/htdocs"
-</VirtualHost>
-
-<VirtualHost *:@HTTPS_PORT@>
-    ServerName not-forbidden.org
-    ServerAlias www.not-forbidden.org
+<IfModule log_config_module>
+    LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\" %k" combined
+    LogFormat "%h %l %u %t \"%r\" %>s %b" common
+    CustomLog "logs/access_log" combined
     
-    DocumentRoot "@SERVER_DIR@/htdocs"
-    
-    SSLEngine on
-    SSLCertificateFile conf/ssl/valid_cert.pem
-    SSLCertificateKeyFile conf/ssl/valid_pkey.pem
-
-</VirtualHost>
-
-# forward proxy config
-<VirtualHost *:@HTTP_PROXY_PORT@>
-    ProxyRequests On
-    ProxyVia On
-
-    <Proxy *>
-        Order deny,allow
-        Deny from all
-        Allow from localhost
-    </Proxy> 
-</VirtualHost>
-
-<Location "/server-status">
-    SetHandler server-status
-</Location>
-<Location "/md-status">
-    SetHandler md-status
-</Location>
-
+</IfModule>
 
 Include "conf/test.conf"
+

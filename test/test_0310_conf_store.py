@@ -10,8 +10,8 @@ import time
 from configparser import SafeConfigParser
 from datetime import datetime
 from shutil import copyfile
-from test_base import TestEnv
-from test_base import HttpdConf
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -102,13 +102,13 @@ class TestConf:
     # test case: add to existing md: acme url, acme protocol
     def test_310_104(self):
         name = "testdomain.org"
-        HttpdConf(local=False, text="""
+        HttpdConf(local_CA=False, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
             ca=TestEnv.ACME_URL_DEFAULT, protocol="ACME")
-        HttpdConf(text="""
+        HttpdConf(local_CA=False, text="""
             MDCertificateAuthority http://acme.test.org:4000/directory
             MDCertificateProtocol ACME
             MDCertificateAgreement http://acme.test.org:4000/terms/v1
@@ -384,7 +384,7 @@ class TestConf:
     # test case: remove ca info from md, should switch over to new defaults
     def test_310_204(self):
         name = "testdomain.org"
-        HttpdConf(text="""
+        HttpdConf(local_CA=False, text="""
             MDCertificateAuthority http://acme.test.org:4000/directory
             MDCertificateProtocol ACME
             MDCertificateAgreement http://acme.test.org:4000/terms/v1
@@ -393,7 +393,7 @@ class TestConf:
             """).install()
         assert TestEnv.apache_restart() == 0
         # setup: sync with ca info removed
-        HttpdConf(local=False, text="""
+        HttpdConf(local_CA=False, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert TestEnv.apache_restart() == 0
@@ -546,7 +546,7 @@ class TestConf:
     # test case: change ca info
     def test_310_302(self):
         name = "testdomain.org"
-        HttpdConf(text="""
+        HttpdConf(local_CA=False, text="""
             MDCertificateAuthority http://acme.test.org:4000/directory
             MDCertificateProtocol ACME
             MDCertificateAgreement http://acme.test.org:4000/terms/v1
@@ -555,7 +555,7 @@ class TestConf:
             """).install()
         assert TestEnv.apache_restart() == 0
         # setup: sync with changed ca info
-        HttpdConf(text="""
+        HttpdConf(local_CA=False, text="""
             ServerAdmin mailto:webmaster@testdomain.org
 
             MDCertificateAuthority http://somewhere.com:6666/directory
@@ -579,7 +579,7 @@ class TestConf:
             """).install()
         assert TestEnv.apache_restart() == 0
         # setup: sync with changed admin info
-        HttpdConf(text="""
+        HttpdConf(local_CA=False, text="""
             ServerAdmin mailto:webmaster@testdomain.org
 
             MDCertificateAuthority http://somewhere.com:6666/directory

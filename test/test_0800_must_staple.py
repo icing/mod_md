@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 
 class TestMustStaple:

@@ -9,16 +9,16 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.initv1()
     TestEnv.APACHE_CONF_SRC = "data/test_roundtrip"
     TestEnv.clear_store()
-    TestEnv.install_test_conf(None);
+    HttpdConf().install()
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)

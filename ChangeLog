@@ -1,3 +1,6 @@
+ * Test suite: rework on how httpd config is set up to allow for MDomain tests that use
+   the base server and listen only on one port.
+
 v2.1.4
 ----------------------------------------------------------------------------------------------------
  * added test case for #142 and fixed a bug in JSON array handling introduced in 2.1.3

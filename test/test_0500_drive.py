@@ -10,9 +10,9 @@ import time
 import urllib
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -20,6 +20,7 @@ def setup_module(module):
     TestEnv.check_acme()
     TestEnv.httpd_error_log_clear()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
+    HttpdConf().install()
     assert TestEnv.apache_restart() == 0
 
 def teardown_module(module):
@@ -31,7 +32,7 @@ class TestDrivev1:
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
         TestEnv.clear_store()
-        TestEnv.install_test_conf()
+        HttpdConf().install()
         self.test_domain = TestEnv.get_method_domain(method)
 
     def teardown_method(self, method):
@@ -260,6 +261,7 @@ class TestDrivev1:
         domain = self.test_domain
         name = "www." + domain
         self._prepare_md([ name ])
+        HttpdConf(proxy=True).install()
         assert TestEnv.apache_restart() == 0
 
         # drive it, with wrong proxy url -> FAIL
@@ -488,7 +490,7 @@ class TestDrivev1:
         print("TRACE: start testing renew window: %s" % renewWindow)
         for tc in testDataList:
             print("TRACE: create self-signed cert: %s" % tc["valid"])
-            CertUtil.create_self_signed_cert( [name], tc["valid"])
+            TestEnv.create_self_signed_cert( [name], tc["valid"])
             cert2 = CertUtil( TestEnv.store_domain_file(name, 'pubcert.pem'))
             assert cert2.get_serial() != cert1.get_serial()
             r = TestEnv.a2md([ "-vvvv", "list", name ])

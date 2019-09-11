@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 from shutil import copyfile
 
 
@@ -22,7 +22,7 @@ def setup_module(module):
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
-    TestEnv.install_test_conf();
+    HttpdConf().install();
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
@@ -123,6 +123,40 @@ class TestStatus:
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
+        status = TestEnv.get_md_status( "" )
+        assert "version" in status
+        assert "managed-domains" in status
+        assert 1 == len(status["managed-domains"])
+
+    # get the status of a domain on base server
+    def test_920_010(self):
+        domain = self.test_domain
+        domains = [ domain ]
+        conf = HttpdConf(std_vhosts=False, text="""
+LogLevel md:trace2
+LogLevel ssl:debug
+                
+MDBaseServer on
+MDPortMap http:- https:%s
+
+Listen %s
+ServerAdmin admin@not-forbidden.org
+ServerName %s
+SSLEngine on
+Protocols h2 http/1.1 acme-tls/1
+
+<Location "/server-status">
+    SetHandler server-status
+</Location>
+<Location "/md-status">
+    SetHandler md-status
+</Location>
+            """ % (TestEnv.HTTPS_PORT, TestEnv.HTTPS_PORT, domain))
+        conf.add_md( domains )
+        conf.install()
+        TestEnv.HTTPD_CHECK_URL = TestEnv.HTTPD_URL_SSL
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], restart=False )
         status = TestEnv.get_md_status( "" )
         assert "version" in status
         assert "managed-domains" in status

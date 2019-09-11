@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 
 def setup_module(module):
@@ -21,7 +21,7 @@ def setup_module(module):
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
-    TestEnv.install_test_conf();
+    HttpdConf().install();
     assert TestEnv.apache_start() == 0
     
 
@@ -257,7 +257,7 @@ class TestAutov1:
     def test_700_008a(self):
         domain = self.test_domain
         domains = [ domain ]
-        conf = HttpdConf()
+        conf = HttpdConf(proxy=True)
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "always" )
         conf.add_http_proxy( "http://localhost:%s"  % TestEnv.HTTP_PROXY_PORT)
@@ -294,7 +294,7 @@ class TestAutov1:
         assert stat['serial'] == cert1.get_serial()
         #
         # create self-signed cert, with critical remaining valid duration -> drive again
-        CertUtil.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 2  }, serial=7009)
+        TestEnv.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 2  }, serial=7009)
         cert3 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         assert cert3.get_serial() == '1B61'
         assert TestEnv.apache_restart() == 0

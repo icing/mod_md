@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 
 def setup_module(module):
@@ -21,7 +21,7 @@ def setup_module(module):
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
-    TestEnv.install_test_conf();
+    HttpdConf().install();
     assert TestEnv.apache_start() == 0
     
 

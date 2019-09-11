@@ -162,8 +162,9 @@ apr_status_t md_status_get_md_json(md_json_t **pjson, const md_t *md,
         md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
         rv = job_loadj(&jobj, MD_SG_STAGING, md->name, reg, p);
         if (APR_SUCCESS == rv) {
-            rv = get_staging_cert_json(&certj, p, reg, md);
-            if (APR_SUCCESS == rv) md_json_setj(certj, jobj, MD_KEY_CERT, NULL);
+            if (APR_SUCCESS == get_staging_cert_json(&certj, p, reg, md)) {
+                md_json_setj(certj, jobj, MD_KEY_CERT, NULL);
+            }
             md_json_setj(jobj, mdj, MD_KEY_RENEWAL, NULL);
         }
         else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;

@@ -376,9 +376,10 @@ AC_CONFIG_FILES([
     src/md_version.h
     src/Makefile
     test/Makefile
-    test/conf/global.conf
+    test/conf/proxy.conf
     test/conf/httpd.conf
     test/conf/modules.conf
+    test/conf/std_vhosts.conf
     test/test.ini
 ])
 

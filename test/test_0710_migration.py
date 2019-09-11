@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 
 def setup_module(module):
@@ -21,7 +21,7 @@ def setup_module(module):
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
-    TestEnv.install_test_conf();
+    HttpdConf().install();
     assert TestEnv.apache_start() == 0
     
 
@@ -34,6 +34,7 @@ class TestMigration:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
+        HttpdConf().install()
         TestEnv.httpd_error_log_clear();
         TestEnv.clear_store()
         self.test_domain = TestEnv.get_method_domain(method)
@@ -172,14 +173,13 @@ class TestMigration:
         ca_url = TestEnv.ACME_URL
         
         domains = [ domain, "www." + domain ]
-        conf = HttpdConf()
-        conf.clear()
-        conf.add_admin( "admin@not-forbidden.org" )
-        conf.add_line( "MDCertificateAgreement accepted" )
-        conf.add_line( "MDMembers auto" )
-        conf.start_md2( [ domain ] )
-        conf.add_line( "MDCertificateAuthority %s" % (ca_url) )
-        conf.end_md2()
+        conf = HttpdConf(local_CA=False, text="""
+ServerAdmin admin@not-forbidden.org
+MDCertificateAuthority %s
+MDCertificateAgreement accepted
+MDMembers auto
+            """ % (ca_url))
+        conf.add_md([ domain ])
         conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
@@ -193,11 +193,11 @@ class TestMigration:
         # this changes the default CA url
         assert TestEnv.ACME_URL_DEFAULT != ca_url
         
-        conf = HttpdConf()
-        conf.clear()
-        conf.add_admin( "admin@not-forbidden.org" )
-        conf.add_line( "MDCertificateAgreement accepted" )
-        conf.add_line( "MDMembers auto" )
+        conf = HttpdConf(local_CA=False, text="""
+ServerAdmin admin@not-forbidden.org
+MDCertificateAgreement accepted
+MDMembers auto
+            """)
         conf.start_md( [ domain ] )
         conf.end_md()
         conf.start_md2( [ domainb ] )

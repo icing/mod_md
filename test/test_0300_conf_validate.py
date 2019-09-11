@@ -9,8 +9,8 @@ import time
 
 from configparser import SafeConfigParser
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -19,7 +19,6 @@ PREFIX = config.get('global', 'prefix')
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.init()
-    TestEnv.httpd_error_log_clear()
     TestEnv.clear_store()
     
 def teardown_module(module):
@@ -31,6 +30,7 @@ class TestConf:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
+        TestEnv.httpd_error_log_clear()
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -298,6 +298,7 @@ class TestConf:
     # test case: alt-names incomplete detection, github isse #68
     def test_300_021(self):
         HttpdConf(text="""
+            MDMembers manual
             MDomain secret.com
             <VirtualHost *:12344>
                 ServerName not.secret.com

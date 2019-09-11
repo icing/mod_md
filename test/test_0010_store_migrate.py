@@ -11,11 +11,13 @@ import pytest
 
 from datetime import datetime
 from shutil import copyfile
-from test_base import TestEnv
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.init()
+    HttpdConf().install()
     assert TestEnv.apache_stop() == 0
 
 def teardown_module(module):

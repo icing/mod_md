@@ -1,0 +1,15 @@
+# forward proxy config
+
+Listen @HTTP_PROXY_PORT@
+
+<VirtualHost *:@HTTP_PROXY_PORT@>
+    ProxyRequests On
+    ProxyVia On
+
+    <Proxy *>
+        Order deny,allow
+        Deny from all
+        Allow from localhost
+    </Proxy> 
+</VirtualHost>
+

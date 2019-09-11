@@ -1,4 +1,8 @@
-# test mod_md acme terms-of-service handling
+###################################################################################################
+# md end-to-end test environment class
+#
+# (c) 2019 greenbytes GmbH
+###################################################################################################
 
 import copy
 import json
@@ -16,11 +20,10 @@ from datetime import datetime
 from datetime import tzinfo
 from datetime import timedelta
 from configparser import SafeConfigParser
-from shutil import copyfile
 from http.client import HTTPConnection
 from urllib.parse import urlparse
 
-SEC_PER_DAY = 24 * 60 * 60
+from TestCertUtil import CertUtil
 
 class TestEnv:
 
@@ -43,9 +46,9 @@ class TestEnv:
         cls.APXS = os.path.join(cls.PREFIX, 'bin', 'apxs')
         cls.ERROR_LOG = os.path.join(cls.WEBROOT, "logs", "error_log")
         cls.APACHE_CONF_DIR = os.path.join(cls.WEBROOT, "conf")
+        cls.APACHE_TEST_CONF = os.path.join(cls.APACHE_CONF_DIR, "test.conf")
         cls.APACHE_SSL_DIR = os.path.join(cls.APACHE_CONF_DIR, "ssl")
         cls.APACHE_CONF = os.path.join(cls.APACHE_CONF_DIR, "httpd.conf")
-        cls.APACHE_TEST_CONF = os.path.join(cls.APACHE_CONF_DIR, "test.conf")
         cls.APACHE_CONF_SRC = "data"
         cls.APACHE_HTDOCS_DIR = os.path.join(cls.WEBROOT, "htdocs")
 
@@ -56,7 +59,7 @@ class TestEnv:
         cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
         cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
         cls.HTTPD_PROXY_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PROXY_PORT
-        cls.HTTPD_CHECK_URL = cls.HTTPD_PROXY_URL 
+        cls.HTTPD_CHECK_URL = cls.HTTPD_URL
 
         cls.A2MD      = cls.config.get('global', 'a2md_bin')
         cls.CURL      = cls.config.get('global', 'curl_bin')
@@ -78,7 +81,6 @@ class TestEnv:
         cls.set_store_dir_default()
         cls.set_acme('acmev2')
         cls.clear_store()
-        cls.install_test_conf()
 
     @classmethod
     def set_acme( cls, acme_section ) :
@@ -418,24 +420,10 @@ class TestEnv:
     # --------- control apache ---------
 
     @classmethod
-    def install_test_conf( cls, conf=None) :
-        root_conf_src = os.path.join("conf", "httpd.conf")
-        copyfile(root_conf_src, cls.APACHE_CONF)
-
-        if conf is None:
-            conf_src = os.path.join("conf", "test.conf")
-        elif os.path.isabs(conf):
-            conf_src = conf
-        else:
-            conf_src = os.path.join(cls.APACHE_CONF_SRC, conf + ".conf")
-        copyfile(conf_src, cls.APACHE_TEST_CONF)
-
-    @classmethod
     def apachectl( cls, cmd, conf=None, check_live=True ) :
         if conf:
-            cls.install_test_conf(conf)
+            assert 1 == 0
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd]
-        cls.apachectl_stderr = ""
         p = subprocess.run(args, capture_output=True, text=True)
         cls.apachectl_stderr = p.stderr
         rv = p.returncode
@@ -445,6 +433,8 @@ class TestEnv:
             else:
                 rv = 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 10) else -1
                 print("waited for a apache.is_dead, rv=%d" % rv)
+        else:
+            print("exit %d, stderr: %s" % (rv, p.stderr))
         return rv
 
     @classmethod
@@ -715,281 +705,9 @@ class TestEnv:
                 return stat
             time.sleep(0.1)
         
-# -----------------------------------------------
-# --
-# --     dynamic httpd configuration
-# --
-
-class HttpdConf(object):
-    # Utility class for creating Apache httpd test configurations
-
-    def __init__(self, name="test.conf", local=True, text=None):
-        self.path = os.path.join(TestEnv.GEN_DIR, name)
-        if os.path.isfile(self.path):
-            os.remove(self.path)
-        if local:
-            open(self.path, "a").write((
-                "MDCertificateAuthority %s\n"
-                "MDCertificateAgreement %s\n") % 
-                (TestEnv.ACME_URL, 'accepted')
-            );
-        if text:
-            open(self.path, "a").write(text + "\n")
-
-    def clear(self):
-        if os.path.isfile(self.path):
-            os.remove(self.path)
-
-    def _add_line(self, line):
-        open(self.path, "a").write(line + "\n")
-
-    def add_line(self, line):
-        self._add_line(line)
-
-    def add_drive_mode(self, mode):
-        self._add_line("  MDRenewMode %s\n" % mode)
-
-    def add_renew_window(self, window):
-        self._add_line("  MDRenewWindow %s\n" % window)
-
-    def add_private_key(self, keyType, keyParams):
-        self._add_line("  MDPrivateKeys %s %s\n" % (keyType, " ".join(map(lambda p: str(p), keyParams))) )
-
-    def add_admin(self, email):
-        self._add_line("  ServerAdmin mailto:%s\n\n" % email)
-
-    def add_md(self, domains):
-        self._add_line("  MDomain %s\n\n" % " ".join(domains))
-
-    def start_md(self, domains):
-        self._add_line("  <MDomain %s>\n" % " ".join(domains))
-        
-    def start_md2(self, domains):
-        self._add_line("  <MDomainSet %s>\n" % " ".join(domains))
-
-    def end_md(self):
-        self._add_line("  </MDomain>\n")
-
-    def end_md2(self):
-        self._add_line("  </MDomainSet>\n")
-
-    def add_must_staple(self, mode):
-        self._add_line("  MDMustStaple %s\n" % mode)
-
-    def add_ca_challenges(self, type_list):
-        self._add_line("  MDCAChallenges %s\n" % " ".join(type_list))
-
-    def add_http_proxy(self, url):
-        self._add_line("  MDHttpProxy %s\n" % url)
-
-    def add_require_ssl(self, mode):
-        self._add_line("  MDRequireHttps %s\n" % mode)
-
-    def add_notify_cmd(self, cmd):
-        self._add_line("  MDNotifyCmd %s\n" % cmd)
-
-    def add_message_cmd(self, cmd):
-        self._add_line("  MDMessageCmd %s\n" % cmd)
-
-    def add_dns01_cmd(self, cmd):
-        self._add_line("  MDChallengeDns01 %s\n" % cmd)
-
-    def add_vhost(self, domains, port=None, docRoot="htdocs"):
-        self.start_vhost(domains, port=port, docRoot=docRoot)
-        self.end_vhost()
-
-    def start_vhost(self, domains, port=None, docRoot="htdocs"):
-        if not isinstance(domains, list):
-            domains = [domains]
-        if not port:
-            port = TestEnv.HTTPS_PORT 
-        f = open(self.path, "a") 
-        f.write("<VirtualHost *:%s>\n" % port)
-        f.write("    ServerName %s\n" % domains[0])
-        for alias in domains[1:]:
-            f.write("    ServerAlias %s\n" % alias )
-        f.write("    DocumentRoot %s\n\n" % docRoot)
-        if TestEnv.HTTPS_PORT == port:
-            f.write("    SSLEngine on\n")
-                  
-    def end_vhost(self):
-        self._add_line("</VirtualHost>\n\n")
-
-    def install(self):
-        TestEnv.install_test_conf(self.path)
-
-# -----------------------------------------------
-# --
-# --     certificate handling
-# --
-
-class CertUtil(object):
-    # Utility class for inspecting certificates in test cases
-    # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
-
     @classmethod
-    def create_self_signed_cert( cls, nameList, validDays, serial=1000, path=None ):
-        domain = nameList[0]
-        ddir = path if path else os.path.join(TestEnv.store_domains(), domain)
-        if not os.path.exists(ddir):
-            os.makedirs(ddir)
-
-        cert_file =  os.path.join(ddir, 'pubcert.pem')
-        pkey_file = os.path.join(ddir, 'privkey.pem')
-        # create a key pair
-        if os.path.exists(pkey_file):
-            key_buffer = open(pkey_file, 'rt').read()
-            k = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_buffer)
-        else:
-            k = OpenSSL.crypto.PKey()
-            k.generate_key(OpenSSL.crypto.TYPE_RSA, 1024)
-
-        # create a self-signed cert
-        cert = OpenSSL.crypto.X509()
-        cert.get_subject().C = "DE"
-        cert.get_subject().ST = "NRW"
-        cert.get_subject().L = "Muenster"
-        cert.get_subject().O = "greenbytes GmbH"
-        cert.get_subject().CN = domain
-        cert.set_serial_number(serial)
-        cert.gmtime_adj_notBefore( validDays["notBefore"] * SEC_PER_DAY)
-        cert.gmtime_adj_notAfter( validDays["notAfter"] * SEC_PER_DAY)
-        cert.set_issuer(cert.get_subject())
-
-        cert.add_extensions([ OpenSSL.crypto.X509Extension(
-            b"subjectAltName", False, b", ".join( map(lambda n: b"DNS:" + n.encode(), nameList) )
-        ) ])
-        cert.set_pubkey(k)
-        cert.sign(k, 'sha1')
-
-        open(cert_file, "wt").write(
-            OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert).decode('utf-8'))
-        open(pkey_file, "wt").write(
-            OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, k).decode('utf-8'))
-
-    @classmethod
-    def load_server_cert( cls, hostIP, hostPort, hostName ):
-        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        connection = OpenSSL.SSL.Connection(ctx, s)
-        connection.connect((hostIP, int(hostPort)))
-        connection.setblocking(1)
-        connection.set_tlsext_host_name(hostName.encode('utf-8'))
-        connection.do_handshake()
-        peer_cert = connection.get_peer_certificate()
-        return CertUtil( None, cert=peer_cert )
-
-
-    def __init__(self, cert_path, cert=None):
-        if cert_path is not None:
-            self.cert_path = cert_path
-            # load certificate and private key
-            if cert_path.startswith("http"):
-                cert_data = TestEnv.get_plain(cert_path, 1)
-            else:
-                cert_data = CertUtil._load_binary_file(cert_path)
-
-            for file_type in (OpenSSL.crypto.FILETYPE_PEM, OpenSSL.crypto.FILETYPE_ASN1):
-                try:
-                    self.cert = OpenSSL.crypto.load_certificate(file_type, cert_data)
-                except Exception as error:
-                    self.error = error
-        if cert is not None:
-            self.cert = cert
-
-        if self.cert is None:
-            raise self.error
-
-    def get_issuer(self):
-        return self.cert.get_issuer()
-
-    def get_serial(self):
-        return ("%lx" % (self.cert.get_serial_number())).upper()
-
-    def get_not_before(self):
-        tsp = self.cert.get_notBefore()
-        return self._parse_tsp(tsp)
-
-    def get_not_after(self):
-        tsp = self.cert.get_notAfter()
-        return self._parse_tsp(tsp)
-
-    def get_cn(self):
-        return self.cert.get_subject().CN
-
-    def get_key_length(self):
-        return self.cert.get_pubkey().bits()
-
-    def get_san_list(self):
-        text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
-        m = re.search(r"X509v3 Subject Alternative Name:\s*(.*)", text)
-        sans_list = []
-        if m:
-            sans_list = m.group(1).split(",")
-        def _strip_prefix(s): 
-            return s.split(":")[1]  if  s.strip().startswith("DNS:")  else  s.strip()
-        return list(map(_strip_prefix, sans_list))
-
-    def get_must_staple(self):
-        text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
-        m = re.search(r"1.3.6.1.5.5.7.1.24:\s*\n\s*0....", text)
-        if not m:
-            # Newer openssl versions print this differently
-            m = re.search(r"TLS Feature:\s*\n\s*status_request\s*\n", text)
-        return m != None
-
-    @classmethod
-    def validate_privkey(cls, privkey_path, passphrase=None):
-        privkey_data = cls._load_binary_file(privkey_path)
-        privkey = None
-        if passphrase:
-            privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data, passphrase)
-        else:
-            privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
-        return privkey.check()
-
-    def validate_cert_matches_priv_key(self, privkey_path):
-        # Verifies that the private key and cert match.
-        privkey_data = CertUtil._load_binary_file(privkey_path)
-        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
-        context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
-        context.use_privatekey(privkey)
-        context.use_certificate(self.cert)
-        context.check_privatekey()
-
-    # --------- _utils_ ---------
-
-    def astr(self, s):
-        return s.decode('utf-8')
-        
-    def _parse_tsp(self, tsp):
-        # timestampss returned by PyOpenSSL are bytes
-        # parse date and time part
-        s = ("%s-%s-%s %s:%s:%s" % (self.astr(tsp[0:4]), self.astr(tsp[4:6]), self.astr(tsp[6:8]), 
-            self.astr(tsp[8:10]), self.astr(tsp[10:12]), self.astr(tsp[12:14])))
-        timestamp =  datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
-        # adjust timezone
-        tz_h, tz_m = 0, 0
-        m = re.match(r"([+\-]\d{2})(\d{2})", self.astr(tsp[14:]))
-        if m:
-            tz_h, tz_m = int(m.group(1)),  int(m.group(2))  if  tz_h > 0  else  -1 * int(m.group(2))
-        return timestamp.replace(tzinfo = self.FixedOffset(60 * tz_h + tz_m))
-
-    @classmethod
-    def _load_binary_file(cls, path):
-        with open(path, mode="rb")	 as file:
-            return file.read()
-
-    class FixedOffset(tzinfo):
-
-        def __init__(self, offset):
-            self.__offset = timedelta(minutes = offset)
-
-        def utcoffset(self, dt):
-            return self.__offset
-
-        def tzname(self, dt):
-            return None
-
-        def dst(self, dt):
-            return timedelta(0)
+    def create_self_signed_cert( cls, nameList, validDays, serial=1000, path=None):
+        dir = path
+        if not path:
+            dir = os.path.join(cls.store_domains(), nameList[0])
+        return CertUtil.create_self_signed_cert(dir, nameList, validDays, serial)

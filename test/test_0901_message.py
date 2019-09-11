@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 
 def setup_module(module):
@@ -21,7 +21,7 @@ def setup_module(module):
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
-    TestEnv.install_test_conf();
+    HttpdConf().install();
     assert TestEnv.apache_start() == 0
     
 
@@ -107,7 +107,7 @@ class TestMessage:
         domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_901_010')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(domains, { "notBefore": -70, "notAfter": 20  },
+        TestEnv.create_self_signed_cert(domains, { "notBefore": -70, "notAfter": 20  },
             serial=901010, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
@@ -131,7 +131,7 @@ class TestMessage:
         domains = [ domain, 'www.%s' % domain ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_901_011')
         # cert that is only 10 more days valid
-        CertUtil.create_self_signed_cert(domains, { "notBefore": -85, "notAfter": 5  },
+        TestEnv.create_self_signed_cert(domains, { "notBefore": -85, "notAfter": 5  },
             serial=901011, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')

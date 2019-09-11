@@ -10,9 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 
 class TestStapling:
@@ -333,7 +333,7 @@ class TestStapling:
         domains = [ md ]
         testpath = os.path.join(TestEnv.GEN_DIR, 'test_801_009')
         # cert that is 30 more days valid
-        CertUtil.create_self_signed_cert(domains, { "notBefore": -60, "notAfter": 30  },
+        TestEnv.create_self_signed_cert(domains, { "notBefore": -60, "notAfter": 30  },
             serial=801009, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		755F874C1F273ECB00871895 /* global.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = global.conf.in; sourceTree = "<group>"; };
 		75EDD0811F13BE96003CBD39 /* test_0600_roundtrip.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0600_roundtrip.py; sourceTree = "<group>"; };
 		75EDD0821F14E75A003CBD39 /* expired_cert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_cert.pem; sourceTree = "<group>"; };
 		75EDD0831F14E75A003CBD39 /* expired_pkey.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expired_pkey.pem; sourceTree = "<group>"; };
@@ -22,6 +21,10 @@
 		B2123B8C1F2DD7A200267CAF /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		B2123B8D1F2DD7A200267CAF /* test_md_json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_json.c; sourceTree = "<group>"; };
 		B2123B8E1F2DD7A200267CAF /* test_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test_common.h; sourceTree = "<group>"; };
+		B2127371232909C400BB7C30 /* proxy.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = proxy.conf.in; sourceTree = "<group>"; };
+		B212737223290AEC00BB7C30 /* std_vhosts.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = std_vhosts.conf.in; sourceTree = "<group>"; };
+		B212737323290E2500BB7C30 /* TestHttpdConf.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = TestHttpdConf.py; sourceTree = "<group>"; };
+		B212737423290E5B00BB7C30 /* TestCertUtil.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = TestCertUtil.py; sourceTree = "<group>"; };
 		B2307ED520E2562100487AD7 /* test.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test.ini; sourceTree = "<group>"; };
 		B23C47E722F1A45900B8F494 /* test_0740_acme_errors.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0740_acme_errors.py; sourceTree = "<group>"; };
 		B24052151EF9145000E36701 /* md_core.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_core.c; sourceTree = "<group>"; };
@@ -46,7 +49,7 @@
 		B24052291EF9145000E36701 /* md.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md.h; sourceTree = "<group>"; };
 		B255730A1EE6CF6100E0B132 /* test_0100_reg_add.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0100_reg_add.py; sourceTree = "<group>"; };
 		B255730B1EE6CF6100E0B132 /* test_0110_reg_update.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0110_reg_update.py; sourceTree = "<group>"; };
-		B255730C1EE6D11200E0B132 /* test_base.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_base.py; sourceTree = "<group>"; };
+		B255730C1EE6D11200E0B132 /* TestEnv.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = TestEnv.py; sourceTree = "<group>"; };
 		B255730D1EE956B000E0B132 /* test_0500_drive.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0500_drive.py; sourceTree = "<group>"; };
 		B262F6E01EFCFE1100D396A1 /* test1.example.org.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test1.example.org.conf; sourceTree = "<group>"; };
 		B26A4BD822A5107F00D002BC /* test_0920_status.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0920_status.py; sourceTree = "<group>"; };
@@ -139,7 +142,6 @@
 		B2D309AA1EBA229F007BECC8 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
 		B2D309F71EC1AD26007BECC8 /* test.ini.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.ini.in; sourceTree = "<group>"; };
 		B2D31AEC1EC1B506007BECC8 /* mime.types */ = {isa = PBXFileReference; lastKnownFileType = text; path = mime.types; sourceTree = "<group>"; };
-		B2D31AED1EC1B506007BECC8 /* test.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.conf; sourceTree = "<group>"; };
 		B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = modules.conf.in; sourceTree = "<group>"; };
 		B2D31B071EC33CBE007BECC8 /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
 		B2FB5A431F57087400856773 /* test_0010_store_migrate.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0010_store_migrate.py; sourceTree = "<group>"; };
@@ -312,9 +314,11 @@
 				B2944E3122B9353E00466BEE /* test_0901_message.py */,
 				B2A93D132297E14600BC6339 /* test_0910_cleanups.py */,
 				B26A4BD822A5107F00D002BC /* test_0920_status.py */,
-				B255730C1EE6D11200E0B132 /* test_base.py */,
 				B2307ED520E2562100487AD7 /* test.ini */,
 				B2D309F71EC1AD26007BECC8 /* test.ini.in */,
+				B212737423290E5B00BB7C30 /* TestCertUtil.py */,
+				B255730C1EE6D11200E0B132 /* TestEnv.py */,
+				B212737323290E2500BB7C30 /* TestHttpdConf.py */,
 				B2123B851F2DD7A200267CAF /* unit */,
 			);
 			path = test;
@@ -324,11 +328,11 @@
 			isa = PBXGroup;
 			children = (
 				B2A93D122292D7A400BC6339 /* httpd.conf.in */,
-				755F874C1F273ECB00871895 /* global.conf.in */,
 				B2D31AEC1EC1B506007BECC8 /* mime.types */,
 				B2D31AF41EC1B5C6007BECC8 /* modules.conf.in */,
 				B2B81ED01F13B74B00E35CA3 /* mytest.org.conf */,
-				B2D31AED1EC1B506007BECC8 /* test.conf */,
+				B2127371232909C400BB7C30 /* proxy.conf.in */,
+				B212737223290AEC00BB7C30 /* std_vhosts.conf.in */,
 			);
 			path = conf;
 			sourceTree = "<group>";

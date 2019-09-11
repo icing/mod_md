@@ -9,9 +9,9 @@ import sys
 import time
 
 from datetime import datetime
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
@@ -28,7 +28,7 @@ class TestRoundtripv2:
     @classmethod
     def setup_class(cls):
         TestEnv.clear_store()
-        TestEnv.install_test_conf(None)
+        HttpdConf().install()
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
