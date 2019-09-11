@@ -1358,15 +1358,15 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDomain](#mdomain)
 * [\<MDomainSet\>](#mdomainset--md-specific-settings)
 * [MDCAChallenges](#mdcachallenges)
-* [MDCertificateAgreement](##mdcertificateagreement--terms-of-service)
+* [MDCertificateAgreement](#mdcertificateagreement--terms-of-service)
 * [MDCertificateAuthority](#mdcertificateauthority)
-* [MDCertificateFile](##mdcertificatefile)
-* [MDCertificateKeyFile](##mdcertificatekeyfile)
+* [MDCertificateFile](#mdcertificatefile)
+* [MDCertificateKeyFile](#mdcertificatekeyfile)
 * [MDCertificateMonitor](#mdcertificatemonitor)
 * [MDCertificateProtocol](#mdcertificateprotocol)
 * [MDCertificateStatus](#mdcertificatestatus)
 * [MDChallengeDns01](#mdchallengedns01)
-* [MDRenewMode](#mdrenewemode--renew-mode)
+* [MDRenewMode](#mdrenewmode--renew-mode)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
 * [MDNotifyCmd](#mdnotifycmd)
@@ -1375,7 +1375,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDPrivateKeys](#mdprivatekeys)
 * [MDHttpProxy](#mdhttpproxy)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
-* [MDWarnWindow](#mdwarnwindow)
+* [MDWarnWindow](#MDWarnWindow--When-to-warn)
 * [MDServerStatus](#mdserverstatus)
 * [MDStapling](#mdstapling)
 * [MDStapleOthers](#mdstapleothers)
@@ -1720,7 +1720,7 @@ without using any ACME certificate management.
 ## MDStapleOthers
 
 ***Enable stapling for certificates not managed by mod_md.***<BR/>
-`MDStapling on|off`<BR/>
+`MDStaplingOthers on|off`<BR/>
 Default: `on`
 
 This setting only takes effect when `MDStapling` is enabled. It controls if `mod_md` should
