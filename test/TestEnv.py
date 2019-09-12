@@ -575,8 +575,8 @@ class TestEnv:
         return stat
 
     @classmethod
-    def get_server_status(cls, timeout=60):
-        return TestEnv.get_content("localhost", "/server-status/")
+    def get_server_status(cls, query="/", timeout=60):
+        return TestEnv.get_content("localhost", "/server-status%s" % (query))
 
     @classmethod
     def await_completion(cls, names, must_renew=False, restart=True, timeout=60):

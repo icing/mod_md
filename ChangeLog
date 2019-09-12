@@ -1,3 +1,7 @@
+v2.1.5
+----------------------------------------------------------------------------------------------------
+ * fixed a crash when the server-status page was retrieved in text form (e.g. server-status?auto 
+   url) and a MDomain had been renewed. Test case added. Fixes #141.
  * Test suite: rework on how httpd config is set up to allow for MDomain tests that use
    the base server and listen only on one port.
 

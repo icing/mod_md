@@ -161,3 +161,14 @@ Protocols h2 http/1.1 acme-tls/1
         assert "version" in status
         assert "managed-domains" in status
         assert 1 == len(status["managed-domains"])
+        # get the html page
+        status = TestEnv.get_server_status()
+        assert re.search(r'<h3>Managed Domains</h3>', status, re.MULTILINE)
+        # get the ascii summary
+        status = TestEnv.get_server_status(query="?auto")
+        m = re.search(r'ManagedDomains: total=(\d+), ok=(\d+) renew=(\d+) errored=(\d+) ready=(\d+)', status, re.MULTILINE)
+        assert 1 == int(m.group(1))
+        assert 0 == int(m.group(2))
+        assert 1 == int(m.group(3))
+        assert 0 == int(m.group(4))
+        assert 1 == int(m.group(5))

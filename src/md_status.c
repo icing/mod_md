@@ -356,7 +356,7 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
                            md_reg_t *reg, apr_pool_t *p)
 {
     const md_t *md;
-    md_job_t job;
+    md_job_t *job;
     int i, complete, renewing, errored, ready, total;
     md_json_t *json;
 
@@ -370,14 +370,13 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
             case MD_S_INCOMPLETE:
                 if (md_reg_should_renew(reg, md, p)) {
                     ++renewing;
-                    memset(&job, 0, sizeof(job));
-                    job.mdomain = md->name;
-                    if (APR_SUCCESS == md_job_load(&job)) {
-                        if (job.error_runs > 0 
-                            || (job.last_result && job.last_result->status != APR_SUCCESS)) {
+                    job = md_reg_job_make(reg, md->name, p);
+                    if (APR_SUCCESS == md_job_load(job)) {
+                        if (job->error_runs > 0 
+                            || (job->last_result && job->last_result->status != APR_SUCCESS)) {
                             ++errored;
                         }
-                        else if (job.finished) {
+                        else if (job->finished) {
                             ++ready;
                         }
                     }
