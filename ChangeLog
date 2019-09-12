@@ -1,3 +1,5 @@
+ * documented how MDCAChallenges now overrides any port sanity checks.
+
 v2.1.5
 ----------------------------------------------------------------------------------------------------
  * fixed a crash when the server-status page was retrieved in text form (e.g. server-status?auto 

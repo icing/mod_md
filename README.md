@@ -396,6 +396,8 @@ The most common cause is that you request a wildcard certificate, e.g. `*.mydoma
 
 Another cause: if your server is not reachable on port 80 and you have not configured `acme-tls/1` (see [TLS ALPN Challenges](#tls-alpn-challenges) for details). Again, mod_md is not able to select a challenge for Let's Encrypt to perform.
 
+Read the [chapter about ports](#ports-ports-ports) for more information about what is going on and what you can do.
+
 
 # Advanced HowTos
 
@@ -1142,26 +1144,75 @@ This gives users better performance and improved security as they start using ``
 
 # Ports Ports Ports
 
-When Let's Encrypt needs to verify that you are really who you claim to be, ***their*** servers contact ***your*** server. They open a connection to you. And they open it on port 80 for `http-01` challenges and on port 443 for `tls-alpn-01` challenges.
+When Let's Encrypt (LE) needs to verify that you are really who you claim to be, ***their*** servers contact ***your*** server. 
 
-The actual challenge used is negotiated. `mod_md` sends our domain names to LE. LE sends a list of challenge options for these back. `mod_md` selects the one it prefers and considers _available_. It does not make sense to choose `http-01` if your Apache does not listen on port 80. Same for `tls-alpn-01` and port 443.
+They open a connection to you. And they open it on port 80 for `http-01` challenges and on port 443 for `tls-alpn-01` challenges (and they ask your DNS server for `dns-01` challenges).
 
-(The third challenge option, `dns-01`, is discussed in the chapter about [wildcard certificate](#wildcard-certificates).
+When a certificate is being renewed, LE gives your Apache a menu of choices. For most certificates, it offers all 3 challenge methods. However, if you ask for a wildcard certificate, it will offer only `dns-01`. It is then the task of `mod_md` to choose one.
 
-If your server is not reachable on the ports needed, the domain renewal will fail. You will see a corresponding error message in [server-status](#monitoring).
+In order to select a challenge type, `mod_md` needs to figure out which types will work with your Apache. Each
+challenge type has its own prerequisites. If your server is standing in the wild, open internet, this is relatively easy:
 
-OTOH, some servers do not listen on 80/443, but are nevertheless reachable on those ports. The common cause is a firewall/router that does _port mapping_. How should `mod_md` know? Well you need to tell it that:
+ * `http-01` works if your server listens on port 80.
+ * `tls-alpn-01`works if your server listens on port 443, `SSLEngine` is `on` and `Protocols` contains `acme-tls/1` (relatively)
+ * `dns-01` works if you have configured a `MDChallengeDns01` command and know what you do.
+
+So, if LE offers only `A` and `B` type challenges and both do not meet the requirements, `mod_md` will give up and report an error on renewal.
+
+However, its analysis may be faulty! Your server is unlikely to run naked in the internet. Firewalls will most likely be involved. Some people use these (and other things) to do *port mapping*.
+
+For example, the firewall might forward all incoming connections to port 80 to the port 8888 of your Apache. In this case, `mod_md` should look for port 8888 instead of 80. The configuration for this is:
 
 ```
-    MDPortMap http:8001 https:8002
+MDPortMap http:8888    # http: connections from LE arrive at port 8888
 ```
-Which says: _"when someone on the internet opens port 80, it arrives at Apache on port 8001"_.
+
+Another example is that your firewall blocks port 80. No `http:` connections can be made from the internet to your server. Your Apache might listen on port 80, but you use it only for access from your local network. In such a setup, you configure:
+
+```
+MDPortMap http:-       # http: connections from LE do not arrive at all
+```
+
+The same is possible for `https:` connections.
+
+And yet, things can even get more interesting. One may configure a server with more than one IP address and have `VirtualHost`s that listen only to one. Some domains might be reachable from LE via `http:` and some might not. In such highly specific setups, admins need to directly configure which challenges to use:
+
+```
+<MDomain abc.com>
+    MDCAChallenges http-01
+</MDomain>
+
+<MDomain xyz.com>
+    MDCAChallenges tls-alpn-01
+</MDomain>
+```
+
+If challenges are directly configured this way, `mod_md` will no longer guess and use the one given. You may still configure a range of challenges in order of preference:
+
+```
+<MDomain abc.com>
+    MDCAChallenges tls-alpn-01 http-01
+</MDomain>
+```
+
+Meaning, if offered by LE, `tls-alpn-01` will be selected, otherwise `http-01`. (And when that was also not offered, the process will fail.)
+
+You can also use such a configuration for all your managed domains in a global setting:
+
+```
+MDCAChallenges tls-alpn-01
+MDomain abc.com
+MDomain xyz.com
+```
+
+In other words, all your domains should use `tls-alpn-01` for certicate renewal. And no checks please, as you know what you are doing.
+
 
 # TLS ALPN Challenges
 
 Port 443 ([see ports](#ports-ports-ports) is the one required for the challenge type `tls-alpn-01`.
 
-This ACME challenge type is designed to fix the weaknesses of the former ```tls-sni-01``` challenge type that is no longer available. Let's Encrypt will open a TLS connection to your Apache for the protocol named ```acme-tls/1```. 
+This ACME challenge type is designed to fix the weaknesses of the former ```tls-sni-01``` challenge type that is no longer available. Let's Encrypt will open a TLS connection to your Apache domain for the protocol named ```acme-tls/1```. 
 
 This protocol string is send in the application layer protocol names (ALPN) extensions of SSL.
 
@@ -1172,9 +1223,6 @@ Protocols h2 http/1.1 acme-tls/1
 ```
 
 Then, the new challenge type is usable.
-
-***HOWEVER*** (there is always a catch, is there not?): for now, you 'll also need a patched ```mod_ssl```to make this work. The patch is included here in the release, but patching and compiling ```mod_ssl``` might not be everyone's cup of tea. If you do *not* have a patched mod_ssl, you can still run the new mod_md, but  not ```tls-alpn-01``` will not work.
-
 
 # Wildcard Certificates
 
@@ -1422,9 +1470,9 @@ Since version 2.0.4, you can also use the shorter `<MDomain name>` variant. The 
 
 ***Type of ACME challenge***<BR/>
 `MDCAChallenges name [ name ... ]`<BR/>
-Default: `tls-sni-01 http-01`
+Default: `tls-alpn-01 http-01`
 
-Currently implemented are `tls-sni-01` and `http-01` challenge methods.
+Currently implemented are `tls-alpn-01` and `http-01` challenge methods.
 
 ## MDCertificateAgreement / Terms of Service
 
