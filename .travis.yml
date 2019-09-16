@@ -1,13 +1,20 @@
-language: c
+#language: c
 sudo: required
+
+os:
+    - linux
+
+compiler:
+    - gcc
+    - clang
 
 addons:
     apt:
         config:
             retries: true
-        sources: &common_sources
+        sources:
             - ubuntu-toolchain-r-test
-        packages: &common_packages
+        packages:
             - gcc-8
             - apache2
             - apache2-dev
@@ -28,24 +35,26 @@ matrix:
           compiler: gcc
           dist: disco
           env:
-              - MATRIX_EVAL="BASE_OS=ubuntu-disco-gcc-8"
-          addons:
-              apt:
-                  sources:
-                      - *common_sources
-                  packages:
-                      - *common_packages
+              - MY_ENV="BASE_OS=ubuntu-disco-gcc-8"
+
 
 before_install:
-    - eval "${MATRIX_EVAL}"
+    - eval "${MY_ENV}"
+
+
+install:
+    - echo "installting..."
+
 
 before_script: 
     - ./buildconf
+
 
 script: 
     - |
         dpkg --listfiles apache2 && apxs && 
         ./configure && make clean && make && make install
+
 
 branches:
     only:
