@@ -24,14 +24,22 @@ matrix:
   include
     - os: linux
       compiler: gcc
-        dist: cosmic
-        env:
-        addons:
-          apt:
-            sources:
-             - *common_sources
-            packages:
-             - *common_packages
+      dist: cosmic
+      addons:
+        apt:
+          sources:
+            - *common_sources
+          packages:
+            - *common_packages
+    - os: linux
+      compiler: gcc
+      dist: xenial
+      addons:
+        apt:
+          sources:
+            - *common_sources
+          packages:
+            - *common_packages
 
 jobs:
   include:
