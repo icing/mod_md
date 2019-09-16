@@ -3,6 +3,8 @@ sudo: required
 
 os:
     - linux
+dist:
+    - bionic
 
 compiler:
     - gcc
@@ -10,6 +12,7 @@ compiler:
 
 addons:
     apt:
+        update: true
         config:
             retries: true
         sources:
@@ -33,7 +36,6 @@ matrix:
     include:
         - os: linux
           compiler: gcc
-          dist: disco
           env:
               - MY_ENV="BASE_OS=ubuntu-disco-gcc-8"
 
