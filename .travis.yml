@@ -32,9 +32,6 @@ matrix:
           sources:
             - *common_sources
           packages:
-            - apache2
-            - apache2-dev
-            - apache2-ssl-dev
             - *common_packages
 
 #    - os: linux
@@ -67,7 +64,10 @@ install: skip
 
 before_script: ./buildconf
 
-script: ./configure && make clean && make && make install
+script: |
+    dpkg --listfiles apache2 &&
+    apxs && 
+    ./configure && make clean && make && make install
 
 #services:
 # - docker
