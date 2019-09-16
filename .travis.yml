@@ -1,4 +1,4 @@
-#language: c
+language: c
 sudo: required
 
 os:
@@ -54,7 +54,6 @@ before_script:
 
 script: 
     - |
-        dpkg --listfiles apache2 && apxs && 
         ./configure && make clean && make && make install
 
 
