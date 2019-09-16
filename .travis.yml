@@ -1,9 +1,6 @@
 language: c
 sudo: required
 
-services:
- - docker
-
 addons:
   apt:
     config:
@@ -36,16 +33,15 @@ matrix:
             packages:
              - *common_packages
 
-before_script:
-  - ./buildconf
-
 jobs:
   include:
     - stage: compile
-      before_script:
+      before_install:
         - ./buildconf
-      script: |
-        ./configure --with-apxs=/usr/bin/apxs && make clean && make
+      install: |
+        ./configure --with-apxs=/usr/bin/apxs && 
+        make clean && make && make install
+      script: echo "ok."
 
 stages:
   - compile
@@ -54,6 +50,9 @@ branches:
   only:
     - master
 
-script:
-  - docker build . -t icing/mod_md
+#services:
+# - docker
+#
+#script:
+#  - docker build . -t icing/mod_md
 
