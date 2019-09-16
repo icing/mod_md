@@ -1,40 +1,51 @@
 language: c
 sudo: required
 
+addons:
+    apt:
+        config:
+            retries: true
+        sources: &common_sources
+            - ubuntu-toolchain-r-test
+        packages: &common_packages
+            - gcc-8
+            - apache2
+            - apache2-dev
+            - apache2-ssl-dev
+            - libssl1.1
+            - libssl-dev
+            - libnghttp2-14
+            - libnghttp2-dev
+            - libcurl4
+            - libcurl4-openssl-dev
+            - libjansson4
+            - libjansson-dev
+            - python3
+
 matrix:
     include:
         - os: linux
           compiler: gcc
           dist: disco
+          env:
+              - MATRIX_EVAL="BASE_OS=ubuntu-disco-gcc-8"
           addons:
               apt:
                   sources:
-                      - ubuntu-toolchain-r-test
+                      - *common_sources
                   packages:
-                      - gcc-8
-                      - apache2
-                      - apache2-dev
-                      - apache2-ssl-dev
-                      - libssl1.1
-                      - libssl-dev
-                      - libnghttp2-14
-                      - libnghttp2-dev
-                      - libcurl4
-                      - libcurl4-openssl-dev
-                      - libjansson4
-                      - libjansson-dev
-                      - python3
-          env:
-              - MATRIX_EVAL="BASE_OS=ubuntu-disco-gcc-8"
+                      - *common_packages
 
 before_install:
     - eval "${MATRIX_EVAL}"
 
-before_script: ./buildconf
+before_script: 
+    - ./buildconf
 
-script: |
-    dpkg --listfiles apache2 && apxs && 
-    ./configure && make clean && make && make install
+script: 
+    - |
+        dpkg --listfiles apache2 && apxs && 
+        ./configure && make clean && make && make install
 
 branches:
     only:
