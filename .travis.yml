@@ -6,8 +6,6 @@ matrix:
         - os: linux
           compiler: gcc
           dist: disco
-          env:
-              - DISTRO=disco
           addons:
               apt:
                   sources:
@@ -26,16 +24,21 @@ matrix:
                       - libjansson4
                       - libjansson-dev
                       - python3
+          env:
+              - MATRIX_EVAL="BASE_OS=ubuntu-disco-gcc-8"
 
-branches:
-    only:
-        - master
+before_install:
+    - eval "${MATRIX_EVAL}"
 
 before_script: ./buildconf
 
 script: |
     dpkg --listfiles apache2 && apxs && 
     ./configure && make clean && make && make install
+
+branches:
+    only:
+        - master
 
 #services:
 # - docker
