@@ -4,28 +4,28 @@ sudo: required
 matrix:
     include:
         - os: linux
-        compiler: gcc
-        dist: disco
-        env:
-            - DISTRO=disco
-        addons:
-            apt:
-                sources:
-                    - ubuntu-toolchain-r-test
-                packages:
-                    - gcc-8
-                    - apache2
-                    - apache2-dev
-                    - apache2-ssl-dev
-                    - libssl1.1
-                    - libssl-dev
-                    - libnghttp2-14
-                    - libnghttp2-dev
-                    - libcurl4
-                    - libcurl4-openssl-dev
-                    - libjansson4
-                    - libjansson-dev
-                    - python3
+          compiler: gcc
+          dist: disco
+          env:
+              - DISTRO=disco
+          addons:
+              apt:
+                  sources:
+                      - ubuntu-toolchain-r-test
+                  packages:
+                      - gcc-8
+                      - apache2
+                      - apache2-dev
+                      - apache2-ssl-dev
+                      - libssl1.1
+                      - libssl-dev
+                      - libnghttp2-14
+                      - libnghttp2-dev
+                      - libcurl4
+                      - libcurl4-openssl-dev
+                      - libjansson4
+                      - libjansson-dev
+                      - python3
 
 branches:
     only:
