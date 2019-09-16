@@ -32,6 +32,9 @@ matrix:
           sources:
             - *common_sources
           packages:
+            - apache2
+            - apache2-dev
+            - apache2-ssl-dev
             - *common_packages
 
 #    - os: linux
