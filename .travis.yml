@@ -1,75 +1,40 @@
 language: c
 sudo: required
 
-addons:
-  apt:
-    config:
-      retries: true
-    sources: &common_sources
-      - ubuntu-toolchain-r-test
-    packages: &common_packages
-      - gcc-8
-      - apache2
-      - apache2-dev
-      - apache2-ssl-dev
-      - libssl1.1
-      - libssl-dev
-      - libnghttp2-14
-      - libnghttp2-dev
-      - libcurl4
-      - libcurl4-openssl-dev
-      - libjansson4
-      - libjansson-dev
-      - python3
-
 matrix:
-  include:
-    - os: linux
-      compiler: gcc
-      dist: disco
-      addons:
-        apt:
-          sources:
-            - *common_sources
-          packages:
-            - apache2
-            - apache2-dev
-            - apache2-ssl-dev
-            - *common_packages
-
-#    - os: linux
-#      compiler: gcc
-#      dist: xenial
-#      addons:
-#        apt:
-#          sources:
-#            - *common_sources
-#          packages:
-#            - *common_packages
-
-#jobs:
-#  include:
-#    - stage: compile
-#      install: skip
-#      before_script: ./buildconf
-#      script: |
-#        ./configure --with-apxs=/usr/bin/apxs && 
-#        make clean && make && make install
-#
-#stages:
-#  - compile
+    include:
+        - os: linux
+        compiler: gcc
+        dist: disco
+        env:
+            - DISTRO=disco
+        addons:
+            apt:
+                sources:
+                    - ubuntu-toolchain-r-test
+                packages:
+                    - gcc-8
+                    - apache2
+                    - apache2-dev
+                    - apache2-ssl-dev
+                    - libssl1.1
+                    - libssl-dev
+                    - libnghttp2-14
+                    - libnghttp2-dev
+                    - libcurl4
+                    - libcurl4-openssl-dev
+                    - libjansson4
+                    - libjansson-dev
+                    - python3
 
 branches:
-  only:
-    - master
-
-#install: skip
+    only:
+        - master
 
 before_script: ./buildconf
 
 script: |
-    dpkg --listfiles apache2 &&
-    apxs && 
+    dpkg --listfiles apache2 && apxs && 
     ./configure && make clean && make && make install
 
 #services:
