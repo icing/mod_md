@@ -60,10 +60,3 @@
 #branches:
 #    only:
 #        - master
-
-services:
- - docker
-
-script:
-  - docker build . -t icing/mod_md
-
