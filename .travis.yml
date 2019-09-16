@@ -3,12 +3,6 @@ sudo: required
 
 os:
     - linux
-dist:
-    - bionic
-
-compiler:
-    - gcc
-    - clang
 
 addons:
     apt:
@@ -30,23 +24,23 @@ addons:
             - libcurl4-openssl-dev
             - libjansson4
             - libjansson-dev
-            - python3
 
 matrix:
     include:
         - os: linux
+          dist: disco
           compiler: gcc
           env:
-              - MY_ENV="BASE_OS=ubuntu-disco-gcc-8"
+            - MY_ENV="BASE_OS=ubuntu-disco-gcc-8"
+          before_install:
+            - sudo apt-get install -y apache2 apache2-dev apache2-ssl-dev libssl1.1
+                libssl-dev libnghttp2-14 libnghttp2-dev libcurl4 libcurl4-openssl-dev
+                libjansson4 libjansson-dev
+
 
 
 before_install:
     - eval "${MY_ENV}"
-
-
-install:
-    - echo "installting..."
-
 
 before_script: 
     - ./buildconf
