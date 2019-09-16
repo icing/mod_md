@@ -1,7 +1,59 @@
+language: c
 sudo: required
 
 services:
  - docker
 
+addons:
+  apt:
+    config:
+      retries: true
+    sources: &common_sources
+      - ubuntu-toolchain-r-test
+    packages: &common_packages
+      - gcc-8
+      - apache2
+      - apache2-dev
+      - apache2-ssl-dev
+      - libnghttp2-14
+      - libnghttp2-dev
+      - libcurl4
+      - libcurl4-openssl-dev
+      - libjansson4
+      - libjansson-dev
+      - python3
+
+matrix:
+  include
+    - os: linux
+      compiler: gcc
+        dist: cosmic
+        env:
+        addons:
+          apt:
+            sources:
+             - *common_sources
+            packages:
+             - *common_packages
+
+before_script:
+  - ./buildconf
+
+jobs:
+  include:
+    - stage: compile
+      before_script:
+        - ./buildconf
+      script: |
+        ./configure --with-apxs=/usr/bin/apxs && make clean && make
+
+stages:
+  - compile
+
+branches:
+  only:
+    - master
+
 script:
- - docker build . -t icing/mod_md
+  - docker build . -t icing/mod_md
+
