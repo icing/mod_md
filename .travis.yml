@@ -60,7 +60,7 @@ branches:
   only:
     - master
 
-install: skip
+#install: skip
 
 before_script: ./buildconf
 
