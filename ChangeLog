@@ -1,3 +1,4 @@
+ * starting to integrate with travis for build and test coverage 
  * documented how MDCAChallenges now overrides any port sanity checks.
 
 v2.1.5
