@@ -63,9 +63,7 @@ install: skip
 
 before_script: ./buildconf
 
-script: |
-  ./configure --with-apxs=/usr/bin/apxs2 &&
-  make clean && make && make install
+script: ./configure && make clean && make && make install
 
 #services:
 # - docker
