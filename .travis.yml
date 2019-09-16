@@ -64,7 +64,7 @@ install: skip
 before_script: ./buildconf
 
 script: |
-  ./configure &&
+  ./configure --with-apxs=/usr/bin/apxs2 &&
   make clean && make && make install
 
 #services:
