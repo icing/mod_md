@@ -33,15 +33,15 @@ matrix:
             - *common_sources
           packages:
             - *common_packages
-    - os: linux
-      compiler: gcc
-      dist: xenial
-      addons:
-        apt:
-          sources:
-            - *common_sources
-          packages:
-            - *common_packages
+#    - os: linux
+#      compiler: gcc
+#      dist: xenial
+#      addons:
+#        apt:
+#          sources:
+#            - *common_sources
+#          packages:
+#            - *common_packages
 
 #jobs:
 #  include:
@@ -64,7 +64,7 @@ install: skip
 before_script: ./buildconf
 
 script: |
-  ./configure --with-apxs=/usr/bin/apxs && 
+  ./configure &&
   make clean && make && make install
 
 #services:
