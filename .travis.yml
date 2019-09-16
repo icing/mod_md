@@ -12,6 +12,8 @@ addons:
       - apache2
       - apache2-dev
       - apache2-ssl-dev
+      - libssl1.1
+      - libssl-dev
       - libnghttp2-14
       - libnghttp2-dev
       - libcurl4
