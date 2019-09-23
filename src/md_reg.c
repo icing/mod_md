@@ -965,6 +965,7 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     md_proto_driver_t *driver, **pdriver;
     md_result_t *result;
     apr_table_t *env;
+    const char *s;
     int preload;
     
     (void)p;
@@ -986,6 +987,11 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     driver->md = md;
     driver->can_http = reg->can_http;
     driver->can_https = reg->can_https;
+    
+    s = apr_table_get(driver->env, MD_KEY_ACTIVATION_DELAY);
+    if (!s || APR_SUCCESS != md_duration_parse(&driver->activation_delay, s, "d")) {
+        driver->activation_delay = apr_time_from_sec(MD_SECS_PER_DAY);
+    }
 
     if (!md->ca_proto) {
         md_result_printf(result, APR_EGENERAL, "CA protocol is not defined"); 

@@ -204,6 +204,7 @@ struct md_proto_driver_t {
     int can_http;
     int can_https;
     int reset;
+    apr_interval_time_t activation_delay;
 };
 
 typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, struct md_result_t *result);

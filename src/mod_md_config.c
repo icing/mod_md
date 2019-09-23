@@ -912,6 +912,22 @@ static const char *md_config_set_cert_check(cmd_parms *cmd, void *dc,
     return NULL;
 }
 
+static const char *md_config_set_activation_delay(cmd_parms *cmd, void *mconfig, const char *arg)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    apr_interval_time_t delay;
+
+    (void)mconfig;
+    if (err) {
+        return err;
+    }
+    if (md_duration_parse(&delay, arg, "d") != APR_SUCCESS) {
+        return "unrecognized duration format";
+    }
+    apr_table_set(sc->mc->env, MD_KEY_ACTIVATION_DELAY, md_duration_format(cmd->pool, delay));
+    return NULL;
+}
 
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
@@ -983,6 +999,8 @@ const command_rec md_cmds[] = {
                   "Time length for renewal before OCSP responses expire (defaults to days)."),
     AP_INIT_TAKE2("MDCertificateCheck", md_config_set_cert_check, NULL, RSRC_CONF, 
                   "Set name and URL pattern for a certificate monitoring site."),
+    AP_INIT_TAKE1("MDActivationDelay", md_config_set_activation_delay, NULL, RSRC_CONF, 
+                  "How long to delay activation of new certificates"),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

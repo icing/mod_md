@@ -151,6 +151,11 @@ static const char *duration_format(apr_pool_t *p, apr_interval_time_t duration)
     return s;
 }
 
+const char *md_duration_format(apr_pool_t *p, apr_interval_time_t duration)
+{
+    return duration_format(p, duration);
+}
+
 apr_status_t md_duration_parse(apr_interval_time_t *ptimeout, const char *value, 
                                const char *def_unit)
 {

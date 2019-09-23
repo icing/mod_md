@@ -86,6 +86,12 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
     /* Evaluate again on loaded value. Values will change when watchdog switches child process */
     if (apr_time_now() < job->next_run) return;
     
+    job->next_run = 0;
+    if (job->finished && (md_job_log_get_time_of_latest(job, "message-renewed") != 0)) {
+        /* finished and notification handled, nothing to do. */
+        goto leave;
+    }
+    
     md = md_get_by_name(dctx->mc->mds, job->mdomain);
     AP_DEBUG_ASSERT(md);
 
@@ -129,9 +135,6 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
             }
             
             if (md_job_log_get_time_of_latest(job, "message-renewed") == 0) {
-                ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, dctx->s, APLOGNO(10059) 
-                             "The Managed Domain %s has been setup and changes "
-                             "will be activated on next (graceful) server restart.", md->name);
                 md_job_notify(job, "renewed", result);
                 if (APR_SUCCESS != result->status) {
                     /* we treat this as an error that triggers retries */

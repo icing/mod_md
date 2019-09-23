@@ -108,6 +108,7 @@ struct md_t {
 
 #define MD_KEY_ACCOUNT          "account"
 #define MD_KEY_ACME_TLS_1       "acme-tls/1"
+#define MD_KEY_ACTIVATION_DELAY "activation-delay"
 #define MD_KEY_ACTIVITY         "activity"
 #define MD_KEY_AGREEMENT        "agreement"
 #define MD_KEY_AUTHORIZATIONS   "authorizations"

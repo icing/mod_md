@@ -50,6 +50,7 @@ const char *md_duration_roughly(apr_pool_t *p, apr_interval_time_t duration);
  */
 apr_status_t md_duration_parse(apr_interval_time_t *ptimeout, const char *value, 
                                const char *def_unit);
+const char *md_duration_format(apr_pool_t *p, apr_interval_time_t duration);
 
 typedef struct {
     apr_interval_time_t norm; /* if > 0, normalized base length */

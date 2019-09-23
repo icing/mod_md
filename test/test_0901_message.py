@@ -37,6 +37,7 @@ class TestMessage:
         TestEnv.clear_store()
         self.test_domain = TestEnv.get_method_domain(method)
         self.mcmd = ("%s/message.py" % TestEnv.TESTROOT)
+        self.mcmdfail = ("%s/notifail.py" % TestEnv.TESTROOT)
         self.mlog = ("%s/message.log" % TestEnv.GEN_DIR)
         if os.path.isfile(self.mlog):
             os.remove(self.mlog)
@@ -97,6 +98,43 @@ class TestMessage:
         assert stat["renewal"]["last"]["status"] == 0
         assert stat["renewal"]["log"]["entries"]
         assert stat["renewal"]["log"]["entries"][0]["type"] == "message-renewed"
+        nlines = open(self.mlog).readlines()
+        assert 1 == len(nlines)
+        assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+
+    # test issue #145: 
+    # - a server renews a valid certificate and is not restarted when recommended
+    # - the job did not clear its next_run and was run over and over again
+    # - the job logged the re-verifications again and again. which was saved.
+    # - this eventually flushed out the "message-renew" log entry
+    # - which caused the renew message handling to trigger again and again
+    # the fix does:
+    # - reset the next run
+    # - no longer adds the re-validations to the log
+    # - messages only once
+    def test_901_004(self):
+        domain = self.test_domain
+        domains = [ domain, "www." + domain ]
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ] )
+        # force renew
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_message_cmd( "%s %s" % (self.mcmd, self.mlog) )
+        conf.add_line("MDRenewWindow 120d");
+        conf.add_line("MDActivationDelay -7d");
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], restart=False )
+        time.sleep(3);
+        stat = TestEnv.get_md_status(domain)
         nlines = open(self.mlog).readlines()
         assert 1 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()

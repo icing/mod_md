@@ -592,7 +592,8 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     apr_time_t now;
     apr_array_header_t *staged_certs;
     char ts[APR_RFC822_DATE_LEN];
-
+    int first = 0;
+    
     if (md_log_is_level(d->p, MD_LOG_DEBUG)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: staging started, "
                       "state=%d, challenges='%s'", d->md->name, d->md->state, 
@@ -650,6 +651,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
             }
             if (!md_array_is_empty(ad->certs)) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: all data staged", d->md->name);
+                rv = APR_SUCCESS;
                 goto ready;
             }
         }
@@ -734,12 +736,18 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     /* As last step, cleanup any order we created so that challenge data
      * may be removed asap. */
     md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
-
+    
+    /* first time this job ran through */
+    first = 1;    
 ready:
     md_result_activity_setn(result, NULL);
     /* we should have the complete cert chain now */
     assert(!md_array_is_empty(ad->certs));
     assert(ad->certs->nelts > 1);
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, 
+                  "%s: certificate ready, activation delay set to %s", 
+                  d->md->name, md_duration_format(d->p, d->activation_delay));
     
     /* determine when it should be activated */
     md_result_delay_set(result, md_cert_get_not_before(APR_ARRAY_IDX(ad->certs, 0, md_cert_t*)));
@@ -752,10 +760,20 @@ ready:
         const md_pubcert_t *pub;
         apr_time_t valid_until, delay_activation;
         
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, 
+                      "%s: state is COMPLETE, checking existing certificate", d->md->name);
         if (APR_SUCCESS == md_reg_get_pubcert(&pub, d->reg, d->md, d->p)) {
             valid_until = md_cert_get_not_after(APR_ARRAY_IDX(pub->certs, 0, const md_cert_t*));
-            if (valid_until > now) {            
-                delay_activation = apr_time_from_sec(MD_SECS_PER_DAY);
+            if (d->activation_delay < 0) {
+                /* special simulation for test case */
+                if (first) {
+                    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                                  "%s: delay ready_at to now+1s", d->md->name);
+                    md_result_delay_set(result, apr_time_now() + apr_time_from_sec(1));
+                }
+            }
+            else if (valid_until > now) {            
+                delay_activation = d->activation_delay;
                 if (delay_activation > (valid_until - now)) {
                     delay_activation = (valid_until - now);
                 }
@@ -769,13 +787,12 @@ ready:
     if (result->ready_at > now) {
         md_result_printf(result, APR_SUCCESS, 
             "The certificate for the managed domain has been renewed successfully and can "
-            "be used from %s on. A graceful server restart in %s is recommended.",
-            ts, md_duration_print(d->p, result->ready_at - now));
+            "be used from %s on.", ts);
     }
     else {
         md_result_printf(result, APR_SUCCESS, 
             "The certificate for the managed domain has been renewed successfully and can "
-            "be used. A graceful server restart now is recommended.");
+            "be used (valid since %s). A graceful server restart now is recommended.", ts);
     }
 
 out:
