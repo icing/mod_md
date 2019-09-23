@@ -1,3 +1,5 @@
+ v2.1.6
+ ----------------------------------------------------------------------------------------------------
  * Fixed issue #145 where a server restart was not done when recommended and checking
    becamed called in a tight loop, eventually calling message commands again and again.
    Test case added for this.
