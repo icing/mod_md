@@ -22,15 +22,6 @@ EXTRA_DIST      = patches
 
 .PHONY: test
 
-test:
+test: all-recursive
 	$(MAKE) -C test/ test
-
-test-auto:
-	$(MAKE) -C test/ test-auto
-
-test-drive:
-	$(MAKE) -C test/ test-drive
-
-test-configs:
-	$(MAKE) -C test/ test-configs
 

@@ -76,18 +76,6 @@ $(SERVER_DIR)/conf/ssl/valid_cert.pem: \
 test: $(SERVER_DIR)/.test-setup unit_tests
 	python3 -m pytest
 
-test-drive: $(SERVER_DIR)/.test-setup
-	@py.test test_0500_drive.py
-	@py.test test_0o600_roundtrip.py
-	@py.test test_0o700_auto.py
-
-test-auto: $(SERVER_DIR)/.test-setup
-	@py.test test_0o700_auto.py
-
-test-configs: $(SERVER_DIR)/.test-setup
-	@py.test test_0300_conf_validate.py
-	@py.test test_0310_conf_store.py
-
 # The certificates we need to verify the cert chain we retrieved from ACME
 # For now, we need these two, although a fix is underway that only one becomes
 # necessary. See: https://github.com/letsencrypt/boulder/issues/3307

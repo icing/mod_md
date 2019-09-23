@@ -1,3 +1,5 @@
+ * 'make test' will now trigger the build if not done before. removed some obsolete
+   test special targets.
  * starting to integrate with travis for build and test coverage 
  * documented how MDCAChallenges now overrides any port sanity checks.
 
