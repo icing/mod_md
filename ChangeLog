@@ -1,3 +1,5 @@
+ * Fixes bug in time period calculation for removing old OCSP response files.
+
  v2.1.6
  ----------------------------------------------------------------------------------------------------
  * Fixed issue #145 where a server restart was not done when recommended and checking
