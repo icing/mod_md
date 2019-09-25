@@ -1,3 +1,5 @@
+v2.1.7
+----------------------------------------------------------------------------------------------------
  * Changed server-status section headings to make more clear what is listed there.
  * no longer listing the logs in the top-level md-status handler (where all managed 
    domains are listed). Getting the status of a particular domain has the log).
