@@ -544,11 +544,10 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
 
 static const status_info ocsp_status_infos[] = {
     { "Domain", MD_KEY_DOMAIN, NULL },
-    { "Certificate", MD_KEY_ID, NULL },
+    { "Certificate ID", MD_KEY_ID, NULL },
     { "OCSP Status", MD_KEY_STATUS, NULL },
-    { "Valid", MD_KEY_VALID, si_val_valid_time },
+    { "Stapling Valid", MD_KEY_VALID, si_val_valid_time },
     { "Responder", MD_KEY_URL, si_val_url },
-    { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Activity",  MD_KEY_NOTIFIED, si_val_ocsp_activity },
 };
 
