@@ -376,7 +376,7 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
         print_time(ctx->bb, "Renew", md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL));
     }
     else if (MD_RENEW_MANUAL == md_json_getl(mdj, MD_KEY_RENEW_MODE, NULL)) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "manual renew");
+        apr_brigade_puts(ctx->bb, NULL, NULL, "Manual renew");
     }
 }
 
@@ -495,7 +495,7 @@ int md_domains_status_hook(request_rec *r, int flags)
 
     if (!html) {
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "no-html summary");
-        apr_brigade_puts(ctx.bb, NULL, NULL, "ManagedDomains: ");
+        apr_brigade_puts(ctx.bb, NULL, NULL, "Managed Certificates: ");
         if (mc->mds->nelts > 0) {
             md_status_take_stock(&jstock, mds, mc->reg, r->pool);
             ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON summary");
@@ -516,7 +516,7 @@ int md_domains_status_hook(request_rec *r, int flags)
         md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON status");
         apr_brigade_puts(ctx.bb, NULL, NULL, 
-                         "<hr>\n<h3>Managed Domains</h3>\n<table class='md_status'><thead><tr>\n");
+                         "<hr>\n<h3>Managed Certificates</h3>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
             si_add_header(&ctx, &status_infos[i]);
         }
@@ -538,14 +538,14 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
     
     (void)info;
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
-    print_time(ctx->bb, "Renew", t);
+    print_time(ctx->bb, "Refresh", t);
     print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, ": ");
 }
 
 static const status_info ocsp_status_infos[] = {
     { "Domain", MD_KEY_DOMAIN, NULL },
     { "Certificate", MD_KEY_ID, NULL },
-    { "Status", MD_KEY_STATUS, NULL },
+    { "OCSP Status", MD_KEY_STATUS, NULL },
     { "Valid", MD_KEY_VALID, si_val_valid_time },
     { "Responder", MD_KEY_URL, si_val_url },
     { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
@@ -588,7 +588,7 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     ctx.separator = " ";
 
     if (!html) {
-        apr_brigade_puts(ctx.bb, NULL, NULL, "OCSPStapling: ");
+        apr_brigade_puts(ctx.bb, NULL, NULL, "Managed Staplings: ");
         if (md_ocsp_count(mc->ocsp) > 0) {
             md_ocsp_get_summary(&jstock, mc->ocsp, r->pool);
             apr_brigade_printf(ctx.bb, NULL, NULL, "total=%d, good=%d revoked=%d unknown=%d",
@@ -605,7 +605,7 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     else if (md_ocsp_count(mc->ocsp) > 0) {
         md_ocsp_get_status_all(&jstatus, mc->ocsp, r->pool);
         apr_brigade_puts(ctx.bb, NULL, NULL, 
-                         "<hr>\n<h3>OCSP Stapling</h3>\n<table class='md_ocsp_status'><thead><tr>\n");
+                         "<hr>\n<h3>Managed Staplings</h3>\n<table class='md_ocsp_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
             si_add_header(&ctx, &ocsp_status_infos[i]);
         }
