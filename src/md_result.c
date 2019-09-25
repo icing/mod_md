@@ -224,7 +224,7 @@ void md_result_dup(md_result_t *dest, const md_result_t *src)
    on_change(dest);
 }
 
-void md_result_log(md_result_t *result, int level)
+void md_result_log(md_result_t *result, unsigned int level)
 {
     if (md_log_is_level(result->p, (md_log_level_t)level)) {
         const char *sep = "";

@@ -66,7 +66,7 @@ int md_result_cmp(const md_result_t *r1, const md_result_t *r2);
 void md_result_assign(md_result_t *dest, const md_result_t *src);
 void md_result_dup(md_result_t *dest, const md_result_t *src);
 
-void md_result_log(md_result_t *result, int level);
+void md_result_log(md_result_t *result, unsigned int level);
 
 void md_result_on_change(md_result_t *result, md_result_change_cb *cb, void *data);
 

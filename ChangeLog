@@ -1,3 +1,6 @@
+ * no longer listing the logs in the top-level md-status handler (where all managed 
+   domains are listed). Getting the status of a particular domain has the log).
+ * fixing some signedness warnings in clang 11.
  * Fixes bug in time period calculation for removing old OCSP response files.
 
  v2.1.6

@@ -31,7 +31,7 @@
 /* md_http curl implementation */
 
 
-static apr_status_t curl_status(int curl_code)
+static apr_status_t curl_status(unsigned int curl_code)
 {
     switch (curl_code) {
         case CURLE_OK:                   return APR_SUCCESS;

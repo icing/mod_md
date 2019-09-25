@@ -59,9 +59,9 @@ static const char *GROUP_NAME[] = {
     NULL
 };
 
-const char *md_store_group_name(int group)
+const char *md_store_group_name(unsigned int group)
 {
-    if ((size_t)group < sizeof(GROUP_NAME)/sizeof(GROUP_NAME[0])) {
+    if (group < sizeof(GROUP_NAME)/sizeof(GROUP_NAME[0])) {
         return GROUP_NAME[group];
     }
     return "UNKNOWN";

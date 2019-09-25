@@ -21,7 +21,7 @@ struct apr_array_header_t;
 struct md_cert_t;
 struct md_pkey_t;
 
-const char *md_store_group_name(int group);
+const char *md_store_group_name(unsigned int group);
 
 typedef struct md_store_t md_store_t;
 
