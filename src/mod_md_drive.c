@@ -68,14 +68,6 @@ struct md_renew_ctx_t {
     apr_array_header_t *jobs;
 };
 
-static void check_expiration(md_renew_ctx_t *dctx, md_job_t *job, const md_t *md, 
-                             md_result_t *result)
-{
-    ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s, "md(%s): check expiration", md->name);
-    if (!md_reg_should_warn(dctx->mc->reg, md, dctx->p)) return;
-    md_job_notify(job, "expiring", result);
-}
-
 static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *ptemp)
 {
     const md_t *md;
@@ -118,8 +110,7 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
         if (!md_reg_should_renew(dctx->mc->reg, md, dctx->p)) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
                          "md(%s): no need to renew", job->mdomain);
-            md_job_cancel(job);
-            goto leave;
+            goto expiry;
         }
     
         md_job_start_run(job, result, md_reg_store_get(dctx->mc->reg)); 
@@ -154,11 +145,19 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
                          md_duration_print(ptemp, job->next_run - apr_time_now()));
         }
     }
-    
-leave:
-    if (!job->finished) {
-        check_expiration(dctx, job, md, result);
+
+expiry:
+    if (!job->finished && md_reg_should_warn(dctx->mc->reg, md, dctx->p)) {
+        ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,
+                     "md(%s): warn about expiration", md->name);
+        md_job_start_run(job, result, md_reg_store_get(dctx->mc->reg));
+        if (APR_SUCCESS == md_job_notify(job, "expiring", result)) {
+            md_result_set(result, APR_SUCCESS, NULL);
+        }
+        md_job_end_run(job, result);
     }
+
+leave:
     if (job->dirty) {
         rv = md_job_save(job, result, ptemp);
         ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, dctx->s, "%s: saving job props", job->mdomain);

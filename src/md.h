@@ -291,8 +291,8 @@ int md_is_covered_by_alt_names(const md_t *md, const struct apr_array_header_t* 
 /**************************************************************************************************/
 /* notifications */
 
-typedef void md_job_notify_cb(struct md_job_t *job, const char *reason, 
-                              struct md_result_t *result, apr_pool_t *p, void *baton);
+typedef apr_status_t md_job_notify_cb(struct md_job_t *job, const char *reason, 
+                                      struct md_result_t *result, apr_pool_t *p, void *baton);
 
 /**************************************************************************************************/
 /* domain credentials */

@@ -44,3 +44,4 @@ src/a2md
 /test/unit/**/*.trs
 /test/unit/main
 wiki
+test/conf/std_vhosts.conf

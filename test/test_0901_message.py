@@ -218,7 +218,56 @@ class TestMessage:
         assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1].strip()
 
 
-
+    # test: while testing gh issue #146, it was noted that a failed renew notification never
+    # resets the MD activity.
+    def test_901_030(self):
+        domain = self.test_domain
+        domains = [ domain, "www." + domain ]
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_md( domains )
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ] )
+        # set the warn window that triggers right away and a failing message command
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_message_cmd( "%s %s" % (self.mcmdfail, self.mlog) )
+        conf.add_md( domains )
+        conf.add_line("""
+            MDWarnWindow 100d
+            """)
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_md_status(domain)
+        # this command should have failed and logged an error
+        time.sleep(1)
+        with open(TestEnv.store_staged_file( domain, 'job.json')) as f:
+            job = json.load(f)
+            #assert job["errors"] == 1
+            assert job["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
+        # reconfigure to a working notification command and restart
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_message_cmd( "%s %s" % (self.mcmd, self.mlog) )
+        conf.add_md( domains )
+        conf.add_line("""
+            MDWarnWindow 100d
+            """)
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        time.sleep(5)
+        # we see the notification logged by the command
+        nlines = open(self.mlog).readlines()
+        assert 1 == len(nlines)
+        assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        # the error needs to be gone
+        with open(TestEnv.store_staged_file( domain, 'job.json')) as f:
+            job = json.load(f)
+            assert job["errors"] == 0
     
 
 

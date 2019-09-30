@@ -147,8 +147,8 @@ static notify_rate notify_rates[] = {
     { "ocsp-errored", apr_time_from_sec(MD_SECS_PER_HOUR) }, /* once per hour */
 };
 
-static void notify(md_job_t *job, const char *reason, 
-                   md_result_t *result, apr_pool_t *p, void *baton)
+static apr_status_t notify(md_job_t *job, const char *reason, 
+                           md_result_t *result, apr_pool_t *p, void *baton)
 {
     md_mod_conf_t *mc = baton;
     const char * const *argv;
@@ -172,7 +172,7 @@ static void notify(md_job_t *job, const char *reason,
         if (md_timeperiod_length(&since_last) < min_interim) {
             /* not enough time has passed since we sent the last notification
              * for this reason. */
-            return;
+            return APR_SUCCESS;
         }
     }
     
@@ -189,7 +189,7 @@ static void notify(md_job_t *job, const char *reason,
                                          mc->notify_cmd, exit_code);
                 md_result_log(result, MD_LOG_ERR);
                 md_job_log_append(job, "notify-error", result->problem, result->detail);
-                return;
+                return rv;
             }
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_NOTICE, 0, p, APLOGNO(10059) 
@@ -208,10 +208,11 @@ static void notify(md_job_t *job, const char *reason,
                                      mc->message_cmd, exit_code);
             md_result_log(result, MD_LOG_ERR);
             md_job_log_append(job, "message-error", reason, result->detail);
-            return;
+            return rv;
         }
     }
     md_job_log_append(job, log_msg_reason, NULL, NULL);
+    return APR_SUCCESS;
 }
 
 /**************************************************************************************************/

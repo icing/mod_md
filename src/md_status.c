@@ -475,11 +475,6 @@ void md_job_start_run(md_job_t *job, md_result_t *result, md_store_t *store)
     md_job_log_append(job, "starting", NULL, NULL);
 }
 
-void md_job_cancel(md_job_t *job)
-{
-    job->next_run = 0;
-}   
-
 apr_time_t md_job_delay_on_errors(int err_count)
 {
     apr_time_t delay = 0;
@@ -517,9 +512,10 @@ void md_job_retry_at(md_job_t *job, apr_time_t later)
     job->dirty = 1;
 }
 
-void md_job_notify(md_job_t *job, const char *reason, md_result_t *result)
+apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *result)
 {
-    if (job->notify) job->notify(job, reason, result, job->p, job->notify_ctx);
+    if (job->notify) return job->notify(job, reason, result, job->p, job->notify_ctx);
+    return APR_SUCCESS;
 }
 
 void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton)
