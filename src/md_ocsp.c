@@ -740,7 +740,7 @@ static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status
         md_result_log(update->result, MD_LOG_DEBUG);
         md_job_log_append(update->job, "ocsp-error", 
                           update->result->problem, update->result->detail);
-        md_job_notify(update->job, "ocsp-errored", update->result);
+        md_job_holler(update->job, "ocsp-errored");
         goto leave;
     }
     md_job_notify(update->job, "ocsp-renewed", update->result);

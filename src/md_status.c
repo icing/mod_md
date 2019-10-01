@@ -235,6 +235,7 @@ static void md_job_from_json(md_job_t *job, md_json_t *json, apr_pool_t *p)
     /* not good, this is malloced from a temp pool */
     /*job->mdomain = md_json_gets(json, MD_KEY_NAME, NULL);*/
     job->finished = md_json_getb(json, MD_KEY_FINISHED, NULL);
+    job->notified = md_json_getb(json, MD_KEY_NOTIFIED, NULL);
     s = md_json_dups(p, json, MD_KEY_NEXT_RUN, NULL);
     if (s && *s) job->next_run = apr_date_parse_rfc(s);
     s = md_json_dups(p, json, MD_KEY_LAST_RUN, NULL);
@@ -255,6 +256,7 @@ static void job_to_json(md_json_t *json, const md_job_t *job,
 
     md_json_sets(job->mdomain, json, MD_KEY_NAME, NULL);
     md_json_setb(job->finished, json, MD_KEY_FINISHED, NULL);
+    md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
     if (job->next_run > 0) {
         apr_rfc822_date(ts, job->next_run);
         md_json_sets(ts, json, MD_KEY_NEXT_RUN, NULL);
@@ -515,7 +517,26 @@ void md_job_retry_at(md_job_t *job, apr_time_t later)
 apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *result)
 {
     if (job->notify) return job->notify(job, reason, result, job->p, job->notify_ctx);
-    return APR_SUCCESS;
+    job->dirty = 1;
+    if (APR_SUCCESS == result->status) {
+        job->notified = 1;
+        job->error_runs = 0;
+    }
+    else {
+        ++job->error_runs;
+        job->next_run = apr_time_now() + md_job_delay_on_errors(job->error_runs);
+    }
+    return result->status;
+}
+
+void md_job_holler(md_job_t *job, const char *reason)
+{
+    md_result_t *result;
+    
+    if (job->notify) {
+        result = md_result_make(job->p, APR_SUCCESS);
+        job->notify(job, reason, result, job->p, job->notify_ctx);
+    }
 }
 
 void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton)

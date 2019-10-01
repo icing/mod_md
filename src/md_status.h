@@ -58,6 +58,7 @@ struct md_job_t {
     apr_time_t last_run;   /* Time this job ran last (or 0) */
     struct md_result_t *last_result; /* Result from last run */
     int finished;          /* true iff the job finished successfully */
+    int notified;          /* true iff notifications were handled successfully */
     apr_time_t valid_from; /* at which time the finished job results become valid, 0 if immediate */
     int error_runs;        /* Number of errored runs of an unfinished job */
     int fatal_error;       /* a fatal error is remedied by retrying */
@@ -119,5 +120,7 @@ apr_time_t md_job_delay_on_errors(int err_count);
 
 void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton);
 apr_status_t md_job_notify(md_job_t *job, const char *reason, struct md_result_t *result);
+/* Same as notify but without checks on success and no change to job */
+void md_job_holler(md_job_t *job, const char *reason);
 
 #endif /* md_status_h */

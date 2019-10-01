@@ -79,7 +79,7 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
     if (apr_time_now() < job->next_run) return;
     
     job->next_run = 0;
-    if (job->finished && (md_job_log_get_time_of_latest(job, "message-renewed") != 0)) {
+    if (job->finished && job->notified) {
         /* finished and notification handled, nothing to do. */
         goto leave;
     }
@@ -125,20 +125,13 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
                 goto leave;
             }
             
-            if (md_job_log_get_time_of_latest(job, "message-renewed") == 0) {
-                md_job_notify(job, "renewed", result);
-                if (APR_SUCCESS != result->status) {
-                    /* we treat this as an error that triggers retries */
-                    md_job_end_run(job, result);
-                    goto leave;
-                }
-            }
+            if (!job->notified) md_job_notify(job, "renewed", result);
         }
         else {
             ap_log_error( APLOG_MARK, APLOG_ERR, result->status, dctx->s, APLOGNO(10056) 
                          "processing %s: %s", job->mdomain, result->detail);
             md_job_log_append(job, "renewal-error", result->problem, result->detail);
-            md_job_notify(job, "errored", result);
+            md_job_holler(job, "errored");
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
                          "%s: encountered error for the %d. time, next run in %s",
                          job->mdomain, job->error_runs, 

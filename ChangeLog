@@ -1,3 +1,14 @@
+v2.1.8
+----------------------------------------------------------------------------------------------------
+ * Some notifications cleanups:
+   - notifications about errors no longer change the status of the ongoing renewal.
+   - notifications about a successful renewal are re-attempted on failure, just like
+     other failures cause a retry with a backing-off delay.
+   - warnings about expiring certificates are only sent, if there is no renewal
+     already done (but maybe not activated yet) for a domain
+   - failure to notify about expiring certficates also cause retry and are cleared
+     when/if finally successful.
+
 v2.1.7
 ----------------------------------------------------------------------------------------------------
  * Changed server-status section headings to make more clear what is listed there.
