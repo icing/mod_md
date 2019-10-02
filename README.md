@@ -7,19 +7,19 @@ This repository contains `mod_md`, a module for Apache httpd that helps you to m
 
 `mod_md` does two things:
 
-1. Provide ***SSL certificates*** for your domains (virtualhosts) from Let's Encrypt (or another Certificate Authority that supports the ACME protocol, rfc 8555)
+1. Provide ***SSL certificates*** for your domains from Let's Encrypt (or another Certificate Authority that supports the ACME protocol, rfc8555)
 2. Offer robust ***OCSP Stapling*** of SSL certificates which is important for fast page loads in modern browsers.
 
-Both functions work well together, but you can use one without the other. This is important for people who get their server certificates by other means. Read the HowTos about stapling for more information.
+Both functions work well together, but you can use one without the other. Read the HowTos about stapling for more information.
 
 ## Versions and Releases
 
-This README always describes the current version of the module. This might no actually be what you use. You can look
+This README always describes the current version of the module. This might not actually be what you use. You can look
 into your Apache server log where `mod_md` logs its version at startup. There are three major release lines nowadays which are all upwards compatible:
 
  * `v1.x.x` releases should be upgraded to `v2.0.x`. No new releases in this line will happen. The version shipped in Apache httpd *before* version 2.4.41 of the server. These versions support the *old* Let's Encrypt protocol, ACMEv1, which LE plans to switch off in 2020.
  * `v2.0.x` releases are ***stable***. They can be used in production and new versions will be backward compatible with existing configurations. These shipped in Apache httpd 2.4.41. They support the old and the new ACMEv2 protocol. They offer new capabilities and monitoring.
- * `v2.1.x` releases are currently ***experimental*** (one used to call this ***beta***). In practise, this means it has new features that are tested but need feedback from others. Aspects of these new features might still evolve, based on feed back. This release line has all the features of v2.0.x plus a new OCSP Stapling implementation. 
+ * `v2.1.x` releases are currently ***beta***. In practise, this means it has new features that are tested but need feedback from others. Aspects of these new features might still evolve, based on feed back. This release line has all the features of v2.0.x plus a new OCSP Stapling implementation. 
 
 Apache releases will always get the latest, stable version from here. 
 
