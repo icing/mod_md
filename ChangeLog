@@ -1,3 +1,10 @@
+v2.1.9
+----------------------------------------------------------------------------------------------------
+ * server-status no longer leaves the "activity" column empty when a renewal is ongoing.
+ * removed the "valid after" time as this was confusing. The new certificate is already
+   valid, only it is recommeneded to wait with the actication a bit. Admins are probably
+   better aware what the clock skew requirements of their site are.
+
 v2.1.8
 ----------------------------------------------------------------------------------------------------
  * Some notifications cleanups:

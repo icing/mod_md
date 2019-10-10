@@ -342,27 +342,25 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
     }
     
     if (finished) {
-        apr_brigade_puts(bb, NULL, NULL, "Finished");
-        if (md_json_has_key(mdj, key, MD_KEY_VALID_FROM, NULL)) {
-            s = md_json_gets(mdj,  key, MD_KEY_VALID_FROM, NULL);
-            t = apr_date_parse_rfc(s);
-            print_time(bb, ", valid", t);
-        }
-        apr_brigade_puts(bb, NULL, NULL, ".");
+        apr_brigade_puts(bb, NULL, NULL, "finished successfully.");
+        return;
     } 
     
     s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
-    if (s) apr_brigade_puts(bb, NULL, NULL, s);
+    if (s) apr_brigade_printf(bb, NULL, NULL, "%s. ", s);
     
     errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL);
     if (errors > 0) {
-        apr_brigade_printf(bb, NULL, NULL, ", Had %d errors.", errors);
+        apr_brigade_printf(bb, NULL, NULL, "Attempted %d time%s so far. ", 
+            errors, (errors > 1)? "s" : "");
     } 
     
-    s = md_json_gets(mdj, key, MD_KEY_NEXT_RUN, NULL);
-    if (s) {
-        t = apr_date_parse_rfc(s);
-        print_time(bb, "Next", t);
+    t = md_json_get_time(mdj, key, MD_KEY_NEXT_RUN, NULL);
+    if (t > apr_time_now()) {
+        print_time(bb, "Next run", t);
+    }
+    else {
+        apr_brigade_puts(bb, NULL, NULL, "Running. ");
     }
 }
 
@@ -370,7 +368,7 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
 {
     (void)info;
     if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
-        print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, NULL);
+        print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, "Renewal ");
     }
     else if (md_json_has_key(mdj, MD_KEY_RENEW_AT, NULL)) {
         print_time(ctx->bb, "Renew", md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL));
