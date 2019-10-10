@@ -323,7 +323,7 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
     apr_status_t rv;
     int finished, errors;
     apr_time_t t;
-    const char *s;
+    const char *s, *line;
     
     if (!md_json_has_key(mdj, key, NULL)) {
         return;
@@ -333,33 +333,35 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
     errors = (int)md_json_getl(mdj, key, MD_KEY_ERRORS, NULL);
     rv = (apr_status_t)md_json_getl(mdj, key, MD_KEY_LAST, MD_KEY_STATUS, NULL);
     
-    if (separator) apr_brigade_puts(bb, NULL, NULL, separator);
+    line = separator? separator : "";
 
     if (rv != APR_SUCCESS) {
         s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
-        apr_brigade_printf(bb, NULL, NULL, "Error[%s]: %s", 
+        line = apr_psprintf(bb->p, "%s Error[%s]: %s", line, 
                            apr_strerror(rv, buffer, sizeof(buffer)), s? s : "");
     }
     
     if (finished) {
-        apr_brigade_puts(bb, NULL, NULL, "finished successfully.");
-        return;
+        line = apr_psprintf(bb->p, "%s finished successfully.", line);
     } 
-    
-    s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
-    if (s) apr_brigade_printf(bb, NULL, NULL, "%s ", s);
+    else {
+        s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
+        if (s) line = apr_psprintf(bb->p, "%s %s", line, s);
+    }
     
     errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL);
     if (errors > 0) {
-        apr_brigade_printf(bb, NULL, NULL, "(%d attempt%s) ", 
-            errors, (errors > 1)? "s" : "");
+        line = apr_psprintf(bb->p, "%s (%d retr%s) ", line, 
+            errors, (errors > 1)? "y" : "ies");
     } 
     
+    apr_brigade_puts(bb, NULL, NULL, line);
+
     t = md_json_get_time(mdj, key, MD_KEY_NEXT_RUN, NULL);
-    if (t > apr_time_now()) {
+    if (t > apr_time_now() && !finished) {
         print_time(bb, "\nNext run", t);
     }
-    else if (t) {
+    else if (!strlen(line)) {
         apr_brigade_puts(bb, NULL, NULL, "\nOngoing...");
     }
 }
