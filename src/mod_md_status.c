@@ -381,7 +381,7 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
         print_time(ctx->bb, "Renew", t);
     }
     else if (t) {
-        print_time(ctx->bb, "Pending", t);
+        apr_brigade_puts(ctx->bb, NULL, NULL, "Pending");
     }
     else if (MD_RENEW_MANUAL == md_json_getl(mdj, MD_KEY_RENEW_MODE, NULL)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "Manual renew");
