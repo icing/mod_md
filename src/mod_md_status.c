@@ -368,12 +368,20 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
 
 static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
+    apr_time_t t;
+    
     (void)info;
     if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
         print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, NULL);
+        return;
     }
-    else if (md_json_has_key(mdj, MD_KEY_RENEW_AT, NULL)) {
-        print_time(ctx->bb, "Renew", md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL));
+    
+    t = md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL);
+    if (t > apr_time_now()) {
+        print_time(ctx->bb, "Renew", t);
+    }
+    else if (t) {
+        print_time(ctx->bb, "Pending", t);
     }
     else if (MD_RENEW_MANUAL == md_json_getl(mdj, MD_KEY_RENEW_MODE, NULL)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "Manual renew");
