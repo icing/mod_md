@@ -655,7 +655,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     acme->version = MD_ACME_VERSION_UNKNOWN;
     acme->last = md_result_make(acme->p, APR_SUCCESS);
     
-    *pacme = (APR_SUCCESS == rv)? acme : NULL;
+    *pacme = acme;
     return rv;
 }
 
