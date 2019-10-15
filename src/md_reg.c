@@ -1127,7 +1127,9 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     md_store_purge(reg->store, p, MD_SG_STAGING, md->name);
     md_store_purge(reg->store, p, MD_SG_CHALLENGES, md->name);
     md_result_set(result, APR_SUCCESS, "new certificate successfully saved in domains");
-
+    md_job_notify(job, "installed", result);
+    if (job->dirty) md_job_save(job, result, ptemp);
+    
 out:
     if (!APR_STATUS_IS_ENOENT(rv)) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ptemp, "%s: load done", md->name);

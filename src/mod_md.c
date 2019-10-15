@@ -141,6 +141,7 @@ typedef struct {
 
 static notify_rate notify_rates[] = {
     { "renewed", apr_time_from_sec(28 * MD_SECS_PER_DAY) }, /* once per month */
+    { "installed", apr_time_from_sec(MD_SECS_PER_DAY) }, /* once per day */
     { "expiring", apr_time_from_sec(MD_SECS_PER_DAY) },     /* once per day */
     { "errored", apr_time_from_sec(MD_SECS_PER_HOUR) },     /* once per hour */
     { "ocsp-renewed", apr_time_from_sec(MD_SECS_PER_DAY) }, /* once per day */
@@ -485,6 +486,8 @@ static apr_status_t auto_add_domains(md_t *md, server_rec *base_server, apr_pool
 
 static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
 {
+    md_srv_conf_t *sc;
+    md_mod_conf_t *mc;
     server_rec *s;
     int i;
     const char *domain;
@@ -492,10 +495,16 @@ static void init_acme_tls_1_domains(md_t *md, server_rec *base_server)
     /* Collect those domains that support the "acme-tls/1" protocol. This
      * is part of the MD (and not tested dynamically), since challenge selection
      * may be done outside the server, e.g. in the a2md command. */
+    sc = md_config_get(base_server);
+    mc = sc->mc;    
     apr_array_clear(md->acme_tls_1_domains);
     for (i = 0; i < md->domains->nelts; ++i) {
         domain = APR_ARRAY_IDX(md->domains, i, const char*);
-        if (NULL == (s = get_public_https_server(md, domain, base_server))) {
+        s = get_public_https_server(md, domain, base_server);
+        /* If we did not find a specific virtualhost for md and manage
+         * the base_server, that one is inspected */
+        if (NULL == s && mc->manage_base_server) s = base_server;
+        if (NULL == s) {
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10168)
                          "%s: no https server_rec found for %s", md->name, domain);
             continue;

@@ -1,3 +1,13 @@
+ v2.1.10
+ ----------------------------------------------------------------------------------------------------
+ * if 'MDBaseServer' in enabled and there is no specific VirtualHost for a domain, the
+   base server config is considered the relevant one for deciding ACME support. This
+   is most relevant for the 'tls-alpn-01' challenge, see issue #150).
+ * MDMessageCmd is now invoked with 'installed' when the certificate is actually becoming
+   active at server startup/reload. Different to all other messages, this one is invoked
+   while the server is still root and has according privileges. (Hint: you may use this
+   to copy a certificate+key to another application's preferred location/format.)
+
 v2.1.9
 ----------------------------------------------------------------------------------------------------
  * server-status no longer leaves the "activity" column empty when a renewal is ongoing.

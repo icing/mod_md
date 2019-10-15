@@ -213,9 +213,11 @@ class TestMessage:
         stat = TestEnv.await_ocsp_status(domain)
         assert os.path.isfile(self.mlog)
         nlines = open(self.mlog).readlines()
-        assert 2 == len(nlines)
+        # since v2.1.10, the 'installed' message is second in log
+        assert 3 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
-        assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1].strip()
+        assert ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1].strip()
+        assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[2].strip()
 
 
     # test: while testing gh issue #146, it was noted that a failed renew notification never
