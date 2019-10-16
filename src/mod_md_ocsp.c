@@ -133,13 +133,13 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
      */
     switch (state) {
         case AP_WATCHDOG_STATE_STARTING:
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO()
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO(10197)
                          "md ocsp watchdog start, ocsp stapling %d certificates", 
                          (int)md_ocsp_count(octx->mc->ocsp));
             break;
             
         case AP_WATCHDOG_STATE_RUNNING:
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO()
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO(10198)
                          "md ocsp watchdog run, ocsp stapling %d certificates", 
                          (int)md_ocsp_count(octx->mc->ocsp));
                          
@@ -153,7 +153,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             
             wait_time = next_run - apr_time_now();
             if (APLOGdebug(octx->s)) {
-                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO()
+                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO(10199)
                              "md ocsp watchdog next run in %s", 
                              md_duration_print(ptemp, wait_time));
             }
@@ -161,7 +161,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
             break;
             
         case AP_WATCHDOG_STATE_STOPPING:
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO()
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, octx->s, APLOGNO(10200)
                          "md ocsp watchdog stopping");
             break;
     }
@@ -192,7 +192,7 @@ apr_status_t md_ocsp_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t
     wd_set_interval = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_set_callback_interval);
     
     if (!wd_get_instance || !wd_register_callback || !wd_set_interval) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s, APLOGNO() 
+        ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s, APLOGNO(10201) 
                      "mod_watchdog is required for OCSP stapling");
         return APR_EGENERAL;
     }
@@ -204,7 +204,7 @@ apr_status_t md_ocsp_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t
     apr_allocator_max_free_set(allocator, 1);
     rv = apr_pool_create_ex(&octxp, p, NULL, allocator);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10062) "md_ocsp_watchdog: create pool");
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10205) "md_ocsp_watchdog: create pool");
         return rv;
     }
     apr_allocator_owner_set(allocator, octxp);
@@ -236,12 +236,12 @@ apr_status_t md_ocsp_start_watching(md_mod_conf_t *mc, server_rec *s, apr_pool_t
     
     rv = wd_get_instance(&octx->watchdog, MD_OCSP_WATCHDOG_NAME, 0, 1, octx->p);
     if (APR_SUCCESS != rv) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO() 
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO(10202) 
                      "create md ocsp watchdog(%s)", MD_OCSP_WATCHDOG_NAME);
         return rv;
     }
     rv = wd_register_callback(octx->watchdog, 0, octx, run_watchdog);
-    ap_log_error(APLOG_MARK, rv? APLOG_CRIT : APLOG_DEBUG, rv, s, APLOGNO() 
+    ap_log_error(APLOG_MARK, rv? APLOG_CRIT : APLOG_DEBUG, rv, s, APLOGNO(10203) 
                  "register md ocsp watchdog(%s)", MD_OCSP_WATCHDOG_NAME);
     return rv;
 }

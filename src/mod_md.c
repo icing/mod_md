@@ -838,7 +838,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     rv = md_ocsp_reg_make(&mc->ocsp, p, store, mc->ocsp_renew_window,
                           AP_SERVER_BASEVERSION, mc->proxy_url);
     if (APR_SUCCESS != rv) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO() "setup ocsp registry");
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10196) "setup ocsp registry");
         goto leave;
     }
     md_ocsp_set_notify_cb(mc->ocsp, notify, mc);

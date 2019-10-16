@@ -981,6 +981,7 @@ MDomain your_domain.de
 <VirtualHost *:443>
     ServerName www.your_domain.de
     ServerAlias your_domain.de
+    Protocols h2 http/1.1 acme-tls/1
     SSLEngine on
     ...
 </VirtualHost>
@@ -1470,9 +1471,23 @@ Since version 2.0.4, you can also use the shorter `<MDomain name>` variant. The 
 
 ***Type of ACME challenge***<BR/>
 `MDCAChallenges name [ name ... ]`<BR/>
-Default: `tls-alpn-01 http-01`
+Default: (auto selected))
 
-Currently implemented are `tls-alpn-01` and `http-01` challenge methods.
+Supported by the module are the challenge methods `tls-alpn-01`, `dns-01`  and `http-01`. The module
+will look at the overall configuation of the server to find out which method can be used. 
+
+If the server listens on port 80, for example, the `http-01` method is available. The prerequisite for `dns-01` 
+is a configured  `MDChallengeDns01` command. `tls-alpn-01` needs `https:` connections  and the
+`acme-tls/1` protocol ([see here](#tls-alpn-challenges)).
+
+This auto selection works for most setups. But since Apache is a very powerful server with
+many configuration options, the situation is not clear for all possible cases. For example: it may
+listen on multiple IP addresses where some are reachable on `https:` and some not.
+
+If you configure `MDCAChallenges` directly, this auto selection is disabled. Instead, the module will
+use the configured challenge list when talking to the ACME server (a challenge type must be offered
+by the server as well). This challenges are examined in the order specified.
+ 
 
 ## MDCertificateAgreement / Terms of Service
 
