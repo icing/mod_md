@@ -1,3 +1,10 @@
+ v2.2.0
+ ----------------------------------------------------------------------------------------------------
+ * No longer beta status.
+ * Synched with Apache trunk and planned for 2.4.x backport when all works well there.
+ * Re-importing of log tags assigned in Apache project.
+ * Some documentation clarifications.
+
  v2.1.10
  ----------------------------------------------------------------------------------------------------
  * if 'MDBaseServer' in enabled and there is no specific VirtualHost for a domain, the

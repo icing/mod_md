@@ -17,9 +17,9 @@ Both functions work well together, but you can use one without the other. Read t
 This README always describes the current version of the module. This might not actually be what you use. You can look
 into your Apache server log where `mod_md` logs its version at startup. There are three major release lines nowadays which are all upwards compatible:
 
- * `v1.x.x` releases should be upgraded to `v2.0.x`. No new releases in this line will happen. The version shipped in Apache httpd *before* version 2.4.41 of the server. These versions support the *old* Let's Encrypt protocol, ACMEv1, which LE plans to switch off in 2020.
- * `v2.0.x` releases are ***stable***. They can be used in production and new versions will be backward compatible with existing configurations. These shipped in Apache httpd 2.4.41. They support the old and the new ACMEv2 protocol. They offer new capabilities and monitoring.
- * `v2.1.x` releases are currently ***beta***. In practise, this means it has new features that are tested but need feedback from others. Aspects of these new features might still evolve, based on feed back. This release line has all the features of v2.0.x plus a new OCSP Stapling implementation. 
+ * `v2.0.x` releases should be upgraded to `v2.2.x` whenever convenient. No new releases in this line will happen. This release line shipped in Apache httpd 2.4.41. 
+ * `v2.1.x` releases have been ***beta***, leading up to v2.2.0 
+ * `v2.2.x` releases are ***stable***. They can be used in production and new versions will be backward compatible with existing configurations. These are planned to ship in the next Apache httpd 2.4 release. The large feature added in v2.2.0 is OCSP stapling.
 
 Apache releases will always get the latest, stable version from here. 
 
@@ -47,7 +47,7 @@ Apache releases will always get the latest, stable version from here.
     * [Know which Stapling You Want](#how-to-know-which-stapling-you-want)
 
   - [Installation](#installation)
-  - [Upgrading from v1.1.x](#upgrading)
+  - [Upgrading](#upgrading)
   - [Lets Encrypt Migration](#lets-encrypt-migration)
   - [Monitoring](#monitoring)
   - [Using Lets Encrypt](#using-lets-encrypt)
@@ -764,7 +764,7 @@ Version 2-x status: unknown, see #124.
 
 # Upgrading
 
-Upgrading from `mod_md` v1.1.x to v2.x requires no action by you. The module will do any necessary data conversions and configuration settings have remaing compatible. Your domains should, after an upgrade, run as before without certificate being renewed - unless they are due for renewal anyway.
+Upgrading from `mod_md` v2.0.x to v2.2.x requires no action by you. The module will do any necessary data conversions and configuration settings have remaing compatible. Your domains should, after an upgrade, run as before without certificate being renewed - unless they are due for renewal anyway.
 
 _Downgrading_ is ***not*** supported. There is not guarantee that you can go back without any problems. When in doubt, make a backup of your `mod_md` store in the file system before upgrading.
 
