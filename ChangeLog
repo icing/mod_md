@@ -1,3 +1,6 @@
+ * Fixes a compiler warning. False flag, but initialization to make it happy does not hurt.
+   Thanks to @sundayoyeniyi for finding this. Refs #154.
+
  v2.2.0
  ----------------------------------------------------------------------------------------------------
  * No longer beta status.
