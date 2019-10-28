@@ -150,7 +150,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     /* update what */
     fields = 0;
     nmd = md_copy(ctx->p, md);
-    if (NULL == md) {
+    if (NULL == nmd) {
         return APR_ENOMEM;
     }
     
