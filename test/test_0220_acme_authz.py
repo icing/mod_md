@@ -8,11 +8,11 @@ import time
 
 from datetime import datetime
 from shutil import copyfile
-from test_base import TestEnv
+from TestEnv import TestEnv
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
-    TestEnv.init()
+    TestEnv.initv1()
         
     
 def teardown_module(module):
@@ -28,11 +28,8 @@ class TestAcmeAuthz :
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    # --------- acme authz ---------
-
+    # test case: create auth resource
     def test_220_001(self):
-        # test case: create auth resource
-        # setup: register a new account, agree to tos
         acct = self._prepare_account(["tmp@not-forbidden.org"], TestEnv.ACME_TOS)
         domain = "www.test-not-forbidden.org"
         run = TestEnv.a2md( ["acme", "authz", acct, domain], raw=True )
@@ -40,11 +37,9 @@ class TestAcmeAuthz :
         m = re.match("authz: " + domain + " (.*)$", run["stdout"])
         assert m
         authz_url = m.group(1)
-        print "authz for %s at %s\n" % (domain, authz_url)
+        print("authz for %s at %s\n" % (domain, authz_url))
 
         assert TestEnv.get_json(authz_url, 5)["status"] == "pending"
-
-    # --------- _utils_ ---------
 
     def _prepare_account(self, contact, tos):
         args = [ "acme", "newreg"] + contact

@@ -26,6 +26,7 @@
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_util.h"
@@ -149,7 +150,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     /* update what */
     fields = 0;
     nmd = md_copy(ctx->p, md);
-    if (NULL == md) {
+    if (NULL == nmd) {
         return APR_ENOMEM;
     }
     
@@ -219,7 +220,7 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     }
 
     if (fields) {
-        if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, ctx->p, md->name, nmd, fields))) {
+        if (APR_SUCCESS == (rv = md_reg_update(ctx->reg, ctx->p, md->name, nmd, fields, 1))) {
             md = md_reg_get(ctx->reg, md->name, ctx->p);
         }
     }
@@ -246,57 +247,42 @@ md_cmd_t MD_RegUpdateCmd = {
 
 static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
 {
-    int errored, force, renew, reset;
-    const char *challenge, *msg;
-    apr_status_t rv;
+    int force, reset;
+    apr_status_t rv = APR_SUCCESS;
+    md_result_t *result;
+    md_log_level_t level = MD_LOG_INFO;
     
     reset = md_cmd_ctx_has_option(ctx, "reset");  
     force = md_cmd_ctx_has_option(ctx, "force");
-    challenge = md_cmd_ctx_get_option(ctx, "challenge");
-     
-    if (APR_SUCCESS != (rv = md_reg_assess(ctx->reg, md, &errored, &renew, ctx->p))) {
-        msg = "error assessing the current state of the "
-              "Managed Domain. Please check the server "
-              "logs or run this command in very verbose form and check the output.";
+    result = md_result_md_make(ctx->p, md->name);
+    
+    if (md->state == MD_S_ERROR) {
+        md_result_printf(result, APR_EGENERAL, "in error state. Please check the server "
+              "logs or run this command in very verbose form and check the output.");
+        goto out;
+    }    
+    if (!force && !md_reg_should_renew(ctx->reg, md, ctx->p)) {
+        md_result_printf(result, APR_SUCCESS, "complete.");
+        level = MD_LOG_TRACE1;
         goto out;
     }
-    
-    if (errored) {
-        rv = APR_EGENERAL;
-        msg = "is in error state. Please check the server "
-              "logs or run this command in very verbose form and check the output.";
-        goto out;
-    }
-    
-    if (renew || force) {
-        
-        msg = "incomplete, sign up";
-        if (md->state == MD_S_COMPLETE) {
-            msg = force? "forcing renewal" : "for renewal";
-        }
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
-        
-        if (APR_SUCCESS == (rv = md_reg_stage(ctx->reg, md, challenge, reset, NULL, ctx->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: loading", md->name);
-            
-            rv = md_reg_load(ctx->reg, md->name, ctx->p);
-            
-            if (APR_SUCCESS == rv) {
-                msg = "new credentials active on next server restart";
-            }
-            else {
-                msg = "error activating new credentials";
-            }
-        }
-        else {
-            msg = "error obtaining new credentials";
-        }
+
+    if (md->state == MD_S_COMPLETE) {
+        md_result_printf(result, APR_SUCCESS, "should renew%s.", force? " (forced)" : "");
     }
     else {
-        msg = "up-to-date";
+        md_result_printf(result, APR_SUCCESS, "needs new certificate (is incomplete).");
     }
+    md_result_log(result, MD_LOG_INFO);
+    
+    rv = md_reg_renew(ctx->reg, md, ctx->env, reset, result, ctx->p);
+    if (APR_SUCCESS != rv) goto out;
+    
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ctx->p, "%s: loading", md->name);
+    rv = md_reg_load_staging(ctx->reg, md, ctx->env, result, ctx->p);
+
 out:
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, ctx->p, "%s: %s", md->name, msg);
+    md_result_log(result, level);
     return rv;
 }
 
@@ -339,7 +325,7 @@ static apr_status_t cmd_reg_drive_opts(md_cmd_ctx *ctx, int option, const char *
 {
     switch (option) {
         case 'c':
-            md_cmd_ctx_set_option(ctx, "challenge", optarg);
+            md_cmd_ctx_set_env(ctx, MD_KEY_CHALLENGE, optarg);
             break;
         case 'f':
             md_cmd_ctx_set_option(ctx, "force", "1");

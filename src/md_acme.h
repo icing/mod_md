@@ -27,8 +27,8 @@ struct md_pkey_t;
 struct md_t;
 struct md_acme_acct_t;
 struct md_acmev2_acct_t;
-struct md_proto_t;
 struct md_store_t;
+struct md_result_t;
 
 #define MD_PROTO_ACME               "ACME"
 
@@ -74,6 +74,13 @@ typedef apr_status_t md_acme_req_json_cb(md_acme_t *acme, apr_pool_t *p,
                                          const apr_table_t *headers, 
                                          struct md_json_t *jbody, void *baton);
 
+/**
+ * Request callback on detected errors.
+ */
+typedef apr_status_t md_acme_req_err_cb(md_acme_req_t *req, 
+                                        const struct md_result_t *result, void *baton);
+
+
 typedef apr_status_t md_acme_new_nonce_fn(md_acme_t *acme);
 typedef apr_status_t md_acme_req_init_fn(md_acme_req_t *req, struct md_json_t *jpayload);
 
@@ -81,6 +88,7 @@ typedef apr_status_t md_acme_post_fn(md_acme_t *acme,
                                      md_acme_req_init_cb *on_init,
                                      md_acme_req_json_cb *on_json,
                                      md_acme_req_res_cb *on_res,
+                                     md_acme_req_err_cb *on_err,
                                      void *baton);
 
 struct md_acme_t {
@@ -122,6 +130,7 @@ struct md_acme_t {
     
     const char *nonce;
     int max_retries;
+    struct md_result_t *last;      /* result of last request */
 };
 
 /**
@@ -147,7 +156,9 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
  * 
  * @param acme    the ACME server to contact
  */
-apr_status_t md_acme_setup(md_acme_t *acme);
+apr_status_t md_acme_setup(md_acme_t *acme, struct md_result_t *result);
+
+void md_acme_report_result(md_acme_t *acme, apr_status_t rv, struct md_result_t *result);
 
 /**************************************************************************************************/
 /* account handling */
@@ -161,6 +172,7 @@ apr_status_t md_acme_POST_new_account(md_acme_t *acme,
                                       md_acme_req_init_cb *on_init,
                                       md_acme_req_json_cb *on_json,
                                       md_acme_req_res_cb *on_res,
+                                      md_acme_req_err_cb *on_err,
                                       void *baton);
 
 /**
@@ -230,8 +242,10 @@ struct md_acme_req_t {
     md_acme_req_init_cb *on_init;  /* callback to initialize the request before submit */
     md_acme_req_json_cb *on_json;  /* callback on successful JSON response */
     md_acme_req_res_cb *on_res;    /* callback on generic HTTP response */
+    md_acme_req_err_cb *on_err;    /* callback on encountered error */
     int max_retries;               /* how often this might be retried */
     void *baton;                   /* userdata for callbacks */
+    struct md_result_t *result;    /* result of this request */
 };
 
 apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *payload);
@@ -240,6 +254,7 @@ apr_status_t md_acme_GET(md_acme_t *acme, const char *url,
                          md_acme_req_init_cb *on_init,
                          md_acme_req_json_cb *on_json,
                          md_acme_req_res_cb *on_res,
+                         md_acme_req_err_cb *on_err,
                          void *baton);
 /**
  * Perform a POST against the ACME url. If a on_json callback is given and
@@ -259,13 +274,8 @@ apr_status_t md_acme_POST(md_acme_t *acme, const char *url,
                           md_acme_req_init_cb *on_init,
                           md_acme_req_json_cb *on_json,
                           md_acme_req_res_cb *on_res,
+                          md_acme_req_err_cb *on_err,
                           void *baton);
-
-apr_status_t md_acme_GET(md_acme_t *acme, const char *url,
-                         md_acme_req_init_cb *on_init,
-                         md_acme_req_json_cb *on_json,
-                         md_acme_req_res_cb *on_res,
-                         void *baton);
 
 /**
  * Retrieve a JSON resource from the ACME server 

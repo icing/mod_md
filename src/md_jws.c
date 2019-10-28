@@ -32,13 +32,13 @@ static int header_set(void *data, const char *key, const char *val)
 }
 
 apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
-                         const char *payload, size_t len, 
-                         struct apr_table_t *protected, 
+                         md_data_t *payload, struct apr_table_t *protected, 
                          struct md_pkey_t *pkey, const char *key_id)
 {
     md_json_t *msg, *jprotected;
     const char *prot64, *pay64, *sign64, *sign, *prot;
     apr_status_t rv = APR_SUCCESS;
+    md_data_t data;
 
     *pmsg = NULL;
     
@@ -64,9 +64,11 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
     }
     
     if (rv == APR_SUCCESS) {
-        prot64 = md_util_base64url_encode(prot, strlen(prot), p);
+        data.data = prot;
+        data.len = strlen(prot);
+        prot64 = md_util_base64url_encode(&data, p);
         md_json_sets(prot64, msg, "protected", NULL);
-        pay64 = md_util_base64url_encode(payload, len, p);
+        pay64 = md_util_base64url_encode(payload, p);
 
         md_json_sets(pay64, msg, "payload", NULL);
         sign = apr_psprintf(p, "%s.%s", prot64, pay64);
@@ -91,6 +93,7 @@ apr_status_t md_jws_sign(md_json_t **pmsg, apr_pool_t *p,
 apr_status_t md_jws_pkey_thumb(const char **pthumb, apr_pool_t *p, struct md_pkey_t *pkey)
 {
     const char *e64, *n64, *s;
+    md_data_t data;
     apr_status_t rv;
     
     e64 = md_pkey_get_rsa_e64(pkey, p);
@@ -101,6 +104,7 @@ apr_status_t md_jws_pkey_thumb(const char **pthumb, apr_pool_t *p, struct md_pke
 
     /* whitespace and order is relevant, since we hand out a digest of this */
     s = apr_psprintf(p, "{\"e\":\"%s\",\"kty\":\"RSA\",\"n\":\"%s\"}", e64, n64);
-    rv = md_crypt_sha256_digest64(pthumb, p, s, strlen(s));
+    MD_DATA_SET_STR(&data, s);
+    rv = md_crypt_sha256_digest64(pthumb, p, &data);
     return rv;
 }

@@ -17,6 +17,7 @@
 #define md_acme_order_h
 
 struct md_json_t;
+struct md_result_t;
 
 typedef struct md_acme_order_t md_acme_order_t;
 
@@ -33,7 +34,7 @@ struct md_acme_order_t {
     const char *url;
     md_acme_order_st status;
     struct apr_array_header_t *authz_urls;
-    struct apr_array_header_t *challenge_dirs;
+    struct apr_array_header_t *challenge_setups;
     struct md_json_t *json;
     const char *finalize;
     const char *certificate;
@@ -48,9 +49,6 @@ md_acme_order_t *md_acme_order_create(apr_pool_t *p);
 apr_status_t md_acme_order_add(md_acme_order_t *order, const char *authz_url);
 apr_status_t md_acme_order_remove(md_acme_order_t *order, const char *authz_url);
 
-apr_status_t md_acme_order_add_challenge_dir(md_acme_order_t *order, const char *dir);
-
-
 struct md_json_t *md_acme_order_to_json(md_acme_order_t *set, apr_pool_t *p);
 md_acme_order_t *md_acme_order_from_json(struct md_json_t *json, apr_pool_t *p);
 
@@ -62,32 +60,33 @@ apr_status_t md_acme_order_save(struct md_store_t *store, apr_pool_t *p,
                                     md_acme_order_t *authz_set, int create);
 
 apr_status_t md_acme_order_purge(struct md_store_t *store, apr_pool_t *p, 
-                                 md_store_group_t group, const char *md_name);
+                                 md_store_group_t group, const char *md_name,
+                                 apr_table_t *env);
 
 
 apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *acme, 
                                             apr_array_header_t *challenge_types,
-                                            md_store_t *store, const md_t *md, apr_pool_t *p);
+                                            md_store_t *store, const md_t *md, 
+                                            apr_table_t *env, struct md_result_t *result,
+                                            apr_pool_t *p);
 
 apr_status_t md_acme_order_monitor_authzs(md_acme_order_t *order, md_acme_t *acme, 
-                                          const md_t *md, apr_interval_time_t timeout, 
-                                          apr_pool_t *p);
+                                          const md_t *md, apr_interval_time_t timeout,
+                                          struct md_result_t *result, apr_pool_t *p);
 
 /* ACMEv2 only ************************************************************************************/
 
 apr_status_t md_acme_order_register(md_acme_order_t **porder, md_acme_t *acme, apr_pool_t *p, 
-                                    const md_t *md);
+                                    const char *name, struct apr_array_header_t *domains);
 
-apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, apr_pool_t *p);
+apr_status_t md_acme_order_update(md_acme_order_t *order, md_acme_t *acme, 
+                                  struct md_result_t *result, apr_pool_t *p);
 
 apr_status_t md_acme_order_await_ready(md_acme_order_t *order, md_acme_t *acme, 
                                        const md_t *md, apr_interval_time_t timeout, 
-                                       apr_pool_t *p);
+                                       struct md_result_t *result, apr_pool_t *p);
 apr_status_t md_acme_order_await_valid(md_acme_order_t *order, md_acme_t *acme, 
                                        const md_t *md, apr_interval_time_t timeout, 
-                                       apr_pool_t *p);
-
-apr_status_t md_acme_order_finalize(md_acme_order_t *order, md_acme_t *acme, 
-                                    const md_t *md, apr_pool_t *p);
+                                       struct md_result_t *result, apr_pool_t *p);
 
 #endif /* md_acme_order_h */

@@ -40,9 +40,14 @@ A2LIB_OBJECTS = \
     md_json.c \
     md_jws.c \
     md_log.c \
+    md_log.c \
+    md_ocsp.c \
+    md_result.c \
     md_reg.c \
+    md_status.c \
     md_store.c \
     md_store_fs.c \
+    md_time.c \
     md_util.c
 
 A2LIB_HFILES = \
@@ -59,9 +64,13 @@ A2LIB_HFILES = \
     md_json.h \
     md_jws.h \
     md_log.h \
+    md_ocsp.h \
+    md_result.h \
     md_reg.h \
+    md_status.h \
     md_store.h \
     md_store_fs.h \
+    md_time.h \
     md_util.h \
     md.h
     
@@ -78,12 +87,18 @@ mod_md_la_LDFLAGS  = -module -L../src -lmd -ljansson -lcurl -lssl -lcrypto -expo
 
 OBJECTS = \
     mod_md_config.c \
+    mod_md_drive.c \
+    mod_md_ocsp.c \
     mod_md_os.c \
+    mod_md_status.c \
     mod_md.c
 
 HFILES = \
     mod_md_config.h \
+    mod_md_drive.h \
+    mod_md_ocsp.h \
     mod_md_os.h \
+    mod_md_status.h \
     mod_md_private.h \
     mod_md.h
 

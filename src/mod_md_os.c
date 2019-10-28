@@ -17,13 +17,6 @@
 #include <assert.h>
 #include <apr_strings.h>
 
-#include <ap_mmn.h>
-#if !AP_MODULE_MAGIC_AT_LEAST(20180720, 5)
-#ifndef AP_ENABLE_EXCEPTION_HOOK
-#define AP_ENABLE_EXCEPTION_HOOK 0
-#endif
-#endif
-
 #include <mpm_common.h>
 #include <httpd.h>
 #include <http_log.h>
@@ -44,14 +37,20 @@
 
 apr_status_t md_try_chown(const char *fname, unsigned int uid, int gid, apr_pool_t *p)
 {
-#if AP_NEED_SET_MUTEX_PERMS
-    if (-1 == chown(fname, (uid_t)uid, (gid_t)gid)) {
-        apr_status_t rv = APR_FROM_OS_ERROR(errno);
-        if (!APR_STATUS_IS_ENOENT(rv)) {
-            ap_log_perror(APLOG_MARK, APLOG_ERR, rv, p, APLOGNO(10082)
-                         "Can't change owner of %s", fname);
+#if AP_NEED_SET_MUTEX_PERMS && HAVE_UNISTD_H
+    /* Since we only switch user when running as root, we only need to chown directories
+     * in that case. Otherwise, the server will ignore any "user/group" directives and
+     * child processes have the same privileges as the parent.
+     */
+    if (!geteuid()) {
+        if (-1 == chown(fname, (uid_t)uid, (gid_t)gid)) {
+            apr_status_t rv = APR_FROM_OS_ERROR(errno);
+            if (!APR_STATUS_IS_ENOENT(rv)) {
+                ap_log_perror(APLOG_MARK, APLOG_ERR, rv, p, APLOGNO(10082)
+                              "Can't change owner of %s", fname);
+            }
+            return rv;
         }
-        return rv;
     }
     return APR_SUCCESS;
 #else 
@@ -61,10 +60,10 @@ apr_status_t md_try_chown(const char *fname, unsigned int uid, int gid, apr_pool
 
 apr_status_t md_make_worker_accessible(const char *fname, apr_pool_t *p)
 {
-#if AP_NEED_SET_MUTEX_PERMS
-    return md_try_chown(fname, ap_unixd_config.user_id, -1, p);
-#else 
+#ifdef WIN32
     return APR_ENOTIMPL;
+#else 
+    return md_try_chown(fname, ap_unixd_config.user_id, -1, p);
 #endif
 }
 

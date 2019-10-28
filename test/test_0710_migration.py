@@ -10,10 +10,9 @@ import sys
 import time
 
 from datetime import datetime
-from httplib import HTTPSConnection
-from test_base import TestEnv
-from test_base import HttpdConf
-from test_base import CertUtil
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
+from TestCertUtil import CertUtil
 
 
 def setup_module(module):
@@ -22,7 +21,7 @@ def setup_module(module):
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
-    TestEnv.install_test_conf();
+    HttpdConf().install();
     assert TestEnv.apache_start() == 0
     
 
@@ -31,19 +30,14 @@ def teardown_module(module):
     assert TestEnv.apache_stop() == 0
 
 
-class TestAuto:
-
-    @classmethod
-    def setup_class(cls):
-        time.sleep(1)
-        cls.dns_uniq = "%d.org" % time.time()
-        cls.TMP_CONF = os.path.join(TestEnv.GEN_DIR, "auto.conf")
+class TestMigration:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.apache_err_reset();
+        HttpdConf().install()
+        TestEnv.httpd_error_log_clear();
         TestEnv.clear_store()
-        TestEnv.install_test_conf();
+        self.test_domain = TestEnv.get_method_domain(method)
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
@@ -52,60 +46,59 @@ class TestAuto:
     # create a MD with ACMEv1, let it get a cert, change config to ACMEv2
     # 
     def test_710_001(self):
-        domain = "test710-001-" + TestAuto.dns_uniq
+        domain = self.test_domain
 
         # use ACMEv1 initially
         TestEnv.set_acme('acmev1')
         
         # generate config with one MD, restart, gets cert
-        dns_list = [ domain, "www." + domain ]
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        domains = [ domain, "www." + domain ]
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
-        conf.add_md( dns_list )
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True)
+        conf.add_md( domains )
+        conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
-        self._check_md_cert( dns_list )
-        cert1 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
+        TestEnv.check_md_complete(domain)
+        cert1 = TestEnv.get_cert(domain)
         assert domain in cert1.get_san_list()
  
         # use ACMEv2 now for everything
         TestEnv.set_acme('acmev2')
 
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
-        conf.add_md( dns_list )
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True)
+        conf.add_md( domains )
+        conf.add_vhost(domains)
         conf.install()
-        # restart, gets cert
+        # restart, gets cert, should still be the same cert as it remains valid
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([ domain ] )
-        self._check_md_cert( dns_list )
-        cert2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
-        # should still be the same cert as it remains valid
-        assert cert1.get_serial() == cert2.get_serial()
+        status = TestEnv.get_certificate_status( domain )
+        assert status['serial'] == cert1.get_serial() 
         
         # change the MD so that we need a new cert
-        dns_list = [ domain, "www." + domain, "another."  + domain ]
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        domains = [ domain, "www." + domain, "another."  + domain ]
+        conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
-        conf.add_md( dns_list )
-        conf.add_vhost(TestEnv.HTTPS_PORT, domain, aliasList=[ dns_list[1] ], withSSL=True)
+        conf.add_md( domains )
+        conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
-        self._check_md_cert( dns_list )
-        cert3 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
         # should no longer the same cert
-        assert cert1.get_serial() != cert3.get_serial()
+        status = TestEnv.get_certificate_status( domain )
+        assert status['serial'] != cert1.get_serial() 
+        TestEnv.check_md_complete(domain)
+        # should have a 2 accounts now
+        assert 2 == len(TestEnv.list_accounts())
 
     #-----------------------------------------------------------------------------------------------
     # create 2 MDs with ACMEv1, let them get a cert, change config to ACMEv2
     # check that both work and that only a single ACME acct is created
     # 
     def test_710_002(self):
-        domain = "test710-002-" + TestAuto.dns_uniq
+        domain = self.test_domain
 
         # use ACMEv1 initially
         TestEnv.set_acme('acmev1')
@@ -114,28 +107,27 @@ class TestAuto:
         domainB = "b-" + domain
         
         # generate config with two MDs
-        dnsListA = [ domainA, "www." + domainA ]
-        dnsListB = [ domainB, "www." + domainB ]
+        domainsA = [ domainA, "www." + domainA ]
+        domainsB = [ domainB, "www." + domainB ]
 
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_line( "MDMembers auto" )
         conf.add_md( [ domainA ] )
         conf.add_md( [ domainB ] )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domainA, aliasList=dnsListA[1:], withSSL=True )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domainB, aliasList=dnsListB[1:], withSSL=True )
+        conf.add_vhost(domainsA)
+        conf.add_vhost(domainsB)
         conf.install()
 
         # restart, check that md is in store
         assert TestEnv.apache_restart() == 0
-        self._check_md_names( domainA, dnsListA )
-        self._check_md_names( domainB, dnsListB )
+        TestEnv.check_md( domainsA )
+        TestEnv.check_md( domainsB )
         # await drive completion
         assert TestEnv.await_completion( [ domainA, domainB ] )
-        self._check_md_cert(dnsListA)
-        self._check_md_cert(dnsListB)
-        self._check_md_cert( dnsListA )
-        cert1 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainA)
+        TestEnv.check_md_complete(domainsA[0])
+        TestEnv.check_md_complete(domainsB[0])
+        cert1 = TestEnv.get_cert(domainA)
         # should have a single account now
         assert 1 == len(TestEnv.list_accounts())
         
@@ -143,45 +135,84 @@ class TestAuto:
         TestEnv.set_acme('acmev2')
 
         # change the MDs so that we need a new cert
-        dnsListA = [ domainA, "www." + domainA, "another."  + domainA ]
-        dnsListB = [ domainB, "www." + domainB, "another."  + domainB ]
+        domainsA = [ domainA, "www." + domainA, "another."  + domainA ]
+        domainsB = [ domainB, "www." + domainB, "another."  + domainB ]
 
-        conf = HttpdConf( TestAuto.TMP_CONF )
+        conf = HttpdConf()
         conf.add_admin( "admin@not-forbidden.org" )
         conf.add_line( "MDMembers auto" )
         conf.add_md( [ domainA ] )
         conf.add_md( [ domainB ] )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domainA, aliasList=dnsListA[1:], withSSL=True )
-        conf.add_vhost( TestEnv.HTTPS_PORT, domainB, aliasList=dnsListB[1:], withSSL=True )
+        conf.add_vhost(domainsA)
+        conf.add_vhost(domainsB)
         conf.install()
 
         # restart, gets cert
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domainA, domainB ] )
-        self._check_md_names( domainA, dnsListA )
-        self._check_md_names( domainB, dnsListB )
-        self._check_md_cert( dnsListA )
-        cert2 = CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domainA)
+        TestEnv.check_md( domainsA )
+        TestEnv.check_md( domainsB )
+        TestEnv.check_md_complete(domainsA[0])
+        cert2 = TestEnv.get_cert(domainA)
         # should no longer the same cert
         assert cert1.get_serial() != cert2.get_serial()
         # should have a 2 accounts now
         assert 2 == len(TestEnv.list_accounts())
 
 
-    # --------- _utils_ ---------
+    #-----------------------------------------------------------------------------------------------
+    # create an MD with ACMEv1, let them get a cert, remove the explicit 
+    # MDCertificateAuthority config and expect the new default to kick in.
+    # 
+    def test_710_003(self):
+        domain = "a-" + self.test_domain
+        domainb = "b-" + self.test_domain 
 
-    def _check_md_names(self, name, dns_list):
-        md = TestEnv.a2md([ "-j", "list", name ])['jout']['output'][0]
-        assert md['name'] == name
-        assert md['domains'] == dns_list
-
-
-    def _check_md_cert(self, dns_list):
-        name = dns_list[0]
-        md = TestEnv.a2md([ "list", name ])['jout']['output'][0]
-        # check tos agreement, cert url
-        assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert os.path.isfile( TestEnv.path_domain_privkey(name) )
-        assert os.path.isfile( TestEnv.path_domain_pubcert(name) )
-
+        # use ACMEv1 initially
+        TestEnv.set_acme('acmev1')
+        ca_url = TestEnv.ACME_URL
+        
+        domains = [ domain, "www." + domain ]
+        conf = HttpdConf(local_CA=False, text="""
+ServerAdmin admin@not-forbidden.org
+MDCertificateAuthority %s
+MDCertificateAgreement accepted
+MDMembers auto
+            """ % (ca_url))
+        conf.add_md([ domain ])
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        TestEnv.check_md( domains )
+        assert TestEnv.await_completion( [ domain ] )
+        assert (0, 0) == TestEnv.httpd_error_log_count()
+        TestEnv.check_md(domains, ca=ca_url)
+                
+        # use ACMEv2 now, same MD, no CA url
+        TestEnv.set_acme('acmev2')
+        # this changes the default CA url
+        assert TestEnv.ACME_URL_DEFAULT != ca_url
+        
+        conf = HttpdConf(local_CA=False, text="""
+ServerAdmin admin@not-forbidden.org
+MDCertificateAgreement accepted
+MDMembers auto
+            """)
+        conf.start_md( [ domain ] )
+        conf.end_md()
+        conf.start_md2( [ domainb ] )
+        # this willg get the reald Let's Encrypt URL assigned, turn off
+        # auto renewal, so we will not talk to them
+        conf.add_line( "MDRenewMode manual" )
+        conf.end_md2()
+        conf.add_vhost(domains)
+        conf.add_vhost(domainb)
+        conf.install()
+        
+        assert TestEnv.apache_restart() == 0
+        assert (0, 0) == TestEnv.httpd_error_log_count()
+        # the existing MD was migrated to new CA url
+        TestEnv.check_md(domains, ca=TestEnv.ACME_URL_DEFAULT)
+        # the new MD got the new default anyway
+        TestEnv.check_md([ domainb ], ca=TestEnv.ACME_URL_DEFAULT)
 

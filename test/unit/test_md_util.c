@@ -41,16 +41,18 @@ static void md_util_teardown(void)
 
 static void base64_roundtrip(const char *buf_in, size_t buf_len)
 {
-    const char *buf_out, *buf64;
-    apr_size_t out_len;
+    const char *buf64;
+    md_data_t buffer;
     
-    buf64 = md_util_base64url_encode(buf_in, buf_len, g_pool);
+    buffer.data = buf_in;
+    buffer.len = buf_len;
+    
+    buf64 = md_util_base64url_encode(&buffer, g_pool);
     ck_assert(buf64);
+    md_util_base64url_decode(&buffer, buf64, g_pool);
     
-    out_len = md_util_base64url_decode(&buf_out, buf64, g_pool);
-    
-    ck_assert_int_eq(buf_len, out_len);
-    ck_assert_mem_eq(buf_in, buf_out, buf_len);
+    ck_assert_int_eq(buf_len, buffer.len);
+    ck_assert_mem_eq(buf_in, buffer.data, buffer.len);
 }
 
 /*

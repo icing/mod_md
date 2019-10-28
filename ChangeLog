@@ -1,3 +1,349 @@
+v2.2.3
+----------------------------------------------------------------------------------------------------
+ * Fixing order of ACME challenges used when nothing else configured. Code now behaves as
+   documented for `MDCAChallenges`. Fixes #156. Thanks again to @mkauf for finding this.
+
+v2.2.2
+----------------------------------------------------------------------------------------------------
+ * Fixing a potential, low memory null pointer dereference [thanks to @uhliarik].
+ * Fixing an incompatibility with a change in libcurl v7.66.0 that added unwanted
+   "transfer-encoding" to POST requests. This failed in directy communication with
+   Let's Encrypt boulder server (however it worked when accessed via the hosting CDN,
+   as almost all live usages do). Thanks to @mkauf for finding and fixing.
+ 
+v2.2.1
+----------------------------------------------------------------------------------------------------
+ * Fixes a compiler warning. False flag, but initialization to make it happy does not hurt.
+   Thanks to @sundayoyeniyi for finding this. Refs #154.
+
+v2.2.0
+----------------------------------------------------------------------------------------------------
+ * No longer beta status.
+ * Synched with Apache trunk and planned for 2.4.x backport when all works well there.
+ * Re-importing of log tags assigned in Apache project.
+ * Some documentation clarifications.
+
+v2.1.10
+----------------------------------------------------------------------------------------------------
+ * if 'MDBaseServer' in enabled and there is no specific VirtualHost for a domain, the
+   base server config is considered the relevant one for deciding ACME support. This
+   is most relevant for the 'tls-alpn-01' challenge, see issue #150).
+ * MDMessageCmd is now invoked with 'installed' when the certificate is actually becoming
+   active at server startup/reload. Different to all other messages, this one is invoked
+   while the server is still root and has according privileges. (Hint: you may use this
+   to copy a certificate+key to another application's preferred location/format.)
+
+v2.1.9
+----------------------------------------------------------------------------------------------------
+ * server-status no longer leaves the "activity" column empty when a renewal is ongoing.
+ * server-status activity: report a renewal as "pending" when it is due but no job has been
+   started yet.
+ * removed the "valid after" time as this was confusing. The new certificate is already
+   valid, only it is recommeneded to wait with the actication a bit. Admins are probably
+   better aware what the clock skew requirements of their site are.
+
+v2.1.8
+----------------------------------------------------------------------------------------------------
+ * Some notifications cleanups:
+   - notifications about errors no longer change the status of the ongoing renewal.
+   - notifications about a successful renewal are re-attempted on failure, just like
+     other failures cause a retry with a backing-off delay.
+   - warnings about expiring certificates are only sent, if there is no renewal
+     already done (but maybe not activated yet) for a domain
+   - failure to notify about expiring certficates also cause retry and are cleared
+     when/if finally successful.
+
+v2.1.7
+----------------------------------------------------------------------------------------------------
+ * Changed server-status section headings to make more clear what is listed there.
+ * no longer listing the logs in the top-level md-status handler (where all managed 
+   domains are listed). Getting the status of a particular domain has the log).
+ * fixing some signedness warnings in clang 11.
+ * Fixes bug in time period calculation for removing old OCSP response files.
+
+v2.1.6
+----------------------------------------------------------------------------------------------------
+ * Fixed issue #145 where a server restart was not done when recommended and checking
+   becamed called in a tight loop, eventually calling message commands again and again.
+   Test case added for this.
+ * 'make test' will now trigger the build if not done before. removed some obsolete
+   test special targets.
+ * starting to integrate with travis for build and test coverage 
+ * documented how MDCAChallenges now overrides any port sanity checks.
+
+v2.1.5
+----------------------------------------------------------------------------------------------------
+ * fixed a crash when the server-status page was retrieved in text form (e.g. server-status?auto 
+   url) and a MDomain had been renewed. Test case added. Fixes #141.
+ * Test suite: rework on how httpd config is set up to allow for MDomain tests that use
+   the base server and listen only on one port.
+
+v2.1.4
+----------------------------------------------------------------------------------------------------
+ * added test case for #142 and fixed a bug in JSON array handling introduced in 2.1.3
+
+v2.1.3
+----------------------------------------------------------------------------------------------------
+ * added more trace2 level logging in server-status collection to help issue #141
+ * fixed the status handling to return job information from staging also when the certificate
+   is not there yet.
+ * fixed a bug in JSON handling that decremented refcounters wrongly when setting another
+   JSON object at a key where none was allowed. Added test case.   
+ * OCSP Stapling information in "server-status" is now sorted alphabetically.
+ * add a CA column to Managed Domains table
+ * urls are now displayed as links with the hostname or known name as text.
+ * similary to ocsp status, certificate status 'ok' is now 'good'. Will turn to 'expired'
+   should the certificate validity pass the current clock.
+
+v2.1.2
+----------------------------------------------------------------------------------------------------
+ * Refactoring the initialization to distinguish between VirtualHost definitions that have 
+   SSLEngine on and those who do not. The advantages are:
+   - No MDPortMap definition is necessary to detect where SSL certificates are needed.
+   - mod_md will only collect ServerName/ServerAlias from VirtualHosts that use SSL.
+   - One can have a 'catch-all' VirtualHost on port 80 using all domains without them 
+     bleeding back into the MD definitions.
+ * Initialization no longer traverses the complete md store, reads configured MD JSON
+   files only once and writes them only when changed. When a new MD is added or
+   an existing one renamed (the first domain member changes), will the store be searched
+   for old definitions and certificates. This search only looks at MDs outside the current
+   set and should remain efficient with many MDs configured.
+   Example: if you have 100 MDs and rename 1, mod_md will see the 99 directories that stayed
+   and load the one unmatched to check for a rename.
+   
+
+v2.1.1
+----------------------------------------------------------------------------------------------------
+ * Fixed a bug where the "acme-tls/1" protocol setting was not recognized on the base server
+   (with "MDBaseServer on").
+ * ACME errors returned during account creation are now added to the job log.
+ * A missing ServerAdmin is now properly logged at the renewal job.
+
+v2.1.0
+----------------------------------------------------------------------------------------------------
+ * fixed a crash in "server-status" handler when stapling was enabled but not status information
+   could be found.
+ * toning down some INFO level logging to DEBUG or lower.
+ * new directive 'MDCertificateMonitor' to allow configuration of the check HTML links rendered
+   in the server-status page.
+ * server-status timestamps now in a better readable format. Some columns have been merged.
+ * Much more verbose data logging when OCSP responses could not be parsed.
+ * Fixed a bug with suppressing "Expect" header sending.
+ * MDMessageCmd is now also invoked for stapling with reasons 'ocsp-renewed' and 'ocsp-errored'.
+ * Fixed a bug where notifications about an expiring certificate were sent out too often.
+ * "md-status" handler now also adds OCSP stapling logs to the JSON output.
+ * Patch files for Apache trunk and 2.4.x branch are now empty. mod_md will work with
+   unpatched copies of those.
+ * Converted pytest suite from python2 to python3. "make test" now calls "python3 -m pytest".
+ * "server-status" page now carries a new table of all OCSP stapling certificates managed
+   by mod_md stapling. Shifted ocsp related information in JSON "md-status" around a bit.
+ * New directive "MDStaplingRenewWindow" to configure when OCSP response should be renewed.
+ * OCSP response cleanup implemented and test case added.
+ * bringing over APLOGNO() number assignments from apache subversion tree.
+ * fixed a compile error on warn level about redefintion of AP_ENABLE_EXCEPTION_HOOK. Fixes #132.
+ * New directive "MDStaplingKeepResponse" for controlling how long OCSP responses are
+   kept in the store and older ones get removed at start up.
+ * Errors reports by an ACME CA may include "subproblems", where several causes may be reported. 
+   These are now part of the md-status reporting and also logged. Test cases added.
+ * OCSP status and validity now part of md-status resource.
+ * The number of log entries for a single job is now limited to 128. New entries will
+   cause the oldest ones to be removed.
+ * OCSP Stapling renewal jobs are now also persisted in the store.
+ * Fixed a user-after-free when updating accounts from the server.
+ * CA reported problems when authorization challenges fail are now visible in the renewal log.
+ * backoff timing for failed ocsp retrieval attempts. specific ocsp update will be
+   delayed accordingly.
+ * ocsp responses up for renewal are checked periodically for updates in the store.
+ * ocsp responses are now saved in and retrieved from store. Concurrent access in place, timed
+   invalidation handling still missing.
+ * first own ocsp test successful.
+ * first ocsp responses are retrieved, but the cache does not work cross-process yet.
+ * New directives "MDStapling on|off"
+ * Overall, connect and stall timeouts set in http client requests.
+ * Prepping http client for multi request handling in parallel.
+ * Adaptions for new mod_ssl interface via hooks, as available in apache trunk.
+ * Fixing NULL dereferences when unable to lead certificate chains from staging.
+ * Updating a newly created account in a2md right away to make sure it responds. 
+
+v2.0.6
+----------------------------------------------------------------------------------------------------
+ * MDs with static certificate (MDCertificateFile) are not auto-renewed. But they are watched
+   for expiration and trigger a configured MDMessageCmd.
+ * ACME challenge method 'tls-alpn-01' is now checked for each domain in an MD individually
+   and no longer needs to be available for all domains.
+
+v2.0.5
+----------------------------------------------------------------------------------------------------
+ * Renewal jobs now have their own log attached with timestamps when renewal was started,
+   ran into errors, finished. The job JSON files are copied from staging into the domain
+   directory for possible later review.
+ * job logs now list all activities during renewal.
+ * new `MDMessageCmd` added as alternative to MDNotifyCmd. This command is called with an
+   addition "reason" parameter that specifies what happened to the manged domain. 
+ * `MDNotifyCmd` is now called for each domain that has been successfully renewed. Not for 
+   all Managed Domains after all have been processed. This gives notifications earlier.
+   Notification errors are now also collected under MD status and notifications are retried
+   with backoff delays.
+ * New directive `MDServerStatus` to control if Managed Domains are listed in Apache's 
+  `server-status` handler or not. Default yes.
+ * New directive `MDCertificateStatus` to control if JSON certificate information on a domain
+   should be made available on https://<domain>/.httpd/certificate-status or not. Default yes.
+ * fixed a bug that checked ACMEv2 authorizations against the server several times unnecessarily.
+
+v2.0.4
+----------------------------------------------------------------------------------------------------
+ * Updated README.md with new directives and howto.
+ * New directives "MDCertificateFile" and "MDCertificateKeyFile" that allow defining
+   Managed Domains for certificates coming from somewhere else. 
+ * "MDRenewMode" is the new name of "MDDriveMode" (which is still available for 
+   backward compatibility). This should make it easier to understand what it does.
+ * Removing some fields form the store MD JSON, now that we can inspect the pubcert itself
+   all the time. Less store updates.
+ * Dropped support for the pre-v1.x function that mod_ssl used in ancient patches.
+ * public cert chain now gets cached in memory before server drops privileges, so we always
+   have access to it. Allowed to drop some pre-computed values such as the SHA256 fingerprint.
+ * Adding "<MDomain name>" as a shortcut to "<MDomainSet name>". It just reads that much better.
+ * More "how to"s in README.md
+ * `MDPortMap` directive now also accepts `http` and `https` as external ports. `http:8888` would 
+   mean that http requests from the internet arrive on local port 8888.
+ * Started "how to"s in README.md
+ * MDRequireHttps handler now runs after mod_ssl, so that it can report SSL errors before.
+ * All GET requests against an ACMEv2 endpoint (except directory and nonce retrievals), are
+   now made as POST with an empty, JWS signed body. See 
+   <https://community.letsencrypt.org/t/acme-v2-scheduled-deprecation-of-unauthenticated-resource-gets/74380>
+   for the necessity of this API change at LetsEncrypt.
+
+v2.0.3
+----------------------------------------------------------------------------------------------------
+ * Fixed an integer overrun for renewal window configuration on 32bit systems that caused
+   renewal windows to drop to 0, e.g. renewal when expired. This only happened when
+   MDRenewWindow was explicitly configured.
+ * JSON format of /.httpd/certificate-status slightly altered. See README.md for details.
+ * ACME errors and problems in challenge selection that point to configuration mistakes
+   are now visible in the md-status handler.
+ * Testsuite cleanup amd use of new md-status handler to verify progress.
+ * IMPORTANT: upgrade behaviour changed. MDs that have not `MDCertificateAuthority` configured
+   explicitly all get the new ACMEv2 default endpoint of Let's Encrypt. See README.md chapter
+   about upgrading for the background of this.
+ * Added chapter about the upcoming end-of-life changes for ACMEv1 at LetsEncrypt.
+ * Extracting certificate transparency SCT (the signature from CT logs) from a staged
+   certificate and displaying these on /.httpd/certificate-status. A monitoring client 
+   may use this to verify the signatures against the CT logs, even though the log may not
+   yet show the certificate (maximum merge delay seems to be at 24 hours on most logs). 
+
+v2.0.2
+----------------------------------------------------------------------------------------------------
+ * Fixing configuration startup (e.g. dry run) to sync with the store again. This let's
+   us find renamed MDs and use its correct paths. With wrong paths, mod_ssl gets unhappy
+   and logs errors (see #125).
+ * Adding an experimental "check" column to server-status with links to known certificate
+   checker sites.
+ * Certificate validity now appears as "valid-from"/"valid-until" pair.
+ * Adding SHA256 fingerprint to certificate-status for renewed certificate.
+ * md-status handler fixed to work on nested path locations as well.
+
+v2.0.1
+----------------------------------------------------------------------------------------------------
+ * New handler "md-status" that can be configured to return the state of all MDs in JSON format.
+ * Append the name or domain of an MD to the "md-status" url path and get the JSON of just
+   that MD.
+
+v2.0.0
+----------------------------------------------------------------------------------------------------
+ * Updating the documentation by pulling the wiki into README.md and making the necessary
+   additions and edits.
+ * If a MDomain is removed, all its challenge store information is purged as well. Test
+   case for that added. Fixes #93
+ * The ACMEv2 endpoint of Let's Encrypt is now the default for new MDs. Existing MDs will keep
+   their values unless one explicitly configures a 'MDCertificateAuthority'. 
+ * Non-HTML format of mod_status now lists number of ok/renew/error/ready MDomains.
+
+v1.99.12
+----------------------------------------------------------------------------------------------------
+ * Status lists private key specification, if different from default RSA(2048).
+ * Status shows list of MDs sorted alphabetically.
+ * Status now shows message from a failed renewal with information and error code on where/why
+   it failed.
+ * At startup, an initial ACME parameter check is performed. More details are given when
+   ACME challenge methods are unavailable as to the cause. server-status list these per MD.
+ * Adding challenge type 'tls-alpn-01' to ACMEv1 as well.
+ * server-status columns compressed. Expiry/Valid timestamp given as dates only for better
+   readability. Full time as tooltip.
+ * Renewal jobs properties are persisted after each run. This preserves status and schedules
+   when switching child processes by mod_watchdog. It also allows server-status to provide
+   more information about ongoing activities.
+ * Cleanup of post config work to make the dry-run phase faster and avoid double loadings
+   of MD data from the file system.
+ * Splitting out certificate driving in separate source. Logging errors/warnings about
+   MDomains that can not be renewed once at post config.
+
+v1.99.11
+----------------------------------------------------------------------------------------------------
+ * Rework of MD's contribution to httpd 'server-status' page. Better formatting, reordering, using
+   absolute GMT timestamps.
+
+v1.99.10
+----------------------------------------------------------------------------------------------------
+ * MD status now initialized fully in global list. Fixes new status handler to assess
+   things even when running in non-privileged setup where access to file system is no
+   longer allowed.
+
+v1.99.9
+----------------------------------------------------------------------------------------------------
+ * A domain that is managed by md now exposes a status resource at /.httpd/certificate-status
+   in JSON format. This lists serial number, valid-from, expires and the cert itself in base64url
+   encoding. Not highly relevant since the connection exposed the certificate already.
+   When a domain certificate has been renewed however, the same properties of the renewed
+   cert are available under the field "staging". When the server is restarted and the cert
+   is activated, these disappear again. This makes it easy to scan domains for pending
+   certificate renewals and also gives information of upcoming certificates right away.
+ * Added MD section to Apache's "server-status" page listing all managed domains and their
+   settings, renewal status and error count.
+
+v1.99.8
+----------------------------------------------------------------------------------------------------
+ * Merge of changes up to  1.1.19
+ * Fix for #117, explicitly set file permissions to work around umask defaults.
+
+v1.99.7
+----------------------------------------------------------------------------------------------------
+ * Fix by @nono303 to fix the Windows build that was broken in the last release.
+
+v1.99.6
+----------------------------------------------------------------------------------------------------
+ * When the server is not started by root, the module no longer tries to chown() the
+   staging and challenges directories as User and Group directives are ignored. Fixes #115.
+ * When a md.json file in the store cannot be parsed, it is ignore and overwritten during
+   initial synch at server start. 
+ * When migrating from ACMEv1 to ACMEv2 on the same host, the account private key of an
+   existing account is reused on registration. Let's Encrypt internally treats this as
+   the same account, although it is exposed using different urls. This helps keeping
+   the waste of large prime numbers at a manageable level and allows for more useful
+   statistics from ACME CAs.
+
+v1.99.5
+----------------------------------------------------------------------------------------------------
+ * Enhanced checks for wildcard domain names in certificate coverage.
+ * ACME authorizations and certificate requests only done for minimal set of domain names,
+   e.g. domain covered by a wildcard are left out. LE CA requires this.
+ * First successful wildcard certificate signup in test suite
+ * Old and long deprecated configuration directives "ManagedDomain(s)" removed.
+ * Challenge type 'tls-sni-01' removed as it has been disabled by Let's Encrypt.
+ * When the ACME server threw its challenges at us, we selected the first among the 
+   configured/supported ones and ran that. When it failed, the whole authorization
+   failed until the retry kicked in. Now, on a failed challenge startup, we look for the
+   next possible challenge type and try that.
+   This allows for challenge types that are configured and maybe supported in general,
+   but do not work for all domains. E.g. when we add DNS challenge support, that type
+   may only work for a subset of the domains. 
+   Instead of putting the burden on the user to configured the MDomains individually 
+   correct, the DNS challenge setup can just return APR_ENOTIMPL and another challenge 
+   type is used (if available).
+ * configure updated to better work with non-standard curl library locations.
+
+v1.99.4
+----------------------------------------------------------------------------------------------------
+ * tls-alpn-01 challenge method, when available, is now preferred.
  * configure now checks the libcurl version to be at least 7.50, as does the Apache configure.
 
 v1.99.3

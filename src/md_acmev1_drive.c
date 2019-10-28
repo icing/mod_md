@@ -29,6 +29,7 @@
 #include "md_jws.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_util.h"
@@ -50,7 +51,7 @@
  * - check if there already is a valid AUTHZ resource
  * - if ot, create an AUTHZ resource with challenge data 
  */
-static apr_status_t ad_setup_order(md_proto_driver_t *d)
+static apr_status_t ad_setup_order(md_proto_driver_t *d, md_result_t *result)
 {
     md_acme_driver_t *ad = d->baton;
     apr_status_t rv;
@@ -64,7 +65,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     assert(ad->md);
     assert(ad->acme);
 
-    ad->phase = "check authz";
+    md_result_activity_printf(result, "Setup order resource for %s", ad->md->name);
     
     /* For each domain in MD: AUTHZ setup
      * if an AUTHZ resource is known, check if it is still valid
@@ -78,7 +79,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
     }
     else if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: loading authz data", md->name);
-        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name);
+        md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md->name, d->env);
         return APR_EAGAIN;
     }
     
@@ -89,7 +90,7 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
         url = APR_ARRAY_IDX(ad->order->authz_urls, i, const char*);
         rv = md_acme_authz_retrieve(ad->acme, d->p, url, &authz);
         if (APR_SUCCESS == rv) {
-            if (!md_contains(md, authz->domain, 0)) {
+            if (md_array_str_index(ad->domains, authz->domain, 0, 0) < 0) {
                 md_acme_order_remove(ad->order, url);
                 changed = 1;
                 continue;
@@ -104,118 +105,85 @@ static apr_status_t ad_setup_order(md_proto_driver_t *d)
             continue;
         }
         else {
-            goto out;
+            goto leave;
         }
     }
     
-    /* Do we have authz urls for all domains? */
-    for (i = 0; i < md->domains->nelts && APR_SUCCESS == rv; ++i) {
-        const char *domain = APR_ARRAY_IDX(md->domains, i, const char *);
+    /* Do we have authz urls for all domains? If not, register a new one */
+    for (i = 0; i < ad->domains->nelts && APR_SUCCESS == rv; ++i) {
+        const char *domain = APR_ARRAY_IDX(ad->domains, i, const char *);
     
         if (md_array_str_index(domains_covered, domain, 0, 0) < 0) {
-            /* create new one */
+            md_result_activity_printf(result, "Creating authz resource for %s", domain);
             rv = md_acme_authz_register(&authz, ad->acme, domain, d->p);
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: created authz for %s", 
-                          md->name, domain);
-            if (APR_SUCCESS == rv) {
-                rv = md_acme_order_add(ad->order, authz->url);
-                changed = 1;
-            }
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: created authz for %s (last problem: %s)", 
+                          md->name, domain, ad->acme->last->problem);
+            if (APR_SUCCESS != rv) goto leave;
+            rv = md_acme_order_add(ad->order, authz->url);
+            changed = 1;
         }
     }
     
-    /* Save any changes */
-    if (APR_SUCCESS == rv && changed) {
+    if (changed) {
         rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, md->name, ad->order, 0);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p, "%s: saved", md->name);
     }
     
-out:
+leave:
+    md_acme_report_result(ad->acme, rv, result);
     return rv;
 }
 
-apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d)
+apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, md_result_t *result)
 {
     apr_status_t rv = APR_SUCCESS;
+    const char *required;
     
-    ad->phase = "get certificate";
-    md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: (ACMEv1) need certificate", d->md->name);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: (ACMEv1) need certificate", d->md->name);
     
     /* Chose (or create) and ACME account to use */
-    rv = md_acme_drive_set_acct(d);
+    if (APR_SUCCESS != (rv = md_acme_drive_set_acct(d, result))) goto leave;
     
     /* Check that the account agreed to the terms-of-service, otherwise
      * requests for new authorizations are denied. ToS may change during the
      * lifetime of an account */
-    if (APR_SUCCESS == rv) {
-        const char *required;
-        
-        ad->phase = "check agreement";
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: (ACMEv1) check Tems-of-Service agreement", d->md->name);
-        
-        rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement, &required);
-        
-        if (APR_STATUS_IS_INCOMPLETE(rv) && required) {
-            /* The CA wants the user to agree to Terms-of-Services. Until the user
-             * has reconfigured and restarted the server, this MD cannot be
-             * driven further */
-            ad->md->state = MD_S_MISSING;
-            md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
-            
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p, 
-                          "%s: the CA requires you to accept the terms-of-service "
-                          "as specified in <%s>. "
-                          "Please read the document that you find at that URL and, "
-                          "if you agree to the conditions, configure "
-                          "\"MDCertificateAgreement accepted\" "
-                          "in your Apache. Then (graceful) restart the server to activate.", 
-                          ad->md->name, required);
-            goto out;
-        }
-    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
+                  "%s: (ACMEv1) check Tems-of-Service agreement", d->md->name);
     
-    if (APR_SUCCESS == rv && md_array_is_empty(ad->certs)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: setup new authorization", d->md->name);
-        if (APR_SUCCESS != (rv = ad_setup_order(d))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup authz resource", 
-                          ad->md->name);
-            goto out;
-        }
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: setup new challenges", d->md->name);
-        ad->phase = "start challenges";
-        if (APR_SUCCESS != (rv = md_acme_order_start_challenges(ad->order, ad->acme,
-                                                                ad->ca_challenges,
-                                                                d->store, d->md, d->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: start challenges", 
-                          ad->md->name);
-            goto out;
-        }
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: monitoring challenge status", d->md->name);
-        ad->phase = "monitor challenges";
-        if (APR_SUCCESS != (rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
-                                                              ad->authz_monitor_timeout, d->p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: monitor challenges", 
-                          ad->md->name);
-            goto out;
-        }
-        
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, 
-                      "%s: finalizing order", d->md->name);
-        ad->phase = "finalize order";
-        if (APR_SUCCESS != (rv = md_acme_drive_setup_certificate(d))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: setup certificate", 
-                          ad->md->name);
-            goto out;
-        }
-        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, d->p, "%s: certificate setup", d->md->name);
+    rv = md_acme_check_agreement(ad->acme, d->p, ad->md->ca_agreement, &required);
+    if (APR_STATUS_IS_INCOMPLETE(rv) && required) {
+        /* The CA wants the user to agree to Terms-of-Services. Until the user
+         * has reconfigured and restarted the server, this MD cannot be
+         * driven further */
+        ad->md->state = MD_S_MISSING_INFORMATION;
+        md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
+        md_result_printf(result, rv, 
+            "the CA requires you to accept the terms-of-service as specified in <%s>. "
+            "Please read the document that you find at that URL and, if you agree to "
+            "the conditions, configure \"MDCertificateAgreement accepted\" "
+            "in your Apache. Then (graceful) restart the server to activate.", 
+            required);
+        goto leave;
     }
-out:    
-    return rv;
+    else if (APR_SUCCESS != rv) goto leave;
+    
+    if (!md_array_is_empty(ad->certs)) goto leave;
+    
+    rv = ad_setup_order(d, result);
+    if (APR_SUCCESS != rv) goto leave;
+    
+    rv = md_acme_order_start_challenges(ad->order, ad->acme, ad->ca_challenges,
+                                        d->store, d->md, d->env, result, d->p);
+    if (APR_SUCCESS != rv) goto leave;
+    
+    rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
+                                      ad->authz_monitor_timeout, result, d->p);
+    if (APR_SUCCESS != rv) goto leave;
+    
+    rv = md_acme_drive_setup_certificate(d, result);
+
+leave:    
+    md_result_log(result, MD_LOG_DEBUG);
+    return result->status;
 }
 

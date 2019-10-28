@@ -9,8 +9,8 @@ import time
 import pytest
 
 from datetime import datetime
-from urlparse import urlparse
-from test_base import TestEnv
+from urllib.parse import urlparse
+from TestEnv import TestEnv
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -31,20 +31,19 @@ class TestRegUpdate :
         print("setup_method: %s" % method.__name__)
         TestEnv.clear_store()
         # add managed domains
-        dnslist = [ 
+        domains = [ 
             [ self.NAME1, "www.greenbytes2.de", "mail.greenbytes2.de"],
             [ self.NAME2, "test-101.com", "test-102.com" ]
         ]
-        for dns in dnslist:
+        for dns in domains:
             TestEnv.a2md( [ "-a", TestEnv.ACME_URL, "add" ] + dns )
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    # --------- update domains ---------
 
+    # test case: update domains
     def test_110_000(self):
-        # test case: update domains
         dns = [ "foo.de", "bar.de" ]
         output1 = TestEnv.a2md([ "-vvvv", "update", self.NAME1, "domains" ] + dns)['jout']['output']
         assert len(output1) == 1
@@ -59,54 +58,60 @@ class TestRegUpdate :
                 },
                 "state": TestEnv.MD_S_INCOMPLETE
             })
-        # list store content
         assert TestEnv.a2md(["list"])['jout']['output'][0] == output1[0]
 
+    # test case: remove all domains
     def test_110_001(self):
-        # test case: remove all domains
         assert TestEnv.a2md(["update", self.NAME1, "domains"])['rv'] == 1
 
+    # test case: update domains with invalid DNS
     @pytest.mark.parametrize("invalidDNS", [
-        ("tld"), ("white sp.ace"), ("*.wildcard.com"), ("k\xc3ller.idn.com")
+        ("tld"), ("white sp.ace"), ("invalid.*.wildcard.com"), ("k\xc3ller.idn.com")
     ])
     def test_110_002(self, invalidDNS):
-        # test case: update domains with invalid DNS
         assert TestEnv.a2md(["update", self.NAME1, "domains", invalidDNS])['rv'] == 1
 
+    # test case: update domains with overlapping DNS list
     def test_110_003(self):
-        # test case: update domains with overlapping DNS list
         dns = [ self.NAME1, self.NAME2 ]
         assert TestEnv.a2md(["update", self.NAME1, "domains"] + dns)['rv'] == 1
 
+    # test case: update with subdomains
     def test_110_004(self):
-        # test case: update with subdomains
         dns = [ "test-foo.com", "sub.test-foo.com" ]
         md = TestEnv.a2md([ "update", self.NAME1, "domains" ] + dns)['jout']['output'][0]
         assert md['name'] == self.NAME1
         assert md['domains'] == dns
 
+    # test case: update domains with duplicates
     def test_110_005(self):
-        # test case: update domains with duplicates
         dns = [ self.NAME1, self.NAME1, self.NAME1 ]
         md = TestEnv.a2md([ "update", self.NAME1, "domains" ] + dns)['jout']['output'][0]
         assert md['name'] == self.NAME1
         assert md['domains'] == [ self.NAME1 ]
 
+    # test case: remove domains with punycode
     def test_110_006(self):
-        # test case: remove domains with punycode
         dns = [ self.NAME1, "xn--kller-jua.punycode.de" ]
         md = TestEnv.a2md([ "update", self.NAME1, "domains" ] + dns)['jout']['output'][0]
         assert md['name'] == self.NAME1
         assert md['domains'] == dns
 
+    # test case: update non-existing managed domain
     def test_110_007(self):
-        # test case: update non-existing managed domain
         assert TestEnv.a2md([ "update", "test-foo.com", "domains", "test-foo.com" ])['rv'] == 1
 
+    # test case: update domains with DNS wildcard
+    @pytest.mark.parametrize("wildDNS", [
+        ("*.wildcard.com")
+    ])
+    def test_110_008(self, wildDNS):
+        assert TestEnv.a2md(["update", self.NAME1, "domains", wildDNS])['rv'] == 0
+    
     # --------- update ca ---------
 
+    # test case: update CA URL
     def test_110_100(self):
-        # test case: update CA URL
         url = "http://localhost.com:9999"
         output = TestEnv.a2md([ "update", self.NAME1, "ca", url ])['jout']['output']
         assert len(output) == 1
@@ -122,15 +127,15 @@ class TestRegUpdate :
                 "state": TestEnv.MD_S_INCOMPLETE
             })
 
+    # test case: update CA with invalid URL
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
     ])
     def test_110_101(self, invalidURL):
-        # test case: update CA with invalid URL
         assert TestEnv.a2md(["update", self.NAME1, "ca", invalidURL])['rv'] == 1
 
+    # test case: update ca protocol
     def test_110_102(self):
-        # test case: update ca protocol
         md = TestEnv.a2md([ "update", self.NAME1, "ca", TestEnv.ACME_URL, "FOO"])['jout']['output'][0]
         TestEnv.check_json_contains( md['ca'], {
             "url": TestEnv.ACME_URL,
@@ -138,10 +143,8 @@ class TestRegUpdate :
         })
         assert md['state'] == 1
 
-    # --------- update account ---------
-
+    # test case: update account ID
     def test_110_200(self):
-        # test case: update account ID
         accID = "test.account.id"
         output = TestEnv.a2md([ "update", self.NAME1, "account", accID])['jout']['output']
         assert len(output) == 1
@@ -158,8 +161,8 @@ class TestRegUpdate :
                 "state": TestEnv.MD_S_INCOMPLETE
             })
 
+    # test case: remove account ID
     def test_110_201(self):
-        # test case: remove account ID
         assert TestEnv.a2md([ "update", self.NAME1, "account", "test.account.id"])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "account"])['jout']['output'][0]
         TestEnv.check_json_contains( md['ca'], {
@@ -168,8 +171,8 @@ class TestRegUpdate :
         })
         assert md['state'] == 1
 
+    # test case: change existing account ID
     def test_110_202(self):
-        # test case: change existing account ID
         assert TestEnv.a2md([ "update", self.NAME1, "account", "test.account.id"])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "account", "foo.test.com"])['jout']['output'][0]
         TestEnv.check_json_contains( md['ca'], {
@@ -179,8 +182,8 @@ class TestRegUpdate :
         })
         assert md['state'] == 1
 
+    # test case: ignore additional argument
     def test_110_203(self):
-        # test case: ignore additional argument
         md = TestEnv.a2md([ "update", self.NAME1, "account", "test.account.id", "test2.account.id"])['jout']['output'][0]
         TestEnv.check_json_contains( md['ca'], {
             "account": "test.account.id",
@@ -190,10 +193,8 @@ class TestRegUpdate :
         assert md['state'] == 1
 
 
-    # --------- update contacts ---------
-
+    # test case: add contact info
     def test_110_300(self):
-        # test case: add contact info
         mail = "test@greenbytes.de"
         output = TestEnv.a2md([ "update", self.NAME1, "contacts", mail])['jout']['output']
         assert len(output) == 1
@@ -208,47 +209,45 @@ class TestRegUpdate :
             "state": TestEnv.MD_S_INCOMPLETE
         })
 
+    # test case: add multiple contact info, preserve order
     def test_110_301(self):
-        # test case: add multiple contact info, preserve order
         mail = [ "xxx@greenbytes.de", "aaa@greenbytes.de" ]
         md = TestEnv.a2md([ "update", self.NAME1, "contacts"] + mail)['jout']['output'][0]
         assert md['contacts'] == [ "mailto:" + mail[0], "mailto:" + mail[1] ]
         assert md['state'] == 1
 
+    # test case: must not remove contact info
     def test_110_302(self):
-        # test case: must not remove contact info
         assert TestEnv.a2md([ "update", self.NAME1, "contacts", "test@greenbytes.de"])['rv'] == 0
         assert TestEnv.a2md([ "update", self.NAME1, "contacts"])['rv'] == 1
 
+    # test case: replace existing contact info
     def test_110_303(self):
-        # test case: replace existing contact info
         assert TestEnv.a2md([ "update", self.NAME1, "contacts", "test@greenbytes.de"])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "contacts", "xxx@greenbytes.de"])['jout']['output'][0]
         assert md['contacts'] == [ "mailto:xxx@greenbytes.de"]
         assert md['state'] == 1
 
+    # test case: use invalid mail address
     @pytest.mark.parametrize("invalidMail", [
         ("no.at.char"), ("with blank@test.com"), ("missing.host@"), ("@missing.localpart.de"), 
         ("double..dot@test.com"), ("double@at@test.com")
     ])
     def test_110_304(self, invalidMail):
-        # test case: use invalid mail address
         # SEI: Uhm, es ist nicht sinnvoll, eine komplette verification von
-        # https://tools.ietf.org/html/rfc822 zu bauen.
+        # https://tools.ietf.org/html/rfc822 zu bauen?
         assert TestEnv.a2md([ "update", self.NAME1, "contacts", invalidMail])['rv'] == 1
 
+    # test case: respect urls as given
     @pytest.mark.parametrize("url", [
         ("mailto:test@greenbytes.de"), ("wrong://schema@test.com")])
     def test_110_305(self, url):
-        # test case: respect urls as given
         md = TestEnv.a2md([ "update", self.NAME1, "contacts", url])['jout']['output'][0]
         assert md['contacts'] == [ url ]
         assert md['state'] == 1
 
-    # --------- update agreement ---------
-
+    # test case: add tos agreement
     def test_110_400(self):
-        # test case: add tos agreement
         output = TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS])['jout']['output']
         assert len(output) == 1
         TestEnv.check_json_contains( output[0], {
@@ -263,8 +262,8 @@ class TestRegUpdate :
             "state": TestEnv.MD_S_INCOMPLETE
         })
 
+    # test case: update tos agreement
     def test_110_401(self):
-        # test case: update tos agreement
         assert TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS2])['jout']['output'][0]
         TestEnv.check_json_contains( md['ca'], {
@@ -274,8 +273,8 @@ class TestRegUpdate :
         })
         assert md['state'] == 1
 
+    # test case: remove tos agreement
     def test_110_402(self):
-        # test case: remove tos agreement
         assert TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS])['rv'] == 0
         md = TestEnv.a2md([ "update", self.NAME1, "agreement"])['jout']['output'][0]
         TestEnv.check_json_contains( md['ca'], {
@@ -284,8 +283,8 @@ class TestRegUpdate :
         })
         assert md['state'] == 1
 
+    # test case: ignore additional arguments
     def test_110_403(self):
-        # test case: ignore additional arguments
         md = TestEnv.a2md([ "update", self.NAME1, "agreement", TestEnv.ACME_TOS, TestEnv.ACME_TOS2])['jout']['output'][0]
         TestEnv.check_json_contains( md['ca'], {
             "url": TestEnv.ACME_URL,
@@ -294,9 +293,9 @@ class TestRegUpdate :
         })
         assert md['state'] == 1
 
+    # test case: update agreement with invalid URL
     @pytest.mark.parametrize("invalidURL", [
         ("no.schema/path"), ("http://white space/path"), ("http://bad.port:-1/path")
     ])
     def test_110_404(self, invalidURL):
-        # test case: update agreement with invalid URL
         assert TestEnv.a2md([ "update", self.NAME1, "agreement", invalidURL])['rv'] == 1

@@ -42,9 +42,10 @@
 static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_status_t rv = APR_SUCCESS;
+    apr_array_header_t *contacts;
     int i;
     
-    apr_array_header_t *contacts = apr_array_make(ctx->p, 5, sizeof(const char *));
+    contacts = apr_array_make(ctx->p, 5, sizeof(const char *));
     for (i = 0; i < ctx->argc; ++i) {
         APR_ARRAY_PUSH(contacts, const char *) = md_util_schemify(ctx->p, ctx->argv[i], "mailto");
     }
@@ -52,14 +53,18 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
-    if (APR_SUCCESS == (rv = md_acme_acct_register(ctx->acme, ctx->p, contacts, ctx->tos))) {
-        md_acme_save_acct(ctx->acme, ctx->p, ctx->store); 
-        fprintf(stdout, "registered: %s\n", md_acme_acct_id_get(ctx->acme));
-    }
-    else {
+    rv = md_acme_acct_register(ctx->acme, ctx->store, ctx->p, contacts, ctx->tos);
+    if (APR_SUCCESS != rv) goto leave;
+    /* check if we can read it back, only then it "exsists" */
+    rv = md_acme_acct_update(ctx->acme);
+    if (APR_SUCCESS != rv) goto leave;
+    rv = md_acme_save_acct(ctx->acme, ctx->p, ctx->store); 
+    if (APR_SUCCESS != rv) goto leave;
+    fprintf(stdout, "registered: %s\n", md_acme_acct_id_get(ctx->acme));
+leave:
+    if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "register new account");
     }
-    
     return rv;
 }
 

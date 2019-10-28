@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [1.99.3], [stefan.eissing@greenbytes.de])
+AC_INIT([mod_md], [2.2.3], [stefan.eissing@greenbytes.de])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -158,11 +158,11 @@ AC_SUBST(WERROR_CFLAGS)
 AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
 AC_PATH_PROG([PKGCONFIG], [pkg-config])
 
-ACME_DEF_URL=https://acme-v01.api.letsencrypt.org/directory
-AC_SUBST(ACME_DEF_URL)
+ACME_DEFv1_URL=https://acme-v01.api.letsencrypt.org/directory
+AC_SUBST(ACME_DEFv1_URL)
 
-ACME_DEFv2_URL=https://acme-v02.api.letsencrypt.org/directory
-AC_SUBST(ACME_DEFv2_URL)
+ACME_DEF_URL=https://acme-v02.api.letsencrypt.org/directory
+AC_SUBST(ACME_DEF_URL)
 
 if test "x$request_boulder" = "xdef"; then
     BOULDER_URL=http://localhost:4000/directory
@@ -278,6 +278,9 @@ AC_SUBST(CURL_BIN)
 
 AC_CHECK_HEADERS([curl/curl.h])
 
+CFLAGS=`$curl_config --cflags`" $CFLAGS"
+LDFLAGS=`$curl_config --libs`" $LDFLAGS"
+
 AC_MSG_CHECKING([for curl version >= 7.50])
 AC_TRY_COMPILE([#include <curl/curlver.h>],[
 #if !defined(LIBCURL_VERSION_MAJOR)
@@ -296,9 +299,6 @@ AC_TRY_COMPILE([#include <curl/curlver.h>],[
 if test x"$curl_version_ok" = "x"; then
     AC_MSG_ERROR([curl from $curl_config must be at least version 7.50.])
 fi
-
-CFLAGS="$CFLAGS "`$curl_config --cflags`
-LIBS="$LIBS "`$curl_config --libs`
 
 
 if test x"$request_openssl" = "xcheck"; then
@@ -376,12 +376,11 @@ AC_CONFIG_FILES([
     src/md_version.h
     src/Makefile
     test/Makefile
-    test/conf/global.conf
-    test/conf/httpd_http.conf
-    test/conf/httpd_https.conf
+    test/conf/proxy.conf
+    test/conf/httpd.conf
     test/conf/modules.conf
+    test/conf/std_vhosts.conf
     test/test.ini
-    test/data/test_conf_validate/test_014.conf
 ])
 
 AC_OUTPUT

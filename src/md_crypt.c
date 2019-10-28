@@ -57,6 +57,17 @@
 #define MD_USE_OPENSSL_PRE_1_1_API (OPENSSL_VERSION_NUMBER < 0x10100000L)
 #endif
 
+#if defined(LIBRESSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x10100000L) 
+/* Missing from LibreSSL and only available since OpenSSL v1.1.x */
+#ifndef OPENSSL_NO_CT
+#define OPENSSL_NO_CT
+#endif
+#endif
+
+#ifndef OPENSSL_NO_CT
+#include <openssl/ct.h>
+#endif
+
 static int initialized;
 
 struct md_pkey_t {
@@ -142,17 +153,13 @@ apr_status_t md_crypt_init(apr_pool_t *pool)
     return APR_SUCCESS;
 }
 
-typedef struct {
-    char *data;
-    apr_size_t len;
-} buffer_rec;
-
 static apr_status_t fwrite_buffer(void *baton, apr_file_t *f, apr_pool_t *p) 
 {
-    buffer_rec *buf = baton;
+    md_data_t *buf = baton;
+    apr_size_t wlen;
     
     (void)p;
-    return apr_file_write_full(f, buf->data, buf->len, &buf->len);
+    return apr_file_write_full(f, buf->data, buf->len, &wlen);
 }
 
 apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p)
@@ -244,6 +251,11 @@ static apr_time_t md_asn1_time_get(const ASN1_TIME* time)
     }
     return ts;
 #endif
+}
+
+apr_time_t md_asn1_generalized_time_get(void *ASN1_GENERALIZEDTIME)
+{
+    return md_asn1_time_get(ASN1_GENERALIZEDTIME);
 }
 
 
@@ -377,7 +389,7 @@ apr_status_t md_pkey_fload(md_pkey_t **ppkey, apr_pool_t *p,
     return rv;
 }
 
-static apr_status_t pkey_to_buffer(buffer_rec *buffer, md_pkey_t *pkey, apr_pool_t *p,
+static apr_status_t pkey_to_buffer(md_data_t *buf, md_pkey_t *pkey, apr_pool_t *p,
                                    const char *pass, apr_size_t pass_len)
 {
     BIO *bio = BIO_new(BIO_s_mem());
@@ -416,10 +428,9 @@ static apr_status_t pkey_to_buffer(buffer_rec *buffer, md_pkey_t *pkey, apr_pool
 
     i = BIO_pending(bio);
     if (i > 0) {
-        buffer->data = apr_palloc(p, (apr_size_t)i + 1);
-        i = BIO_read(bio, buffer->data, i);
-        buffer->data[i] = '\0';
-        buffer->len = (apr_size_t)i;
+        buf->data = apr_palloc(p, (apr_size_t)i);
+        i = BIO_read(bio, (char*)buf->data, i);
+        buf->len = (apr_size_t)i;
     }
     BIO_free(bio);
     return APR_SUCCESS;
@@ -429,7 +440,7 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
                            const char *pass_phrase, apr_size_t pass_len,
                            const char *fname, apr_fileperms_t perms)
 {
-    buffer_rec buffer;
+    md_data_t buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = pkey_to_buffer(&buffer, pkey, p, pass_phrase, pass_len))) {
@@ -501,12 +512,14 @@ static void RSA_get0_key(const RSA *r,
 static const char *bn64(const BIGNUM *b, apr_pool_t *p) 
 {
     if (b) {
-         apr_size_t len = (apr_size_t)BN_num_bytes(b);
-         char *buffer = apr_pcalloc(p, len);
-         if (buffer) {
-            BN_bn2bin(b, (unsigned char *)buffer);
-            return md_util_base64url_encode(buffer, len, p);
-         }
+        md_data_t buffer;
+
+        buffer.len = (apr_size_t)BN_num_bytes(b);
+        buffer.data = apr_pcalloc(p, buffer.len);
+        if (buffer.data) {
+            BN_bn2bin(b, (unsigned char *)buffer.data);
+            return md_util_base64url_encode(&buffer, p);
+        }
     }
     return NULL;
 }
@@ -539,21 +552,23 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
                              const char *d, size_t dlen)
 {
     EVP_MD_CTX *ctx = NULL;
-    char *buffer;
+    md_data_t buffer;
     unsigned int blen;
     const char *sign64 = NULL;
     apr_status_t rv = APR_ENOMEM;
     
-    buffer = apr_pcalloc(p, (apr_size_t)EVP_PKEY_size(pkey->pkey));
-    if (buffer) {
+    buffer.len = (apr_size_t)EVP_PKEY_size(pkey->pkey);
+    buffer.data = apr_pcalloc(p, buffer.len);
+    if (buffer.data) {
         ctx = EVP_MD_CTX_create();
         if (ctx) {
             rv = APR_ENOTIMPL;
             if (EVP_SignInit_ex(ctx, EVP_sha256(), NULL)) {
                 rv = APR_EGENERAL;
                 if (EVP_SignUpdate(ctx, d, dlen)) {
-                    if (EVP_SignFinal(ctx, (unsigned char*)buffer, &blen, pkey->pkey)) {
-                        sign64 = md_util_base64url_encode(buffer, blen, p);
+                    if (EVP_SignFinal(ctx, (unsigned char*)buffer.data, &blen, pkey->pkey)) {
+                        buffer.len = blen;
+                        sign64 = md_util_base64url_encode(&buffer, p);
                         if (sign64) {
                             rv = APR_SUCCESS;
                         }
@@ -575,56 +590,47 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
     return rv;
 }
 
-static apr_status_t sha256_digest(unsigned char **pdigest, size_t *pdigest_len,
-                                  apr_pool_t *p, const char *d, size_t dlen)
+static apr_status_t sha256_digest(md_data_t **pdigest, apr_pool_t *p, const md_data_t *buf)
 {
     EVP_MD_CTX *ctx = NULL;
-    unsigned char *buffer;
+    md_data_t *digest;
     apr_status_t rv = APR_ENOMEM;
-    unsigned int blen;
+    unsigned int dlen;
+
+    digest = apr_palloc(p, sizeof(*digest));
+    if (!digest) goto leave;
+    digest->data = apr_pcalloc(p, EVP_MAX_MD_SIZE);
+    if (!digest->data) goto leave;
     
-    buffer = apr_pcalloc(p, EVP_MAX_MD_SIZE);
-    if (buffer) {
-        ctx = EVP_MD_CTX_create();
-        if (ctx) {
-            rv = APR_ENOTIMPL;
-            if (EVP_DigestInit_ex(ctx, EVP_sha256(), NULL)) {
-                rv = APR_EGENERAL;
-                if (EVP_DigestUpdate(ctx, d, dlen)) {
-                    if (EVP_DigestFinal(ctx, buffer, &blen)) {
-                        rv = APR_SUCCESS;
-                    }
+    ctx = EVP_MD_CTX_create();
+    if (ctx) {
+        rv = APR_ENOTIMPL;
+        if (EVP_DigestInit_ex(ctx, EVP_sha256(), NULL)) {
+            rv = APR_EGENERAL;
+            if (EVP_DigestUpdate(ctx, (unsigned char*)buf->data, buf->len)) {
+                if (EVP_DigestFinal(ctx, (unsigned char*)digest->data, &dlen)) {
+                    digest->len = dlen;
+                    rv = APR_SUCCESS;
                 }
             }
         }
-        
-        if (ctx) {
-            EVP_MD_CTX_destroy(ctx);
-        }
     }
-    
-    if (APR_SUCCESS == rv) {
-        *pdigest = buffer;
-        *pdigest_len = blen;
+leave:
+    if (ctx) {
+        EVP_MD_CTX_destroy(ctx);
     }
-    else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, "digest"); 
-        *pdigest = NULL;
-        *pdigest_len = 0;
-    }
+    *pdigest = (APR_SUCCESS == rv)? digest : NULL;
     return rv;
 }
 
-apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
-                                      const char *d, size_t dlen)
+apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, const md_data_t *d)
 {
     const char *digest64 = NULL;
-    unsigned char *buffer;
-    size_t blen;
+    md_data_t *digest;
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = sha256_digest(&buffer, &blen, p, d, dlen))) {
-        if (NULL == (digest64 = md_util_base64url_encode((const char*)buffer, blen, p))) {
+    if (APR_SUCCESS == (rv = sha256_digest(&digest, p, d))) {
+        if (NULL == (digest64 = md_util_base64url_encode(digest, p))) {
             rv = APR_EGENERAL;
         }
     }
@@ -632,47 +638,16 @@ apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p,
     return rv;
 }
 
-static const char * const hex_const[] = {
-    "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f", 
-    "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f", 
-    "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f", 
-    "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f", 
-    "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "4a", "4b", "4c", "4d", "4e", "4f", 
-    "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "5a", "5b", "5c", "5d", "5e", "5f", 
-    "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f", 
-    "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "7a", "7b", "7c", "7d", "7e", "7f", 
-    "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "8a", "8b", "8c", "8d", "8e", "8f", 
-    "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "9a", "9b", "9c", "9d", "9e", "9f", 
-    "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "aa", "ab", "ac", "ad", "ae", "af", 
-    "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "ba", "bb", "bc", "bd", "be", "bf", 
-    "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "ca", "cb", "cc", "cd", "ce", "cf", 
-    "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "da", "db", "dc", "dd", "de", "df", 
-    "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef", 
-    "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff", 
-};
-
 apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
-                                        const char *d, size_t dlen)
+                                        const md_data_t *data)
 {
-    char *dhex = NULL, *cp;
-    const char * x;
-    unsigned char *buffer;
-    size_t blen;
+    md_data_t *digest;
     apr_status_t rv;
-    unsigned int i;
     
-    if (APR_SUCCESS == (rv = sha256_digest(&buffer, &blen, p, d, dlen))) {
-        cp = dhex = apr_pcalloc(p,  2 * blen + 1);
-        if (!dhex) {
-            rv = APR_EGENERAL;
-        }
-        for (i = 0; i < blen; ++i, cp += 2) {
-            x = hex_const[buffer[i]];
-            cp[0] = x[0];
-            cp[1] = x[1];
-        }
+    if (APR_SUCCESS == (rv = sha256_digest(&digest, p, data))) {
+        return md_data_to_hex(pdigesthex, 0, p, digest);
     }
-    *pdigesthex = dhex;
+    *pdigesthex = NULL;
     return rv;
 }
 
@@ -695,24 +670,40 @@ static apr_status_t cert_cleanup(void *data)
     return APR_SUCCESS;
 }
 
-static md_cert_t *make_cert(apr_pool_t *p, X509 *x509) 
+md_cert_t *md_cert_wrap(apr_pool_t *p, void *x509) 
 {
     md_cert_t *cert = apr_pcalloc(p, sizeof(*cert));
     cert->pool = p;
     cert->x509 = x509;
-    apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
-    
     return cert;
 }
 
-void md_cert_free(md_cert_t *cert)
+md_cert_t *md_cert_make(apr_pool_t *p, void *x509) 
 {
-    cert_cleanup(cert);
+    md_cert_t *cert = md_cert_wrap(p, x509);
+    apr_pool_cleanup_register(p, cert, cert_cleanup, apr_pool_cleanup_null);
+    return cert;
 }
 
-void *md_cert_get_X509(struct md_cert_t *cert)
+void *md_cert_get_X509(const md_cert_t *cert)
 {
     return cert->x509;
+}
+
+const char *md_cert_get_serial_number(const md_cert_t *cert, apr_pool_t *p)
+{
+    const char *s = "";
+    BIGNUM *bn; 
+    const char *serial;
+    const ASN1_INTEGER *ai = X509_get_serialNumber(cert->x509);
+    if (ai) {
+        bn = ASN1_INTEGER_to_BN(ai, NULL);
+        serial = BN_bn2hex(bn);
+        s = apr_pstrdup(p, serial);
+        OPENSSL_free((void*)serial);
+        OPENSSL_free((void*)bn);
+    }
+    return s;
 }
 
 int md_cert_is_valid_now(const md_cert_t *cert)
@@ -726,23 +717,23 @@ int md_cert_has_expired(const md_cert_t *cert)
     return (X509_cmp_current_time(X509_get_notAfter(cert->x509)) <= 0);
 }
 
-apr_time_t md_cert_get_not_after(md_cert_t *cert)
+apr_time_t md_cert_get_not_after(const md_cert_t *cert)
 {
     return md_asn1_time_get(X509_get_notAfter(cert->x509));
 }
 
-apr_time_t md_cert_get_not_before(md_cert_t *cert)
+apr_time_t md_cert_get_not_before(const md_cert_t *cert)
 {
     return md_asn1_time_get(X509_get_notBefore(cert->x509));
 }
 
 int md_cert_covers_domain(md_cert_t *cert, const char *domain_name)
 {
-    if (!cert->alt_names) {
-        md_cert_get_alt_names(&cert->alt_names, cert, cert->pool);
-    }
-    if (cert->alt_names) {
-        return md_array_str_index(cert->alt_names, domain_name, 0, 0) >= 0;
+    apr_array_header_t *alt_names;
+
+    md_cert_get_alt_names(&alt_names, cert, cert->pool);
+    if (alt_names) {
+        return md_array_str_index(alt_names, domain_name, 0, 0) >= 0;
     }
     return 0;
 }
@@ -760,7 +751,7 @@ int md_cert_covers_md(md_cert_t *cert, const md_t *md)
                       cert->alt_names->nelts); 
         for (i = 0; i < md->domains->nelts; ++i) {
             name = APR_ARRAY_IDX(md->domains, i, const char *);
-            if (md_array_str_index(cert->alt_names, name, 0, 0) < 0) {
+            if (!md_dns_domains_match(cert->alt_names, name)) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, cert->pool, 
                               "md domain %s not covered by cert", name);
                 return 0;
@@ -774,7 +765,7 @@ int md_cert_covers_md(md_cert_t *cert, const md_t *md)
     return 0;
 }
 
-apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_get_issuers_uri(const char **puri, const md_cert_t *cert, apr_pool_t *p)
 {
     apr_status_t rv = APR_ENOENT;
     STACK_OF(ACCESS_DESCRIPTION) *xinfos;
@@ -801,7 +792,7 @@ apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_poo
     return rv;
 }
 
-apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t *cert, apr_pool_t *p)
 {
     apr_array_header_t *names;
     apr_status_t rv = APR_ENOENT;
@@ -848,7 +839,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
         x509 = PEM_read_X509(f, NULL, NULL, NULL);
         rv = fclose(f);
         if (x509 != NULL) {
-            cert =  make_cert(p, x509);
+            cert =  md_cert_make(p, x509);
         }
         else {
             rv = APR_EINVAL;
@@ -859,7 +850,7 @@ apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname)
     return rv;
 }
 
-static apr_status_t cert_to_buffer(buffer_rec *buffer, md_cert_t *cert, apr_pool_t *p)
+static apr_status_t cert_to_buffer(md_data_t *buffer, const md_cert_t *cert, apr_pool_t *p)
 {
     BIO *bio = BIO_new(BIO_s_mem());
     int i;
@@ -877,9 +868,8 @@ static apr_status_t cert_to_buffer(buffer_rec *buffer, md_cert_t *cert, apr_pool
 
     i = BIO_pending(bio);
     if (i > 0) {
-        buffer->data = apr_palloc(p, (apr_size_t)i + 1);
-        i = BIO_read(bio, buffer->data, i);
-        buffer->data[i] = '\0';
+        buffer->data = apr_palloc(p, (apr_size_t)i);
+        i = BIO_read(bio, (char*)buffer->data, i);
         buffer->len = (apr_size_t)i;
     }
     BIO_free(bio);
@@ -889,7 +879,7 @@ static apr_status_t cert_to_buffer(buffer_rec *buffer, md_cert_t *cert, apr_pool
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
                            const char *fname, apr_fileperms_t perms)
 {
-    buffer_rec buffer;
+    md_data_t buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
@@ -898,16 +888,48 @@ apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p,
     return rv;
 }
 
-apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p)
+apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_pool_t *p)
 {
-    buffer_rec buffer;
+    md_data_t buffer;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = cert_to_buffer(&buffer, cert, p))) {
-        *ps64 = md_util_base64url_encode(buffer.data, buffer.len, p);
+        *ps64 = md_util_base64url_encode(&buffer, p);
         return APR_SUCCESS;
     }
     *ps64 = NULL;
+    return rv;
+}
+
+apr_status_t md_cert_to_sha256_digest(md_data_t **pdigest, const md_cert_t *cert, apr_pool_t *p)
+{
+    md_data_t *digest;
+    unsigned int dlen;
+    apr_status_t rv = APR_ENOMEM;
+    
+    digest = apr_palloc(p, sizeof(*digest));
+    if (!digest) goto leave;
+    digest->data = apr_pcalloc(p, EVP_MAX_MD_SIZE);
+    if (!digest->data) goto leave;
+
+    X509_digest(cert->x509, EVP_sha256(), (unsigned char*)digest->data, &dlen);
+    digest->len = dlen;
+    rv = APR_SUCCESS;
+leave:
+    *pdigest = (APR_SUCCESS == rv)? digest : NULL;
+    return rv;
+}
+
+apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, const md_cert_t *cert, apr_pool_t *p)
+{
+    md_data_t *digest;
+    apr_status_t rv;
+    
+    rv = md_cert_to_sha256_digest(&digest, cert, p);
+    if (APR_SUCCESS == rv) {
+        return md_data_to_hex(pfinger, 0, p, digest);
+    }
+    *pfinger = NULL;
     return rv;
 }
 
@@ -923,7 +945,7 @@ static int md_cert_read_pem(BIO *bf, apr_pool_t *p, md_cert_t **pcert)
         rv = APR_ENOENT;
         goto out;
     }
-    cert = make_cert(p, x509);
+    cert = md_cert_make(p, x509);
     rv = APR_SUCCESS;
     
 out:
@@ -960,7 +982,7 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
                 goto out;
             }
             else {
-                cert = make_cert(p, x509);
+                cert = md_cert_make(p, x509);
                 rv = APR_SUCCESS;
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "cert parsed");
             }
@@ -1031,7 +1053,7 @@ out:
     return rv;
 }
 
-md_cert_state_t md_cert_state_get(md_cert_t *cert)
+md_cert_state_t md_cert_state_get(const md_cert_t *cert)
 {
     if (cert->x509) {
         return md_cert_is_valid_now(cert)? MD_CERT_VALID : MD_CERT_EXPIRED;
@@ -1051,7 +1073,7 @@ apr_status_t md_chain_fappend(struct apr_array_header_t *certs, apr_pool_t *p, c
     if (rv == APR_SUCCESS) {
         ERR_clear_error();
         while (NULL != (x509 = PEM_read_X509(f, NULL, NULL, NULL))) {
-            cert = make_cert(p, x509);
+            cert = md_cert_make(p, x509);
             APR_ARRAY_PUSH(certs, md_cert_t *) = cert;
         }
         fclose(f);
@@ -1202,103 +1224,103 @@ static int get_must_staple_nid(void)
     return nid;
 }
 
-int md_cert_must_staple(md_cert_t *cert)
+int md_cert_must_staple(const md_cert_t *cert)
 {
     /* In case we do not get the NID for it, we treat this as not set. */
     int nid = get_must_staple_nid();
     return ((NID_undef != nid)) && X509_get_ext_by_NID(cert->x509, nid, -1) >= 0;
 }
 
-static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const md_t *md, apr_pool_t *p)
+static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const char *name, apr_pool_t *p)
 {
+    X509_EXTENSION *x;
+    int nid;
     
-    if (md->must_staple) {
-        X509_EXTENSION *x;
-        int nid;
-        
-        nid = get_must_staple_nid();
-        if (NID_undef == nid) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
-                          "%s: unable to get NID for v3 must-staple TLS feature", md->name);
-            return APR_ENOTIMPL;
-        }
-        x = X509V3_EXT_conf_nid(NULL, NULL, nid, (char*)"DER:30:03:02:01:05");
-        if (NULL == x) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
-                          "%s: unable to create x509 extension for must-staple", md->name);
-            return APR_EGENERAL;
-        }
-        sk_X509_EXTENSION_push(exts, x);
+    nid = get_must_staple_nid();
+    if (NID_undef == nid) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
+                      "%s: unable to get NID for v3 must-staple TLS feature", name);
+        return APR_ENOTIMPL;
     }
+    x = X509V3_EXT_conf_nid(NULL, NULL, nid, (char*)"DER:30:03:02:01:05");
+    if (NULL == x) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
+                      "%s: unable to create x509 extension for must-staple", name);
+        return APR_EGENERAL;
+    }
+    sk_X509_EXTENSION_push(exts, x);
     return APR_SUCCESS;
 }
 
-apr_status_t md_cert_req_create(const char **pcsr_der_64, const md_t *md, 
+apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
+                                apr_array_header_t *domains, int must_staple, 
                                 md_pkey_t *pkey, apr_pool_t *p)
 {
-    const char *s, *csr_der, *csr_der_64 = NULL;
+    const char *s, *csr_der_64 = NULL;
     const unsigned char *domain;
     X509_REQ *csr;
     X509_NAME *n = NULL;
     STACK_OF(X509_EXTENSION) *exts = NULL;
     apr_status_t rv;
+    md_data_t csr_der;
     int csr_der_len;
     
-    assert(md->domains->nelts > 0);
+    assert(domains->nelts > 0);
     
     if (NULL == (csr = X509_REQ_new()) 
         || NULL == (exts = sk_X509_EXTENSION_new_null())
         || NULL == (n = X509_NAME_new())) {
         rv = APR_ENOMEM;
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: openssl alloc X509 things", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: openssl alloc X509 things", name);
         goto out; 
     }
 
     /* subject name == first domain */
-    domain = APR_ARRAY_IDX(md->domains, 0, const unsigned char *);
+    domain = APR_ARRAY_IDX(domains, 0, const unsigned char *);
     if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, domain, -1, -1, 0)
         || !X509_REQ_set_subject_name(csr, n)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: REQ name add entry", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: REQ name add entry", name);
         rv = APR_EGENERAL; goto out;
     }
     /* collect extensions, such as alt names and must staple */
-    if (APR_SUCCESS != (rv = sk_add_alt_names(exts, md->domains, p))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: collecting alt names", md->name);
+    if (APR_SUCCESS != (rv = sk_add_alt_names(exts, domains, p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: collecting alt names", name);
         rv = APR_EGENERAL; goto out;
     }
-    if (APR_SUCCESS != (rv = add_must_staple(exts, md, p))) {
+    if (must_staple && APR_SUCCESS != (rv = add_must_staple(exts, name, p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: you requested that a certificate "
             "is created with the 'must-staple' extension, however the SSL library was "
             "unable to initialized that extension. Please file a bug report on which platform "
             "and with which library this happens. To continue before this problem is resolved, "
-            "configure 'MDMustStaple off' for your domains", md->name);
+            "configure 'MDMustStaple off' for your domains", name);
         rv = APR_EGENERAL; goto out;
     }
     /* add extensions to csr */
     if (sk_X509_EXTENSION_num(exts) > 0 && !X509_REQ_add_extensions(csr, exts)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: adding exts", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: adding exts", name);
         rv = APR_EGENERAL; goto out;
     }
     /* add our key */
     if (!X509_REQ_set_pubkey(csr, pkey->pkey)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in csr", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set pkey in csr", name);
         rv = APR_EGENERAL; goto out;
     }
     /* sign, der encode and base64url encode */
     if (!X509_REQ_sign(csr, pkey->pkey, EVP_sha256())) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign csr", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign csr", name);
         rv = APR_EGENERAL; goto out;
     }
     if ((csr_der_len = i2d_X509_REQ(csr, NULL)) < 0) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: der length", name);
         rv = APR_EGENERAL; goto out;
     }
-    s = csr_der = apr_pcalloc(p, (apr_size_t)csr_der_len + 1);
+    csr_der.len = (apr_size_t)csr_der_len;
+    s = csr_der.data = apr_pcalloc(p, csr_der.len + 1);
     if (i2d_X509_REQ(csr, (unsigned char**)&s) != csr_der_len) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: csr der enc", name);
         rv = APR_EGENERAL; goto out;
     }
-    csr_der_64 = md_util_base64url_encode(csr_der, (apr_size_t)csr_der_len, p);
+    csr_der_64 = md_util_base64url_encode(&csr_der, p);
     rv = APR_SUCCESS;
     
 out:
@@ -1406,7 +1428,7 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
         rv = APR_EGENERAL; goto out;
     }
 
-    cert = make_cert(p, x);
+    cert = md_cert_make(p, x);
     rv = APR_SUCCESS;
     
 out:
@@ -1458,7 +1480,7 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
         rv = APR_EGENERAL; goto out;
     }
 
-    cert = make_cert(p, x);
+    cert = md_cert_make(p, x);
     rv = APR_SUCCESS;
     
 out:
@@ -1467,4 +1489,75 @@ out:
     }
     *pcert = (APR_SUCCESS == rv)? cert : NULL;
     return rv;
+}
+
+#define MD_OID_CT_SCTS_NUM          "1.3.6.1.4.1.11129.2.4.2"
+#define MD_OID_CT_SCTS_SNAME        "CT-SCTs"
+#define MD_OID_CT_SCTS_LNAME        "CT Certificate SCTs" 
+
+#ifndef OPENSSL_NO_CT
+static int get_ct_scts_nid(void)
+{
+    int nid = OBJ_txt2nid(MD_OID_CT_SCTS_NUM);
+    if (NID_undef == nid) {
+        nid = OBJ_create(MD_OID_CT_SCTS_NUM, 
+                         MD_OID_CT_SCTS_SNAME, MD_OID_CT_SCTS_LNAME);
+    }
+    return nid;
+}
+#endif
+
+const char *md_nid_get_sname(int nid)
+{
+    return OBJ_nid2sn(nid);
+}
+
+const char *md_nid_get_lname(int nid)
+{
+    return OBJ_nid2ln(nid);
+}
+
+apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, const md_cert_t *cert)
+{
+#ifndef OPENSSL_NO_CT
+    int nid, i, idx, critical;
+    STACK_OF(SCT) *sct_list;
+    SCT *sct_handle;
+    md_sct *sct;
+    size_t len;
+    const char *data;
+    
+    nid = get_ct_scts_nid();
+    if (NID_undef == nid) return APR_ENOTIMPL;
+
+    idx = -1;
+    while (1) {
+        sct_list = X509_get_ext_d2i(cert->x509, nid, &critical, &idx);
+        if (sct_list) {
+            for (i = 0; i < sk_SCT_num(sct_list); i++) {
+               sct_handle = sk_SCT_value(sct_list, i);
+                if (sct_handle) {
+                    sct = apr_pcalloc(p, sizeof(*sct));
+                    sct->version = SCT_get_version(sct_handle);
+                    sct->timestamp = apr_time_from_msec(SCT_get_timestamp(sct_handle));
+                    len = SCT_get0_log_id(sct_handle, (unsigned char**)&data);
+                    sct->logid = md_data_create(p, data, len);
+                    sct->signature_type_nid = SCT_get_signature_nid(sct_handle);
+                    len = SCT_get0_signature(sct_handle,  (unsigned char**)&data);
+                    sct->signature = md_data_create(p, data, len);
+                    
+                    APR_ARRAY_PUSH(scts, md_sct*) = sct;
+                }
+            }
+        }
+        if (idx < 0) break;
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, "ct_sct, found %d SCT extensions", scts->nelts);
+    return APR_SUCCESS;
+#else
+    (void)scts;
+    (void)p;
+    (void)cert;
+    return APR_ENOTIMPL;
+#endif
 }

@@ -24,18 +24,24 @@ struct md_t;
 struct md_http_response_t;
 struct md_cert_t;
 struct md_pkey_t;
+struct md_data_t;
+
 
 /**************************************************************************************************/
 /* random */
 
 apr_status_t md_rand_bytes(unsigned char *buf, apr_size_t len, apr_pool_t *p);
 
+apr_time_t md_asn1_generalized_time_get(void *ASN1_GENERALIZEDTIME);
+
 /**************************************************************************************************/
 /* digests */
 apr_status_t md_crypt_sha256_digest64(const char **pdigest64, apr_pool_t *p, 
-                                      const char *d, size_t dlen);
+                                      const struct md_data_t *data);
 apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p, 
-                                        const char *d, size_t dlen);
+                                        const struct md_data_t *data);
+
+#define MD_DATA_SET_STR(d, s)       do { (d)->data = (s); (d)->len = strlen(s); } while(0)
 
 /**************************************************************************************************/
 /* private keys */
@@ -76,7 +82,6 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
 apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *p, 
                              const char *d, size_t dlen);
 
-void *md_cert_get_X509(struct md_cert_t *cert);
 void *md_pkey_get_EVP_PKEY(struct md_pkey_t *pkey);
 
 struct md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p);
@@ -94,7 +99,19 @@ typedef enum {
     MD_CERT_EXPIRED
 } md_cert_state_t;
 
-void md_cert_free(md_cert_t *cert);
+/**
+ * Create a holder of the certificate that will free its memmory when the
+ * pool is destroyed.
+ */
+md_cert_t *md_cert_make(apr_pool_t *p, void *x509);
+
+/**
+ * Wrap a x509 certificate into our own structure, without taking ownership
+ * of its memory. The caller remains responsible.
+ */
+md_cert_t *md_cert_wrap(apr_pool_t *p, void *x509);
+
+void *md_cert_get_X509(const md_cert_t *cert);
 
 apr_status_t md_cert_fload(md_cert_t **pcert, apr_pool_t *p, const char *fname);
 apr_status_t md_cert_fsave(md_cert_t *cert, apr_pool_t *p, 
@@ -117,20 +134,25 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *pool,
 apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
                                      apr_pool_t *pool, const struct md_http_response_t *res);
 
-md_cert_state_t md_cert_state_get(md_cert_t *cert);
+md_cert_state_t md_cert_state_get(const md_cert_t *cert);
 int md_cert_is_valid_now(const md_cert_t *cert);
 int md_cert_has_expired(const md_cert_t *cert);
 int md_cert_covers_domain(md_cert_t *cert, const char *domain_name);
 int md_cert_covers_md(md_cert_t *cert, const struct md_t *md);
-int md_cert_must_staple(md_cert_t *cert);
-apr_time_t md_cert_get_not_after(md_cert_t *cert);
-apr_time_t md_cert_get_not_before(md_cert_t *cert);
+int md_cert_must_staple(const md_cert_t *cert);
+apr_time_t md_cert_get_not_after(const md_cert_t *cert);
+apr_time_t md_cert_get_not_before(const md_cert_t *cert);
 
-apr_status_t md_cert_get_issuers_uri(const char **puri, md_cert_t *cert, apr_pool_t *p);
-apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_get_issuers_uri(const char **puri, const md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t *cert, apr_pool_t *p);
 
-apr_status_t md_cert_to_base64url(const char **ps64, md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_base64url(const char **ps64, const md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_from_base64url(md_cert_t **pcert, const char *s64, apr_pool_t *p);
+
+apr_status_t md_cert_to_sha256_digest(struct md_data_t **pdigest, const md_cert_t *cert, apr_pool_t *p);
+apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, const md_cert_t *cert, apr_pool_t *p);
+
+const char *md_cert_get_serial_number(const md_cert_t *cert, apr_pool_t *p);
 
 apr_status_t md_chain_fload(struct apr_array_header_t **pcerts, 
                             apr_pool_t *p, const char *fname);
@@ -139,7 +161,8 @@ apr_status_t md_chain_fsave(struct apr_array_header_t *certs,
 apr_status_t md_chain_fappend(struct apr_array_header_t *certs, 
                               apr_pool_t *p, const char *fname);
 
-apr_status_t md_cert_req_create(const char **pcsr_der_64, const struct md_t *md, 
+apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
+                                apr_array_header_t *domains, int must_staple, 
                                 md_pkey_t *pkey, apr_pool_t *p);
 
 /**
@@ -157,5 +180,23 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
 apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain, 
                                       const char *acme_id, md_pkey_t *pkey, 
                                       apr_interval_time_t valid_for, apr_pool_t *p);
+
+apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, const md_cert_t *cert);
+
+
+/**************************************************************************************************/
+/* X509 certificate transparency */
+
+const char *md_nid_get_sname(int nid);
+const char *md_nid_get_lname(int nid);
+
+typedef struct md_sct md_sct;
+struct md_sct {
+    int version;
+    apr_time_t timestamp;
+    struct md_data_t *logid;
+    int signature_type_nid;
+    struct md_data_t *signature;
+};
 
 #endif /* md_crypt_h */

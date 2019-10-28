@@ -1,0 +1,13 @@
+User @HTTPD_USER@
+
+Include "conf/modules.conf"
+
+<IfModule log_config_module>
+    LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\" %k" combined
+    LogFormat "%h %l %u %t \"%r\" %>s %b" common
+    CustomLog "logs/access_log" combined
+    
+</IfModule>
+
+Include "conf/test.conf"
+

@@ -22,9 +22,11 @@ BOULDER_DIR    = @BOULDER_DIR@
 EXTRA_DIST     = conf data htdocs
  	
 dist-hook:
-	rm -rf $(distdir)/conf/httpd_http.conf
-	rm -rf $(distdir)/conf/httpd_https.conf
+	rm -rf $(distdir)/conf/httpd.conf
+	rm -rf $(distdir)/conf/proxy.conf
 	rm -rf $(distdir)/conf/modules.conf
+	rm -rf $(distdir)/conf/modules.conf
+	rm -rf $(distdir)/conf/std_vhosts.conf
 	cp -p $(srcdir)/*.py $(distdir)
 
 
@@ -72,19 +74,7 @@ $(SERVER_DIR)/conf/ssl/valid_cert.pem: \
 		-extfile data/ssl/req_exts.conf -extensions v3_req_ext
 
 test: $(SERVER_DIR)/.test-setup unit_tests
-	py.test
-
-test-drive: $(SERVER_DIR)/.test-setup
-	@py.test test_0500_drive.py
-	@py.test test_0600_roundtrip.py
-	@py.test test_0700_auto.py
-
-test-auto: $(SERVER_DIR)/.test-setup
-	@py.test test_0700_auto.py
-
-test-configs: $(SERVER_DIR)/.test-setup
-	@py.test test_0300_conf_validate.py
-	@py.test test_0310_conf_store.py
+	python3 -m pytest
 
 # The certificates we need to verify the cert chain we retrieved from ACME
 # For now, we need these two, although a fix is underway that only one becomes
@@ -102,10 +92,11 @@ $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/conf/ssl/valid_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_pkey.pem \
+                $(wildcard conf/*.conf) \
                 $(GEN)/ca.pem      
 	@mkdir -p $(SERVER_DIR)/conf/ssl
 	@mkdir -p $(SERVER_DIR)/logs
-	rsync -a --exclude="httpd*" --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
+	rsync -a --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
 	@touch $(SERVER_DIR)/.test-setup
 
 $(SERVER_DIR)/conf/ssl/expired_cert.pem: data/ssl/expired_cert.pem

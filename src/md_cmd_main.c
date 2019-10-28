@@ -28,6 +28,7 @@
 #include "md_json.h"
 #include "md_http.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_reg.h"
 #include "md_store.h"
 #include "md_store_fs.h"
@@ -90,6 +91,7 @@ static apr_status_t md_cmd_ctx_init(md_cmd_ctx *ctx, apr_pool_t *p,
     ctx->p = p;
     ctx->argc = argc;
     ctx->argv = argv;
+    ctx->env = apr_table_make(p, 5);
     ctx->options = apr_table_make(p, 5);
     
     return ctx->options? APR_SUCCESS : APR_ENOMEM;
@@ -99,6 +101,12 @@ void md_cmd_ctx_set_option(md_cmd_ctx *ctx, const char *key, const char *value)
 {
     apr_table_setn(ctx->options, key, value);
 }
+
+void md_cmd_ctx_set_env(md_cmd_ctx *ctx, const char *key, const char *value)
+{
+    apr_table_setn(ctx->env, key, value);
+}
+
 
 int md_cmd_ctx_has_option(md_cmd_ctx *ctx, const char *option)
 {
@@ -129,10 +137,13 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
     const char *optarg;
     int opt;
     apr_status_t rv = APR_SUCCESS;
+    md_result_t *result;
 
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, ctx->p, 
                   "start processing cmd %s", cmd->name); 
 
+    result = md_result_make(ctx->p, APR_SUCCESS);
+    
     apr_getopt_init(&os, ctx->p, ctx->argc, ctx->argv);
     while ((rv = apr_getopt_long(os, cmd->opts, &opt, &optarg)) == APR_SUCCESS) {
         if (!cmd->opt_fn) {
@@ -174,8 +185,8 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             fprintf(stderr, "need store for registry: %s\n", cmd->name);
             return APR_EINVAL;
         }
-        if (APR_SUCCESS != (rv = md_reg_init(&ctx->reg, ctx->p, ctx->store,
-                                             md_cmd_ctx_get_option(ctx, MD_CMD_OPT_PROXY_URL)))) {
+        if (APR_SUCCESS != (rv = md_reg_create(&ctx->reg, ctx->p, ctx->store,
+                                               md_cmd_ctx_get_option(ctx, MD_CMD_OPT_PROXY_URL)))) {
             fprintf(stderr, "error %d creating registry from store: %s\n", rv, ctx->base_dir);
             return APR_EINVAL;
         }
@@ -192,9 +203,9 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                     ctx->ca_url, ctx->base_dir);
             return rv;
         }
-        rv = md_acme_setup(ctx->acme);
+        rv = md_acme_setup(ctx->acme, result);
         if (rv != APR_SUCCESS) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "contacting %s", ctx->ca_url);
+            md_result_log(result, MD_LOG_ERR);
             return rv;
         }
     }
@@ -273,6 +284,9 @@ void md_cmd_print_md(md_cmd_ctx *ctx, const md_t *md)
     assert(md);
     if (ctx->json_out) {
         md_json_t *json = md_to_json(md, ctx->p);
+        if (ctx->reg) {
+            md_json_setb(md_reg_should_renew(ctx->reg, md, ctx->p), json, MD_KEY_RENEW, NULL);
+        }
         md_json_addj(json, ctx->json_out, "output", NULL);
     }
     else {

@@ -7,11 +7,11 @@ import subprocess
 import sys
 import time
 
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 from datetime import datetime
-from httplib import HTTPConnection
 from shutil import copyfile
-from test_base import TestEnv
+from TestEnv import TestEnv
+from TestHttpdConf import HttpdConf
 
 config = SafeConfigParser()
 config.read('test.ini')
@@ -24,10 +24,7 @@ NS_PER_DAY = MS_PER_DAY * 1000
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.init()
-    TestEnv.apache_err_reset()
-    TestEnv.APACHE_CONF_SRC = "data/test_conf_store"
-    TestEnv.install_test_conf(None);
-    assert TestEnv.apache_start() == 0
+    TestEnv.check_acme()
     
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
@@ -36,521 +33,744 @@ def teardown_module(module):
 
 class TestConf:
 
-    @classmethod
-    def setup_class(cls):
-        time.sleep(1)
-        cls.dns_uniq = "%d.org" % time.time()
-
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.check_acme()
         TestEnv.clear_store()
+        self.test_domain = TestEnv.get_method_domain(method)
 
-    def teardown_method(self, method):
-        print("teardown_method: %s" % method.__name__)
-
-    # --------- add to store ---------
-
+    # test case: no md definitions in config
     def test_310_001(self):
-        # test case: no md definitions in config
-        TestEnv.install_test_conf("empty");
+        HttpdConf(text="").install()
         assert TestEnv.apache_restart() == 0
         jout = TestEnv.a2md(["list"])['jout']
         assert 0 == len(jout["output"])
 
-    @pytest.mark.parametrize("confFile,dnsLists,mdCount", [
-        ("one_md", [["testdomain.org", "www.testdomain.org", "mail.testdomain.org"]], 1),
-        ("two_mds", [["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], ["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"]], 2)
+    # test case: add md definitions on empty store
+    @pytest.mark.parametrize("config,dnsLists,mdCount", [
+        ("MDomain testdomain.org www.testdomain.org mail.testdomain.org", 
+            [["testdomain.org", "www.testdomain.org", "mail.testdomain.org"]], 1),
+        ("""MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDomain testdomain2.org www.testdomain2.org mail.testdomain2.org""", 
+            [["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 
+            ["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"]], 2)
     ])
-    def test_310_100(self, confFile, dnsLists, mdCount):
-        # test case: add md definitions on empty store
-        TestEnv.install_test_conf(confFile);
+    def test_310_100(self, config, dnsLists, mdCount):
+        HttpdConf(text=config).install()
         assert TestEnv.apache_restart() == 0
         for i in range (0, len(dnsLists)):
-            self._check_md_names(dnsLists[i][0], dnsLists[i], 1, mdCount)
+            TestEnv.check_md(dnsLists[i], state=1)
 
+    # test case: add managed domains as separate steps
     def test_310_101(self):
-        # test case: add managed domains as separate steps
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        TestEnv.install_test_conf("two_mds");
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDomain testdomain2.org www.testdomain2.org mail.testdomain2.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 2)
-        self._check_md_names("testdomain2.org", ["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"], 1, 2)
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
+        TestEnv.check_md(["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"], state=1)
 
+    # test case: add dns to existing md
     def test_310_102(self):
-        # test case: add dns to existing md
         assert TestEnv.a2md([ "add", "testdomain.org", "www.testdomain.org" ])['rv'] == 0
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 1)
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
+    # test case: add new md definition with acme url, acme protocol, acme agreement
     def test_310_103(self):
-        # test case: add new md definition with acme url, acme protocol, acme agreement
-        TestEnv.install_test_conf("one_md_ca");
+        HttpdConf(text="""
+            MDCertificateAuthority http://acme.test.org:4000/directory
+            MDCertificateProtocol ACME
+            MDCertificateAgreement http://acme.test.org:4000/terms/v1
+
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         name = "testdomain.org"
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", "http://acme.test.org:4000/terms/v1")
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            ca="http://acme.test.org:4000/directory", protocol="ACME", 
+            agreement="http://acme.test.org:4000/terms/v1")
 
+    # test case: add to existing md: acme url, acme protocol
     def test_310_104(self):
-        # test case: add to existing md: acme url, acme protocol
         name = "testdomain.org"
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(local_CA=False, text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME", None)
-        TestEnv.install_test_conf("one_md_ca");
-        assert TestEnv.apache_restart() == 0
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_ca(name, "http://acme.test.org:4000/directory", "ACME", "http://acme.test.org:4000/terms/v1")
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            ca=TestEnv.ACME_URL_DEFAULT, protocol="ACME")
+        HttpdConf(local_CA=False, text="""
+            MDCertificateAuthority http://acme.test.org:4000/directory
+            MDCertificateProtocol ACME
+            MDCertificateAgreement http://acme.test.org:4000/terms/v1
 
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
+        assert TestEnv.apache_restart() == 0
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            ca="http://acme.test.org:4000/directory", protocol="ACME", 
+            agreement="http://acme.test.org:4000/terms/v1")
+
+    # test case: add new md definition with server admin
     def test_310_105(self):
-        # test case: add new md definition with server admin
-        TestEnv.install_test_conf("one_md_admin");
+        HttpdConf(text="""
+            ServerAdmin mailto:admin@testdomain.org
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         name = "testdomain.org"
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_contacts(name, ["mailto:admin@testdomain.org"])
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            contacts=["mailto:admin@testdomain.org"])
 
+    # test case: add to existing md: server admin
     def test_310_106(self):
-        # test case: add to existing md: server admin
         name = "testdomain.org"
         assert TestEnv.a2md([ "add", name, "www.testdomain.org", "mail.testdomain.org" ])['rv'] == 0
-        TestEnv.install_test_conf("one_md_admin");
+        HttpdConf(text="""
+            ServerAdmin mailto:admin@testdomain.org
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_contacts(name, ["mailto:admin@testdomain.org"])
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            contacts=["mailto:admin@testdomain.org"])
 
+    # test case: assign separate contact info based on VirtualHost
     def test_310_107(self):
-        # test case: assign separate contact info based on VirtualHost
-        # this config uses another store dir
-        TestEnv.install_test_conf("two_mds_vhosts");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDomain testdomain2.org www.testdomain2.org mail.testdomain2.org
+
+            <VirtualHost *:12346>
+                ServerName testdomain.org
+                ServerAlias www.testdomain.org
+                ServerAdmin mailto:admin@testdomain.org
+            </VirtualHost>
+
+            <VirtualHost *:12346>
+                ServerName testdomain2.org
+                ServerAlias www.testdomain2.org
+                ServerAdmin mailto:admin@testdomain2.org
+            </VirtualHost>
+            """).install()
         assert TestEnv.apache_restart() == 0
         name1 = "testdomain.org"
         name2 = "testdomain2.org"
-        self._check_md_names(name1, [name1, "www." + name1, "mail." + name1], 1, 2)
-        self._check_md_names(name2, [name2, "www." + name2, "mail." + name2], 1, 2)
-        self._check_md_contacts(name1, ["mailto:admin@" + name1])
-        self._check_md_contacts(name2, ["mailto:admin@" + name2])
+        TestEnv.check_md([name1, "www." + name1, "mail." + name1], state=1, contacts=["mailto:admin@" + name1])
+        TestEnv.check_md([name2, "www." + name2, "mail." + name2], state=1, contacts=["mailto:admin@" + name2])
 
+    # test case: normalize names - lowercase
     def test_310_108(self):
-        # test case: normalize names - lowercase
-        TestEnv.install_test_conf("one_md_caps");
+        HttpdConf(text="""
+            MDomain testdomain.org WWW.testdomain.org MAIL.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 1)
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
+    # test case: default drive mode - auto
     def test_310_109(self):
-        # test case: default drive mode - auto
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
 
+    # test case: drive mode manual
     def test_310_110(self):
-        # test case: drive mode manual
-        TestEnv.install_test_conf("drive_manual");
+        HttpdConf(text="""
+            MDRenewMode manual
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 0
 
+    # test case: drive mode auto
     def test_310_111(self):
-        # test case: drive mode auto
-        TestEnv.install_test_conf("drive_auto");
+        HttpdConf(text="""
+            MDRenewMode auto
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
 
+    # test case: drive mode always
     def test_310_112(self):
-        # test case: drive mode always
-        TestEnv.install_test_conf("drive_always");
+        HttpdConf(text="""
+            MDRenewMode always
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 2
 
-    def test_310_113(self):
-        # test case: renew window - 14 days
-        TestEnv.install_test_conf("renew_14d");
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
-
+    # test case: renew window - 14 days
     def test_310_113a(self):
-        # test case: renew window - 10 percent
-        TestEnv.install_test_conf("renew_10p");
+        HttpdConf(text="""
+            MDRenewWindow 14d
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        # TODO: place appropriate checks here
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
+
+    # test case: renew window - 10 percent
+    def test_310_113b(self):
+        HttpdConf(text="""
+            MDRenewWindow 10%
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
+        assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '10%'
         
+    # test case: ca challenge type - http-01
     def test_310_114(self):
-        # test case: ca challenge type - http-01
-        TestEnv.install_test_conf("challenge_http");
+        HttpdConf(text="""
+            MDCAChallenges http-01
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01' ]
 
+    # test case: ca challenge type - http-01
     def test_310_115(self):
-        # test case: ca challenge type - http-01
-        TestEnv.install_test_conf("challenge_tls-sni");
+        HttpdConf(text="""
+            MDCAChallenges tls-alpn-01
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-alpn-01' ]
 
+    # test case: ca challenge type - all
     def test_310_116(self):
-        # test case: ca challenge type - all
-        TestEnv.install_test_conf("challenge_all");
+        HttpdConf(text="""
+            MDCAChallenges http-01 tls-alpn-01
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-alpn-01' ]
 
+    # test case: automatically collect md names from vhost config
     def test_310_117(self):
-        # test case: automatically collect md names from vhost config
-        TestEnv.install_test_conf("member_auto");
+        HttpdConf(text="""
+            MDMember auto
+            MDomain testdomain.org
+
+            <VirtualHost *:12346>
+                ServerName testdomain.org
+                ServerAlias test.testdomain.org
+                ServerAlias mail.testdomain.org
+                DocumentRoot htdocs
+                SSLEngine on
+            </VirtualHost>
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['domains'] == [ 'testdomain.org', 'test.testdomain.org', 'mail.testdomain.org' ]
 
+    # add renew window to existing md
     def test_310_118(self):
-        # add renew window to existing md
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        TestEnv.install_test_conf("renew_14d");
+        HttpdConf(text="""
+            MDRenewWindow 14d
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
+        stat = TestEnv.get_md_status("testdomain.org")
+        assert stat['renew-window'] == '14d'
 
+    # test case: set RSA key length 2048
     def test_310_119(self):
-        # test case: set RSA key length 2048
-        TestEnv.install_test_conf("key_rsa_2048");
+        HttpdConf(text="""
+            MDPrivateKeys RSA 2048
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 2048
         }
 
+    # test case: set RSA key length 4096
     def test_310_120(self):
-        # test case: set RSA key length 4096
-        TestEnv.install_test_conf("key_rsa_4096");
+        HttpdConf(text="""
+            MDPrivateKeys RSA 4096
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 4096
         }
 
+    # test case: require HTTPS
     def test_310_121(self):
-        # test case: require HTTPS
-        TestEnv.install_test_conf("req_https_temp");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDRequireHttps temporary
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
 
+    # test case: require OCSP stapling
     def test_310_122(self):
-        # test case: require OCSP stapling
-        TestEnv.install_test_conf("staple_on");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDMustStaple on
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == True
 
 
-    # --------- remove from store ---------
-
+    # test case: remove managed domain from config
     def test_310_200(self):
-        # test case: remove managed domain from config
         dnsList = ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         TestEnv.a2md(["add"] + dnsList)
-        self._check_md_names("testdomain.org", dnsList, 1, 1)
-        TestEnv.install_test_conf("empty");
+        TestEnv.check_md(dnsList, state=1)
+        conf = HttpdConf()
+        conf.install()
         assert TestEnv.apache_restart() == 0
         # check: md stays in store
-        self._check_md_names("testdomain.org", dnsList, 1, 1)
+        TestEnv.check_md(dnsList, state=1)
 
+    # test case: remove alias DNS from managed domain
     def test_310_201(self):
-        # test case: remove alias DNS from managed domain
         dnsList = ["testdomain.org", "test.testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         TestEnv.a2md(["add"] + dnsList)
-        self._check_md_names("testdomain.org", dnsList, 1, 1)
-        TestEnv.install_test_conf("one_md");
+        TestEnv.check_md(dnsList, state=1)
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # check: DNS has been removed from md in store
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 1)
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
+    # test case: remove primary name from managed domain
     def test_310_202(self):
-        # test case: remove primary name from managed domain
         dnsList = ["name.testdomain.org", "testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         TestEnv.a2md([ "add"] + dnsList)
-        self._check_md_names("name.testdomain.org", dnsList, 1, 1)
-        TestEnv.install_test_conf("one_md");
+        TestEnv.check_md(dnsList, state=1)
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        # check: md stays with previous name, complete dns list
-        self._check_md_names("name.testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 1)
+        # check: md overwrite previous name and changes name
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 
+                         md="testdomain.org", state=1)
 
+    # test case: remove one md, keep another
     def test_310_203(self):
-        # test case: remove one md, keep another
         dnsList1 = ["greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"]
         dnsList2 = ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         TestEnv.a2md(["add"] + dnsList1)
         TestEnv.a2md(["add"] + dnsList2)
-        self._check_md_names("greenbytes2.de", dnsList1, 1, 2)
-        self._check_md_names("testdomain.org", dnsList2, 1, 2)
-        TestEnv.install_test_conf("one_md");
+        TestEnv.check_md(dnsList1, state=1)
+        TestEnv.check_md(dnsList2, state=1)
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # all mds stay in store
-        self._check_md_names("greenbytes2.de", dnsList1, 1, 2)
-        self._check_md_names("testdomain.org", dnsList2, 1, 2)
+        TestEnv.check_md(dnsList1, state=1)
+        TestEnv.check_md(dnsList2, state=1)
 
+    # test case: remove ca info from md, should switch over to new defaults
     def test_310_204(self):
-        # test case: remove ca info from md, should fall back to default value
-        # setup: add md with ca info
         name = "testdomain.org"
-        TestEnv.install_test_conf("one_md_ca");
+        HttpdConf(local_CA=False, text="""
+            MDCertificateAuthority http://acme.test.org:4000/directory
+            MDCertificateProtocol ACME
+            MDCertificateAgreement http://acme.test.org:4000/terms/v1
+
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # setup: sync with ca info removed
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(local_CA=False, text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        # check: md stays the same with previous ca info. TOS url stays as before.
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_ca(name, TestEnv.ACME_URL_DEFAULT, "ACME", "http://acme.test.org:4000/terms/v1")
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            ca=TestEnv.ACME_URL_DEFAULT, protocol="ACME")
 
+    # test case: remove server admin from md
     def test_310_205(self):
-        # test case: remove server admin from md
-        # setup: add md with admin info
         name = "testdomain.org"
-        TestEnv.install_test_conf("one_md_admin");
+        HttpdConf(text="""
+            ServerAdmin mailto:admin@testdomain.org
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # setup: sync with admin info removed
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous admin info
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_contacts(name, ["mailto:admin@testdomain.org"])
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            contacts=["mailto:admin@testdomain.org"])
 
+    # test case: remove renew window from conf -> fallback to default
     def test_310_206(self):
-        # test case: remove renew window from conf -> fallback to default
-        TestEnv.install_test_conf("renew_14d");
+        HttpdConf(text="""
+            MDRenewWindow 14d
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        # ToDo: how to check renew value in store?
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == 14 * SEC_PER_DAY
-
-        TestEnv.install_test_conf("one_md");
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # check: renew window not set
         assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-window'] == '33%'
 
-    @pytest.mark.parametrize("confFile,expCode", [ 
-        ("drive_manual", 0), 
-        ("drive_auto", 1), 
-        ("drive_always", 2)
+    # test case: remove drive mode from conf -> fallback to default (auto)
+    @pytest.mark.parametrize("renewMode,expCode", [ 
+        ("manual", 0), 
+        ("auto", 1), 
+        ("always", 2)
     ])
-    def test_310_207(self, confFile, expCode):
-        # test case: remove drive mode from conf -> fallback to default (auto)
-        TestEnv.install_test_conf(confFile);
+    def test_310_207(self, renewMode, expCode):
+        HttpdConf(text="""
+            MDRenewMode %s
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """ % (renewMode)).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == expCode
-
-        TestEnv.install_test_conf("one_md");
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == expCode
+        #
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
 
+    # test case: remove challenges from conf -> fallback to default (not set)
     def test_310_208(self):
-        # test case: remove challenges from conf -> fallback to default (not set)
-        TestEnv.install_test_conf("challenge_http");
+        HttpdConf(text="""
+            MDCAChallenges http-01
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01' ]
-
-        TestEnv.install_test_conf("one_md");
+        #
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert 'challenges' not in TestEnv.a2md(["list"])['jout']['output'][0]['ca']
 
-    @pytest.mark.parametrize("confFile", [ 
-        ("key_rsa_2048"), ("key_rsa_4096")
-    ])
-    def test_310_209(self, confFile):
-        # test case: specify RSA key
-        TestEnv.install_test_conf(confFile);
+    # test case: specify RSA key
+    @pytest.mark.parametrize("keySize", [ ("2048"), ("4096") ])
+    def test_310_209(self, keySize):
+        HttpdConf(text="""
+            MDPrivateKeys RSA %s
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """ % (keySize)).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey']['type'] == "RSA"
-
-        TestEnv.install_test_conf("one_md");
+        #
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert "privkey" not in TestEnv.a2md(["list"])['jout']['output'][0]
 
-    @pytest.mark.parametrize("confFile,expMode", [ 
-        ("req_https_temp", "temporary"), ("req_https_perm", "permanent")
-    ])
-    def test_310_210(self, confFile, expMode):
-        # test case: require HTTPS
-        TestEnv.install_test_conf(confFile);
+    # test case: require HTTPS
+    @pytest.mark.parametrize("mode", [ ("temporary"), ("permanent") ])
+    def test_310_210(self, mode):
+        HttpdConf(text="""
+            <MDomainSet testdomain.org>
+                MDMember www.testdomain.org mail.testdomain.org
+                MDRequireHttps %s
+            </MDomainSet>
+            """ % (mode)).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == expMode, "Unexpected HTTPS require mode in store. confFile: {}".format( confFile )
-
-        TestEnv.install_test_conf("one_md");
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == mode, "Unexpected HTTPS require mode in store. config: {}".format( mode )
+        #
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert "require-https" not in TestEnv.a2md(["list"])['jout']['output'][0], "HTTPS require still persisted in store. confFile: {}".format( confFile )
+        assert "require-https" not in TestEnv.a2md(["list"])['jout']['output'][0], "HTTPS require still persisted in store. config: {}".format( mode )
 
+    # test case: require OCSP stapling
     def test_310_211(self):
-        # test case: require OCSP stapling
-        TestEnv.install_test_conf("staple_on");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDMustStaple on
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == True
-
-        TestEnv.install_test_conf("one_md");
+        #
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
 
 
-    # --------- change existing config definitions ---------
-
+    # test case: reorder DNS names in md definition
     def test_310_300(self):
-        # test case: reorder DNS names in md definition
         dnsList = ["testdomain.org", "mail.testdomain.org", "www.testdomain.org"]
         TestEnv.a2md(["add"] + dnsList)
-        self._check_md_names("testdomain.org", dnsList, 1, 1)
-        TestEnv.install_test_conf("one_md");
+        TestEnv.check_md(dnsList, state=1)
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        # check: dns list stays as before
-        self._check_md_names("testdomain.org", dnsList, 1, 1)
+        # check: dns list changes
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
+    # test case: move DNS from one md to another
     def test_310_301(self):
-        # test case: move DNS from one md to another
         TestEnv.a2md([ "add", "testdomain.org", "www.testdomain.org", "mail.testdomain.org", "mail.testdomain2.org" ])
         TestEnv.a2md([ "add", "testdomain2.org", "www.testdomain2.org" ])
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org", "mail.testdomain2.org"], 1, 2)
-        self._check_md_names("testdomain2.org", ["testdomain2.org", "www.testdomain2.org"], 1, 2)
-        
-        TestEnv.install_test_conf("two_mds");
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org", "mail.testdomain2.org"], state=1)
+        TestEnv.check_md(["testdomain2.org", "www.testdomain2.org"], state=1)        
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDomain testdomain2.org www.testdomain2.org mail.testdomain2.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 2)
-        self._check_md_names("testdomain2.org", ["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"], 1, 2)
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
+        TestEnv.check_md(["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"], state=1)
 
+    # test case: change ca info
     def test_310_302(self):
-        # test case: change ca info
-        # setup: add md with ca info
         name = "testdomain.org"
-        TestEnv.install_test_conf("one_md_ca");
+        HttpdConf(local_CA=False, text="""
+            MDCertificateAuthority http://acme.test.org:4000/directory
+            MDCertificateProtocol ACME
+            MDCertificateAgreement http://acme.test.org:4000/terms/v1
+
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # setup: sync with changed ca info
-        TestEnv.install_test_conf("one_md_ca_admin");
+        HttpdConf(local_CA=False, text="""
+            ServerAdmin mailto:webmaster@testdomain.org
+
+            MDCertificateAuthority http://somewhere.com:6666/directory
+            MDCertificateProtocol ACME
+            MDCertificateAgreement http://somewhere.com:6666/terms/v1
+
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous ca info
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_ca(name, "http://somewhere.com:6666/directory", "ACME", "http://somewhere.com:6666/terms/v1")
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            ca="http://somewhere.com:6666/directory", protocol="ACME", 
+            agreement="http://somewhere.com:6666/terms/v1")
 
+    # test case: change server admin
     def test_310_303(self):
-        # test case: change server admin
-        # setup: add md with admin info
         name = "testdomain.org"
-        TestEnv.install_test_conf("one_md_admin");
+        HttpdConf(text="""
+            ServerAdmin mailto:admin@testdomain.org
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # setup: sync with changed admin info
-        TestEnv.install_test_conf("one_md_ca_admin");
+        HttpdConf(local_CA=False, text="""
+            ServerAdmin mailto:webmaster@testdomain.org
+
+            MDCertificateAuthority http://somewhere.com:6666/directory
+            MDCertificateProtocol ACME
+            MDCertificateAgreement http://somewhere.com:6666/terms/v1
+
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         # check: md stays the same with previous admin info
-        self._check_md_names(name, [name, "www.testdomain.org", "mail.testdomain.org"], 1, 1)
-        self._check_md_contacts(name, ["mailto:webmaster@testdomain.org"])
+        TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
+            contacts=["mailto:webmaster@testdomain.org"])
 
+    # test case: change drive mode - manual -> auto -> always
     def test_310_304(self):
-        # test case: change drive mode - manual -> auto -> always
-        # setup: drive mode manual
-        TestEnv.install_test_conf("drive_manual");
+        HttpdConf(text="""
+            MDRenewMode manual
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 0
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 0
         # test case: drive mode auto
-        TestEnv.install_test_conf("drive_auto");
+        HttpdConf(text="""
+            MDRenewMode auto
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 1
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
         # test case: drive mode always
-        TestEnv.install_test_conf("drive_always");
+        HttpdConf(text="""
+            MDRenewMode always
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['drive-mode'] == 2
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['renew-mode'] == 2
 
+    # test case: change config value for renew window, use various syntax alternatives
     def test_310_305(self):
-        # test case: change config value for renew window, use various syntax alternatives
-        TestEnv.install_test_conf("renew_14d");
+        HttpdConf(text="""
+            MDRenewWindow 14d
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         md = TestEnv.a2md(["list"])['jout']['output'][0]
-        assert md['renew-window'] == 14 * SEC_PER_DAY
-
-        TestEnv.install_test_conf("renew_10");
+        assert md['renew-window'] == '14d'
+        HttpdConf(text="""
+            MDRenewWindow 10
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         md = TestEnv.a2md(["list"])['jout']['output'][0]
-        assert md['renew-window'] == 10 * SEC_PER_DAY
-
-        TestEnv.install_test_conf("renew_10p");
+        assert md['renew-window'] == '10d'
+        HttpdConf(text="""
+            MDRenewWindow 10%
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         md = TestEnv.a2md(["list"])['jout']['output'][0]
         assert md['renew-window'] == '10%'
 
+    # test case: change challenge types - http -> tls-sni -> all
     def test_310_306(self):
-        # test case: change challenge types - http -> tls-sni -> all
-        # setup: drive mode manual
-        TestEnv.install_test_conf("challenge_http");
+        HttpdConf(text="""
+            MDCAChallenges http-01
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01' ]
         # test case: drive mode auto
-        TestEnv.install_test_conf("challenge_tls-sni");
+        HttpdConf(text="""
+            MDCAChallenges tls-alpn-01
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'tls-alpn-01' ]
         # test case: drive mode always
-        TestEnv.install_test_conf("challenge_all");
+        HttpdConf(text="""
+            MDCAChallenges http-01 tls-alpn-01
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-sni-01' ]
+        assert TestEnv.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == [ 'http-01', 'tls-alpn-01' ]
 
+    # test case:  RSA key length: 4096 -> 2048 -> 4096
     def test_310_307(self):
-        # test case:  RSA key length: 4096 -> 2048 -> 4096
-        TestEnv.install_test_conf("key_rsa_4096");
+        HttpdConf(text="""
+            MDPrivateKeys RSA 4096
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 4096
         }
-
-        TestEnv.install_test_conf("key_rsa_2048");
+        HttpdConf(text="""
+            MDPrivateKeys RSA 2048
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 2048
         }
-
-        TestEnv.install_test_conf("key_rsa_4096");
+        HttpdConf(text="""
+            MDPrivateKeys RSA 4096
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 4096
         }
 
+    # test case: change HTTPS require settings on existing md
     def test_310_308(self):
-        # test case: change HTTPS require settings on existing md
         # setup: nothing set
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert "require-https" not in TestEnv.a2md(["list"])['jout']['output'][0]
         # test case: temporary redirect
-        TestEnv.install_test_conf("req_https_temp");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDRequireHttps temporary
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
         # test case: permanent redirect
-        TestEnv.install_test_conf("req_https_perm");
+        HttpdConf(text="""
+            <MDomainSet testdomain.org>
+                MDMember www.testdomain.org mail.testdomain.org
+                MDRequireHttps permanent
+            </MDomainSet>
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['require-https'] == "permanent"
 
-    def test_310_308(self):
-        # test case: change OCSP stapling settings on existing md
+    # test case: change OCSP stapling settings on existing md
+    def test_310_309(self):
         # setup: nothing set
-        TestEnv.install_test_conf("one_md");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
         # test case: OCSP stapling on
-        TestEnv.install_test_conf("staple_on");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDMustStaple on
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == True
         # test case: OCSP stapling off
-        TestEnv.install_test_conf("staple_off");
+        HttpdConf(text="""
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            MDMustStaple off
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['must-staple'] == False
 
+    # test case: change renew window parameter
+    @pytest.mark.parametrize("window", [
+        ("0%"), ("33d"), ("40%")
+    ])
+    def test_310_310(self, window):
+        # non-default renewal setting
+        domain = self.test_domain
+        conf = HttpdConf()
+        conf.add_admin("admin@" + domain)
+        conf.start_md( [domain])
+        conf.add_drive_mode("manual")
+        conf.add_renew_window(window)
+        conf.end_md()
+        conf.add_vhost(domain)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_md_status(domain)
+        assert stat["renew-window"] == window
 
-    # --------- status reset on critical store changes ---------
-
+    # test case: add dns name on existing valid md
     def test_310_400(self):
-        # test case: add dns name on existing valid md
         # setup: create complete md in store
-        domain = "test310-400-" + TestConf.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         assert TestEnv.a2md([ "add", name, "test1." + domain ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "agreement", TestEnv.ACME_TOS ])['rv'] == 0
         assert TestEnv.apache_start() == 0
         # setup: drive it
-        assert TestEnv.a2md( [ "-vvv", "drive", name ] )['rv'] == 0
+        assert TestEnv.a2md( [ "-v", "drive", name ] )['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
 
         # remove one domain -> status stays COMPLETE
@@ -561,10 +781,10 @@ class TestConf:
         assert TestEnv.a2md([ "update", name, "domains", name, "test2." + domain ])['rv'] == 0
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
 
+    # test case: change ca info
     def test_310_401(self):
-        # test case: change ca info
         # setup: create complete md in store
-        domain = "test310-401-" + TestConf.dns_uniq
+        domain = self.test_domain
         name = "www." + domain
         assert TestEnv.a2md(["add", name])['rv'] == 0
         assert TestEnv.a2md([ "update", name, "contacts", "admin@" + name ])['rv'] == 0
@@ -578,48 +798,16 @@ class TestConf:
         # check: state stays COMPLETE
         assert TestEnv.a2md([ "list", name ])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
 
-    # --------- configure another base dir ---------
-    
+    # test case: change the store dir
     def test_310_500(self):
-        TestEnv.install_test_conf("other_base");
+        HttpdConf(text="""
+            MDStoreDir md-other
+            MDomain testdomain.org www.testdomain.org mail.testdomain.org
+            """).install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md([ "list" ])['jout']['output'] == []
         TestEnv.set_store_dir("md-other")
-        self._check_md_names("testdomain.org", ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], 1, 1)
+        TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
         TestEnv.clear_store()
-        TestEnv.set_store_dir("md")
+        TestEnv.set_store_dir_default()
 
-    # --------- _utils_ ---------
-
-    def _check_md_names(self, name, dnsList, state, mdCount):
-        jout = TestEnv.a2md([ "-j", "list" ])['jout']
-        assert jout
-        output = jout['output']
-        assert len(output) == mdCount
-        mdFound = False
-        for i in range (0, len(output)):
-            md = output[i]
-            if name == md['name']:
-                mdFound = True
-                assert md['domains'] == dnsList
-                assert md['state'] == state
-        assert mdFound == True
-
-    def _check_md_ca(self, name, ca_url, ca_proto, ca_tos):
-        md = TestEnv.a2md(["list", name])['jout']['output'][0]
-        if ca_url:
-            assert md['ca']['url'] == ca_url
-        else:
-            assert "url" not in md['ca']
-        if ca_proto:
-            assert md['ca']['proto'] == ca_proto
-        else:
-            assert "proto" not in md['ca']
-        if ca_tos:
-            assert md['ca']['agreement'] == ca_tos
-        else:
-            assert "agreement" not in md['ca']
-
-    def _check_md_contacts(self, name, contactList):
-        md = TestEnv.a2md(["list", name])['jout']['output'][0]
-        assert md['contacts'] == contactList

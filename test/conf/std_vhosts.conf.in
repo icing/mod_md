@@ -1,0 +1,27 @@
+
+ServerName @SERVER_NAME@
+ServerRoot "@SERVER_DIR@"
+DocumentRoot "@SERVER_DIR@/htdocs"
+
+<Location "/server-status">
+    SetHandler server-status
+</Location>
+<Location "/md-status">
+    SetHandler md-status
+</Location>
+
+<VirtualHost *:@HTTP_PORT@>
+    DocumentRoot "@SERVER_DIR@/htdocs"
+</VirtualHost>
+
+<VirtualHost *:@HTTPS_PORT@>
+    ServerName not-forbidden.org
+    ServerAlias www.not-forbidden.org
+    
+    DocumentRoot "@SERVER_DIR@/htdocs"
+    
+    SSLEngine on
+    SSLCertificateFile conf/ssl/valid_cert.pem
+    SSLCertificateKeyFile conf/ssl/valid_pkey.pem
+
+</VirtualHost>

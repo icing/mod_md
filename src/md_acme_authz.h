@@ -18,19 +18,21 @@
 #define mod_md_md_acme_authz_h
 
 struct apr_array_header_t;
+struct apr_table_t;
 struct md_acme_t;
 struct md_acme_acct_t;
 struct md_json_t;
 struct md_store_t;
 struct md_pkey_spec_t;
+struct md_result_t;
 
 typedef struct md_acme_challenge_t md_acme_challenge_t;
 
 /**************************************************************************************************/
 /* authorization request for a specific domain name */
 
+#define MD_AUTHZ_TYPE_DNS01         "dns-01"
 #define MD_AUTHZ_TYPE_HTTP01        "http-01"
-#define MD_AUTHZ_TYPE_TLSSNI01      "tls-sni-01"
 #define MD_AUTHZ_TYPE_TLSALPN01     "tls-alpn-01"
 
 typedef enum {
@@ -45,9 +47,11 @@ typedef struct md_acme_authz_t md_acme_authz_t;
 struct md_acme_authz_t {
     const char *domain;
     const char *url;
-    const char *dir;
     md_acme_authz_state_t state;
     apr_time_t expires;
+    const char *error_type;
+    const char *error_detail;
+    const struct md_json_t *error_subproblems;
     struct md_json_t *resource;
 };
 
@@ -60,9 +64,6 @@ struct md_acme_authz_t {
 
 md_acme_authz_t *md_acme_authz_create(apr_pool_t *p);
 
-struct md_json_t *md_acme_authz_to_json(md_acme_authz_t *a, apr_pool_t *p);
-md_acme_authz_t *md_acme_authz_from_json(struct md_json_t *json, apr_pool_t *p);
-
 /* authz interaction with ACME server */
 apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, struct md_acme_t *acme,
                                     const char *domain, apr_pool_t *p);
@@ -73,8 +74,13 @@ apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, struct md_acme_t *acme, 
                                    struct md_store_t *store, apr_array_header_t *challenges, 
-                                   struct md_pkey_spec_t *key_spec, apr_pool_t *p);
-apr_status_t md_acme_authz_del(md_acme_authz_t *authz, struct md_acme_t *acme, 
-                               struct md_store_t *store, apr_pool_t *p);
+                                   struct md_pkey_spec_t *key_spec,
+                                   apr_array_header_t *acme_tls_1_domains, 
+                                   struct apr_table_t *env,
+                                   apr_pool_t *p, const char **setup_token,
+                                   struct md_result_t *result);
+
+apr_status_t md_acme_authz_teardown(struct md_store_t *store, const char *setup_token, 
+                                    struct apr_table_t *env, apr_pool_t *p);
 
 #endif /* md_acme_authz_h */

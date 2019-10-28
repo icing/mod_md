@@ -19,9 +19,11 @@
 
 struct apr_hash_t;
 struct apr_array_header_t;
-struct md_store_t;
 struct md_pkey_t;
 struct md_cert_t;
+struct md_result_t;
+
+#include "md_store.h"
 
 /**
  * A registry for managed domains with a md_store_t as persistence.
@@ -30,13 +32,12 @@ struct md_cert_t;
 typedef struct md_reg_t md_reg_t;
 
 /**
- * Initialize the registry, using the pool and loading any existing information
- * from the store.
+ * Create the MD registry, using the pool and store.
  */
-apr_status_t md_reg_init(md_reg_t **preg, apr_pool_t *pm, struct md_store_t *store,
-                         const char *proxy_url);
+apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *pm, md_store_t *store,
+                           const char *proxy_url);
 
-struct md_store_t *md_reg_store_get(md_reg_t *reg);
+md_store_t *md_reg_store_get(md_reg_t *reg);
 
 apr_status_t md_reg_set_props(md_reg_t *reg, apr_pool_t *p, int can_http, int can_https);
 
@@ -66,11 +67,6 @@ md_t *md_reg_find_overlap(md_reg_t *reg, const md_t *md, const char **pdomain, a
 md_t *md_reg_get(md_reg_t *reg, const char *name, apr_pool_t *p);
 
 /**
- * Assess the capability and need to driving this managed domain.
- */
-apr_status_t md_reg_assess(md_reg_t *reg, md_t *md, int *perrored, int *prenew, apr_pool_t *p);
-
-/**
  * Callback invoked for every md in the registry. If 0 is returned, iteration stops.
  */
 typedef int md_reg_do_cb(void *baton, md_reg_t *reg, md_t *md);
@@ -85,20 +81,22 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
 /**
  * Bitmask for fields that are updated.
  */
-#define MD_UPD_DOMAINS       0x0001
-#define MD_UPD_CA_URL        0x0002
-#define MD_UPD_CA_PROTO      0x0004
-#define MD_UPD_CA_ACCOUNT    0x0008
-#define MD_UPD_CONTACTS      0x0010
-#define MD_UPD_AGREEMENT     0x0020
-#define MD_UPD_DRIVE_MODE    0x0080
-#define MD_UPD_RENEW_WINDOW  0x0100
-#define MD_UPD_CA_CHALLENGES 0x0200
-#define MD_UPD_PKEY_SPEC     0x0400
-#define MD_UPD_REQUIRE_HTTPS 0x0800
-#define MD_UPD_TRANSITIVE    0x1000
-#define MD_UPD_MUST_STAPLE   0x2000
-#define MD_UPD_PROTO         0x4000
+#define MD_UPD_DOMAINS       0x00001
+#define MD_UPD_CA_URL        0x00002
+#define MD_UPD_CA_PROTO      0x00004
+#define MD_UPD_CA_ACCOUNT    0x00008
+#define MD_UPD_CONTACTS      0x00010
+#define MD_UPD_AGREEMENT     0x00020
+#define MD_UPD_DRIVE_MODE    0x00080
+#define MD_UPD_RENEW_WINDOW  0x00100
+#define MD_UPD_CA_CHALLENGES 0x00200
+#define MD_UPD_PKEY_SPEC     0x00400
+#define MD_UPD_REQUIRE_HTTPS 0x00800
+#define MD_UPD_TRANSITIVE    0x01000
+#define MD_UPD_MUST_STAPLE   0x02000
+#define MD_UPD_PROTO         0x04000
+#define MD_UPD_WARN_WINDOW   0x08000
+#define MD_UPD_STAPLING      0x10000
 #define MD_UPD_ALL           0x7FFFFFFF
 
 /**
@@ -106,23 +104,34 @@ int md_reg_do(md_reg_do_cb *cb, void *baton, md_reg_t *reg, apr_pool_t *p);
  * values from the given md, all other values remain unchanged.
  */
 apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p, 
-                           const char *name, const md_t *md, int fields);
+                           const char *name, const md_t *md, 
+                           int fields, int check_consistency);
 
 /**
- * Get the credentials available for the managed domain md. Returns APR_ENOENT
- * when none is available. The returned values are immutable. 
+ * Get the chain of public certificates of the managed domain md, starting with the cert
+ * of the domain and going up the issuers. Returns APR_ENOENT when not available. 
  */
-apr_status_t md_reg_creds_get(const md_creds_t **pcreds, md_reg_t *reg, 
-                              md_store_group_t group, const md_t *md, apr_pool_t *p);
+apr_status_t md_reg_get_pubcert(const md_pubcert_t **ppubcert, md_reg_t *reg, 
+                                const md_t *md, apr_pool_t *p);
 
-apr_status_t md_reg_get_cred_files(md_reg_t *reg, const md_t *md, apr_pool_t *p,
-                                   const char **pkeyfile, const char **pcertfile);
+/**
+ * Get the filenames of private key and pubcert of the MD - if they exist.
+ * @return APR_ENOENT if one or both do not exist.
+ */
+apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile,
+                                   md_reg_t *reg, md_store_group_t group, 
+                                   const md_t *md, apr_pool_t *p);
 
 /**
  * Synchronise the give master mds with the store.
  */
-apr_status_t md_reg_sync(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
-                         apr_array_header_t *master_mds);
+apr_status_t md_reg_sync_start(md_reg_t *reg, apr_array_header_t *master_mds, apr_pool_t *p);
+
+/**
+ * Re-compute the state of the MD, given current store contents.
+ */
+apr_status_t md_reg_sync_finish(md_reg_t *reg, md_t *md, apr_pool_t *p, apr_pool_t *ptemp);
+
 
 apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int archive);
 
@@ -132,6 +141,44 @@ apr_status_t md_reg_remove(md_reg_t *reg, apr_pool_t *p, const char *name, int a
 apr_status_t md_reg_delete_acct(md_reg_t *reg, apr_pool_t *p, const char *acct_id);
 
 
+/**
+ * Cleanup any challenges that are no longer in use.
+ * 
+ * @param reg   the registry
+ * @param p     pool for permament storage
+ * @param ptemp pool for temporary storage
+ * @param mds   the list of configured MDs
+ */
+apr_status_t md_reg_cleanup_challenges(md_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, 
+                                       apr_array_header_t *mds);
+
+/**
+ * Mark all information from group MD_SG_DOMAINS as readonly, deny future modifications 
+ * (MD_SG_STAGING and MD_SG_CHALLENGES remain writeable). For the given MDs, cache
+ * the public information (MDs themselves and their pubcerts or lack of).
+ */
+apr_status_t md_reg_freeze_domains(md_reg_t *reg, apr_array_header_t *mds);
+
+/**
+ * Return if the certificate of the MD shoud be renewed. This includes reaching
+ * the renewal window of an otherwise valid certificate. It return also !0 iff
+ * no certificate has been obtained yet.
+ */
+int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+
+/**
+ * Return the timestamp when the certificate should be renewed. A value of 0
+ * indicates that that renewal is not configured (see renew_mode).
+ */
+apr_time_t md_reg_renew_at(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+
+/**
+ * Return if a warning should be issued about the certificate expiration. 
+ * This applies the configured warn window to the remaining lifetime of the 
+ * current certiciate. If no certificate is present, this returns 0.
+ */
+int md_reg_should_warn(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+
 /**************************************************************************************************/
 /* protocol drivers */
 
@@ -139,47 +186,75 @@ typedef struct md_proto_t md_proto_t;
 
 typedef struct md_proto_driver_t md_proto_driver_t;
 
+/** 
+ * Operating environment for a protocol driver. This is valid only for the
+ * duration of one run (init + renew, init + preload).
+ */
 struct md_proto_driver_t {
     const md_proto_t *proto;
     apr_pool_t *p;
-    const char *challenge;
+    void *baton;
+    struct apr_table_t *env;
+
+    md_reg_t *reg;
+    md_store_t *store;
+    const char *proxy_url;
+    const md_t *md;
+
     int can_http;
     int can_https;
-    struct md_store_t *store;
-    md_reg_t *reg;
-    const md_t *md;
-    void *baton;
     int reset;
-    apr_time_t stage_valid_from;
-    const char *proxy_url;
+    apr_interval_time_t activation_delay;
 };
 
-typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver);
-typedef apr_status_t md_proto_stage_cb(md_proto_driver_t *driver);
-typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, md_store_group_t group);
+typedef apr_status_t md_proto_init_cb(md_proto_driver_t *driver, struct md_result_t *result);
+typedef apr_status_t md_proto_renew_cb(md_proto_driver_t *driver, struct md_result_t *result);
+typedef apr_status_t md_proto_init_preload_cb(md_proto_driver_t *driver, struct md_result_t *result);
+typedef apr_status_t md_proto_preload_cb(md_proto_driver_t *driver, 
+                                         md_store_group_t group, struct md_result_t *result);
 
 struct md_proto_t {
     const char *protocol;
     md_proto_init_cb *init;
-    md_proto_stage_cb *stage;
+    md_proto_renew_cb *renew;
+    md_proto_init_preload_cb *init_preload;
     md_proto_preload_cb *preload;
 };
 
-
 /**
- * Stage a new credentials set for the given managed domain in a separate location
- * without interfering with any existing credentials.
+ * Run a test intialization of the renew protocol for the given MD. This verifies
+ * basic parameter settings and is expected to return a description of encountered
+ * problems in <pmessage> when != APR_SUCCESS.
+ * A message return is allocated fromt the given pool.
  */
-apr_status_t md_reg_stage(md_reg_t *reg, const md_t *md, 
-                          const char *challenge, int reset, 
-                          apr_time_t *pvalid_from, apr_pool_t *p);
+apr_status_t md_reg_test_init(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
+                              struct md_result_t *result, apr_pool_t *p);
 
 /**
- * Load a staged set of new credentials for the managed domain. This will archive
- * any existing credential data and make the staged set the new live one.
+ * Obtain new credentials for the given managed domain in STAGING.
+ *
+ * @return APR_SUCCESS if new credentials have been staged successfully
+ */
+apr_status_t md_reg_renew(md_reg_t *reg, const md_t *md, 
+                          struct apr_table_t *env, int reset, 
+                          struct md_result_t *result, apr_pool_t *p);
+
+/**
+ * Load a new set of credentials for the managed domain from STAGING - if it exists. 
+ * This will archive any existing credential data and make the staged set the new one
+ * in DOMAINS.
  * If staging is incomplete or missing, the load will fail and all credentials remain
  * as they are.
+ *
+ * @return APR_SUCCESS on loading new data, APR_ENOENT when nothing is staged, error otherwise.
  */
-apr_status_t md_reg_load(md_reg_t *reg, const char *name, apr_pool_t *p);
+apr_status_t md_reg_load_staging(md_reg_t *reg, const md_t *md, struct apr_table_t *env, 
+                                 struct md_result_t *result, apr_pool_t *p);
+
+void md_reg_set_renew_window_default(md_reg_t *reg, md_timeslice_t *renew_window);
+void md_reg_set_warn_window_default(md_reg_t *reg, md_timeslice_t *warn_window);
+
+void md_reg_set_notify_cb(md_reg_t *reg, md_job_notify_cb *cb, void *baton);
+struct md_job_t *md_reg_job_make(md_reg_t *reg, const char *mdomain, apr_pool_t *p);
 
 #endif /* mod_md_md_reg_h */
