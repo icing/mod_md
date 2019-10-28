@@ -1,0 +1,111 @@
+<html>
+    <head>
+        <title>All the Things Promised [to MOSS]</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+    
+        <div class="content">
+            <div class="header">
+                <h1>All the Things Promised [to MOSS]</h1>
+                <p>
+                    With the release of version <a href="https://github.com/icing/mod_md/releases/tag/v2.2.2">v2.2.2</a>
+                    the project sponsored by MOSS, Mozilla's Open Source Support, has 
+                    been concluded.  
+                </p>
+                <p>
+                    You will soon see the result appear in various releases, such as Fedora and
+                    Debian unstable. What can you expect? How does this benefit you?
+                </p>
+                <p>
+                    Three things: Real ACME, Safer Stapling and Easy Monitoring. 
+                </p>
+            </div>
+            <div class="center">
+                <h3>Real ACME</h3>
+                <p>
+                The ACME standard, which Let's Encrypt (LE) uses (and initiated), is replacing 
+                its proprietary predecessor. There is no gently nudging, LE has started to 
+                shut down new accounts on its old API. In the next year, you can expect this 
+                API to fade away.
+                </p><p>
+                Then you'll need at least Apache 2.4.41 to use its built-in ACME support
+                (via the included mod_md module, v2.0.x). Besides the Apache releases, you
+                will always find more frequent ones in 
+                <a href="https://github.com/icing/mod_md">the module's github</a> and
+                some distributions, such as Fedora, are already integrating those.
+                </p><p>
+                The ACME standard support should be much more stable and hopefully long-term.
+                Other CAs are picking it up as well. But as with everything related to security
+                on the internet, development will not stop.
+                </p>
+            </div>
+
+            <div class="center">
+                <h3>Safer Stapling (OCSP)</h3>
+                <p>
+                If you use https: certificates in your server (and according to Firefox 
+                telemetrie, that are more than 80% of the requests today), your server needs
+                to provide Stapling information to clients. 
+                </p><p>
+                Or at least should. While it is not totally mandatory, it is also good
+                for performance of your site. Which means a lot of people copy and pasted
+                some stackoverflow Apache configuration and that did the job.
+                </p><p>
+                This configuration continues to work in the new Apache releases. But it will,
+                in its next release offer new one.
+                </p><p>
+                This new implementation, developed in the MOSS project, is designed to make
+                your server much more resilient against outages of your certificate
+                provider. 
+                </p><p>
+                It persists the Stapling information and makes it instantly available again
+                after a server restart. And it refreshes it a day or two before its exiration.
+                Outages would have to last longer than this to affect you.
+                </p>
+            </div>
+
+            <div class="center">
+                <h3>Easy Monitoring</h3>
+                <p>
+                Apache with the new mod_md offers you new ways to supervise your certificate
+                and stapling: HTML page, JSON views and notifications.
+                </p><p>
+                Apache's "server-status" page now gives you sections about certificates and
+                stapling as well. Two tables where all the things managed by mod_md can be
+                seen at a glance. You'll know what is valid, when renewals are planned and 
+                observe the status of ongoing activities.
+                </p><p>
+                If you want to write own scripts to evaluate this, there is now a JSON view
+                with all details. This should make it ease to integrate information into any
+                control panel for your server/network.
+                </p><p>
+                In addition, the module will run a configurable command of yours on certain
+                events: a certficate was renewed, stapling was refreshed, an error was
+                encountered, etc. See MDMessageCmd for details.
+                </p><p>
+                If you have only a few domains to manage, you may do as myself and let Apache
+                send you a mail about it. If you have a larger host/network, you probably
+                already have a monitoring framework which you may want to feed these 
+                notifications to.
+                </p>
+            </div>
+
+            <div class="center">
+                <h3>Conclusions</h3>
+                <p>
+                I am very grateful to the people at MOSS for sponsoring this project. They are
+                a pleasure to work with. Should you have an idea on how to improve
+                internet security or accessibility, do not hesitate to ask them for support.
+                </p><p>
+                Cheers,
+                </p>
+            </div>
+
+            <div class="footer">
+                <p>Stefan Eissing, greenbytes GmbH, (c) 2019</p>
+            </div>
+        </div>
+        
+    </body>
+</html>
