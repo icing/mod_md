@@ -1,15 +1,25 @@
+v2.2.2
+----------------------------------------------------------------------------------------------------
+ * Fixing a potential, low memory null pointer dereference [thanks to @uhliarik].
+ * Fixing an incompatibility with a change in libcurl v7.66.0 that added unwanted
+   "transfer-encoding" to POST requests. This failed in directy communication with
+   Let's Encrypt boulder server (however it worked when accessed via the hosting CDN,
+   as almost all live usages do). Thanks to @mkauf for finding and fixing.
+ 
+v2.2.1
+----------------------------------------------------------------------------------------------------
  * Fixes a compiler warning. False flag, but initialization to make it happy does not hurt.
    Thanks to @sundayoyeniyi for finding this. Refs #154.
 
- v2.2.0
- ----------------------------------------------------------------------------------------------------
+v2.2.0
+----------------------------------------------------------------------------------------------------
  * No longer beta status.
  * Synched with Apache trunk and planned for 2.4.x backport when all works well there.
  * Re-importing of log tags assigned in Apache project.
  * Some documentation clarifications.
 
- v2.1.10
- ----------------------------------------------------------------------------------------------------
+v2.1.10
+----------------------------------------------------------------------------------------------------
  * if 'MDBaseServer' in enabled and there is no specific VirtualHost for a domain, the
    base server config is considered the relevant one for deciding ACME support. This
    is most relevant for the 'tls-alpn-01' challenge, see issue #150).
