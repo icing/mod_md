@@ -1473,8 +1473,8 @@ Since version 2.0.4, you can also use the shorter `<MDomain name>` variant. The 
 `MDCAChallenges name [ name ... ]`<BR/>
 Default: (auto selected))
 
-Supported by the module are the challenge methods `tls-alpn-01`, `dns-01`  and `http-01`. The module
-will look at the overall configuation of the server to find out which method can be used. 
+Supported by the module are the challenge methods `tls-alpn-01`, `http-01` and  `dns-01`. The module
+will look at the overall configuation of the server to find out which method can be used - in this order. 
 
 If the server listens on port 80, for example, the `http-01` method is available. The prerequisite for `dns-01` 
 is a configured  `MDChallengeDns01` command. `tls-alpn-01` needs `https:` connections  and the

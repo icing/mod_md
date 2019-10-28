@@ -1,3 +1,8 @@
+v2.2.3
+----------------------------------------------------------------------------------------------------
+ * Fixing order of ACME challenges used when nothing else configured. Code now behaves as
+   documented for `MDCAChallenges`. Fixes #156. Thanks again to @mkauf for finding this.
+
 v2.2.2
 ----------------------------------------------------------------------------------------------------
  * Fixing a potential, low memory null pointer dereference [thanks to @uhliarik].
