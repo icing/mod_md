@@ -1,3 +1,6 @@
+ * Configuring MDCAChallenges replaces any previous existing challenge configuration. It
+   had been additive before which was not the intended behaviour. [@mkauf]
+
 v2.2.3
 ----------------------------------------------------------------------------------------------------
  * Fixing order of ACME challenges used when nothing else configured. Code now behaves as
