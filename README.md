@@ -12,6 +12,15 @@ This repository contains `mod_md`, a module for Apache httpd that helps you to m
 
 Both functions work well together, but you can use one without the other. Read the HowTos about stapling for more information.
 
+## Thanks
+
+The following people directly contributed to `mod_md` by code and documentation changes:
+Alvaro Octal, Bernard Spil, Daniel Caminada, Jacob Hoffman-Andrews, Joe Orton,
+Josh Soref, Lubos Uhliarik, Michael Kaufmann, Michael Köller,
+Michal Karm Babacek. 
+
+Many thanks!
+
 ## Versions and Releases
 
 This README always describes the current version of the module. This might not actually be what you use. You can look

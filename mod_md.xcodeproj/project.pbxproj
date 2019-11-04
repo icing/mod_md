@@ -28,6 +28,7 @@
 		B2127375232F978C00BB7C30 /* buildconf */ = {isa = PBXFileReference; lastKnownFileType = text; path = buildconf; sourceTree = SOURCE_ROOT; };
 		B2127376232FA16500BB7C30 /* Dockerfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Dockerfile; sourceTree = SOURCE_ROOT; };
 		B2307ED520E2562100487AD7 /* test.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test.ini; sourceTree = "<group>"; };
+		B2334BB223702B810007C6CE /* contributors.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = contributors.sh; sourceTree = "<group>"; };
 		B23C47E722F1A45900B8F494 /* test_0740_acme_errors.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0740_acme_errors.py; sourceTree = "<group>"; };
 		B24052151EF9145000E36701 /* md_core.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_core.c; sourceTree = "<group>"; };
 		B24052161EF9145000E36701 /* md_crypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md_crypt.c; sourceTree = "<group>"; };
@@ -180,6 +181,14 @@
 			path = unit;
 			sourceTree = "<group>";
 		};
+		B2334BB123702B810007C6CE /* scripts */ = {
+			isa = PBXGroup;
+			children = (
+				B2334BB223702B810007C6CE /* contributors.sh */,
+			);
+			path = scripts;
+			sourceTree = SOURCE_ROOT;
+		};
 		B262F6CD1EFCFE1100D396A1 /* data */ = {
 			isa = PBXGroup;
 			children = (
@@ -273,6 +282,7 @@
 				B2FC60771F5D95DD005B7D9E /* patches */,
 				B2D309A91EBA229F007BECC8 /* README */,
 				B2D309AA1EBA229F007BECC8 /* README.md */,
+				B2334BB123702B810007C6CE /* scripts */,
 				B2D31B061EC33CBE007BECC8 /* src */,
 				B2D309EF1EC1AD26007BECC8 /* test */,
 				B2FC60761F59894A005B7D9E /* TODO.md */,

@@ -1,3 +1,5 @@
+ * Added a script - inspired by curl <https://github.com/curl> - that collects contributors
+   from the git commits and PRs. Adding a "Thanks" section with their names in the README.md.
  * Configuring MDCAChallenges replaces any previous existing challenge configuration. It
    had been additive before which was not the intended behaviour. [@mkauf]
 
