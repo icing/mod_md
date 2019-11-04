@@ -8,32 +8,34 @@
         <div class="content">
             <div class="header">
                 <h1>All the Things Promised [to MOSS]</h1>
+                <p>A status report.</p>
+            </div>
+            <div class="center">
                 <p>
                     With the release of version <a href="https://github.com/icing/mod_md/releases/tag/v2.2.2">v2.2.2</a>
-                    the project sponsored by MOSS, Mozilla's Open Source Support, has 
-                    been concluded.  
+                    the project sponsored by the beautiful people at MOSS, Mozilla's Open Source 
+                    Support, has been concluded.  
                     You will soon see the result appear in various releases, such as Fedora and
                     Debian unstable. What can you expect? How does this benefit you?
                     Three things: Real ACME, Safer Stapling and Easy Monitoring. 
                 </p>
-            </div>
-            <div class="center">
                 <h3>Real ACME</h3>
                 <p>
-                The ACME standard, which Let's Encrypt (LE) uses (and initiated), is replacing 
+                The ACME standard (<a href="https://tools.ietf.org/html/rfc8555">rfc 8555</a>), 
+                which Let's Encrypt (LE) uses and initiated, is replacing 
                 its proprietary predecessor. There is no gently nudging, LE has started to 
-                shut down new accounts on its old API. In the next year, you can expect this 
-                API to fade away.
+                shut down new accounts on its old API. New accounts can no longer be registered.
+                In 2020, expect this API to fade away.
                 </p><p>
-                Then you'll need at least Apache 2.4.41 to use its built-in ACME support
-                (via the included mod_md module, v2.0.x). Besides the Apache releases, you
-                will always find more frequent ones in 
-                <a href="https://github.com/icing/mod_md">the module's github</a> and
-                some distributions, such as Fedora, are already integrating those.
+                You nowadays need at least Apache 2.4.41 to use its built-in (real) ACME support.
+                In that release, you find a modern 
+                <a href="https://github.com/icing/mod_md">mod_md</a>. You may also install newer
+                versions from github into such an Apache.
+                Some distributions, such as Fedora, are already integrating these.
                 </p><p>
-                The ACME standard support should be much more stable and hopefully long-term.
-                Other CAs are picking it up as well. But as with everything related to security
-                on the internet, development will not stop.
+                Expect the ACME standard to enjoy more long-term support than the proprietary
+                predecessor. Other CAs are picking it up, also. But development of the security
+                infrastructure of the internet will never stop, of course.
                 </p>
             </div>
 
@@ -44,50 +46,54 @@
                 telemetries, that are more than 80% of the requests today), your server needs
                 to provide Stapling information to clients. 
                 </p><p>
-                Or at least should. While it is not totally mandatory, it is also good
-                for performance of your site. Which means a lot of people copy and pasted
-                some stackoverflow Apache configuration and that did the job.
+                Or at least should. It is good for site performance. Apache provides support
+                for this for a long time already with the <code>SSLStapling*</code> directives
+                in the <code>mod_ssl</code> module. 
                 </p><p>
-                This configuration continues to work in the new Apache releases. But it will,
-                in its next release offer new one.
+                This stapling support works, but has drawbacks. The main one is that
+                it ties "live" to the servers where you got your certificates from. A downtime
+                of those servers might take yours offline as well. This is either a nuisance
+                or a security/financial risk, depending on your site.
                 </p><p>
-                This new implementation, developed in the MOSS project, is designed to make
-                your server much more resilient against outages of your certificate
-                provider. 
+                With the new <code>mod_md</code> you are offered an alternative. It provides
+                a second OCSP stapling implementation which is resilient against such outages.
+                In case of Let's Encrypt certificates, it will protect your site for outages
+                that last more than a day. You may configure more. 
                 </p><p>
-                It persists the Stapling information and makes it instantly available again
-                after a server restart. And it refreshes it a day or two before its expiration.
-                Outages would have to last longer than this to affect you.
+                It persists OCSP Stapling information, making it available again
+                after a server restart and refreshes it ahead of time. By default,
+                it retrieves new OCSP data when 33% of the lifetime is left. This
+                is configurable.
                 </p>
             </div>
 
             <div class="center">
                 <h3>Easy Monitoring</h3>
                 <p>
-                Apache with the new mod_md offers you new ways to supervise your certificate
+                The new mod_md offers you different ways to supervise your certificates
                 and stapling: HTML page, JSON views and notifications.
                 </p>
                 <img src="mod_md_status.png" width="100%"/>
                 <p>
                 Apache's "server-status" page now gives you sections about certificates and
-                stapling as well. Two tables where all the things managed by mod_md can be
-                seen at a glance. You'll know what is valid, when renewals are planned and 
+                stapling as well. Two HTML tables where all the things managed by mod_md can be
+                seen at a glance in your browser. You'll know what is valid, when renewals are 
+                planned and 
                 observe the status of ongoing activities.
                 </p>
                 <img src="mod_md_ocsp_status.png" width="100%"/>
                 <p>
-                If you want to write own scripts to evaluate this, there is now a JSON view
+                If you want to write scripts processing this, there are now a JSON views
                 with all details. This should make it ease to integrate information into any
-                control panel for your server/network.
+                control panel for your server/network (see <code>md-status</code> handler).
                 </p><p>
                 In addition, the module will run a configurable command of yours on certain
                 events: a certificate was renewed, stapling was refreshed, an error was
-                encountered, etc. See MDMessageCmd for details.
+                encountered, etc. See <code>MDMessageCmd</code> for details.
                 </p><p>
                 If you have only a few domains to manage, you may do as myself and let Apache
                 send you a mail about it. If you have a larger host/network, you probably
-                already have a monitoring framework which you may want to feed these 
-                notifications to.
+                already have a monitoring framework which you could feed these into. 
                 </p>
             </div>
 
@@ -98,7 +104,15 @@
                 a pleasure to work with. Should you have an idea on how to improve
                 internet security or accessibility, do not hesitate to ask them for support!
                 </p><p>
+                Last, but not least of all I'd like to thank all the people that helped 
+                testing and developing mod_md over the years: 
+                Alvaro Octal, Bernard Spil, Daniel Caminada, Jacob Hoffman-Andrews, Joe Orton, 
+                Josh Soref, Lubos Uhliarik, Michael Kaufmann, Michael Köller, Michal Karm Babacek
+                and Steffen from Apache Lounge.
+                </p><p>
                 Cheers,
+                </p><p>
+                Stefan Eissing
                 </p>
             </div>
 
