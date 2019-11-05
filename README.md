@@ -1794,7 +1794,7 @@ without using any ACME certificate management.
 ## MDStapleOthers
 
 ***Enable stapling for certificates not managed by mod_md.***<BR/>
-`MDStaplingOthers on|off`<BR/>
+`MDStapleOthers on|off`<BR/>
 Default: `on`
 
 This setting only takes effect when `MDStapling` is enabled. It controls if `mod_md` should

@@ -1,13 +1,12 @@
- * Added a script - inspired by curl <https://github.com/curl> - that collects contributors
-   from the git commits and PRs. Adding a "Thanks" section with their names in the README.md.
- * Configuring MDCAChallenges replaces any previous existing challenge configuration. It
-   had been additive before which was not the intended behaviour. [@mkauf]
-
 v2.2.3
 ----------------------------------------------------------------------------------------------------
+ * Configuring MDCAChallenges replaces any previous existing challenge configuration. It
+   had been additive before which was not the intended behaviour. [@mkauf]
  * Fixing order of ACME challenges used when nothing else configured. Code now behaves as
    documented for `MDCAChallenges`. Fixes #156. Thanks again to @mkauf for finding this.
-
+ * Added a script - inspired by curl <https://github.com/curl> - that collects contributors
+   from the git commits and PRs. Adding a "Thanks" section with their names in the README.md.
+s
 v2.2.2
 ----------------------------------------------------------------------------------------------------
  * Fixing a potential, low memory null pointer dereference [thanks to @uhliarik].
