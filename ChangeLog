@@ -1,3 +1,5 @@
+ * Added a sample scripts/md_message.sh on how to use `MDMessageCmd`.
+
 v2.2.3
 ----------------------------------------------------------------------------------------------------
  * Configuring MDCAChallenges replaces any previous existing challenge configuration. It
