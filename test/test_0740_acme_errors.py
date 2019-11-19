@@ -55,7 +55,7 @@ class TestAcmeErrors:
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:rejectedIdentifier'
-        assert md['renewal']['last']['detail'] == ("Error creating new order :: Cannot issue for \"%s\": Invalid character in DNS name" % (domains[1]))
+        assert md['renewal']['last']['detail'] == ("Error creating new order :: Cannot issue for \"%s\": Domain name contains an invalid character" % (domains[1]))
 
     # test case: MD with 3 names, 2 invalid
     #
