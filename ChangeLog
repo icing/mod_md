@@ -1,3 +1,5 @@
+ v2.2.4
+ ----------------------------------------------------------------------------------------------------
  * Fixed a compile time issue with OpenSSL 1.0.2 in the new OCSP code.
  * Skip port checks for domain server_rec selection when "tls-alpn-01" is configured
    explicitly (related to #133). [@mkauf]
