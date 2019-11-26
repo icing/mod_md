@@ -310,3 +310,28 @@ class TestConf:
         assert (1, 0) == TestEnv.httpd_error_log_count()
         assert TestEnv.httpd_error_log_scan( re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', but the name/alias not.secret.com itself is not managed. A requested MD certificate will not match ServerName.*") )
 
+    # test case: use MDRequireHttps in an <if> construct, but not in <Directory
+    def test_300_022(self):
+        HttpdConf(text="""
+            MDomain secret.com
+            <If "1 == 1">
+              MDRequireHttps temporary
+            </If>
+            <VirtualHost *:12344>
+                ServerName secret.com
+                SSLEngine on
+            </VirtualHost>
+            """).install()
+        assert TestEnv.apache_start() == 0
+        HttpdConf(text="""
+            MDomain secret.com
+            <Directory /tmp>
+              MDRequireHttps temporary
+            </Directory>
+            <VirtualHost *:12344>
+                ServerName secret.com
+                SSLEngine on
+            </VirtualHost>
+            """).install()
+        assert TestEnv.apache_restart() == 1
+

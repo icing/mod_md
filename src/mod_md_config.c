@@ -267,6 +267,30 @@ static const char *md_section_check(cmd_parms *cmd) {
     return NULL;
 }
 
+#define MD_LOC_GLOBAL (0x01)
+#define MD_LOC_MD     (0x02)
+#define MD_LOC_ELSE   (0x04)
+#define MD_LOC_ALL    (0x07)
+#define MD_LOC_NOT_MD (0x102)
+
+static const char *md_conf_check_location(cmd_parms *cmd, int flags)
+{
+    if (MD_LOC_GLOBAL == flags) {
+        return ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    }
+    if (MD_LOC_NOT_MD == flags && inside_md_section(cmd)) {
+        return apr_pstrcat(cmd->pool, cmd->cmd->name, " is not allowed inside an '",  
+                           MD_CMD_MD_SECTION, "' context", NULL);
+    }
+    if (MD_LOC_MD == flags) {
+        return md_section_check(cmd);
+    }
+    else if ((MD_LOC_MD & flags) && inside_md_section(cmd)) {
+        return NULL;
+    } 
+    return ap_check_cmd_context(cmd, NOT_IN_DIRECTORY|NOT_IN_LOCATION);
+}
+
 static const char *set_on_off(int *pvalue, const char *s, apr_pool_t *p)
 {
     if (!apr_strnatcasecmp("off", s)) {
@@ -314,7 +338,7 @@ static const char *md_config_sec_start(cmd_parms *cmd, void *mconfig, const char
     int transitive = -1;
     
     (void)mconfig;
-    if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
         
@@ -400,8 +424,7 @@ static const char *md_config_set_names(cmd_parms *cmd, void *dc,
     int i, transitive = -1;
 
     (void)dc;
-    err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE);
-    if (err) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
 
@@ -436,7 +459,7 @@ static const char *md_config_set_ca(cmd_parms *cmd, void *dc, const char *value)
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     sc->ca_url = value;
@@ -449,7 +472,7 @@ static const char *md_config_set_ca_proto(cmd_parms *cmd, void *dc, const char *
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     config->ca_proto = value;
@@ -462,7 +485,7 @@ static const char *md_config_set_agreement(cmd_parms *cmd, void *dc, const char 
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     config->ca_agreement = value;
@@ -489,7 +512,7 @@ static const char *md_config_set_renew_mode(cmd_parms *cmd, void *dc, const char
         return apr_pstrcat(cmd->pool, "unknown MDDriveMode ", value, NULL);
     }
     
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     config->renew_mode = renew_mode;
@@ -502,7 +525,7 @@ static const char *md_config_set_must_staple(cmd_parms *cmd, void *dc, const cha
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     return set_on_off(&config->must_staple, value, cmd->pool);
@@ -514,7 +537,7 @@ static const char *md_config_set_stapling(cmd_parms *cmd, void *dc, const char *
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     return set_on_off(&config->stapling, value, cmd->pool);
@@ -526,7 +549,7 @@ static const char *md_config_set_staple_others(cmd_parms *cmd, void *dc, const c
     const char *err;
 
     (void)dc;
-    if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     return set_on_off(&config->staple_others, value, cmd->pool);
@@ -535,7 +558,7 @@ static const char *md_config_set_staple_others(cmd_parms *cmd, void *dc, const c
 static const char *md_config_set_base_server(cmd_parms *cmd, void *dc, const char *value)
 {
     md_srv_conf_t *config = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err = md_conf_check_location(cmd, MD_LOC_NOT_MD);
 
     (void)dc;
     if (err) return err;
@@ -547,11 +570,10 @@ static const char *md_config_set_require_https(cmd_parms *cmd, void *dc, const c
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
 
-    (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
-
+    (void)dc;
     if (!apr_strnatcasecmp("off", value)) {
         config->require_https = MD_REQUIRE_OFF;
     }
@@ -574,8 +596,7 @@ static const char *md_config_set_renew_window(cmd_parms *cmd, void *dc, const ch
     const char *err;
     
     (void)dc;
-    if (!inside_md_section(cmd)
-        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     err = md_timeslice_parse(&config->renew_window, cmd->pool, value, MD_TIME_LIFE_NORM);
@@ -593,8 +614,7 @@ static const char *md_config_set_warn_window(cmd_parms *cmd, void *dc, const cha
     const char *err;
     
     (void)dc;
-    if (!inside_md_section(cmd)
-        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     err = md_timeslice_parse(&config->warn_window, cmd->pool, value, MD_TIME_LIFE_NORM);
@@ -609,9 +629,9 @@ static const char *md_config_set_warn_window(cmd_parms *cmd, void *dc, const cha
 static const char *md_config_set_proxy(cmd_parms *cmd, void *arg, const char *value)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err;
 
-    if (err) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
     md_util_abs_http_uri_check(cmd->pool, value, &err);
@@ -626,9 +646,9 @@ static const char *md_config_set_proxy(cmd_parms *cmd, void *arg, const char *va
 static const char *md_config_set_store_dir(cmd_parms *cmd, void *arg, const char *value)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err;
 
-    if (err) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
     sc->mc->base_dir = value;
@@ -686,10 +706,10 @@ static const char *md_config_set_port_map(cmd_parms *cmd, void *arg,
                                           const char *v1, const char *v2)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err;
 
     (void)arg;
-    if (!err) {
+    if (!(err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         err = set_port_map(sc->mc, v1);
     }
     if (!err && v2) {
@@ -707,8 +727,7 @@ static const char *md_config_set_cha_tyes(cmd_parms *cmd, void *dc,
     int i;
 
     (void)dc;
-    if (!inside_md_section(cmd)
-        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     pcha = &config->ca_challenges; 
@@ -735,8 +754,7 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
     apr_int64_t bits;
     
     (void)dc;
-    if (!inside_md_section(cmd)
-        && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     if (argc <= 0) {
@@ -784,9 +802,9 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
 static const char *md_config_set_notify_cmd(cmd_parms *cmd, void *mconfig, const char *arg)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err;
 
-    if (err) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
     sc->mc->notify_cmd = arg;
@@ -797,9 +815,9 @@ static const char *md_config_set_notify_cmd(cmd_parms *cmd, void *mconfig, const
 static const char *md_config_set_msg_cmd(cmd_parms *cmd, void *mconfig, const char *arg)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err;
 
-    if (err) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
     sc->mc->message_cmd = arg;
@@ -810,9 +828,9 @@ static const char *md_config_set_msg_cmd(cmd_parms *cmd, void *mconfig, const ch
 static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const char *arg)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err;
 
-    if (err) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
     apr_table_set(sc->mc->env, MD_KEY_CMD_DNS01, arg);
@@ -826,7 +844,7 @@ static const char *md_config_set_cert_file(cmd_parms *cmd, void *mconfig, const 
     const char *err;
     
     (void)mconfig;
-    if (NULL != (err = md_section_check(cmd))) return err;
+    if ((err = md_conf_check_location(cmd, MD_LOC_MD))) return err;
     assert(sc->current);
     sc->current->cert_file = arg;
     return NULL;
@@ -838,7 +856,7 @@ static const char *md_config_set_key_file(cmd_parms *cmd, void *mconfig, const c
     const char *err;
     
     (void)mconfig;
-    if (NULL != (err = md_section_check(cmd))) return err;
+    if ((err = md_conf_check_location(cmd, MD_LOC_MD))) return err;
     assert(sc->current);
     sc->current->pkey_file = arg;
     return NULL;
@@ -850,7 +868,7 @@ static const char *md_config_set_server_status(cmd_parms *cmd, void *dc, const c
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     return set_on_off(&sc->mc->server_status_enabled, value, cmd->pool);
@@ -862,7 +880,7 @@ static const char *md_config_set_certificate_status(cmd_parms *cmd, void *dc, co
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     return set_on_off(&sc->mc->certificate_status_enabled, value, cmd->pool);
@@ -874,7 +892,7 @@ static const char *md_config_set_ocsp_keep_window(cmd_parms *cmd, void *dc, cons
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     err = md_timeslice_parse(&sc->mc->ocsp_keep_window, cmd->pool, value, MD_TIME_OCSP_KEEP_NORM);
@@ -888,7 +906,7 @@ static const char *md_config_set_ocsp_renew_window(cmd_parms *cmd, void *dc, con
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     err = md_timeslice_parse(&sc->mc->ocsp_renew_window, cmd->pool, value, MD_TIME_LIFE_NORM);
@@ -907,7 +925,7 @@ static const char *md_config_set_cert_check(cmd_parms *cmd, void *dc,
     const char *err;
 
     (void)dc;
-    if (!inside_md_section(cmd) && (err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
     sc->mc->cert_check_name = name;
@@ -918,11 +936,11 @@ static const char *md_config_set_cert_check(cmd_parms *cmd, void *dc,
 static const char *md_config_set_activation_delay(cmd_parms *cmd, void *mconfig, const char *arg)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    const char *err;
     apr_interval_time_t delay;
 
     (void)mconfig;
-    if (err) {
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
         return err;
     }
     if (md_duration_parse(&delay, arg, "d") != APR_SUCCESS) {
@@ -972,7 +990,7 @@ const command_rec md_cmds[] = {
                   "the directory for file system storage of managed domain data."),
     AP_INIT_TAKE1("MDRenewWindow", md_config_set_renew_window, NULL, RSRC_CONF, 
                   "Time length for renewal before certificate expires (defaults to days)."),
-    AP_INIT_TAKE1("MDRequireHttps", md_config_set_require_https, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDRequireHttps", md_config_set_require_https, NULL, RSRC_CONF|OR_AUTHCFG, 
                   "Redirect non-secure requests to the https: equivalent."),
     AP_INIT_RAW_ARGS("MDNotifyCmd", md_config_set_notify_cmd, NULL, RSRC_CONF, 
                   "Set the command to run when signup/renew of domain is complete."),
