@@ -1,0 +1,418 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+
+]>
+<!--
+
+ Licensed to the Apache Software Foundation (ASF) under one or more
+ contributor license agreements.  See the NOTICE file distributed with
+ this work for additional information regarding copyright ownership.
+ The ASF licenses this file to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<refentry>
+  <refentryinfo>
+    <title>a2md</title>
+    <productname>mod_md</productname>
+    <author><contrib>Author</contrib><surname>Eissing</surname><firstname>Stefan</firstname><email>stefan.eissing@greenbytes.de</email></author>
+    <author><contrib>Documentation</contrib><surname>Uhliarik</surname><firstname>Lubos</firstname><email>luhliari@redhat.com</email></author>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>a2md</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+  
+  <refnamediv>
+    <refname>a2md</refname>
+    <refpurpose>Show and manipulate Apache Managed Domains</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>a2md</command>
+      <arg choice="opt">options</arg>
+      <group choice="req">
+        <arg choice="plain">acme</arg>
+        <arg choice="plain">add</arg>
+        <arg choice="plain">update</arg>
+        <arg choice="plain">drive</arg>
+        <arg choice="plain">list</arg>
+        <arg choice="plain">store</arg>
+      </group>
+      <arg choice="opt">cmd options</arg>
+      <arg choice="opt">args</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  
+  <refsect1>
+    <title>Description</title>
+    <para>
+    The a2md utility can be used to configure and update managed domains with
+    the mod_md module for Apache HTTP Server. Managed Domains are virtual hosts
+    which automatically obtain and renew TLS certificates from an ACME server.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    
+    <variablelist>
+       <varlistentry>
+          <term>
+             <option>-a</option> <replaceable>arg</replaceable>, 
+             <option>--acme</option> <replaceable>arg</replaceable>
+          </term>
+          <listitem><simpara>The url of the ACME server directory</simpara></listitem>
+       </varlistentry>
+       
+       <varlistentry>
+          <term>
+             <option>-d</option> <replaceable>arg</replaceable>, 
+             <option>--dir</option> <replaceable>arg</replaceable>
+          </term>
+          <listitem><simpara>Directory for file data</simpara></listitem>
+       </varlistentry>
+       
+       <varlistentry>
+          <term>
+             <option>-h</option>, 
+             <option>--help</option>
+          </term>
+          <listitem><simpara>Print usage information</simpara></listitem>
+       </varlistentry>
+       
+       <varlistentry>
+          <term>
+             <option>-j</option>, 
+             <option>--json</option>
+          </term>
+          <listitem><simpara>Produce JSON output</simpara></listitem>
+       </varlistentry>
+       
+       <varlistentry>
+          <term>
+             <option>-p</option> <replaceable>arg</replaceable>, 
+             <option>--proxy</option> <replaceable>arg</replaceable>
+          </term>
+          <listitem><simpara>Use the HTTP proxy url</simpara></listitem>
+       </varlistentry>
+
+       <varlistentry>
+          <term>
+             <option>-q</option>, 
+             <option>--quiet</option>
+          </term>
+          <listitem><simpara>Produce less output</simpara></listitem>
+       </varlistentry>
+       
+       <varlistentry>
+          <term>
+             <option>-t</option> <replaceable>arg</replaceable>, 
+             <option>--terms</option> <replaceable>arg</replaceable>
+          </term>
+          <listitem><simpara>You agree to the terms of services (url)</simpara></listitem>
+       </varlistentry>
+       
+       <varlistentry>
+          <term>
+             <option>-v</option>, 
+             <option>--verbose</option>
+          </term>
+          <listitem><simpara>Produce more output</simpara></listitem>
+       </varlistentry>
+       
+       <varlistentry>
+          <term>
+             <option>-V</option>, 
+             <option>--version</option>
+          </term>
+          <listitem><simpara>Print version</simpara></listitem>
+       </varlistentry>
+    </variablelist>
+
+  <refsect2>
+    <title>ACME server commands</title>
+    <cmdsynopsis>
+      <command>a2md acme</command>
+      <group choice="req">
+        <arg choice="plain">newreg</arg>
+        <arg choice="plain">delreg</arg>
+        <arg choice="plain">agree</arg>
+        <arg choice="plain">authz</arg>
+        <arg choice="plain">validate</arg>
+      </group>
+      <arg choice="opt">opts</arg>
+      <arg choice="opt">args</arg>
+    </cmdsynopsis>
+
+    <para>
+    Play with the ACME server. For most of the commands you need to specify 
+    the url of the ACME server directory.
+    </para>
+    
+    <refsect3>
+      <title>newreg</title>
+      <cmdsynopsis>
+          <command>newreg</command>
+	  <arg choice="plain"><replaceable>contact-uri</replaceable></arg>
+	  <arg choice="opt">contact-uri...</arg> 
+      </cmdsynopsis>
+      <para>Register a new account at ACME server with given <replaceable>contact-uri</replaceable> (email)</para>
+    </refsect3>
+ 
+    <refsect3>
+      <title>delreg</title>
+      <cmdsynopsis>
+          <command>delreg</command>
+	  <arg choice="plain"><replaceable>account</replaceable></arg>
+      </cmdsynopsis>
+      <para>Delete an existing ACME <replaceable>account</replaceable></para>
+    </refsect3>
+
+    <refsect3>
+      <title>agree</title>
+      <cmdsynopsis>
+          <command>agree</command>
+          <arg choice="plain"><replaceable>account</replaceable></arg>
+      </cmdsynopsis>
+      <para>Agree to ACME terms of service</para>
+    </refsect3>
+    
+    <refsect3>
+      <title>authz</title>
+      <cmdsynopsis>
+          <command>authz</command>
+          <arg choice="plain"><replaceable>account</replaceable></arg>
+          <arg choice="plain"><replaceable>domain</replaceable></arg>
+      </cmdsynopsis>
+      <para>Request a new authorization for an <replaceable>account</replaceable> and 
+      <replaceable>domain</replaceable></para>
+    </refsect3>
+    
+    <refsect3>
+      <title>validate</title>
+      <cmdsynopsis>
+          <command>validate</command>
+          <arg choice="plain"><replaceable>account</replaceable></arg>
+      </cmdsynopsis>
+      <para>Validate <replaceable>account</replaceable> existence</para>
+    </refsect3>
+  </refsect2>
+
+  <refsect2>
+    <title>Managed domain addition</title>
+    <cmdsynopsis>
+      <command>a2md add</command>
+      <arg choice="opt">opts</arg>
+      <arg choice="plain"><replaceable>domain</replaceable></arg>
+      <arg choice="opt">domain...</arg>
+    </cmdsynopsis>
+
+    <para>
+    Adds a new managed domain. Must not overlap with existing domains.
+    </para>
+  </refsect2>
+
+  <refsect2>
+    <title>Updating managed domain</title>
+    <cmdsynopsis>
+      <command>a2md update</command>
+      <arg choice="plain"><replaceable>name</replaceable></arg>
+      <arg choice="opt">opts</arg>
+      <group choice="req">
+        <arg choice="plain">domains</arg>
+        <arg choice="plain">ca</arg>
+        <arg choice="plain">account</arg>
+        <arg choice="plain">contacts</arg>
+        <arg choice="plain">agreement</arg>
+      </group>
+    </cmdsynopsis>
+
+    <para>
+    Update a managed domain's properties, where <replaceable>name</replaceable> belongs to managed domain which
+    will be updated.
+    </para>
+
+    <para>URL of ACME server can be also updated if <option>-a</option>|
+    <option>--acme</option> option is present.</para>
+
+    <refsect3>
+      <title>domains</title>
+      <cmdsynopsis>
+          <command>domains</command>
+	  <arg choice="plain"><replaceable>dname</replaceable></arg>
+	  <arg choice="opt">dname...</arg> 
+      </cmdsynopsis>
+      <para>Update domain where <replaceable>dname</replaceable> is domain name which will be updated.</para>
+    </refsect3>
+ 
+    <refsect3>
+      <title>ca</title>
+      <cmdsynopsis>
+          <command>ca</command>
+	  <arg choice="plain"><replaceable>url</replaceable></arg>
+          <arg choice="opt">proto</arg>
+      </cmdsynopsis>
+      <para>The <replaceable>URL</replaceable> where the CA offers its service.</para>
+      <para>Currently only ACME (LetsEncrypt) <replaceable>proto</replaceable> is implemented.</para>
+    </refsect3>
+
+    <refsect3>
+      <title>account</title>
+      <cmdsynopsis>
+          <command>account</command>
+      </cmdsynopsis>
+      <para>Account name on corresponding ACME server.</para>
+    </refsect3>
+
+    <refsect3>
+      <title>contacts</title>
+      <cmdsynopsis>
+          <command>contacts</command>
+          <arg choice="plain"><replaceable>email</replaceable></arg>
+	  <arg choice="opt">email...</arg> 
+      </cmdsynopsis>
+      <para>Contact address which will be used by ACME server to inform about renewals or changed terms of service.</para>
+    </refsect3>
+
+    <refsect3>
+      <title>agreement</title>
+      <cmdsynopsis>
+          <command>agreement</command>
+          <arg choice="plain"><replaceable>URI</replaceable></arg>
+      </cmdsynopsis>
+      <para>URI pointing to terms of service of ACME server.</para>
+    </refsect3>
+  </refsect2>
+
+  <refsect2>
+    <title>Drive managed domains</title>
+    <cmdsynopsis>
+      <command>a2md drive</command>
+      <arg choice="opt">md...</arg>
+      <arg choice="opt">options...</arg>
+    </cmdsynopsis>
+
+    <para>
+    Drive all or the mentioned managed domains toward completeness
+    </para>
+    <refsect3>
+      <title>Options</title>
+      <variablelist>
+       <varlistentry>
+          <term>
+             <option>-c</option> <replaceable>arg</replaceable>, 
+             <option>--challenge</option> <replaceable>arg</replaceable>
+          </term>
+          <listitem><simpara>Which challenge type to use</simpara></listitem>
+       </varlistentry>
+       <varlistentry>
+          <term>
+             <option>-f</option>, 
+             <option>--force</option>
+          </term>
+          <listitem><simpara>Force driving the managed domain, even when it seems valid</simpara></listitem>
+       </varlistentry>
+       <varlistentry>
+          <term>
+             <option>-r</option>, 
+             <option>--reset</option>
+          </term>
+          <listitem><simpara>Reset any staging data for the managed domain</simpara></listitem>
+       </varlistentry>
+    </variablelist>
+    </refsect3>
+  </refsect2>
+
+  <refsect2>
+    <title>List managed domamins</title>
+    <cmdsynopsis>
+      <command>a2md list</command>
+    </cmdsynopsis>
+
+    <para>
+    List all managed domains
+    </para>
+  </refsect2>
+
+  <refsect2>
+    <title>Manipulating MD store</title>
+    <cmdsynopsis>
+      <command>a2md store</command>
+      <group choice="req">
+        <arg choice="plain">add</arg>
+        <arg choice="plain">remove</arg>
+        <arg choice="plain">list</arg>
+        <arg choice="plain">update</arg>
+      </group>
+      <arg choice="opt">opts</arg>
+      <arg choice="opt">args</arg>
+    </cmdsynopsis>
+
+    <para>
+    Manipulate the MD store
+    </para>
+    
+    <refsect3>
+      <title>add</title>
+      <cmdsynopsis>
+          <command>add</command>
+          <arg choice="plain"><replaceable>dns</replaceable></arg>
+	  <arg choice="opt">dns2...</arg>
+      </cmdsynopsis>
+      <para>Add a new managed domain <replaceable>dns</replaceable> with all the additional domain names</para>
+    </refsect3>
+
+    <refsect3>
+      <title>remove</title>
+      <cmdsynopsis>
+          <command>remove</command>
+          <arg choice="opt">-f | --force</arg>
+          <arg choice="plain"><replaceable>name</replaceable></arg>
+          <arg choice="opt"><replaceable>name...</replaceable></arg>
+      </cmdsynopsis>
+      <para>Remove the managed domains <replaceable>name</replaceable> from the store</para>
+      <para>When <option>-f</option> or <option>--force</option> option is specified, force managed domain removal - be silent about missing domains</para>
+    </refsect3>
+    <refsect3>
+      <title>list</title>
+      <cmdsynopsis>
+          <command>list</command>
+      </cmdsynopsis>
+      <para>List all managed domains in the store</para>
+    </refsect3>
+    <refsect3>
+      <title>update</title>
+      <cmdsynopsis>
+          <command>update</command>
+          <arg choice="plain"><replaceable>name</replaceable></arg>
+          <arg choice="opt">
+          <arg choice="plain">domains</arg>
+          <arg choice="plain"><replaceable>dname</replaceable></arg>
+          <arg choice="opt"><replaceable>dname...</replaceable></arg>
+          </arg>
+      </cmdsynopsis>
+      <para>If <option>domains</option> cmd is specified followed by one or 
+      more domains, MD store will be updated with those domains.</para>
+      <para>URL of ACME server can be also updated if <option>-a</option>|
+      <option>--acme</option> option is present.</para>
+    </refsect3>
+  </refsect2>
+ </refsect1>
+
+</refentry>
+
+<!-- LocalWords:  a2md
+-->
