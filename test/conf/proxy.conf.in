@@ -7,9 +7,7 @@ Listen @HTTP_PROXY_PORT@
     ProxyVia On
 
     <Proxy *>
-        Order deny,allow
-        Deny from all
-        Allow from localhost
+        Require localhost
     </Proxy> 
 </VirtualHost>
 
