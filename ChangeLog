@@ -1,10 +1,14 @@
+v2.2.5
+----------------------------------------------------------------------------------------------------
+ * Corrected a check when OCSP stapling was configured for hosts
+   where the responsible MDomain is not clear, by Michal Karm Babacek (@Karm).
  * @uhliarik added documentation for the `a2md` command. Use `xmlto man ./a2md.xml` to generate it.
  * Softening the restrictions where mod_md configuration directives may appear. This should
    allow for use in <If> and <Macro> sections. If all possible variations lead to the configuration
    you wanted in the first place, is another matter. 
  
- v2.2.4
- ----------------------------------------------------------------------------------------------------
+v2.2.4
+----------------------------------------------------------------------------------------------------
  * Fixed a compile time issue with OpenSSL 1.0.2 in the new OCSP code.
  * Skip port checks for domain server_rec selection when "tls-alpn-01" is configured
    explicitly (related to #133). [@mkauf]
