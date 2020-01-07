@@ -172,3 +172,51 @@ Protocols h2 http/1.1 acme-tls/1
         assert 1 == int(m.group(3))
         assert 0 == int(m.group(4))
         assert 1 == int(m.group(5))
+
+    def test_920_011(self):
+        # MD with static cert files in base server, see issue #161
+        domain = self.test_domain
+        domains = [ domain, 'www.%s' % domain ]
+        testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_011')
+        # cert that is only 10 more days valid
+        TestEnv.create_self_signed_cert(domains, { "notBefore": -70, "notAfter": 20  },
+            serial=920011, path=testpath)
+        cert_file = os.path.join(testpath, 'pubcert.pem')
+        pkey_file = os.path.join(testpath, 'privkey.pem')
+        assert os.path.exists(cert_file)
+        assert os.path.exists(pkey_file)
+        conf = HttpdConf()
+        conf = HttpdConf(std_vhosts=False, text= f"""
+LogLevel md:trace2
+LogLevel ssl:debug
+                
+MDPortMap http:- https:{TestEnv.HTTPS_PORT}
+
+Listen {TestEnv.HTTPS_PORT}
+ServerAdmin admin@not-forbidden.org
+ServerName {domain}
+SSLEngine on
+Protocols h2 http/1.1 acme-tls/1
+
+MDBaseServer on
+
+<Location "/server-status">
+    SetHandler server-status
+</Location>
+<Location "/md-status">
+    SetHandler md-status
+</Location>
+            """)
+        conf.start_md(domains)
+        conf.add_line(f"MDCertificateFile {cert_file}")
+        conf.add_line(f"MDCertificateKeyFile {pkey_file}")
+        conf.end_md()
+        conf.install()
+        TestEnv.HTTPD_CHECK_URL = TestEnv.HTTPD_URL_SSL
+        assert TestEnv.apache_restart() == 0
+        status = TestEnv.get_md_status( domain )
+        assert status
+        assert not 'renewal' in status
+        print(status)
+        assert status['state'] == TestEnv.MD_S_COMPLETE
+        assert status['renew-mode'] == 1 # manual
