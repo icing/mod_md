@@ -720,6 +720,29 @@ and restart ```httpd```.
 
 [@nono303](https://github.com/nono303) has builds available at his [github repository](https://github.com/nono303/mod_md).
 
+You can also build your own mod_md on Windows. Requirements: APR/APR Util (as likely comes with your httpd distro), OpenSSL, Curl, Jansson, Apache HTTP Server, CMake installation, Visual Studio installation. The undermentioned example is intended for development and debugging. Production build should be done in the context of httpd build, exactly with the libraries your httpd uses.
+
+
+```
+mkdir build
+cd build
+vcvars64
+cmake -G "NMake Makefiles"
+ -DOPENSSL_ROOT_DIR=C:/Users/Administrator/source/openssl/target/
+ -DCURL_LIBRARY=C:/Users/Administrator/source/curl-build/lib/libcurl_imp.lib
+ -DCURL_INCLUDE_DIR=C:/Users/Administrator/source/curl-build/include
+ -DAPACHE_ROOT_DIR=C:/Users/Administrator/source/Apache24/
+ -DAPR_ROOT_DIR=C:/Users/Administrator/source/Apache24/
+ -DAPRUTIL_ROOT_DIR=C:/Users/Administrator/source/Apache24/
+ -DJANSSON_ROOT_DIR=C:/Users/Administrator/source/jansson/build
+ -DCMAKE_BUILD_TYPE=Release ..
+
+nmake
+
+dir modules\
+mod_md.exp  mod_md.lib  mod_md.so*  mod_md.so.manifest
+```
+
 ## Fedora
 
 The plan in Fedora is to include v2.x of mod_md with Fedora 31, which is due to be released end of summer 2019.
