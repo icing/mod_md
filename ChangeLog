@@ -1,3 +1,5 @@
+v2.2.6
+----------------------------------------------------------------------------------------------------
  * Michal Karm Babacek (@Karm) added `cmake` support, especially valuable under Windows.
  * protocol check for pre-configured "tls-alpn-01" challenge has been improved. It will now
    check all matching virtual hosts for protocol support. Thanks to @mkauf.
