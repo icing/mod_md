@@ -743,9 +743,13 @@ dir modules\
 mod_md.exp  mod_md.lib  mod_md.so*  mod_md.so.manifest
 ```
 
+## Debian
+
+Debian unstable includes the latest Apache httpd release. If you want a newer version of `mod_md` on top of it, it should be easy to build it with the instructions above.
+
 ## Fedora
 
-The plan in Fedora is to include v2.x of mod_md with Fedora 31, which is due to be released end of summer 2019.
+The module has become part of Fedora 31.
 
 ## Ubuntu
 

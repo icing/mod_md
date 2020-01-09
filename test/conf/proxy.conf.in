@@ -7,7 +7,7 @@ Listen @HTTP_PROXY_PORT@
     ProxyVia On
 
     <Proxy *>
-        Require localhost
+        # No require or other restrictions, this is just a test server
     </Proxy> 
 </VirtualHost>
 
