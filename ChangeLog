@@ -1,3 +1,6 @@
+ * protocol check for pre-configured "tls-alpn-01" challenge has been improved. It will now
+   check all matching virtual hosts for protocol support. Thanks to @mkauf.
+
 v2.2.5
 ----------------------------------------------------------------------------------------------------
  * Corrected a check when OCSP stapling was configured for hosts
