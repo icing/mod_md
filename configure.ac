@@ -341,6 +341,9 @@ if test "x$enable_unit_tests" != "xno"; then
     fi
 fi
 
+AC_PATH_PROG([XMLTO], [xmlto])
+AM_CONDITIONAL([BUILD_MANPAGES], [test "x$XMLTO" != "x"])
+
 AM_CONDITIONAL([BUILD_UNIT_TESTS], [test "x$have_check" = "xtrue"])
 
 # Checks for header files.
