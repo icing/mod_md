@@ -18,7 +18,16 @@ DIST_SUBDIRS    = src test
 ACLOCAL_AMFLAGS = -I m4
 
 dist_doc_DATA   = README README.md LICENSE
-EXTRA_DIST      = patches
+EXTRA_DIST      = patches a2md.xml
+
+if BUILD_MANPAGES
+man1_MANS = a2md.1
+
+a2md.1: $(srcdir)/a2md.xml
+	rm -f a2md.1
+	$(XMLTO) man $(srcdir)/a2md.xml
+
+endif
 
 .PHONY: test
 
