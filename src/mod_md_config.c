@@ -105,6 +105,7 @@ static md_srv_conf_t defconf = {
     &def_renew_window,         /* renew window */
     &def_warn_window,          /* warn window */
     NULL,                      /* ca url */
+    NULL,                      /* ca contact (email) */
     "ACME",                    /* ca protocol */
     NULL,                      /* ca agreemnent */
     NULL,                      /* ca challenges array */
@@ -156,6 +157,7 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
     sc->renew_window = NULL;
     sc->warn_window = NULL;
     sc->ca_url = NULL;
+    sc->ca_contact = NULL;
     sc->ca_proto = NULL;
     sc->ca_agreement = NULL;
     sc->ca_challenges = NULL;
@@ -173,6 +175,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
     to->warn_window = from->warn_window;
     to->renew_window = from->renew_window;
     to->ca_url = from->ca_url;
+    to->ca_contact = from->ca_contact;
     to->ca_proto = from->ca_proto;
     to->ca_agreement = from->ca_agreement;
     to->ca_challenges = from->ca_challenges;
@@ -229,6 +232,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->warn_window = add->warn_window? add->warn_window : base->warn_window;
 
     nsc->ca_url = add->ca_url? add->ca_url : base->ca_url;
+    nsc->ca_contact = add->ca_contact? add->ca_contact : base->ca_contact;
     nsc->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
     nsc->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
     nsc->ca_challenges = (add->ca_challenges? apr_array_copy(pool, add->ca_challenges) 
@@ -463,6 +467,19 @@ static const char *md_config_set_ca(cmd_parms *cmd, void *dc, const char *value)
         return err;
     }
     sc->ca_url = value;
+    return NULL;
+}
+
+static const char *md_config_set_contact(cmd_parms *cmd, void *dc, const char *value)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    (void)dc;
+    if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
+        return err;
+    }
+    sc->ca_contact = value;
     return NULL;
 }
 
@@ -959,6 +976,8 @@ const command_rec md_cmds[] = {
                       "A list of challenge types to be used."),
     AP_INIT_TAKE1("MDCertificateProtocol", md_config_set_ca_proto, NULL, RSRC_CONF, 
                   "Protocol used to obtain/renew certificates"),
+    AP_INIT_TAKE1("MDContactEmail", md_config_set_contact, NULL, RSRC_CONF,
+                  "Email address used for account registration"),
     AP_INIT_TAKE1("MDDriveMode", md_config_set_renew_mode, NULL, RSRC_CONF, 
                   "deprecated, older name for MDRenewMode"),
     AP_INIT_TAKE1("MDRenewMode", md_config_set_renew_mode, NULL, RSRC_CONF, 
@@ -1083,6 +1102,8 @@ const char *md_config_gets(const md_srv_conf_t *sc, md_config_var_t var)
     switch (var) {
         case MD_CONFIG_CA_URL:
             return sc->ca_url? sc->ca_url : defconf.ca_url;
+        case MD_CONFIG_CA_CONTACT:
+            return sc->ca_contact? sc->ca_contact : defconf.ca_contact;
         case MD_CONFIG_CA_PROTO:
             return sc->ca_proto? sc->ca_proto : defconf.ca_proto;
         case MD_CONFIG_BASE_DIR:

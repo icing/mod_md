@@ -1,3 +1,6 @@
+v2.2.next
+ * Prefer MDContactEmail directive to ServerAdmin for registration
+
 v2.2.6
 ----------------------------------------------------------------------------------------------------
  * Michal Karm Babacek (@Karm) added `cmake` support, especially valuable under Windows.

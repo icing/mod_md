@@ -114,6 +114,8 @@ One more thing. There is usually an email address in your Apache configuration, 
 
 `mod_md` will use that email address when registering your domains at Let's Encrypt. And they will try to contact you with important news, should the need arise. So, make sure this is a real address that you monitor! 
 
+If you want to be registered and contacted different email address, specify it with the MDContactEmail directive, which is preferred.
+
 As the last thing, add the following line somewhere in your configuration:
 
 ```
@@ -1776,7 +1778,9 @@ It is therefore advisable to first test the ```MDRequireHttps temporary``` confi
 Default: `md`
 
 This is where `mod_md` will store all the files (i.e. account key, private keys and certs etc.)<BR/>
-The path is relevant to `ServerRoot`.
+The path is relative to `ServerRoot`.
+
+Note that if you run multiple instances of `httpd`, each instance must have it's own directory.  
 
 ## MDBaseServer
 
@@ -1878,9 +1882,9 @@ Certificate Monitors offer supervision of Certificate Transparency (CT) Logs to
 track the use of certificates for domains. The least you may see is that Let's Encrypt (or whichever
 CA you have configured) has entered your certificates into the CTLogs.
 
-## ServerAdmin / Contact Information
+## MDContactEmail / Contact Information
 
-Also, the ACME protocol requires you to give a contact url when you sign up. Currently, Let's Encrypt wants an email address (and it will use it to inform you about renewals or changed terms of service). ```mod_md``` uses the ```ServerAdmin``` email in your Apache configuration, so please specify the correct address there.
+The ACME protocol requires you to give a contact url when you sign up. Currently, Let's Encrypt wants an email address (and it will use it to inform you about renewals or changed terms of service). ```mod_md``` uses the ```MDContactEmail``` directive email in your Apache configuration, so please specify the correct address there.  If ```MDContactEmail``` is not present, ```mod_md``` will use the ```ServerAdmin```  directive.
 
 
 # Test Suite
