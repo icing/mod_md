@@ -1,5 +1,9 @@
-v2.2.next
- * Prefer MDContactEmail directive to ServerAdmin for registration
+v2.2.7
+----------------------------------------------------------------------------------------------------
+ * Prefer MDContactEmail directive to ServerAdmin for registration. New directive
+   thanks for Timothe Litt (@tlhackque).
+ * Distribute a2md.xml and conditionally build it, if xmlto is available. Addition
+   by Joe Orton (@notroj).
 
 v2.2.6
 ----------------------------------------------------------------------------------------------------
