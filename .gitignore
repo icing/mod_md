@@ -5,6 +5,7 @@ mod_md.xcodeproj/xcuserdata/*.xcuserdatad
 *.lo
 *.la
 *.pcap
+*~
 .libs
 .configured
 .deps
@@ -21,6 +22,7 @@ config.sub
 config.h
 config.h.in
 config.h.in~
+config.cache
 configure
 configure.scan
 depcomp

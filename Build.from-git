@@ -1,0 +1,35 @@
+Building mod_md from the git repository
+
+You can build in Docker using Dockerfile in the git repository.
+
+If you don't have/don't want to use Docker, the following procedure
+will build it outside docker.
+
+Prerequisites:
+ o Assumes you have built httpd from source
+ o Install libjansson
+   - From your distro - libjansson-dev
+   - From source: http://www.digip.org/jansson
+ o Install libcurl-dev (e.g libcurl4-openssl-dev, or https://curl.haxx.se/download.html)
+
+Procedure:
+
+git clone https://github.com/icing/mod_md.git
+
+autoreconf -i
+automake
+autoconf
+./configure -C --with-apxs=/usr/local/bin/apxs
+make
+make install
+
+To use this mod_md, you need to enable it in some
+distribution-specific manner.
+
+For bare httpd, your configuration should include:
+
+LoadModule ssl_module modules/mod_ssl.so
+LoadModule watchdog_module /usr/local/lib/httpd/modules/mod_watchdog.so
+LoadModule md_module /usr/local/lib/httpd/modules/mod_md.so
+
+See the mod_md README for details on configuring mod_md.
