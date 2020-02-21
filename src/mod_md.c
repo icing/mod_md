@@ -333,8 +333,8 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     if (!md->ca_challenges && md->sc->ca_challenges) {
         md->ca_challenges = apr_array_copy(p, md->sc->ca_challenges);
     }        
-    if (!md->pkey_spec) {
-        md->pkey_spec = md->sc->pkey_spec;
+    if (!md->pks) {
+        md->pks = md->sc->pks;
         
     }
     if (md->require_https < 0) {
@@ -1063,20 +1063,22 @@ static apr_status_t setup_fallback_cert(md_store_t *store, const md_t *md,
     return rv;
 }
 
-static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
-                                    const char **pcertfile, const char **pkeyfile)
+static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
+                                     apr_array_header_t **pcert_files, 
+                                     apr_array_header_t **pkey_files)
 {
     apr_status_t rv = APR_ENOENT;    
     md_srv_conf_t *sc;
     md_reg_t *reg;
     md_store_t *store;
     const md_t *md;
+    const char *keyfile, *certfile;
     
-    *pkeyfile = NULL;
-    *pcertfile = NULL;
+    keyfile = certfile = NULL;
+    *pkey_files = *pcert_files = NULL;
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10113)
-                 "get_certificate called for vhost %s.", s->server_hostname);
+                 "get_certificates called for vhost %s.", s->server_hostname);
 
     sc = md_config_get(s);
     if (!sc) {
@@ -1108,7 +1110,7 @@ static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
     }
     md = APR_ARRAY_IDX(sc->assigned, 0, const md_t*);
     
-    rv = md_reg_get_cred_files(pkeyfile, pcertfile, reg, MD_SG_DOMAINS, md, p);
+    rv = md_reg_get_cred_files(&keyfile, &certfile, reg, MD_SG_DOMAINS, md, p);
     if (APR_STATUS_IS_ENOENT(rv)) {
         if (fallback) {
             /* Provide temporary, self-signed certificate as fallback, so that
@@ -1117,9 +1119,9 @@ static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
             store = md_reg_store_get(reg);
             assert(store);    
             
-            md_store_get_fname(pkeyfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_PKEY, p);
-            md_store_get_fname(pcertfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_CERT, p);
-            if (!md_file_exists(*pkeyfile, p) || !md_file_exists(*pcertfile, p)) { 
+            md_store_get_fname(&keyfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_PKEY, p);
+            md_store_get_fname(&certfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_CERT, p);
+            if (!md_file_exists(keyfile, p) || !md_file_exists(certfile, p)) { 
                 if (APR_SUCCESS != (rv = setup_fallback_cert(store, md, s, p))) {
                     return rv;
                 }
@@ -1127,7 +1129,8 @@ static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10116)  
                          "%s: providing fallback certificate for server %s", 
                          md->name, s->server_hostname);
-            return APR_EAGAIN;
+            rv = APR_EAGAIN;
+            goto leave;
         }
     }
     else if (APR_SUCCESS != rv) {
@@ -1139,6 +1142,13 @@ static apr_status_t get_certificate(server_rec *s, apr_pool_t *p, int fallback,
     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10077) 
                  "%s[state=%d]: providing certificate for server %s", 
                  md->name, md->state, s->server_hostname);
+leave:
+    if (keyfile && certfile) {
+        *pkey_files = apr_array_make(p, 5, sizeof(const char*));
+        APR_ARRAY_PUSH(*pkey_files, const char*) = keyfile;
+        *pcert_files = apr_array_make(p, 5, sizeof(const char*));
+        APR_ARRAY_PUSH(*pcert_files, const char*) = certfile;
+    }
     return rv;
 }
 
@@ -1146,22 +1156,25 @@ static int md_add_cert_files(server_rec *s, apr_pool_t *p,
                              apr_array_header_t *cert_files, 
                              apr_array_header_t *key_files)
 {
-    const char *certfile, *keyfile;
+    apr_array_header_t *md_cert_files; 
+    apr_array_header_t *md_key_files;
     apr_status_t rv;
     
     ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, "hook ssl_add_cert_files for %s",
                  s->server_hostname);
-    rv = get_certificate(s, p, 0, &certfile, &keyfile);
+    rv = get_certificates(s, p, 0, &md_cert_files, &md_key_files);
     if (APR_SUCCESS == rv) {
         if (!apr_is_empty_array(cert_files)) {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10084)
+            /* downgraded fromm WARNING to DEBUG, since installing separate certificates
+             * may be a valid use case. */
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10084)
                          "host '%s' is covered by a Managed Domain, but "
                          "certificate/key files are already configured "
                          "for it (most likely via SSLCertificateFile).", 
                          s->server_hostname);
-        } 
-        APR_ARRAY_PUSH(cert_files, const char*) = certfile;
-        APR_ARRAY_PUSH(key_files, const char*) = keyfile;
+        }
+        apr_array_cat(cert_files, md_cert_files);
+        apr_array_cat(key_files, md_key_files);
         return DONE;
     }
     return DECLINED;
@@ -1171,15 +1184,16 @@ static int md_add_fallback_cert_files(server_rec *s, apr_pool_t *p,
                                       apr_array_header_t *cert_files, 
                                       apr_array_header_t *key_files)
 {
-    const char *certfile, *keyfile;
+    apr_array_header_t *md_cert_files; 
+    apr_array_header_t *md_key_files;
     apr_status_t rv;
     
     ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, "hook ssl_add_fallback_cert_files for %s",
                  s->server_hostname);
-    rv = get_certificate(s, p, 1, &certfile, &keyfile);
+    rv = get_certificates(s, p, 1, &md_cert_files, &md_key_files);
     if (APR_EAGAIN == rv) {
-        APR_ARRAY_PUSH(cert_files, const char*) = certfile;
-        APR_ARRAY_PUSH(key_files, const char*) = keyfile;
+        apr_array_cat(cert_files, md_cert_files);
+        apr_array_cat(key_files, md_key_files);
         return DONE;
     }
     return DECLINED;

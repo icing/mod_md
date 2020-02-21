@@ -51,22 +51,48 @@ typedef struct md_pkey_t md_pkey_t;
 typedef enum {
     MD_PKEY_TYPE_DEFAULT,
     MD_PKEY_TYPE_RSA,
+    MD_PKEY_TYPE_EC,
 } md_pkey_type_t;
 
-typedef struct md_pkey_rsa_spec_t {
+typedef struct md_pkey_rsa_params_t {
     apr_uint32_t bits;
-} md_pkey_rsa_spec_t;
+} md_pkey_rsa_params_t;
+
+typedef struct md_pkey_ec_params_t {
+    const char *curve;
+} md_pkey_ec_params_t;
 
 typedef struct md_pkey_spec_t {
     md_pkey_type_t type;
     union {
-        md_pkey_rsa_spec_t rsa;
+        md_pkey_rsa_params_t rsa;
+        md_pkey_ec_params_t ec;
     } params;
 } md_pkey_spec_t;
 
+typedef struct md_pkeys_spec_t {
+    apr_pool_t *p;
+    struct apr_array_header_t *specs;
+} md_pkeys_spec_t;
+
 apr_status_t md_crypt_init(apr_pool_t *pool);
 
-apr_status_t md_pkey_gen(md_pkey_t **ppkey, apr_pool_t *p, md_pkey_spec_t *spec);
+md_pkeys_spec_t *md_pkeys_spec_make(apr_pool_t *p);
+void md_pkeys_spec_add_default(md_pkeys_spec_t *pks);
+void md_pkeys_spec_add_rsa(md_pkeys_spec_t *pks, unsigned int bits);
+void md_pkeys_spec_add_ev(md_pkeys_spec_t *pks, const char *curve);
+int md_pkeys_spec_eq(md_pkeys_spec_t *pks1, md_pkeys_spec_t *pks2);
+md_pkeys_spec_t *md_pkeys_spec_clone(apr_pool_t *p, const md_pkeys_spec_t *pks);
+md_pkey_spec_t *md_pkeys_spec_get(const md_pkeys_spec_t *pks, int index);
+void md_pkeys_spec_add(md_pkeys_spec_t *pks, md_pkey_spec_t *spec);
+
+struct md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p);
+md_pkey_spec_t *md_pkey_spec_from_json(struct md_json_t *json, apr_pool_t *p);
+struct md_json_t *md_pkeys_spec_to_json(const md_pkeys_spec_t *pks, apr_pool_t *p);
+md_pkeys_spec_t *md_pkeys_spec_from_json(struct md_json_t *json, apr_pool_t *p);
+
+
+apr_status_t md_pkey_gen(md_pkey_t **ppkey, apr_pool_t *p, md_pkey_spec_t *key_props);
 void md_pkey_free(md_pkey_t *pkey);
 
 const char *md_pkey_get_rsa_e64(md_pkey_t *pkey, apr_pool_t *p);
@@ -83,10 +109,6 @@ apr_status_t md_crypt_sign64(const char **psign64, md_pkey_t *pkey, apr_pool_t *
                              const char *d, size_t dlen);
 
 void *md_pkey_get_EVP_PKEY(struct md_pkey_t *pkey);
-
-struct md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p);
-md_pkey_spec_t *md_pkey_spec_from_json(struct md_json_t *json, apr_pool_t *p);
-int md_pkey_spec_eq(md_pkey_spec_t *spec1, md_pkey_spec_t *spec2);
 
 /**************************************************************************************************/
 /* X509 certificates */

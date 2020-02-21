@@ -258,9 +258,68 @@ apr_time_t md_asn1_generalized_time_get(void *ASN1_GENERALIZEDTIME)
     return md_asn1_time_get(ASN1_GENERALIZEDTIME);
 }
 
+/**************************************************************************************************/
+/* OID/NID things */
+
+static int get_nid(const char *num, const char *sname, const char *lname)
+{
+    /* Funny API, an OID for a feature might be configured or
+     * maybe not. In the second case, we need to add it. But adding
+     * when it already is there is an error... */
+    int nid = OBJ_txt2nid(num);
+    if (NID_undef == nid) {
+        nid = OBJ_create(num, sname, lname);
+    }
+    return nid;
+}
+
+#define MD_GET_NID(x)  get_nid(MD_OID_##x##_NUM, MD_OID_##x##_SNAME, MD_OID_##x##_LNAME)
 
 /**************************************************************************************************/
 /* private keys */
+
+md_pkeys_spec_t *md_pkeys_spec_make(apr_pool_t *p)
+{
+    md_pkeys_spec_t *pks;
+    
+    pks = apr_pcalloc(p, sizeof(*pks));
+    pks->p = p;
+    pks->specs = apr_array_make(p, 2, sizeof(md_pkey_spec_t*));
+    return pks;
+}
+
+void md_pkeys_spec_add(md_pkeys_spec_t *pks, md_pkey_spec_t *spec)
+{
+    APR_ARRAY_PUSH(pks->specs, md_pkey_spec_t*) = spec;
+}
+
+void md_pkeys_spec_add_default(md_pkeys_spec_t *pks)
+{
+    md_pkey_spec_t *spec;
+    
+    spec = apr_pcalloc(pks->p, sizeof(*spec));
+    spec->type = MD_PKEY_TYPE_DEFAULT;
+    md_pkeys_spec_add(pks, spec);
+}
+
+void md_pkeys_spec_add_rsa(md_pkeys_spec_t *pks, unsigned int bits)
+{
+    md_pkey_spec_t *spec;
+    
+    spec = apr_pcalloc(pks->p, sizeof(*spec));
+    spec->type = MD_PKEY_TYPE_RSA;
+    spec->params.rsa.bits = bits;
+    md_pkeys_spec_add(pks, spec);
+}
+void md_pkeys_spec_add_ev(md_pkeys_spec_t *pks, const char *curve)
+{
+    md_pkey_spec_t *spec;
+    
+    spec = apr_pcalloc(pks->p, sizeof(*spec));
+    spec->type = MD_PKEY_TYPE_EC;
+    spec->params.ec.curve = apr_pstrdup(pks->p, curve);
+    md_pkeys_spec_add(pks, spec);
+}
 
 md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p)
 {
@@ -276,12 +335,39 @@ md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p)
                     md_json_setl((long)spec->params.rsa.bits, json, MD_KEY_BITS, NULL);
                 }
                 break;
+            case MD_PKEY_TYPE_EC:
+                md_json_sets("EC", json, MD_KEY_TYPE, NULL);
+                if (spec->params.ec.curve) {
+                    md_json_sets(spec->params.ec.curve, json, MD_KEY_CURVE, NULL);
+                }
+                break;
             default:
                 md_json_sets("Unsupported", json, MD_KEY_TYPE, NULL);
                 break;
         }
     }
     return json;    
+}
+
+static apr_status_t spec_to_json(void *value, md_json_t *json, apr_pool_t *p, void *baton)
+{
+    md_json_t *jspec;
+    
+    (void)baton;
+    jspec = md_pkey_spec_to_json((md_pkey_spec_t*)value, p);
+    return md_json_setj(jspec, json, NULL);
+}
+
+md_json_t *md_pkeys_spec_to_json(const md_pkeys_spec_t *pks, apr_pool_t *p)
+{
+    md_json_t *j;
+    
+    if (pks->specs->nelts == 1) {
+        return md_pkey_spec_to_json(md_pkeys_spec_get(pks, 0), p);
+    }
+    j = md_json_create(p);
+    md_json_seta(pks->specs, spec_to_json, (void*)pks, j, NULL);
+    return j;
 }
 
 md_pkey_spec_t *md_pkey_spec_from_json(struct md_json_t *json, apr_pool_t *p)
@@ -305,27 +391,130 @@ md_pkey_spec_t *md_pkey_spec_from_json(struct md_json_t *json, apr_pool_t *p)
                 spec->params.rsa.bits = MD_PKEY_RSA_BITS_DEF;
             }
         }
+        else if (!apr_strnatcasecmp("EC", s)) {
+            spec->type = MD_PKEY_TYPE_EC;
+            s = md_json_gets(json, MD_KEY_CURVE, NULL);
+            if (s) {
+                spec->params.ec.curve = apr_pstrdup(p, s);
+            }
+            else {
+                spec->params.ec.curve = NULL;
+            }
+        }
     }
     return spec;
 }
 
-int md_pkey_spec_eq(md_pkey_spec_t *spec1, md_pkey_spec_t *spec2)
+static apr_status_t spec_from_json(void **pvalue, md_json_t *json, apr_pool_t *p, void *baton)
 {
-    if (spec1 == spec2) {
+    (void)baton;
+    *pvalue = md_pkey_spec_from_json(json, p);
+    return APR_SUCCESS;
+}
+
+md_pkeys_spec_t *md_pkeys_spec_from_json(struct md_json_t *json, apr_pool_t *p)
+{
+    md_pkeys_spec_t *pks;
+    md_pkey_spec_t *spec;
+    
+    pks = md_pkeys_spec_make(p);
+    if (md_json_is(MD_JSON_TYPE_ARRAY, json, NULL)) {
+        md_json_geta(pks->specs, spec_from_json, pks, json, NULL);
+    }
+    else {
+        spec = md_pkey_spec_from_json(json, p);
+        md_pkeys_spec_add(pks, spec);
+    }
+    return pks;
+}
+
+static int pkey_spec_eq(md_pkey_spec_t *s1, md_pkey_spec_t *s2)
+{
+    if (s1 == s2) {
         return 1;
     }
-    if (spec1 && spec2 && spec1->type == spec2->type) {
-        switch (spec1->type) {
+    if (s1 && s2 && s1->type == s2->type) {
+        switch (s1->type) {
             case MD_PKEY_TYPE_DEFAULT:
                 return 1;
             case MD_PKEY_TYPE_RSA:
-                if (spec1->params.rsa.bits == spec2->params.rsa.bits) {
+                if (s1->params.rsa.bits == s2->params.rsa.bits) {
                     return 1;
                 }
                 break;
+            case MD_PKEY_TYPE_EC:
+                if (s1->params.ec.curve == s2->params.ec.curve) {
+                    return 1;
+                }
+                else if (!s1->params.ec.curve || !s2->params.ec.curve) {
+                    return 0;
+                }
+                return !strcmp(s1->params.ec.curve, s2->params.ec.curve);
         }
     }
     return 0;
+}
+
+int md_pkeys_spec_eq(md_pkeys_spec_t *pks1, md_pkeys_spec_t *pks2)
+{
+    int i;
+    
+    if (pks1 == pks2) {
+        return 1;
+    }
+    if (pks1 && pks2 && pks1->specs->nelts == pks2->specs->nelts) {
+        for(i = 0; i < pks1->specs->nelts; ++i) {
+            if (!pkey_spec_eq(APR_ARRAY_IDX(pks1->specs, i, md_pkey_spec_t *),
+                              APR_ARRAY_IDX(pks2->specs, i, md_pkey_spec_t *))) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    return 0;
+}
+
+static md_pkey_spec_t *pkey_spec_clone(apr_pool_t *p, md_pkey_spec_t *spec)
+{
+    md_pkey_spec_t *nspec;
+    
+    nspec = apr_pcalloc(p, sizeof(*nspec));
+    switch (spec->type) {
+        case MD_PKEY_TYPE_DEFAULT:
+            break;
+        case MD_PKEY_TYPE_RSA:
+            nspec->params.rsa.bits = spec->params.rsa.bits;
+            break;
+        case MD_PKEY_TYPE_EC:
+            nspec->params.ec.curve = apr_pstrdup(p, spec->params.ec.curve);
+            break;
+    }
+    return nspec;
+}
+
+md_pkeys_spec_t *md_pkeys_spec_clone(apr_pool_t *p, const md_pkeys_spec_t *pks)
+{
+    md_pkeys_spec_t *npks = NULL;
+    md_pkey_spec_t *spec;
+    int i;
+    
+    if (pks && pks->specs->nelts > 0) {
+        npks = apr_pcalloc(p, sizeof(*npks));
+        npks->specs = apr_array_make(p, pks->specs->nelts, sizeof(md_pkey_spec_t*));
+        for (i = 0; i < pks->specs->nelts; ++i) {
+            spec = APR_ARRAY_IDX(pks->specs, i, md_pkey_spec_t*);
+            APR_ARRAY_PUSH(npks->specs, md_pkey_spec_t*) = pkey_spec_clone(p, spec);
+        }
+    }
+    return npks;
+}
+
+md_pkey_spec_t *md_pkeys_spec_get(const md_pkeys_spec_t *pks, int index)
+{
+    if (pks && index >= 0 && index < pks->specs->nelts) {
+        return APR_ARRAY_IDX(pks->specs, index, md_pkey_spec_t*);
+    }
+    return NULL;
 }
 
 static md_pkey_t *make_pkey(apr_pool_t *p) 
@@ -476,6 +665,66 @@ static apr_status_t gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits)
     return rv;
 }
 
+#define MD_OID_ECC_SECP384R1_NUM        "1.3.132.0.34"
+#define MD_OID_ECC_SECP384R1_SNAME      "secp384r1"
+#define MD_OID_ECC_SECP384R1_LNAME      "NIST P-384"
+
+#define MD_OID_ECC_SECP256R1_NUM        "1.2.840.10045.3.1.7"
+#define MD_OID_ECC_SECP256R1_SNAME      "secp256r1"
+#define MD_OID_ECC_SECP256R1_LNAME      "NIST P-256"
+
+#define MD_OID_ECC_SECP192R1_NUM        "1.2.840.10045.3.1.1"
+#define MD_OID_ECC_SECP192R1_SNAME      "secp192r1"
+#define MD_OID_ECC_SECP192R1_LNAME      "NIST P-192 V1"
+
+static apr_status_t gen_ec(md_pkey_t **ppkey, apr_pool_t *p, const char *curve)
+{
+    EVP_PKEY_CTX *ctx = NULL;
+    apr_status_t rv;
+    int ecc_group_nid = NID_undef;
+    
+    /* Standard SECG curve names */
+    if (!curve) curve = MD_OID_ECC_SECP384R1_SNAME;
+    if (!apr_strnatcasecmp(MD_OID_ECC_SECP384R1_SNAME, curve)) {
+        ecc_group_nid = MD_GET_NID(ECC_SECP384R1);
+    }
+    else if (!apr_strnatcasecmp(MD_OID_ECC_SECP256R1_SNAME, curve)) {
+        ecc_group_nid = MD_GET_NID(ECC_SECP256R1);
+    }
+    else if (!apr_strnatcasecmp(MD_OID_ECC_SECP192R1_SNAME, curve)) {
+        ecc_group_nid = MD_GET_NID(ECC_SECP192R1);
+    }
+    /* openssl lookup of curve names */
+    if (NID_undef == ecc_group_nid) {
+        ecc_group_nid = EC_curve_nist2nid(curve);
+    }
+    /* curve is unknown/unsupported */
+    if (NID_undef == ecc_group_nid) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "ec curve unsupported: %s", curve); 
+        return APR_ENOTIMPL;
+    }
+    
+    *ppkey = make_pkey(p);
+    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+    if (ctx 
+        && EVP_PKEY_keygen_init(ctx) >= 0
+        && EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, ecc_group_nid) >= 0
+        && EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) >= 0) {
+        rv = APR_SUCCESS;
+    }
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
+                      "error generate pkey ECDSA fro group: %s", curve); 
+        *ppkey = NULL;
+        rv = APR_EGENERAL;
+    }
+    
+    if (ctx != NULL) {
+        EVP_PKEY_CTX_free(ctx);
+    }
+    return rv;
+}
+
 apr_status_t md_pkey_gen(md_pkey_t **ppkey, apr_pool_t *p, md_pkey_spec_t *spec)
 {
     md_pkey_type_t ptype = spec? spec->type : MD_PKEY_TYPE_DEFAULT;
@@ -484,6 +733,8 @@ apr_status_t md_pkey_gen(md_pkey_t **ppkey, apr_pool_t *p, md_pkey_spec_t *spec)
             return gen_rsa(ppkey, p, MD_PKEY_RSA_BITS_DEF);
         case MD_PKEY_TYPE_RSA:
             return gen_rsa(ppkey, p, spec->params.rsa.bits);
+        case MD_PKEY_TYPE_EC:
+            return gen_ec(ppkey, p, spec->params.ec.curve);
         default:
             return APR_ENOTIMPL;
     }
@@ -1211,23 +1462,10 @@ static apr_status_t sk_add_alt_names(STACK_OF(X509_EXTENSION) *exts,
 #define MD_OID_MUST_STAPLE_SNAME        "tlsfeature"
 #define MD_OID_MUST_STAPLE_LNAME        "TLS Feature" 
 
-static int get_must_staple_nid(void)
-{
-    /* Funny API, the OID for must staple might be configured or
-     * might be not. In the second case, we need to add it. But adding
-     * when it already is there is an error... */
-    int nid = OBJ_txt2nid(MD_OID_MUST_STAPLE_NUM);
-    if (NID_undef == nid) {
-        nid = OBJ_create(MD_OID_MUST_STAPLE_NUM, 
-                         MD_OID_MUST_STAPLE_SNAME, MD_OID_MUST_STAPLE_LNAME);
-    }
-    return nid;
-}
-
 int md_cert_must_staple(const md_cert_t *cert)
 {
     /* In case we do not get the NID for it, we treat this as not set. */
-    int nid = get_must_staple_nid();
+    int nid = MD_GET_NID(MUST_STAPLE);
     return ((NID_undef != nid)) && X509_get_ext_by_NID(cert->x509, nid, -1) >= 0;
 }
 
@@ -1236,7 +1474,7 @@ static apr_status_t add_must_staple(STACK_OF(X509_EXTENSION) *exts, const char *
     X509_EXTENSION *x;
     int nid;
     
-    nid = get_must_staple_nid();
+    nid = MD_GET_NID(MUST_STAPLE);
     if (NID_undef == nid) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
                       "%s: unable to get NID for v3 must-staple TLS feature", name);

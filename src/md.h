@@ -80,10 +80,10 @@ struct md_t {
     md_require_t require_https;     /* Iff https: is required for this MD */
     
     int renew_mode;                 /* mode of obtaining credentials */
-    struct md_pkey_spec_t *pkey_spec;/* specification for generating new private keys */
+    struct md_pkeys_spec_t *pks;    /* specification for generating private keys */
     int must_staple;                /* certificates should set the OCSP Must Staple extension */
-    md_timeslice_t *renew_window;  /* time before expiration that starts renewal */
-    md_timeslice_t *warn_window;   /* time before expiration that warnings are sent out */
+    md_timeslice_t *renew_window;   /* time before expiration that starts renewal */
+    md_timeslice_t *warn_window;    /* time before expiration that warnings are sent out */
     
     const char *ca_url;             /* url of CA certificate service */
     const char *ca_proto;           /* protocol used vs CA (e.g. ACME) */
@@ -125,6 +125,7 @@ struct md_t {
 #define MD_KEY_CONTACT          "contact"
 #define MD_KEY_CONTACTS         "contacts"
 #define MD_KEY_CSR              "csr"
+#define MD_KEY_CURVE            "curve"
 #define MD_KEY_DETAIL           "detail"
 #define MD_KEY_DISABLED         "disabled"
 #define MD_KEY_DIR              "dir"

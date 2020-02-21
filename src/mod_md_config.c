@@ -153,7 +153,7 @@ static void srv_conf_props_clear(md_srv_conf_t *sc)
     sc->require_https = MD_REQUIRE_UNSET;
     sc->renew_mode = DEF_VAL;
     sc->must_staple = DEF_VAL;
-    sc->pkey_spec = NULL;
+    sc->pks = NULL;
     sc->renew_window = NULL;
     sc->warn_window = NULL;
     sc->ca_url = NULL;
@@ -171,7 +171,7 @@ static void srv_conf_props_copy(md_srv_conf_t *to, const md_srv_conf_t *from)
     to->require_https = from->require_https;
     to->renew_mode = from->renew_mode;
     to->must_staple = from->must_staple;
-    to->pkey_spec = from->pkey_spec;
+    to->pks = from->pks;
     to->warn_window = from->warn_window;
     to->renew_window = from->renew_window;
     to->ca_url = from->ca_url;
@@ -189,7 +189,7 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->transitive != DEF_VAL) md->transitive = from->transitive;
     if (from->renew_mode != DEF_VAL) md->renew_mode = from->renew_mode;
     if (from->must_staple != DEF_VAL) md->must_staple = from->must_staple;
-    if (from->pkey_spec) md->pkey_spec = from->pkey_spec;
+    if (from->pks) md->pks = md_pkeys_spec_clone(p, from->pks);
     if (from->renew_window) md->renew_window = from->renew_window;
     if (from->warn_window) md->warn_window = from->warn_window;
     if (from->ca_url) md->ca_url = from->ca_url;
@@ -227,7 +227,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
     nsc->renew_mode = (add->renew_mode != DEF_VAL)? add->renew_mode : base->renew_mode;
     nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
-    nsc->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
+    nsc->pks = add->pks? add->pks : base->pks;
     nsc->renew_window = add->renew_window? add->renew_window : base->renew_window;
     nsc->warn_window = add->warn_window? add->warn_window : base->warn_window;
 
@@ -778,16 +778,13 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
         return "needs to specify the private key type";
     }
     
+    config->pks = md_pkeys_spec_make(cmd->pool);
     ptype = argv[0];
     if (!apr_strnatcasecmp("Default", ptype)) {
         if (argc > 1) {
             return "type 'Default' takes no parameter";
         }
-        if (!config->pkey_spec) {
-            config->pkey_spec = apr_pcalloc(cmd->pool, sizeof(*config->pkey_spec));
-        }
-        config->pkey_spec->type = MD_PKEY_TYPE_DEFAULT;
-        return NULL;
+        md_pkeys_spec_add_default(config->pks);
     }
     else if (!apr_strnatcasecmp("RSA", ptype)) {
         if (argc == 1) {
@@ -805,15 +802,12 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
         else {
             return "key type 'RSA' has only one optional parameter, the number of bits";
         }
-
-        if (!config->pkey_spec) {
-            config->pkey_spec = apr_pcalloc(cmd->pool, sizeof(*config->pkey_spec));
-        }
-        config->pkey_spec->type = MD_PKEY_TYPE_RSA;
-        config->pkey_spec->params.rsa.bits = (unsigned int)bits;
-        return NULL;
+        md_pkeys_spec_add_rsa(config->pks, (unsigned int)bits);
     }
-    return apr_pstrcat(cmd->pool, "unsupported private key type \"", ptype, "\"", NULL);
+    else {
+        return apr_pstrcat(cmd->pool, "unsupported private key type \"", ptype, "\"", NULL);
+    }
+    return NULL;
 }
 
 static const char *md_config_set_notify_cmd(cmd_parms *cmd, void *mconfig, const char *arg)

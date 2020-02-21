@@ -465,9 +465,9 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_PKEY_SPEC & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update pkey spec: %s", name);
-        nmd->pkey_spec = NULL;
-        if (updates->pkey_spec) {
-            nmd->pkey_spec = apr_pmemdup(p, updates->pkey_spec, sizeof(md_pkey_spec_t));
+        nmd->pks = NULL;
+        if (updates->pks) {
+            nmd->pks = md_pkeys_spec_clone(p, updates->pks);
         }
     }
     if (MD_UPD_REQUIRE_HTTPS & fields) {
@@ -880,7 +880,7 @@ apr_status_t md_reg_sync_finish(md_reg_t *reg, md_t *md, apr_pool_t *p, apr_pool
             && !MD_VAL_UPDATE(md, old, renew_mode)
             && md_timeslice_eq(md->renew_window, old->renew_window)
             && md_timeslice_eq(md->warn_window, old->warn_window)
-            && md_pkey_spec_eq(md->pkey_spec, old->pkey_spec)
+            && md_pkeys_spec_eq(md->pks, old->pks)
             && !MD_VAL_UPDATE(md, old, require_https)
             && !MD_VAL_UPDATE(md, old, must_staple)
             && md_array_str_eq(md->acme_tls_1_domains, old->acme_tls_1_domains, 0)

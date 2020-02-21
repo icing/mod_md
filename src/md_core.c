@@ -223,7 +223,7 @@ md_t *md_clone(apr_pool_t *p, const md_t *src)
         md->must_staple = src->must_staple;
         md->renew_mode = src->renew_mode;
         md->domains = md_array_str_compact(p, src->domains, 0);
-        md->pkey_spec = src->pkey_spec;
+        md->pks = md_pkeys_spec_clone(p, src->pks);
         md->renew_window = src->renew_window;
         md->warn_window = src->warn_window;
         md->contacts = md_array_str_clone(p, src->contacts);
@@ -260,8 +260,8 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         md_json_sets(md->ca_proto, json, MD_KEY_CA, MD_KEY_PROTO, NULL);
         md_json_sets(md->ca_url, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md_json_sets(md->ca_agreement, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
-        if (md->pkey_spec) {
-            md_json_setj(md_pkey_spec_to_json(md->pkey_spec, p), json, MD_KEY_PKEY, NULL);
+        if (md->pks) {
+            md_json_setj(md_pkeys_spec_to_json(md->pks, p), json, MD_KEY_PKEY, NULL);
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
         md_json_setl(md->renew_mode, json, MD_KEY_RENEW_MODE, NULL);
@@ -307,7 +307,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         md->ca_url = md_json_dups(p, json, MD_KEY_CA, MD_KEY_URL, NULL);
         md->ca_agreement = md_json_dups(p, json, MD_KEY_CA, MD_KEY_AGREEMENT, NULL);
         if (md_json_has_key(json, MD_KEY_PKEY, MD_KEY_TYPE, NULL)) {
-            md->pkey_spec = md_pkey_spec_from_json(md_json_getj(json, MD_KEY_PKEY, NULL), p);
+            md->pks = md_pkeys_spec_from_json(md_json_getj(json, MD_KEY_PKEY, NULL), p);
         }
         md->state = (md_state_t)md_json_getl(json, MD_KEY_STATE, NULL);
         if (MD_S_EXPIRED_DEPRECATED == md->state) md->state = MD_S_COMPLETE;

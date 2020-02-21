@@ -342,6 +342,7 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
 apr_status_t md_acme_drive_setup_certificate(md_proto_driver_t *d, md_result_t *result)
 {
     md_acme_driver_t *ad = d->baton;
+    md_pkey_spec_t *pkspec;
     md_pkey_t *privkey;
     apr_status_t rv;
 
@@ -349,7 +350,8 @@ apr_status_t md_acme_drive_setup_certificate(md_proto_driver_t *d, md_result_t *
     
     rv = md_pkey_load(d->store, MD_SG_STAGING, d->md->name, &privkey, d->p);
     if (APR_STATUS_IS_ENOENT(rv)) {
-        if (APR_SUCCESS == (rv = md_pkey_gen(&privkey, d->p, d->md->pkey_spec))) {
+        pkspec = md_pkeys_spec_get(d->md->pks, 0);
+        if (APR_SUCCESS == (rv = md_pkey_gen(&privkey, d->p, pkspec))) {
             rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, d->md->name, privkey, 1);
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: generate privkey", d->md->name);
