@@ -227,7 +227,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
     nsc->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
     nsc->renew_mode = (add->renew_mode != DEF_VAL)? add->renew_mode : base->renew_mode;
     nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
-    nsc->pks = add->pks? add->pks : base->pks;
+    nsc->pks = (!md_pkeys_spec_is_empty(add->pks))? add->pks : base->pks;
     nsc->renew_window = add->renew_window? add->renew_window : base->renew_window;
     nsc->warn_window = add->warn_window? add->warn_window : base->warn_window;
 
@@ -769,6 +769,7 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
     md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err, *ptype;
     apr_int64_t bits;
+    int i;
     
     (void)dc;
     if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
@@ -779,33 +780,35 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
     }
     
     config->pks = md_pkeys_spec_make(cmd->pool);
-    ptype = argv[0];
-    if (!apr_strnatcasecmp("Default", ptype)) {
-        if (argc > 1) {
-            return "type 'Default' takes no parameter";
-        }
-        md_pkeys_spec_add_default(config->pks);
-    }
-    else if (!apr_strnatcasecmp("RSA", ptype)) {
-        if (argc == 1) {
-            bits = MD_PKEY_RSA_BITS_DEF;
-        }
-        else if (argc == 2) {
-            bits = (int)apr_atoi64(argv[1]);
-            if (bits < MD_PKEY_RSA_BITS_MIN || bits >= INT_MAX) {
-                return apr_psprintf(cmd->pool, "must be %d or higher in order to be considered "
-                "safe. Too large a value will slow down everything. Larger then 4096 probably does "
-                "not make sense unless quantum cryptography really changes spin.", 
-                MD_PKEY_RSA_BITS_MIN);
+    for (i = 0; i < argc; ++i) {
+        ptype = argv[i];
+        if (!apr_strnatcasecmp("Default", ptype)) {
+            if (argc > 1) {
+                return "'Default' allows no other parameter";
             }
+            md_pkeys_spec_add_default(config->pks);
+        }
+        else if (!apr_strnatcasecmp("RSA", ptype)) {
+            if (i+1 >= argc || !isdigit(argv[i+1][0])) {
+                bits = MD_PKEY_RSA_BITS_DEF;
+            }
+            else {
+                ++i;
+                bits = (int)apr_atoi64(argv[i]);
+                if (bits < MD_PKEY_RSA_BITS_MIN) {
+                    return apr_psprintf(cmd->pool, 
+                                        "must be %d or higher in order to be considered safe.", 
+                                        MD_PKEY_RSA_BITS_MIN);
+                }
+                if (bits >= INT_MAX) {
+                    return apr_psprintf(cmd->pool, "is too large for an RSA key length.");
+                }
+            }
+            md_pkeys_spec_add_rsa(config->pks, (unsigned int)bits);
         }
         else {
-            return "key type 'RSA' has only one optional parameter, the number of bits";
+            md_pkeys_spec_add_ec(config->pks, argv[i]);
         }
-        md_pkeys_spec_add_rsa(config->pks, (unsigned int)bits);
-    }
-    else {
-        return apr_pstrcat(cmd->pool, "unsupported private key type \"", ptype, "\"", NULL);
     }
     return NULL;
 }

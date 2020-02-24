@@ -80,9 +80,10 @@ apr_status_t md_crypt_init(apr_pool_t *pool);
 md_pkeys_spec_t *md_pkeys_spec_make(apr_pool_t *p);
 void md_pkeys_spec_add_default(md_pkeys_spec_t *pks);
 void md_pkeys_spec_add_rsa(md_pkeys_spec_t *pks, unsigned int bits);
-void md_pkeys_spec_add_ev(md_pkeys_spec_t *pks, const char *curve);
+void md_pkeys_spec_add_ec(md_pkeys_spec_t *pks, const char *curve);
 int md_pkeys_spec_eq(md_pkeys_spec_t *pks1, md_pkeys_spec_t *pks2);
 md_pkeys_spec_t *md_pkeys_spec_clone(apr_pool_t *p, const md_pkeys_spec_t *pks);
+int md_pkeys_spec_is_empty(const md_pkeys_spec_t *pks);
 md_pkey_spec_t *md_pkeys_spec_get(const md_pkeys_spec_t *pks, int index);
 void md_pkeys_spec_add(md_pkeys_spec_t *pks, md_pkey_spec_t *spec);
 

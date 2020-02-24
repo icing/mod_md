@@ -333,9 +333,8 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     if (!md->ca_challenges && md->sc->ca_challenges) {
         md->ca_challenges = apr_array_copy(p, md->sc->ca_challenges);
     }        
-    if (!md->pks) {
+    if (md_pkeys_spec_is_empty(md->pks)) {
         md->pks = md->sc->pks;
-        
     }
     if (md->require_https < 0) {
         md->require_https = md_config_geti(md->sc, MD_CONFIG_REQUIRE_HTTPS);

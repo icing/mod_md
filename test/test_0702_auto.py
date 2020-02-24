@@ -321,7 +321,7 @@ class TestAutov2:
         domain = self.test_domain
         domains = [ domain, "www." + domain ]
         #
-        # generate 1 MD and 1 vhost, map port 80 onto itself where the server does not listen
+        # generate 1 MD and 1 vhost, map port 80 to where the server does not listen
         conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "auto" )
@@ -351,7 +351,7 @@ class TestAutov2:
         domain = self.test_domain
         domains = [ domain, "www." + domain ]
         #
-        # generate 1 MD and 1 vhost, map port 80 onto itself where the server does not listen
+        # generate 1 MD and 1 vhost, map port 443 to where the server does not listen
         conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_line( "Protocols http/1.1 acme-tls/1" )
@@ -365,7 +365,7 @@ class TestAutov2:
         TestEnv.check_md(domains)
         assert not TestEnv.is_renewing( domain )
         #
-        # now the same with a 80 mapped to a supported port 
+        # now the same with a 443 mapped to a supported port 
         conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_line( "Protocols http/1.1 acme-tls/1" )

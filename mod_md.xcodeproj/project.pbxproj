@@ -64,6 +64,7 @@
 		B26A4BE122A7B8C100D002BC /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
 		B26A4BE222AAB30600D002BC /* mod_md_status.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mod_md_status.png; sourceTree = SOURCE_ROOT; };
 		B2830C2422B27C3F005DBFBF /* test_0730_static.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0730_static.py; sourceTree = "<group>"; };
+		B28433252403EE530077589E /* test_0810_ec.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0810_ec.py; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
 		B2944E3122B9353E00466BEE /* test_0901_message.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0901_message.py; sourceTree = "<group>"; };
 		B2944E3222B9367F00466BEE /* message.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = message.py; sourceTree = "<group>"; };
@@ -326,6 +327,7 @@
 				B23C47E722F1A45900B8F494 /* test_0740_acme_errors.py */,
 				B2FEEDDF1FFB910D0029E19C /* test_0800_must_staple.py */,
 				B2A3E34D22CA34C2009D35AE /* test_0801_stapling.py */,
+				B28433252403EE530077589E /* test_0810_ec.py */,
 				B2FFC9E920C5776A004A8F58 /* test_0900_notify.py */,
 				B2944E3122B9353E00466BEE /* test_0901_message.py */,
 				B2A93D132297E14600BC6339 /* test_0910_cleanups.py */,

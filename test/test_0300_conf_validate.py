@@ -245,10 +245,9 @@ class TestConf:
 
     # test case: invalid pkey specification
     @pytest.mark.parametrize("line,expErrMsg", [ 
-        ("MDPrivateKeys Def", "unsupported private key type"), 
         ("MDPrivateKeys", "needs to specify the private key type"), 
-        ("MDPrivateKeys RSA 1024", "must be 2048 or higher"), 
-        ("MDPrivateKeys RSA 2048 bla", "key type 'RSA' has only one optional parameter") ])
+        ("MDPrivateKeys Default RSA 1024", "'Default' allows no other parameter"),
+        ("MDPrivateKeys RSA 1024", "must be 2048 or higher") ])
     def test_300_016(self, line, expErrMsg):
         HttpdConf( text=line ).install()
         assert TestEnv.apache_restart() == 1

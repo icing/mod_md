@@ -311,7 +311,7 @@ void md_pkeys_spec_add_rsa(md_pkeys_spec_t *pks, unsigned int bits)
     spec->params.rsa.bits = bits;
     md_pkeys_spec_add(pks, spec);
 }
-void md_pkeys_spec_add_ev(md_pkeys_spec_t *pks, const char *curve)
+void md_pkeys_spec_add_ec(md_pkeys_spec_t *pks, const char *curve)
 {
     md_pkey_spec_t *spec;
     
@@ -366,8 +366,8 @@ md_json_t *md_pkeys_spec_to_json(const md_pkeys_spec_t *pks, apr_pool_t *p)
         return md_pkey_spec_to_json(md_pkeys_spec_get(pks, 0), p);
     }
     j = md_json_create(p);
-    md_json_seta(pks->specs, spec_to_json, (void*)pks, j, NULL);
-    return j;
+    md_json_seta(pks->specs, spec_to_json, (void*)pks, j, "specs", NULL);
+    return md_json_getj(j, "specs", NULL);
 }
 
 md_pkey_spec_t *md_pkey_spec_from_json(struct md_json_t *json, apr_pool_t *p)
@@ -479,6 +479,7 @@ static md_pkey_spec_t *pkey_spec_clone(apr_pool_t *p, md_pkey_spec_t *spec)
     md_pkey_spec_t *nspec;
     
     nspec = apr_pcalloc(p, sizeof(*nspec));
+    nspec->type = spec->type;
     switch (spec->type) {
         case MD_PKEY_TYPE_DEFAULT:
             break;
@@ -490,6 +491,11 @@ static md_pkey_spec_t *pkey_spec_clone(apr_pool_t *p, md_pkey_spec_t *spec)
             break;
     }
     return nspec;
+}
+
+int md_pkeys_spec_is_empty(const md_pkeys_spec_t *pks)
+{
+    return NULL == pks || 0 == pks->specs->nelts;
 }
 
 md_pkeys_spec_t *md_pkeys_spec_clone(apr_pool_t *p, const md_pkeys_spec_t *pks)
@@ -607,7 +613,11 @@ static apr_status_t pkey_to_buffer(md_data_t *buf, md_pkey_t *pkey, apr_pool_t *
     }
     
     ERR_clear_error();
+#if 1
+    if (!PEM_write_bio_PKCS8PrivateKey(bio, pkey->pkey, cipher, NULL, 0, cb, cb_baton)) {
+#else 
     if (!PEM_write_bio_PrivateKey(bio, pkey->pkey, cipher, NULL, 0, cb, cb_baton)) {
+#endif
         BIO_free(bio);
         err = ERR_get_error();
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "PEM_write key: %ld %s", 
@@ -640,6 +650,24 @@ apr_status_t md_pkey_fsave(md_pkey_t *pkey, apr_pool_t *p,
     return rv;
 }
 
+/* Determine the message digest used for signing with the given private key. 
+ */
+static const EVP_MD *pkey_get_MD(md_pkey_t *pkey)
+{
+    switch (EVP_PKEY_id(pkey->pkey)) {
+#ifdef NID_ED25519
+    case NID_ED25519:
+        return NULL;
+#endif
+#ifdef NID_ED448
+    case NID_ED448:
+        return NULL;
+#endif
+    default:
+        return EVP_sha256();
+    }
+}
+
 static apr_status_t gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits)
 {
     EVP_PKEY_CTX *ctx = NULL;
@@ -665,63 +693,114 @@ static apr_status_t gen_rsa(md_pkey_t **ppkey, apr_pool_t *p, unsigned int bits)
     return rv;
 }
 
-#define MD_OID_ECC_SECP384R1_NUM        "1.3.132.0.34"
-#define MD_OID_ECC_SECP384R1_SNAME      "secp384r1"
-#define MD_OID_ECC_SECP384R1_LNAME      "NIST P-384"
-
-#define MD_OID_ECC_SECP256R1_NUM        "1.2.840.10045.3.1.7"
-#define MD_OID_ECC_SECP256R1_SNAME      "secp256r1"
-#define MD_OID_ECC_SECP256R1_LNAME      "NIST P-256"
-
-#define MD_OID_ECC_SECP192R1_NUM        "1.2.840.10045.3.1.1"
-#define MD_OID_ECC_SECP192R1_SNAME      "secp192r1"
-#define MD_OID_ECC_SECP192R1_LNAME      "NIST P-192 V1"
+static apr_status_t check_EC_curve(int nid, apr_pool_t *p) {
+    EC_builtin_curve *curves = NULL;
+    size_t nc, i;
+    int rv = APR_ENOENT;
+    
+    nc = EC_get_builtin_curves(NULL, 0);
+    if (NULL == (curves = OPENSSL_malloc(sizeof(*curves) * nc)) ||
+        nc != EC_get_builtin_curves(curves, nc)) {
+        rv = APR_EGENERAL;
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, 
+                      "error looking up OpenSSL builtin EC curves"); 
+        goto leave;
+    }
+    for (i = 0; i < nc; ++i) {
+        if (nid == curves[i].nid) {
+            rv = APR_SUCCESS;
+            break;
+        }
+    }
+leave:
+    if (curves) OPENSSL_free(curves);
+    return rv;
+}
 
 static apr_status_t gen_ec(md_pkey_t **ppkey, apr_pool_t *p, const char *curve)
 {
     EVP_PKEY_CTX *ctx = NULL;
     apr_status_t rv;
-    int ecc_group_nid = NID_undef;
-    
-    /* Standard SECG curve names */
-    if (!curve) curve = MD_OID_ECC_SECP384R1_SNAME;
-    if (!apr_strnatcasecmp(MD_OID_ECC_SECP384R1_SNAME, curve)) {
-        ecc_group_nid = MD_GET_NID(ECC_SECP384R1);
+    int curve_nid = NID_undef;
+
+    /* 1. Convert the cure into its registered identifier. Curves can be known under
+     *    different names.
+     * 2. Determine, if the curve is supported by OpenSSL (or whatever is linked).
+     * 3. Generate the key, respecting the specific quirks some curves require.
+     */
+    curve_nid = EC_curve_nist2nid(curve);
+    /* In case this fails, try some names from other standards, like SECG */
+#ifdef NID_secp384r1
+    if (NID_undef == curve_nid && !strcmp("secp384r1", curve)) {
+        curve_nid = NID_secp384r1;
     }
-    else if (!apr_strnatcasecmp(MD_OID_ECC_SECP256R1_SNAME, curve)) {
-        ecc_group_nid = MD_GET_NID(ECC_SECP256R1);
+#endif
+#ifdef NID_X9_62_prime256v1
+    if (NID_undef == curve_nid && !strcmp("secp256r1", curve)) {
+        curve_nid = NID_X9_62_prime256v1;
     }
-    else if (!apr_strnatcasecmp(MD_OID_ECC_SECP192R1_SNAME, curve)) {
-        ecc_group_nid = MD_GET_NID(ECC_SECP192R1);
+#endif
+#ifdef NID_X9_62_prime192v1
+    if (NID_undef == curve_nid && !strcmp("secp192r1", curve)) {
+        curve_nid = NID_X9_62_prime192v1;
     }
-    /* openssl lookup of curve names */
-    if (NID_undef == ecc_group_nid) {
-        ecc_group_nid = EC_curve_nist2nid(curve);
+#endif
+
+    if (NID_undef == curve_nid) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "ec curve unknown: %s", curve); 
+        rv = APR_ENOTIMPL; goto leave;
     }
-    /* curve is unknown/unsupported */
-    if (NID_undef == ecc_group_nid) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, "ec curve unsupported: %s", curve); 
-        return APR_ENOTIMPL;
-    }
-    
+
     *ppkey = make_pkey(p);
-    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
-    if (ctx 
-        && EVP_PKEY_keygen_init(ctx) >= 0
-        && EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, ecc_group_nid) >= 0
-        && EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) >= 0) {
+    switch (curve_nid) {
+
+#ifdef NID_ED25519
+    case NID_ED25519:
+        /* no parameters */
+        if (NULL == (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL))
+            || EVP_PKEY_keygen_init(ctx) <= 0
+            || EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) <= 0) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
+                          "error generate EC key for group: %s", curve); 
+            rv = APR_EGENERAL; goto leave;
+        }
         rv = APR_SUCCESS;
-    }
-    else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
-                      "error generate pkey ECDSA fro group: %s", curve); 
-        *ppkey = NULL;
-        rv = APR_EGENERAL;
+        break;
+#endif
+
+#ifdef NID_ED448
+    case NID_ED448:
+        /* no parameters */
+        if (NULL == (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED448, NULL))
+            || EVP_PKEY_keygen_init(ctx) <= 0
+            || EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) <= 0) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
+                          "error generate EC key for group: %s", curve); 
+            rv = APR_EGENERAL; goto leave;
+        }
+        rv = APR_SUCCESS;
+        break;
+#endif
+
+    default:
+        if (APR_SUCCESS != (rv = check_EC_curve(curve_nid, p))) goto leave;
+        if (NULL == (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL))
+            || EVP_PKEY_paramgen_init(ctx) <= 0 
+            || EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curve_nid) <= 0
+            || EVP_PKEY_CTX_set_ec_param_enc(ctx, OPENSSL_EC_NAMED_CURVE) <= 0 
+            || EVP_PKEY_keygen_init(ctx) <= 0
+            || EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) <= 0) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
+                          "error generate EC key for group: %s", curve); 
+            rv = APR_EGENERAL; goto leave;
+        }
+        rv = APR_SUCCESS;
+        break;
     }
     
-    if (ctx != NULL) {
-        EVP_PKEY_CTX_free(ctx);
-    }
+leave:
+    if (APR_SUCCESS != rv) *ppkey = NULL;
+    if (NULL != ctx) EVP_PKEY_CTX_free(ctx);
     return rv;
 }
 
@@ -1544,7 +1623,7 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
         rv = APR_EGENERAL; goto out;
     }
     /* sign, der encode and base64url encode */
-    if (!X509_REQ_sign(csr, pkey->pkey, EVP_sha256())) {
+    if (!X509_REQ_sign(csr, pkey->pkey, pkey_get_MD(pkey))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign csr", name);
         rv = APR_EGENERAL; goto out;
     }
@@ -1661,7 +1740,7 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
     }
 
     /* sign with same key */
-    if (!X509_sign(x, pkey->pkey, EVP_sha256())) {
+    if (!X509_sign(x, pkey->pkey, pkey_get_MD(pkey))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign x509", cn);
         rv = APR_EGENERAL; goto out;
     }
@@ -1713,7 +1792,7 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
     }
 
     /* sign with same key */
-    if (!X509_sign(x, pkey->pkey, EVP_sha256())) {
+    if (!X509_sign(x, pkey->pkey, pkey_get_MD(pkey))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: sign x509", domain);
         rv = APR_EGENERAL; goto out;
     }

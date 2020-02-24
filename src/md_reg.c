@@ -465,10 +465,7 @@ static apr_status_t p_md_update(void *baton, apr_pool_t *p, apr_pool_t *ptemp, v
     }
     if (MD_UPD_PKEY_SPEC & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update pkey spec: %s", name);
-        nmd->pks = NULL;
-        if (updates->pks) {
-            nmd->pks = md_pkeys_spec_clone(p, updates->pks);
-        }
+        nmd->pks = md_pkeys_spec_clone(p, updates->pks);
     }
     if (MD_UPD_REQUIRE_HTTPS & fields) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, ptemp, "update require-https: %s", name);

@@ -1,3 +1,8 @@
+ * MDPrivateKeys allows the specification of several types. Beside "RSA" plus optional
+   key lengths elliptic curves can be configured. Right now, the module only creates a
+   certificate for the first key type given.
+ * Test cases added for "secp256r1" and "secp384r1" which are supported by Let's Encrypt.
+
 v2.2.7
 ----------------------------------------------------------------------------------------------------
  * Prefer MDContactEmail directive to ServerAdmin for registration. New directive
