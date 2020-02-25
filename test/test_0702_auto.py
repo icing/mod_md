@@ -347,6 +347,10 @@ class TestAutov2:
         TestEnv.check_md(domains)
         assert TestEnv.await_completion( [ domain ] )
 
+    @pytest.mark.skipif(True, reason="""
+        The behaviour of an explicitly configured 'tls-alpn-01' challenge changed.
+        Nowadays, the module no longer cares to check the ports and trust the admin.
+        """)
     def test_702_011(self):
         domain = self.test_domain
         domains = [ domain, "www." + domain ]

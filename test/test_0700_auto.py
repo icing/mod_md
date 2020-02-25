@@ -336,6 +336,10 @@ class TestAutov1:
         TestEnv.check_md(domains)
         assert TestEnv.await_completion( [ domain ] )
 
+    @pytest.mark.skipif(True, reason="""
+        The behaviour of an explicitly configured 'tls-alpn-01' challenge changed.
+        Nowadays, the module no longer cares to check the ports and trust the admin.
+        """)
     def test_700_011(self):
         domain = self.test_domain
         domains = [ domain, "www." + domain ]
@@ -351,6 +355,7 @@ class TestAutov1:
         conf.install()
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(domains)
+
         assert not TestEnv.is_renewing( domain )
         #
         # now the same with a 443 mapped to a supported port 
