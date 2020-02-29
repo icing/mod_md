@@ -388,12 +388,14 @@ class TestEnv:
 
 
     @classmethod
-    def check_md_complete(cls, domain):
+    def check_md_complete(cls, domain, pkey=None):
         md = cls.get_md_status(domain)
         assert md
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        assert os.path.isfile( TestEnv.store_domain_file(domain, 'privkey.pem') )
-        assert os.path.isfile(  TestEnv.store_domain_file(domain, 'pubcert.pem') )
+        keyfile = "privkey.{0}.pem".format(pkey) if pkey or 'rsa' == pkey else 'privkey.pem' 
+        assert os.path.isfile( TestEnv.store_domain_file(domain, keyfile) )
+        certfile = "pubcert.{0}.pem".format(pkey) if pkey or 'rsa' == pkey else 'pubcert.pem' 
+        assert os.path.isfile(  TestEnv.store_domain_file(domain, certfile) )
 
     @classmethod
     def check_md_credentials(cls, domain):

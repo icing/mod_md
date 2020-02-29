@@ -22,6 +22,7 @@ struct apr_array_header_t;
 struct md_pkey_t;
 struct md_cert_t;
 struct md_result_t;
+struct md_pkey_spec_t;
 
 #include "md_store.h"
 
@@ -112,7 +113,7 @@ apr_status_t md_reg_update(md_reg_t *reg, apr_pool_t *p,
  * of the domain and going up the issuers. Returns APR_ENOENT when not available. 
  */
 apr_status_t md_reg_get_pubcert(const md_pubcert_t **ppubcert, md_reg_t *reg, 
-                                const md_t *md, apr_pool_t *p);
+                                const md_t *md, struct md_pkey_spec_t *spec, apr_pool_t *p);
 
 /**
  * Get the filenames of private key and pubcert of the MD - if they exist.
@@ -120,7 +121,7 @@ apr_status_t md_reg_get_pubcert(const md_pubcert_t **ppubcert, md_reg_t *reg,
  */
 apr_status_t md_reg_get_cred_files(const char **pkeyfile, const char **pcertfile,
                                    md_reg_t *reg, md_store_group_t group, 
-                                   const md_t *md, apr_pool_t *p);
+                                   const md_t *md, struct md_pkey_spec_t *spec, apr_pool_t *p);
 
 /**
  * Synchronise the give master mds with the store.
@@ -171,6 +172,12 @@ int md_reg_should_renew(md_reg_t *reg, const md_t *md, apr_pool_t *p);
  * indicates that that renewal is not configured (see renew_mode).
  */
 apr_time_t md_reg_renew_at(md_reg_t *reg, const md_t *md, apr_pool_t *p);
+
+/**
+ * Return the timestamp up to which *all* certificates for the MD can be used.
+ * A value of 0 indicates that there is no certificate.
+ */
+apr_time_t md_reg_valid_until(md_reg_t *reg, const md_t *md, apr_pool_t *p);
 
 /**
  * Return if a warning should be issued about the certificate expiration. 

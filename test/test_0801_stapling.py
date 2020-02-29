@@ -77,8 +77,9 @@ class TestStapling:
         assert stat['verify'] == "0 (ok)"
         stat = TestEnv.get_md_status(md)
         assert stat["stapling"]
-        assert stat["cert"]["ocsp"]["status"] == "good"
-        assert stat["cert"]["ocsp"]["valid"]
+        pkey = 'rsa'
+        assert stat["cert"][pkey]["ocsp"]["status"] == "good"
+        assert stat["cert"][pkey]["ocsp"]["valid"]
         #
         # turn stapling off (explicitly) again, should disappear
         TestStapling.configure_httpd(md, "MDStapling off").install()
@@ -108,8 +109,9 @@ class TestStapling:
         assert stat['verify'] == "0 (ok)"
         stat = TestEnv.get_md_status(md)
         assert stat["stapling"]
-        assert stat["cert"]["ocsp"]["status"] == "good"
-        assert stat["cert"]["ocsp"]["valid"]
+        pkey = 'rsa'
+        assert stat["cert"][pkey]["ocsp"]["status"] == "good"
+        assert stat["cert"][pkey]["ocsp"]["valid"]
         #
         # turn stapling off (explicitly) again, should disappear
         TestStapling.configure_httpd(md, "MDStapling off", ssl_stapling=True).install()
@@ -142,8 +144,9 @@ class TestStapling:
         assert stat['verify'] == "0 (ok)"
         stat = TestEnv.get_md_status(mdA)
         assert stat["stapling"]
-        assert stat["cert"]["ocsp"]["status"] == "good"
-        assert stat["cert"]["ocsp"]["valid"]
+        pkey = 'rsa'
+        assert stat["cert"][pkey]["ocsp"]["status"] == "good"
+        assert stat["cert"][pkey]["ocsp"]["valid"]
         # mdB has no stapling
         stat = TestEnv.get_ocsp_status(mdB)
         assert stat['ocsp'] == "no response sent" 
@@ -173,8 +176,9 @@ class TestStapling:
         assert stat['verify'] == "0 (ok)"
         stat = TestEnv.get_md_status(mdA)
         assert stat["stapling"]
-        assert stat["cert"]["ocsp"]["status"] == "good"
-        assert stat["cert"]["ocsp"]["valid"]
+        pkey = 'rsa'
+        assert stat["cert"][pkey]["ocsp"]["status"] == "good"
+        assert stat["cert"][pkey]["ocsp"]["valid"]
         # mdB has no md stapling, but mod_ssl kicks in
         stat = TestEnv.get_ocsp_status(mdB)
         assert stat['ocsp'] == "successful (0x0)" 

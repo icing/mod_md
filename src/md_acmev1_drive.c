@@ -167,7 +167,7 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
     }
     else if (APR_SUCCESS != rv) goto leave;
     
-    if (!md_array_is_empty(ad->certs)) goto leave;
+    if (!md_array_is_empty(ad->cred->chain)) goto leave;
     
     rv = ad_setup_order(d, result);
     if (APR_SUCCESS != rv) goto leave;
@@ -180,7 +180,7 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
                                       ad->authz_monitor_timeout, result, d->p);
     if (APR_SUCCESS != rv) goto leave;
     
-    rv = md_acme_drive_setup_certificate(d, result);
+    rv = md_acme_drive_setup_certificates(d, result);
 
 leave:    
     md_result_log(result, MD_LOG_DEBUG);

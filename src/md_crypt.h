@@ -77,6 +77,8 @@ typedef struct md_pkeys_spec_t {
 
 apr_status_t md_crypt_init(apr_pool_t *pool);
 
+const char *md_pkey_spec_name(const md_pkey_spec_t *spec);
+
 md_pkeys_spec_t *md_pkeys_spec_make(apr_pool_t *p);
 void md_pkeys_spec_add_default(md_pkeys_spec_t *pks);
 void md_pkeys_spec_add_rsa(md_pkeys_spec_t *pks, unsigned int bits);
@@ -85,6 +87,7 @@ int md_pkeys_spec_eq(md_pkeys_spec_t *pks1, md_pkeys_spec_t *pks2);
 md_pkeys_spec_t *md_pkeys_spec_clone(apr_pool_t *p, const md_pkeys_spec_t *pks);
 int md_pkeys_spec_is_empty(const md_pkeys_spec_t *pks);
 md_pkey_spec_t *md_pkeys_spec_get(const md_pkeys_spec_t *pks, int index);
+int md_pkeys_spec_count(const md_pkeys_spec_t *pks);
 void md_pkeys_spec_add(md_pkeys_spec_t *pks, md_pkey_spec_t *spec);
 
 struct md_json_t *md_pkey_spec_to_json(const md_pkey_spec_t *spec, apr_pool_t *p);
@@ -205,7 +208,6 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
                                       apr_interval_time_t valid_for, apr_pool_t *p);
 
 apr_status_t md_cert_get_ct_scts(apr_array_header_t *scts, apr_pool_t *p, const md_cert_t *cert);
-
 
 /**************************************************************************************************/
 /* X509 certificate transparency */

@@ -53,7 +53,7 @@ class TestAutov2:
         #
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain)
+        TestEnv.check_md_complete(domain, 'secp256r1')
         stat = TestEnv.get_md_status(domain)
         cert = TestEnv.get_cert(domain)
         assert cert.get_key_length() == 256
@@ -74,12 +74,13 @@ class TestAutov2:
         #
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain)
+        TestEnv.check_md_complete(domain, 'secp384r1')
         stat = TestEnv.get_md_status(domain)
         cert = TestEnv.get_cert(domain)
         assert cert.get_key_length() == 384
 
     # set two key spec, 1st is chosen
+    @pytest.mark.skip(reason="this is not implemented yet.")
     def test_810_003a(self):
         domain = self.test_domain
         # generate config with one MD
@@ -93,11 +94,12 @@ class TestAutov2:
         #
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain)
+        TestEnv.check_md_complete(domain, 'secp256r1')
         stat = TestEnv.get_md_status(domain)
         cert = TestEnv.get_cert(domain)
         assert cert.get_key_length() == 256
 
+    @pytest.mark.skip(reason="this is not implemented yet.")
     def test_810_003b(self):
         domain = self.test_domain
         # generate config with one MD

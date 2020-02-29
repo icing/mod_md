@@ -101,7 +101,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
     rv = md_acme_drive_set_acct(d, result);
     if (APR_SUCCESS != rv) goto leave;
 
-    if (!md_array_is_empty(ad->certs)) goto leave;
+    if (!md_array_is_empty(ad->cred->chain)) goto leave;
         
     /* ACMEv2 strategy:
      * 1. load an md_acme_order_t from STAGING, if present
@@ -146,7 +146,7 @@ apr_status_t md_acmev2_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
                                    ad->authz_monitor_timeout, result, d->p);
     if (APR_SUCCESS != rv) goto leave;
     
-    rv = md_acme_drive_setup_certificate(d, result);
+    rv = md_acme_drive_setup_certificates(d, result);
     if (APR_SUCCESS != rv) goto leave;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: finalized order", d->md->name);

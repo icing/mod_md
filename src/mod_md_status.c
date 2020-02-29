@@ -61,6 +61,8 @@ int md_http_cert_status(request_rec *r)
     md_json_t *resp, *j, *mdj, *certj;
     const md_srv_conf_t *sc;
     const md_t *md;
+    md_pkey_spec_t *spec;
+    const char *keyname;
     apr_bucket_brigade *bb;
     apr_status_t rv;
     
@@ -96,21 +98,23 @@ int md_http_cert_status(request_rec *r)
                   "status for MD: %s is %s", md->name, md_json_writep(mdj, r->pool, MD_JSON_FMT_INDENT));
 
     resp = md_json_create(r->pool);
+    spec = md_pkeys_spec_get(md->pks, 0);
+    keyname = md_pkey_spec_name(spec);
     
-    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_UNTIL, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_UNTIL, NULL), 
+    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_UNTIL, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_UNTIL, NULL), 
                      resp, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
     }
-    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_FROM, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_VALID, MD_KEY_FROM, NULL), 
+    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_FROM, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_FROM, NULL), 
                      resp, MD_KEY_VALID, MD_KEY_FROM, NULL);
     }
-    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SERIAL, NULL), 
+    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL), 
                      resp, MD_KEY_SERIAL, NULL);
     }
-    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL), 
+    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_SHA256_FINGERPRINT, NULL)) {
+        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SHA256_FINGERPRINT, NULL), 
                      resp, MD_KEY_SHA256_FINGERPRINT, NULL);
     }
     
@@ -118,7 +122,7 @@ int md_http_cert_status(request_rec *r)
         /* copy over the information we want to make public about this:
          *  - when not finished, add an empty object to indicate something is going on
          *  - when a certificate is staged, add the information from that */
-        certj = md_json_getj(mdj, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
+        certj = md_json_getj(mdj, MD_KEY_RENEWAL, MD_KEY_CERT, keyname, NULL);
         j = certj? certj : md_json_create(r->pool);; 
         md_json_setj(j, resp, MD_KEY_RENEWAL, NULL);
     }

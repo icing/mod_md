@@ -493,6 +493,20 @@ static md_pkey_spec_t *pkey_spec_clone(apr_pool_t *p, md_pkey_spec_t *spec)
     return nspec;
 }
 
+const char *md_pkey_spec_name(const md_pkey_spec_t *spec)
+{
+    if (!spec) return "rsa";
+    switch (spec->type) {
+        case MD_PKEY_TYPE_DEFAULT:
+        case MD_PKEY_TYPE_RSA:
+            return "rsa";
+            break;
+        case MD_PKEY_TYPE_EC:
+            return spec->params.ec.curve;
+            break;
+    }
+}
+
 int md_pkeys_spec_is_empty(const md_pkeys_spec_t *pks)
 {
     return NULL == pks || 0 == pks->specs->nelts;
@@ -515,9 +529,19 @@ md_pkeys_spec_t *md_pkeys_spec_clone(apr_pool_t *p, const md_pkeys_spec_t *pks)
     return npks;
 }
 
+int md_pkeys_spec_count(const md_pkeys_spec_t *pks)
+{
+    return md_pkeys_spec_is_empty(pks)? 1 : pks->specs->nelts;
+}
+
+static md_pkey_spec_t PkeySpecDef = { MD_PKEY_TYPE_DEFAULT, {{ 0 }} };
+
 md_pkey_spec_t *md_pkeys_spec_get(const md_pkeys_spec_t *pks, int index)
 {
-    if (pks && index >= 0 && index < pks->specs->nelts) {
+    if (md_pkeys_spec_is_empty(pks)) {
+        return index == 1? &PkeySpecDef : NULL;
+    }
+    else if (pks && index >= 0 && index < pks->specs->nelts) {
         return APR_ARRAY_IDX(pks->specs, index, md_pkey_spec_t*);
     }
     return NULL;

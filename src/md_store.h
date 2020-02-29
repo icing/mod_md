@@ -20,6 +20,7 @@
 struct apr_array_header_t;
 struct md_cert_t;
 struct md_pkey_t;
+struct md_pkey_spec_t;
 
 const char *md_store_group_name(unsigned int group);
 
@@ -218,16 +219,38 @@ apr_status_t md_store_md_iter(md_store_md_inspect *inspect, void *baton, md_stor
                               apr_pool_t *p, md_store_group_t group, const char *pattern);
 
 
+const char *md_pkey_filename(struct md_pkey_spec_t *spec, apr_pool_t *p);
+const char *md_chain_filename(struct md_pkey_spec_t *spec, apr_pool_t *p);
+
 apr_status_t md_pkey_load(md_store_t *store, md_store_group_t group, 
-                          const char *name, struct md_pkey_t **ppkey, apr_pool_t *p);
+                          const char *name, struct md_pkey_spec_t *spec,
+                          struct md_pkey_t **ppkey, apr_pool_t *p);
 apr_status_t md_pkey_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
-                          const char *name, struct md_pkey_t *pkey, int create);
+                          const char *name, struct md_pkey_spec_t *spec,
+                          struct md_pkey_t *pkey, int create);
 
 apr_status_t md_pubcert_load(md_store_t *store, md_store_group_t group, const char *name, 
-                             struct apr_array_header_t **ppubcert, apr_pool_t *p);
+                             struct md_pkey_spec_t *spec, struct apr_array_header_t **ppubcert, 
+                             apr_pool_t *p);
 apr_status_t md_pubcert_save(md_store_t *store, apr_pool_t *p, 
                              md_store_group_t group, const char *name, 
+                             struct md_pkey_spec_t *spec, 
                              struct apr_array_header_t *pubcert, int create);
+
+/**************************************************************************************************/
+/* X509 complete credentials */
+
+typedef struct md_credentials_t md_credentials_t;
+struct md_credentials_t {
+    struct md_pkey_spec_t *spec;
+    struct md_pkey_t *pkey;
+    struct apr_array_header_t *chain;
+};
+
+apr_status_t md_creds_load(md_store_t *store, md_store_group_t group, const char *name, 
+                           struct md_pkey_spec_t *spec, md_credentials_t **pcreds, apr_pool_t *p);
+apr_status_t md_creds_save(md_store_t *store, apr_pool_t *p, md_store_group_t group, 
+                           const char *name, md_credentials_t *creds, int create);
 
 /**************************************************************************************************/
 /* implementation interface */

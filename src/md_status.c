@@ -89,27 +89,27 @@ leave:
 /**************************************************************************************************/
 /* md status information */
 
-static apr_status_t get_staging_cert_json(md_json_t **pjson, apr_pool_t *p, 
-                                          md_reg_t *reg, const md_t *md)
+static void add_staging_certs_json(md_json_t *json, const char *key, 
+                                  apr_pool_t *p, md_reg_t *reg, const md_t *md)
 { 
-    md_json_t *json = NULL;
+    md_json_t *jcert;
+    md_pkey_spec_t *spec;
+    int i;
     apr_array_header_t *certs;
     md_cert_t *cert;
     apr_status_t rv = APR_SUCCESS;
     
-    rv = md_pubcert_load(md_reg_store_get(reg), MD_SG_STAGING, md->name, &certs, p);
-    if (APR_STATUS_IS_ENOENT(rv)) {
-        rv = APR_SUCCESS;
-        goto leave;
+    for (i = 0; i < md_pkeys_spec_count(md->pks); ++i) {
+        spec = md_pkeys_spec_get(md->pks, i);
+        rv = md_pubcert_load(md_reg_store_get(reg), MD_SG_STAGING, 
+                             md->name, spec, &certs, p);
+        if (APR_SUCCESS == rv) {
+            cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);
+            if (APR_SUCCESS == status_get_cert_json(&jcert, cert, p)) {
+                md_json_setj(jcert, json, key, md_pkey_spec_name(spec), NULL);
+            }
+        }
     }
-    else if (APR_SUCCESS != rv || certs->nelts == 0) {
-        goto leave;
-    }
-    cert = APR_ARRAY_IDX(certs, 0, md_cert_t *);
-    rv = status_get_cert_json(&json, cert, p);
-leave:
-    *pjson = (APR_SUCCESS == rv)? json : NULL;
-    return rv;
 }
 
 static apr_status_t job_loadj(md_json_t **pjson, md_store_group_t group, const char *name, 
@@ -135,29 +135,35 @@ static apr_status_t status_get_md_json(md_json_t **pjson, const md_t *md,
     md_timeperiod_t ocsp_valid; 
     apr_status_t rv = APR_SUCCESS;
     apr_time_t renew_at;
+    md_pkey_spec_t *spec;
+    int i;
 
     mdj = md_to_json(md, p);
-    if (APR_SUCCESS == md_reg_get_pubcert(&pubcert, reg, md, p)) {
-        cert = APR_ARRAY_IDX(pubcert->certs, 0, const md_cert_t*);
-        if (APR_SUCCESS != (rv = status_get_cert_json(&certj, cert, p))) goto leave;
-        if (md->stapling && ocsp) {
-            rv = md_ocsp_get_meta(&cert_stat, &ocsp_valid, ocsp, cert, p, md);
-            if (APR_SUCCESS == rv) {
-                md_json_sets(md_ocsp_cert_stat_name(cert_stat), certj, MD_KEY_OCSP, MD_KEY_STATUS, NULL);
-                md_json_set_timeperiod(&ocsp_valid, certj, MD_KEY_OCSP, MD_KEY_VALID, NULL);
+    for (i = 0; i < md_pkeys_spec_count(md->pks); ++i) {
+        spec = md_pkeys_spec_get(md->pks, i);
+        if (APR_SUCCESS == md_reg_get_pubcert(&pubcert, reg, md, spec, p)) {
+            cert = APR_ARRAY_IDX(pubcert->certs, 0, const md_cert_t*);
+            if (APR_SUCCESS != (rv = status_get_cert_json(&certj, cert, p))) goto leave;
+            if (md->stapling && ocsp) {
+                rv = md_ocsp_get_meta(&cert_stat, &ocsp_valid, ocsp, cert, p, md);
+                if (APR_SUCCESS == rv) {
+                    md_json_sets(md_ocsp_cert_stat_name(cert_stat), certj, MD_KEY_OCSP, MD_KEY_STATUS, NULL);
+                    md_json_set_timeperiod(&ocsp_valid, certj, MD_KEY_OCSP, MD_KEY_VALID, NULL);
+                }
+                else if (!APR_STATUS_IS_ENOENT(rv)) goto leave;
+                rv = APR_SUCCESS;
+                if (APR_SUCCESS == job_loadj(&jobj, MD_SG_OCSP, md->name, reg, with_logs, p)) {
+                    md_json_setj(jobj, certj, MD_KEY_OCSP, MD_KEY_RENEWAL, NULL);
+                }
             }
-            else if (!APR_STATUS_IS_ENOENT(rv)) goto leave;
-            rv = APR_SUCCESS;
-            if (APR_SUCCESS == job_loadj(&jobj, MD_SG_OCSP, md->name, reg, with_logs, p)) {
-                md_json_setj(jobj, certj, MD_KEY_OCSP, MD_KEY_RENEWAL, NULL);
-            }
+            md_json_setj(certj, mdj, MD_KEY_CERT, md_pkey_spec_name(spec), NULL);
+            
         }
-        md_json_setj(certj, mdj, MD_KEY_CERT, NULL);
-
-        renew_at = md_reg_renew_at(reg, md, p);
-        if (renew_at) {
-            md_json_set_time(renew_at, mdj, MD_KEY_RENEW_AT, NULL);
-        }
+    }
+    
+    renew_at = md_reg_renew_at(reg, md, p);
+    if (renew_at > 0) {
+        md_json_set_time(renew_at, mdj, MD_KEY_RENEW_AT, NULL);
     }
     
     md_json_setb(md->stapling, mdj, MD_KEY_STAPLING, NULL);
@@ -167,9 +173,7 @@ static apr_status_t status_get_md_json(md_json_t **pjson, const md_t *md,
         md_json_setb(renew, mdj, MD_KEY_RENEW, NULL);
         rv = job_loadj(&jobj, MD_SG_STAGING, md->name, reg, with_logs, p);
         if (APR_SUCCESS == rv) {
-            if (APR_SUCCESS == get_staging_cert_json(&certj, p, reg, md)) {
-                md_json_setj(certj, jobj, MD_KEY_CERT, NULL);
-            }
+            add_staging_certs_json(jobj, MD_KEY_CERT, p, reg, md);
             md_json_setj(jobj, mdj, MD_KEY_RENEWAL, NULL);
         }
         else if (APR_STATUS_IS_ENOENT(rv)) rv = APR_SUCCESS;

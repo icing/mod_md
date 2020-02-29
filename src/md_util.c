@@ -222,7 +222,7 @@ int md_array_str_eq(const struct apr_array_header_t *a1,
     const char *s1, *s2;
     
     if (a1 == a2) return 1;
-    if (!a1) return 0;
+    if (!a1 || !a2) return 0;
     if (a1->nelts != a2->nelts) return 0;
     for (i = 0; i < a1->nelts; ++i) {
         s1 = APR_ARRAY_IDX(a1, i, const char *);

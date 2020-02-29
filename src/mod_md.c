@@ -1071,10 +1071,14 @@ static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
     md_reg_t *reg;
     md_store_t *store;
     const md_t *md;
-    const char *keyfile, *certfile;
-    
-    keyfile = certfile = NULL;
+    apr_array_header_t *key_files, *chain_files;
+    const char *keyfile, *chainfile;
+    md_pkey_spec_t *spec;
+    int i;
+
     *pkey_files = *pcert_files = NULL;
+    key_files = apr_array_make(p, 5, sizeof(const char*));
+    chain_files = apr_array_make(p, 5, sizeof(const char*));
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10113)
                  "get_certificates called for vhost %s.", s->server_hostname);
@@ -1109,18 +1113,32 @@ static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
     }
     md = APR_ARRAY_IDX(sc->assigned, 0, const md_t*);
     
-    rv = md_reg_get_cred_files(&keyfile, &certfile, reg, MD_SG_DOMAINS, md, p);
-    if (APR_STATUS_IS_ENOENT(rv)) {
+    for (i = 0; i < md_pkeys_spec_count(md->pks); ++i) {
+        spec = md_pkeys_spec_get(md->pks, i);
+        rv = md_reg_get_cred_files(&keyfile, &chainfile, reg, MD_SG_DOMAINS, md, spec, p);
+        if (APR_SUCCESS == rv) {
+            APR_ARRAY_PUSH(key_files, const char*) = keyfile;
+            APR_ARRAY_PUSH(chain_files, const char*) = chainfile;
+        }
+        else if (!APR_STATUS_IS_ENOENT(rv)) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110) 
+                         "retrieving credentials for MD %s (%s)", 
+                         md->name, md_pkey_spec_name(spec));
+            return rv;
+        }
+    }
+    
+    if (md_array_is_empty(key_files)) {
         if (fallback) {
             /* Provide temporary, self-signed certificate as fallback, so that
              * clients do not get obscure TLS handshake errors or will see a fallback
              * virtual host that is not intended to be served here. */
             store = md_reg_store_get(reg);
             assert(store);    
-            
+
             md_store_get_fname(&keyfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_PKEY, p);
-            md_store_get_fname(&certfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_CERT, p);
-            if (!md_file_exists(keyfile, p) || !md_file_exists(certfile, p)) { 
+            md_store_get_fname(&chainfile, store, MD_SG_DOMAINS, md->name, MD_FN_FALLBACK_CERT, p);
+            if (!md_file_exists(keyfile, p) || !md_file_exists(chainfile, p)) { 
                 if (APR_SUCCESS != (rv = setup_fallback_cert(store, md, s, p))) {
                     return rv;
                 }
@@ -1128,25 +1146,20 @@ static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10116)  
                          "%s: providing fallback certificate for server %s", 
                          md->name, s->server_hostname);
+            APR_ARRAY_PUSH(key_files, const char*) = keyfile;
+            APR_ARRAY_PUSH(chain_files, const char*) = chainfile;
             rv = APR_EAGAIN;
             goto leave;
         }
     }
-    else if (APR_SUCCESS != rv) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110) 
-                     "retrieving credentials for MD %s", md->name);
-        return rv;
-    }
     
     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(10077) 
-                 "%s[state=%d]: providing certificate for server %s", 
+                 "%s[state=%d]: providing certificates for server %s", 
                  md->name, md->state, s->server_hostname);
 leave:
-    if (keyfile && certfile) {
-        *pkey_files = apr_array_make(p, 5, sizeof(const char*));
-        APR_ARRAY_PUSH(*pkey_files, const char*) = keyfile;
-        *pcert_files = apr_array_make(p, 5, sizeof(const char*));
-        APR_ARRAY_PUSH(*pcert_files, const char*) = certfile;
+    if (!md_array_is_empty(key_files) && !md_array_is_empty(chain_files)) {
+        *pkey_files = key_files;
+        *pcert_files = chain_files;
     }
     return rv;
 }

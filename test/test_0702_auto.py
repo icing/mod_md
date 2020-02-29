@@ -101,7 +101,8 @@ class TestAutov2:
         status = TestEnv.get_md_status( domainA )
         assert 'renewal' in status
         assert 'cert' in status['renewal']
-        assert 'sha256-fingerprint' in status['renewal']['cert']
+        assert 'rsa' in status['renewal']['cert']
+        assert 'sha256-fingerprint' in status['renewal']['cert']['rsa']
         # restart and activate
         assert TestEnv.apache_restart() == 0
         # check: SSL is running OK
@@ -325,14 +326,14 @@ class TestAutov2:
         conf = HttpdConf()
         conf.add_admin( "admin@" + domain )
         conf.add_drive_mode( "auto" )
-        conf.add_ca_challenges( [ "http-01" ] )
         conf._add_line("MDPortMap 80:99")        
         conf.add_md( domains )
         conf.add_vhost( domains )
         conf.install()
         assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
-        assert not TestEnv.is_renewing( domain )
+        time.sleep(1)
+        md = TestEnv.get_md_status( domain )
+        assert md["renewal"]["errors"] > 0
         #
         # now the same with a 80 mapped to a supported port 
         conf = HttpdConf()
@@ -347,10 +348,6 @@ class TestAutov2:
         TestEnv.check_md(domains)
         assert TestEnv.await_completion( [ domain ] )
 
-    @pytest.mark.skipif(True, reason="""
-        The behaviour of an explicitly configured 'tls-alpn-01' challenge changed.
-        Nowadays, the module no longer cares to check the ports and trust the admin.
-        """)
     def test_702_011(self):
         domain = self.test_domain
         domains = [ domain, "www." + domain ]
@@ -360,14 +357,14 @@ class TestAutov2:
         conf.add_admin( "admin@" + domain )
         conf.add_line( "Protocols http/1.1 acme-tls/1" )
         conf.add_drive_mode( "auto" )
-        conf.add_ca_challenges( [ "tls-alpn-01" ] )
-        conf._add_line("MDPortMap https:99")        
+        conf._add_line("MDPortMap https:99 http:99")        
         conf.add_md( domains )
         conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
-        assert not TestEnv.is_renewing( domain )
+        time.sleep(1)
+        md = TestEnv.get_md_status( domain )
+        assert md["renewal"]["errors"] > 0
         #
         # now the same with a 443 mapped to a supported port 
         conf = HttpdConf()
