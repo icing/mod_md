@@ -180,7 +180,7 @@ apr_status_t md_acmev1_drive_renew(md_acme_driver_t *ad, md_proto_driver_t *d, m
                                       ad->authz_monitor_timeout, result, d->p);
     if (APR_SUCCESS != rv) goto leave;
     
-    rv = md_acme_drive_setup_certificates(d, result);
+    rv = md_acme_drive_setup_cred_chain(d, result);
 
 leave:    
     md_result_log(result, MD_LOG_DEBUG);

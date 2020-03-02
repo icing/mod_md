@@ -66,8 +66,18 @@ class CertUtil(object):
             OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, k).decode('utf-8'))
 
     @classmethod
-    def load_server_cert( cls, hostIP, hostPort, hostName ):
+    def load_server_cert( cls, hostIP, hostPort, hostName, tls=None, ciphers=None ):
         ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+        if tls is not None and tls != 1.0:
+            ctx.set_options(OpenSSL.SSL.OP_NO_TLSv1)
+        if tls is not None and tls != 1.1:
+            ctx.set_options(OpenSSL.SSL.OP_NO_TLSv1_1)
+        if tls is not None and tls != 1.2:
+            ctx.set_options(OpenSSL.SSL.OP_NO_TLSv1_2)
+        if tls is not None and tls != 1.3 and hasattr(OpenSSL.SSL, "OP_NO_TLSv1_3"):
+            ctx.set_options(OpenSSL.SSL.OP_NO_TLSv1_3)
+        if ciphers is not None:
+            ctx.set_cipher_list(ciphers)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connection = OpenSSL.SSL.Connection(ctx, s)
         connection.connect((hostIP, int(hostPort)))

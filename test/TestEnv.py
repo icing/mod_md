@@ -392,9 +392,9 @@ class TestEnv:
         md = cls.get_md_status(domain)
         assert md
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        keyfile = "privkey.{0}.pem".format(pkey) if pkey or 'rsa' == pkey else 'privkey.pem' 
+        keyfile = "privkey.{0}.pem".format(pkey) if pkey and 'rsa' != pkey.lower() else 'privkey.pem' 
         assert os.path.isfile( TestEnv.store_domain_file(domain, keyfile) )
-        certfile = "pubcert.{0}.pem".format(pkey) if pkey or 'rsa' == pkey else 'pubcert.pem' 
+        certfile = "pubcert.{0}.pem".format(pkey) if pkey and 'rsa' != pkey.lower() else 'pubcert.pem' 
         assert os.path.isfile(  TestEnv.store_domain_file(domain, certfile) )
 
     @classmethod
@@ -527,8 +527,9 @@ class TestEnv:
         return result['http_status']
 
     @classmethod
-    def get_cert(cls, domain):
-        return CertUtil.load_server_cert(TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT, domain)
+    def get_cert(cls, domain, tls=None, ciphers=None):
+        return CertUtil.load_server_cert(TestEnv.HTTPD_HOST, 
+            TestEnv.HTTPS_PORT, domain, tls=tls, ciphers=ciphers)
 
     @classmethod
     def get_meta(cls, domain, path, useHTTPS=True):

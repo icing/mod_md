@@ -1,3 +1,8 @@
+ * Tests run with multiple certificates. Certificates are listed in status reports. The
+   "server-status" html table gives individual links. Expiry durations are aggregated.
+   OCSP stapling picks up the new certificates nicely.
+ * The JSON format for reporting certificates changed, not sure if it stays now as it
+   is or if there should be come backward compat with 1 cert use.
  * MDPrivateKeys allows the specification of several types. Beside "RSA" plus optional
    key lengths elliptic curves can be configured. Right now, the module only creates a
    certificate for the first key type given.

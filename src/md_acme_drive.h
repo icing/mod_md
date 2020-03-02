@@ -47,8 +47,8 @@ typedef struct md_acme_driver_t {
 
 apr_status_t md_acme_drive_set_acct(struct md_proto_driver_t *d, 
                                     struct md_result_t *result);
-apr_status_t md_acme_drive_setup_certificates(struct md_proto_driver_t *d, 
-                                             struct md_result_t *result);
+apr_status_t md_acme_drive_setup_cred_chain(struct md_proto_driver_t *d, 
+                                            struct md_result_t *result);
 apr_status_t md_acme_drive_cert_poll(struct md_proto_driver_t *d, int only_once);
 
 #endif /* md_acme_drive_h */

@@ -832,6 +832,32 @@ int md_json_itera(md_json_itera_cb *cb, void *baton, md_json_t *json, ...)
     return 1;
 }
 
+int md_json_iterkey(md_json_iterkey_cb *cb, void *baton, md_json_t *json, ...)
+{
+    json_t *j;
+    va_list ap;
+    const char *key;
+    json_t *val;
+    md_json_t wrap;
+    
+    va_start(ap, json);
+    j = jselect(json, ap);
+    va_end(ap);
+    
+    if (!j || !json_is_object(j)) {
+        return 0;
+    }
+        
+    wrap.p = json->p;
+    json_object_foreach(j, key, val) {
+        wrap.j = val;
+        if (!cb(baton, key, &wrap)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /**************************************************************************************************/
 /* array strings */
 

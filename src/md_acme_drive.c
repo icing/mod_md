@@ -329,6 +329,7 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
 /**
  * Pre-Req: all domains have been validated by the ACME server, e.g. all have AUTHZ
  * resources that have status 'valid'
+ *  - acme_driver->cred keeps the credentials to setup (key spec) 
  * - Setup private key, if not already there
  * - Generate a CSR with org, contact, etc
  * - Optionally enable must-staple OCSP extension
@@ -339,47 +340,44 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
  * - GET cert chain
  * - store cert chain
  */
-apr_status_t md_acme_drive_setup_certificates(md_proto_driver_t *d, md_result_t *result)
+apr_status_t md_acme_drive_setup_cred_chain(md_proto_driver_t *d, md_result_t *result)
 {
     md_acme_driver_t *ad = d->baton;
     md_pkey_spec_t *spec;
     md_pkey_t *privkey;
     apr_status_t rv;
-    int i;
 
     md_result_activity_printf(result, "Finalizing order for %s", ad->md->name);
-    
-    for (i = 0; i < md_pkeys_spec_count(ad->md->pks); ++i) {
-        spec = md_pkeys_spec_get(d->md->pks, i);
+
+    assert(ad->cred);
+    spec = ad->cred->spec;
         
-        rv = md_pkey_load(d->store, MD_SG_STAGING, d->md->name, spec, &privkey, d->p);
-        if (APR_STATUS_IS_ENOENT(rv)) {
-            if (APR_SUCCESS == (rv = md_pkey_gen(&privkey, d->p, spec))) {
-                rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, d->md->name, spec, privkey, 1);
-            }
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                          "%s: generate privkey #%d (%s)", d->md->name, i, 
-                          md_pkey_spec_name(spec));
+    rv = md_pkey_load(d->store, MD_SG_STAGING, d->md->name, spec, &privkey, d->p);
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        if (APR_SUCCESS == (rv = md_pkey_gen(&privkey, d->p, spec))) {
+            rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, d->md->name, spec, privkey, 1);
         }
-        if (APR_SUCCESS != rv) goto leave;
-
-        md_result_activity_printf(result, "Creating CSR #%d for %s", i, d->md->name);
-        rv = md_cert_req_create(&ad->csr_der_64, d->md->name, ad->domains, 
-                                ad->md->must_staple, privkey, d->p);
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR #%d", d->md->name, i);
-        if (APR_SUCCESS != rv) goto leave;
-
-        md_result_activity_printf(result, "Submitting CSR #%d to CA for %s", i, d->md->name);
-        switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
-            case 1:
-                rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, NULL, d);
-                break;
-            default:
-                assert(ad->order->finalize);
-                rv = md_acme_POST(ad->acme, ad->order->finalize, on_init_csr_req, NULL, csr_req, NULL, d);
-                break;
-        }
-        if (APR_SUCCESS != rv) goto leave;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
+                      "%s: generate privkey (%s)", d->md->name, md_pkey_spec_name(spec));
+    }
+    if (APR_SUCCESS != rv) goto leave;
+    
+    md_result_activity_printf(result, "Creating CSR for %s", md_pkey_spec_name(spec));
+    rv = md_cert_req_create(&ad->csr_der_64, d->md->name, ad->domains, 
+                            ad->md->must_staple, privkey, d->p);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR (%s)", 
+                  d->md->name, md_pkey_spec_name(spec));
+    if (APR_SUCCESS != rv) goto leave;
+    
+    md_result_activity_printf(result, "Submitting CSR to CA for %s", md_pkey_spec_name(spec));
+    switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
+        case 1:
+            rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, NULL, d);
+            break;
+        default:
+            assert(ad->order->finalize);
+            rv = md_acme_POST(ad->acme, ad->order->finalize, on_init_csr_req, NULL, csr_req, NULL, d);
+            break;
     }
     
 leave:

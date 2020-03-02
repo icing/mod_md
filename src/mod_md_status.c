@@ -98,17 +98,12 @@ int md_http_cert_status(request_rec *r)
                   "status for MD: %s is %s", md->name, md_json_writep(mdj, r->pool, MD_JSON_FMT_INDENT));
 
     resp = md_json_create(r->pool);
+    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID, NULL)) {
+        md_json_setj(md_json_getj(mdj, MD_KEY_CERT, MD_KEY_VALID, NULL), resp, MD_KEY_VALID, NULL);
+    }
+
     spec = md_pkeys_spec_get(md->pks, 0);
     keyname = md_pkey_spec_name(spec);
-    
-    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_UNTIL, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_UNTIL, NULL), 
-                     resp, MD_KEY_VALID, MD_KEY_UNTIL, NULL);
-    }
-    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_FROM, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, MD_KEY_FROM, NULL), 
-                     resp, MD_KEY_VALID, MD_KEY_FROM, NULL);
-    }
     if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL)) {
         md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL), 
                      resp, MD_KEY_SERIAL, NULL);
@@ -122,9 +117,9 @@ int md_http_cert_status(request_rec *r)
         /* copy over the information we want to make public about this:
          *  - when not finished, add an empty object to indicate something is going on
          *  - when a certificate is staged, add the information from that */
-        certj = md_json_getj(mdj, MD_KEY_RENEWAL, MD_KEY_CERT, keyname, NULL);
+        certj = md_json_getj(mdj, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
         j = certj? certj : md_json_create(r->pool);; 
-        md_json_setj(j, resp, MD_KEY_RENEWAL, NULL);
+        md_json_setj(j, resp, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
     }
     
     ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "md[%s]: sending status", md->name);
@@ -392,16 +387,26 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
     }
 }
 
-static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+static int cert_check_iter(void *baton, const char *key, md_json_t *json)
 {
+    status_ctx *ctx = baton;
     const char *fingerprint;
     
+    fingerprint = md_json_gets(json, MD_KEY_SHA256_FINGERPRINT, NULL);
+    if (fingerprint) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, 
+                           "<a href=\"%s%s\">%s[%s]</a> ", 
+                           ctx->mc->cert_check_url, fingerprint, 
+                           ctx->mc->cert_check_name, key);
+    }
+    return 1;
+}
+
+static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
     (void)info;
     if (ctx->mc->cert_check_name && ctx->mc->cert_check_url) {
-        fingerprint = md_json_gets(mdj, MD_KEY_CERT, MD_KEY_SHA256_FINGERPRINT, NULL);
-        apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<a href=\"%s%s\">%s</a> ", 
-                           ctx->mc->cert_check_url, fingerprint, ctx->mc->cert_check_name);
+        md_json_iterkey(cert_check_iter, ctx, mdj, MD_KEY_CERT, NULL);
     }
 }
 

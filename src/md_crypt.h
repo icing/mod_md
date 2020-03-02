@@ -25,7 +25,7 @@ struct md_http_response_t;
 struct md_cert_t;
 struct md_pkey_t;
 struct md_data_t;
-
+struct md_timeperiod_t;
 
 /**************************************************************************************************/
 /* random */
@@ -168,6 +168,7 @@ int md_cert_covers_md(md_cert_t *cert, const struct md_t *md);
 int md_cert_must_staple(const md_cert_t *cert);
 apr_time_t md_cert_get_not_after(const md_cert_t *cert);
 apr_time_t md_cert_get_not_before(const md_cert_t *cert);
+struct md_timeperiod_t md_cert_get_valid(const md_cert_t *cert);
 
 apr_status_t md_cert_get_issuers_uri(const char **puri, const md_cert_t *cert, apr_pool_t *p);
 apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t *cert, apr_pool_t *p);

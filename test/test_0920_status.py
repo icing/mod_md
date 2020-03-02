@@ -56,8 +56,8 @@ class TestStatus:
         assert not 'sha256-fingerprint' in status
         assert not 'valid' in status
         assert 'renewal' in status
-        assert 'valid' in status['renewal']
-        assert 'sha256-fingerprint' in status['renewal']
+        assert 'valid' in status['renewal']['cert']
+        assert 'sha256-fingerprint' in status['renewal']['cert']['rsa']
         # restart and activate
         # once activated, the staging must be gone and attributes exist for the active cert
         assert TestEnv.apache_restart() == 0
@@ -85,16 +85,10 @@ class TestStatus:
         status = TestEnv.get_certificate_status( domain )
         # status shows the copied cert's properties as staged
         assert 'renewal' in status
-        assert 'Thu, 29 Aug 2019 16:06:35 GMT' == status['renewal']['valid']['until']
-        assert 'Fri, 31 May 2019 16:06:35 GMT' == status['renewal']['valid']['from']
-        assert '03039C464D454EDE79FCD2CAE859F668F269' ==  status['renewal']['serial'] 
-        assert 'sha256-fingerprint' in status['renewal']
-        if 0 == 1:
-            assert len(status['renewal']['scts']) == 2
-            assert status['renewal']['scts'][0]['logid'] == '747eda8331ad331091219cce254f4270c2bffd5e422008c6373579e6107bcc56'
-            assert status['renewal']['scts'][0]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
-            assert status['renewal']['scts'][1]['logid'] == '293c519654c83965baaa50fc5807d4b76fbf587a2972dca4c30cf4e54547f478'
-            assert status['renewal']['scts'][1]['signed'] == 'Fri, 31 May 2019 17:06:35 GMT'
+        assert 'Thu, 29 Aug 2019 16:06:35 GMT' == status['renewal']['cert']['rsa']['valid']['until']
+        assert 'Fri, 31 May 2019 16:06:35 GMT' == status['renewal']['cert']['rsa']['valid']['from']
+        assert '03039C464D454EDE79FCD2CAE859F668F269' ==  status['renewal']['cert']['rsa']['serial'] 
+        assert 'sha256-fingerprint' in status['renewal']['cert']['rsa']
 
     # test if switching status off has effect
     def test_920_003(self):
@@ -220,3 +214,39 @@ MDBaseServer on
         print(status)
         assert status['state'] == TestEnv.MD_S_COMPLETE
         assert status['renew-mode'] == 1 # manual
+
+    # MD with 2 certificates
+    def test_920_020(self):
+        domain = self.test_domain
+        domains = [ domain ]
+        conf = HttpdConf()
+        conf.add_admin( "admin@not-forbidden.org" )
+        conf.add_line("MDStapling on")
+        conf.add_line("MDPrivateKeys secp256r1 RSA")
+        conf.add_md( domains )
+        conf.add_vhost( domain )
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion( [ domain ], restart=False )
+        # In the stats JSON, we excpect 2 certificates under 'renewal'
+        stat = TestEnv.get_md_status( domain )
+        assert 'renewal' in stat
+        assert 'cert' in stat['renewal']
+        assert 'rsa' in stat['renewal']['cert']
+        assert 'secp256r1' in stat['renewal']['cert']
+        # In /.httpd/certificate-status 'renewal' we excpect 2 certificates
+        status = TestEnv.get_certificate_status( domain )
+        assert 'renewal' in status
+        assert 'cert' in status['renewal']
+        assert 'secp256r1' in status['renewal']['cert']
+        assert 'rsa' in status['renewal']['cert']
+        # restart and activate
+        # once activated, certs are listed in status
+        assert TestEnv.apache_restart() == 0
+        stat = TestEnv.get_md_status( domain )
+        assert 'cert' in stat
+        assert 'valid' in stat['cert']
+        for ktype in [ 'rsa', 'secp256r1' ]:
+            assert ktype in stat['cert']
+            assert 'ocsp' in stat['cert'][ktype]
+

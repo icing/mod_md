@@ -35,6 +35,7 @@
 #include "md_json.h"
 #include "md_log.h"
 #include "md_http.h"
+#include "md_time.h"
 #include "md_util.h"
 
 /* getpid for *NIX */
@@ -1079,6 +1080,14 @@ apr_time_t md_cert_get_not_after(const md_cert_t *cert)
 apr_time_t md_cert_get_not_before(const md_cert_t *cert)
 {
     return md_asn1_time_get(X509_get_notBefore(cert->x509));
+}
+
+md_timeperiod_t md_cert_get_valid(const md_cert_t *cert)
+{
+    md_timeperiod_t p;
+    p.start = md_cert_get_not_before(cert);
+    p.end = md_cert_get_not_after(cert);
+    return p;
 }
 
 int md_cert_covers_domain(md_cert_t *cert, const char *domain_name)
