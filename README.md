@@ -383,7 +383,7 @@ The best place on the net to check/discuss problems with Let's Encrypt is [commu
 
 Your Apache server reports that it has problems contacting Let's Encrypt. The problems can be
 
- * unable to connect: you should check if Let's Encrypt is reachable at all for you. The default `MDCerticicateAuthority` is [https://acme-v02.api.letsencrypt.org/directory](https://acme-v02.api.letsencrypt.org/directory) and you should check if it answers. If it does, check if it answers also on the machine that your Apache runs on. Some server installations block outgoing connections. Maybe your server needs to use a HTTP proxy? See [MDHttpProxy](#mdhttpproxy) in that case.
+ * unable to connect: you should check if Let's Encrypt is reachable at all for you. The default `MDCertificateAuthority` is [https://acme-v02.api.letsencrypt.org/directory](https://acme-v02.api.letsencrypt.org/directory) and you should check if it answers. If it does, check if it answers also on the machine that your Apache runs on. Some server installations block outgoing connections. Maybe your server needs to use a HTTP proxy? See [MDHttpProxy](#mdhttpproxy) in that case.
  * unexpected status: `mod_md` got a response, but with an unexpected status code. For example:
    * `503`: this would indicate that Let's Encrypt does maintenance on their servers. This should go away after a short while.
    * other `5xx`: category _should not happen_. This points to an error in the LE software. Check the community.
