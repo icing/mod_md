@@ -17,7 +17,7 @@ Both functions work well together, but you can use one without the other. Read t
 The following people directly contributed to `mod_md` by code and documentation changes:
 Alvaro Octal, Bernard Spil, Daniel Caminada, Jacob Hoffman-Andrews, Joe Orton,
 Josh Soref, Lubos Uhliarik, Michael Kaufmann, Michael Köller,
-Michal Karm Babacek. 
+Michal Karm Babacek, Timothe Litt. 
 
 Many thanks!
 
@@ -26,10 +26,10 @@ Many thanks!
 This README always describes the current version of the module. This might not actually be what you use. You can look
 into your Apache server log where `mod_md` logs its version at startup. There are three major release lines nowadays which are all upwards compatible:
 
- * `v2.0.x` releases should be upgraded to `v2.2.x` whenever convenient. No new releases in this line will happen. This release line shipped in Apache httpd 2.4.41. 
- * `v2.1.x` releases have been ***beta***, leading up to v2.2.0 
+ * `v2.3.x` releases are ***beta***, the new feature is support for multiple certificates and ECDSA keys. 
  * `v2.2.x` releases are ***stable***. They can be used in production and new versions will be backward compatible with existing configurations. These are planned to ship in the next Apache httpd 2.4 release. The large feature added in v2.2.0 is OCSP stapling.
-
+ * `v2.1.x` releases have been ***beta***, leading up to v2.2.0 
+ * `v2.0.x` releases should be upgraded to `v2.2.x` whenever convenient. No new releases in this line will happen. This release line shipped in Apache httpd 2.4.41. 
 Apache releases will always get the latest, stable version from here. 
 
 
@@ -50,6 +50,7 @@ Apache releases will always get the latest, stable version from here.
     * [Backup, Restore or Start Over](#how-to-backup-restore-or-start-over)
     * [Get a Wildcard Cert](#how-to-get-a-wildcard-cert)
     * [Use Other Certificates](#how-to-use-other-certificates)
+    * [Have two certs for one Host](#how-to-have-two-certs-for-one-host)
   - Stapling
     * [Staple all my certificates](#how-to-staple-all-my-certificates)
     * [Staple some of my certificates](#how-to-staple-some-of-my-certificates)
@@ -561,6 +562,42 @@ You can change that to:
 This not only saves you some copy&paste. It also makes all other features of `mod_md` available for these hosts. You can see it in `server-status` and `md_status`. You can manage redirects with `MDRequireHttps`. You can let them take part in the upcoming OCSP Stapling implementation.
 
 Such a domain will not be renewed by `mod_md` - unless you configure `MDRenewMode always` for it. But even then, the files you configured will be used as long as you do not remove them from the configuration.
+
+## How to Have Two Certs for One Hosts
+
+A feature new since version 2.3.0 is that you can have more than one certificate for a domain. Just
+configure more than one private key:
+
+```
+<MDomain mydomain.com>
+  MDPrivateKeys RSA secp256r1
+</MDomain>
+```
+
+Such a configuration will obtain 2 certificates from your ACME CA (e.g. Let's Encrypt). Both
+will be added to you `https:` hosts and the SSL library will choose the one best matching a
+connecting client. Search the internet for `ECDSA` if you want to learn more about this kind of 
+cryptography, its advantages and restrictions.
+
+The name `secp256r1` stands for a specific variant in this ECDSA. `mod_md` places no
+restriction on the names here, it passed them on to the SSL library which either knows them
+or not. If you specify an unsupported key type, the renewal of certificates will fail with the
+message that the type is unsupported.
+
+Besides support in the SSL library, it is also important to note that the Certificate Authority,
+i.e. Let's Encrpyt, also needs to support it. A good example is `secp192r1` which OpenSSL knows
+but Let's Encrypt rejects.
+
+To make it all the more confusing, there are possiblilties to parametrize these curves, but this
+is left to `mod_ssl` and whatever configuration capabiliities the SSL library has.
+
+The certificates will be listed individually in the JSON data from `md-status`. The httpd `server-status`
+will show aggregated information regarding valid and renewal times.
+
+The renewal is triggered by the certificate that expires first. The renewal process will renew
+all certificates. For Let's Encrypt, this does not make a difference, since lifetimes for RSA and
+ECDSA certificates are handled the same. It is expected that other CA will do the same.
+
 
 # How to Staple All My Certificates
 
@@ -1665,7 +1702,22 @@ If you use `-` for the local port, it indicates that this protocol is not availa
 `MDPrivateKeys type [ params... ]`<BR/>
 Default: 'RSA 2048'
 
-Currently only supports RSA. `param` selects size of the key. Use `RSA 4096` for 4k keys.
+Supports RSA with an optional `param` foir the key length in all versions. For example, use `RSA 4096` for 4k keys.
+
+Since version 2.3.0, you can also specify elliptic curves for ECDSA keys. Examples of such curves are `secp384r1`
+and `secp256r1` and there are others. While for most of us, these names are magic incantations, they can only
+work if the ACME CA (Let's Encrypt) supports them. And browsers as well - or whatever clients you wish to
+serve.
+
+To support new and older clients, you can have _multiple_ certificates, using different keys. Specify for example
+
+```
+MDPrivateKeys RSA secp384r1
+```
+to have one RSA and one ECDSA key+certificate for you domains and the SSL library will use the one
+best matching your client's capabilities.
+
+
 
 ## MDHttpProxy
 
