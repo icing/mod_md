@@ -1185,6 +1185,10 @@ static int md_add_cert_files(server_rec *s, apr_pool_t *p,
                          "for it (most likely via SSLCertificateFile).", 
                          s->server_hostname);
         }
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, 
+                     "host '%s' is covered by a Managed Domaina and "
+                     "is being provided with %d key/certificate files.",
+                     s->server_hostname, md_cert_files->nelts);
         apr_array_cat(cert_files, md_cert_files);
         apr_array_cat(key_files, md_key_files);
         return DONE;

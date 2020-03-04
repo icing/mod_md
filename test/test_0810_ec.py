@@ -39,25 +39,39 @@ class TestAutov2:
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    # set EC key type globally and get certificate
-    def test_810_001(self):
+    def set_get_pkeys(self, domain, pkeys, conf=None):
         domain = self.test_domain
-        # generate config with one MD
         domains = [ domain ]
-        conf = HttpdConf()
-        conf.add_admin( "admin@" + domain )
-        conf.add_line("MDPrivateKeys secp256r1")
-        conf.add_md( domains )
-        conf.add_vhost(domains)
+        if conf is None:
+            conf = HttpdConf()
+            conf.add_admin( "admin@" + domain )
+            conf.add_line("MDPrivateKeys {0}".format(" ".join([p['spec'] for p in pkeys])))
+            conf.add_md( domains )
+            conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain, 'secp256r1')
-        stat = TestEnv.get_md_status(domain)
-        cert = TestEnv.get_cert(domain)
-        assert cert.get_key_length() == 256
 
-    # set EC key type on MD and get certificate
+    def check_pkeys(self, domain, pkeys):
+        # check that files for all types have been created
+        for p in [p for p in pkeys if len(p['spec'])]:
+            TestEnv.check_md_complete(domain, p['spec'])
+        # check that openssl client sees the cert with given keylength for cipher
+        TestEnv.verify_cert_key_lenghts(domain, pkeys)
+    
+    def set_get_check_pkeys(self, domain, pkeys, conf=None):
+        self.set_get_pkeys( domain, pkeys, conf=conf )
+        self.check_pkeys( domain, pkeys )
+        
+    # one EC key, no RSSA
+    def test_810_001(self):
+        domain = self.test_domain
+        self.set_get_check_pkeys(domain, [ 
+            { 'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256}, 
+            { 'spec': "", 'ciphers': "RSA", 'keylen': 0}, 
+        ])
+
+    # set EC key type override on MD and get certificate
     def test_810_002(self):
         domain = self.test_domain
         # generate config with one MD
@@ -69,50 +83,26 @@ class TestAutov2:
         conf.add_line("    MDPrivateKeys secp384r1")
         conf.end_md()
         conf.add_vhost(domains)
-        conf.install()
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain, 'secp384r1')
-        stat = TestEnv.get_md_status(domain)
-        cert = TestEnv.get_cert(domain)
-        assert cert.get_key_length() == 384
+        self.set_get_check_pkeys(domain, [ 
+            { 'spec': "secp384r1", 'ciphers': "ECDSA", 'keylen': 384}, 
+            { 'spec': "", 'ciphers': "RSA", 'keylen': 0}, 
+        ])
 
     # set two key spec, ec before rsa
     def test_810_003a(self):
         domain = self.test_domain
-        # generate config with one MD
-        domains = [ domain ]
-        conf = HttpdConf()
-        conf.add_admin( "admin@" + domain )
-        conf.add_line("MDPrivateKeys secp256r1 RSA 3072")
-        conf.add_md( domains )
-        conf.add_vhost(domains)
-        conf.install()
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain, 'secp256r1')
-        stat = TestEnv.get_md_status(domain)
-        cert = TestEnv.get_cert(domain, ciphers="ECDHE-ECDSA-AES256-GCM-SHA384")
-        assert cert.get_key_length() == 256
+        self.set_get_check_pkeys(domain, [ 
+            { 'spec': "P-256", 'ciphers': "ECDSA", 'keylen': 256}, 
+            { 'spec': "RSA 3072", 'ciphers': "RSA", 'keylen': 3072}, 
+        ])
 
     # set two key spec, rsa before ec
     def test_810_003b(self):
         domain = self.test_domain
-        # generate config with one MD
-        domains = [ domain ]
-        conf = HttpdConf()
-        conf.add_admin( "admin@" + domain )
-        conf.add_line("MDPrivateKeys RSA 3072 secp384r1")
-        conf.add_md( domains )
-        conf.add_vhost(domains)
-        conf.install()
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain)
-        stat = TestEnv.get_md_status(domain)
-        # TODO: find out how to force usage of hte RSA certificate, so we see the 3072 key length
-        cert = TestEnv.get_cert(domain, ciphers="DHE-RSA-AES256-SHA256")
-        assert cert.get_key_length() == 384
+        self.set_get_check_pkeys(domain, [ 
+            { 'spec': "RSA 3072", 'ciphers': "RSA", 'keylen': 3072}, 
+            { 'spec': "secp384r1", 'ciphers': "ECDSA", 'keylen': 384}, 
+        ])
 
     # use a curve unsupported by LE
     def test_810_004(self):
@@ -134,18 +124,17 @@ class TestAutov2:
     # set three key specs
     def test_810_005(self):
         domain = self.test_domain
-        domains = [ domain ]
-        conf = HttpdConf()
-        conf.add_admin( "admin@" + domain )
-        conf.add_line("MDPrivateKeys secp256r1 RSA 4096 P-384")
-        conf.add_md( domains )
-        conf.add_vhost(domains)
-        conf.install()
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([ domain ] )
-        TestEnv.check_md_complete(domain, 'secp256r1')
-        TestEnv.check_md_complete(domain, 'RSA')
-        TestEnv.check_md_complete(domain, 'P-384')
-        stat = TestEnv.get_md_status(domain)
-        cert = TestEnv.get_cert(domain)
-        assert cert.get_key_length() == 384
+        self.set_get_check_pkeys(domain, [ 
+            { 'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 384}, # we will see the cert from 3 
+            { 'spec': "RSA 4096", 'ciphers': "RSA", 'keylen': 4096}, 
+            { 'spec': "P-384", 'ciphers': "ECDSA", 'keylen': 384}, 
+        ])
+
+    # X25529 key type which has some special quirks
+    @pytest.mark.skip(reason="this is not working yet.")
+    def test_810_010(self):
+        domain = self.test_domain
+        self.set_get_check_pkeys(domain, [ 
+            { 'spec': "x25519", 'ciphers': "ECDSA", 'keylen': 384}, 
+        ])
+

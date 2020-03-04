@@ -756,21 +756,29 @@ static apr_status_t gen_ec(md_pkey_t **ppkey, apr_pool_t *p, const char *curve)
     curve_nid = EC_curve_nist2nid(curve);
     /* In case this fails, try some names from other standards, like SECG */
 #ifdef NID_secp384r1
-    if (NID_undef == curve_nid && !strcmp("secp384r1", curve)) {
+    if (NID_undef == curve_nid && !apr_strnatcasecmp("secp384r1", curve)) {
         curve_nid = NID_secp384r1;
     }
 #endif
 #ifdef NID_X9_62_prime256v1
-    if (NID_undef == curve_nid && !strcmp("secp256r1", curve)) {
+    if (NID_undef == curve_nid && !apr_strnatcasecmp("secp256r1", curve)) {
         curve_nid = NID_X9_62_prime256v1;
     }
 #endif
 #ifdef NID_X9_62_prime192v1
-    if (NID_undef == curve_nid && !strcmp("secp192r1", curve)) {
+    if (NID_undef == curve_nid && !apr_strnatcasecmp("secp192r1", curve)) {
         curve_nid = NID_X9_62_prime192v1;
     }
 #endif
-
+#ifdef NID_X25519
+    if (NID_undef == curve_nid && !apr_strnatcasecmp("X25519", curve)) {
+        curve_nid = NID_X25519;
+    }
+#endif
+    if (NID_undef == curve_nid) {
+        /* OpenSSL object/curve names */
+        curve_nid = OBJ_sn2nid(curve);
+    }
     if (NID_undef == curve_nid) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "ec curve unknown: %s", curve); 
         rv = APR_ENOTIMPL; goto leave;
@@ -779,10 +787,10 @@ static apr_status_t gen_ec(md_pkey_t **ppkey, apr_pool_t *p, const char *curve)
     *ppkey = make_pkey(p);
     switch (curve_nid) {
 
-#ifdef NID_ED25519
-    case NID_ED25519:
+#ifdef NID_X25519
+    case NID_X25519:
         /* no parameters */
-        if (NULL == (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL))
+        if (NULL == (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_X25519, NULL))
             || EVP_PKEY_keygen_init(ctx) <= 0
             || EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) <= 0) {
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 
@@ -793,10 +801,10 @@ static apr_status_t gen_ec(md_pkey_t **ppkey, apr_pool_t *p, const char *curve)
         break;
 #endif
 
-#ifdef NID_ED448
-    case NID_ED448:
+#ifdef NID_X448
+    case NID_X448:
         /* no parameters */
-        if (NULL == (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED448, NULL))
+        if (NULL == (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_X448, NULL))
             || EVP_PKEY_keygen_init(ctx) <= 0
             || EVP_PKEY_keygen(ctx, &(*ppkey)->pkey) <= 0) {
             md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, 0, p, 

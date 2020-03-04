@@ -87,6 +87,10 @@ class CertUtil(object):
         peer_cert = connection.get_peer_certificate()
         return CertUtil( None, cert=peer_cert )
 
+    @classmethod
+    def parse_pem_cert( cls, text ):
+        cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, text.encode('utf-8'))
+        return CertUtil( None, cert=cert )
 
     def __init__(self, cert_path, cert=None):
         if cert_path is not None:

@@ -386,16 +386,25 @@ class TestEnv:
         if contacts:
             assert md['contacts'] == contacts
 
+    @classmethod
+    def pkey_fname(cls, pkeyspec=None):
+        if pkeyspec and not re.match(r'^rsa( .+)?$', pkeyspec.lower()): 
+            return "privkey.{0}.pem".format(pkeyspec) 
+        return 'privkey.pem' 
 
+    @classmethod
+    def cert_fname(cls, pkeyspec=None):
+        if pkeyspec and not re.match(r'^rsa( .+)?$', pkeyspec.lower()): 
+            return "pubcert.{0}.pem".format(pkeyspec) 
+        return 'pubcert.pem' 
+    
     @classmethod
     def check_md_complete(cls, domain, pkey=None):
         md = cls.get_md_status(domain)
         assert md
         assert md['state'] == TestEnv.MD_S_COMPLETE
-        keyfile = "privkey.{0}.pem".format(pkey) if pkey and 'rsa' != pkey.lower() else 'privkey.pem' 
-        assert os.path.isfile( TestEnv.store_domain_file(domain, keyfile) )
-        certfile = "pubcert.{0}.pem".format(pkey) if pkey and 'rsa' != pkey.lower() else 'pubcert.pem' 
-        assert os.path.isfile(  TestEnv.store_domain_file(domain, certfile) )
+        assert os.path.isfile( TestEnv.store_domain_file(domain, cls.pkey_fname(pkey)) )
+        assert os.path.isfile( TestEnv.store_domain_file(domain, cls.cert_fname(pkey)) )
 
     @classmethod
     def check_md_credentials(cls, domain):
@@ -530,6 +539,35 @@ class TestEnv:
     def get_cert(cls, domain, tls=None, ciphers=None):
         return CertUtil.load_server_cert(TestEnv.HTTPD_HOST, 
             TestEnv.HTTPS_PORT, domain, tls=tls, ciphers=ciphers)
+
+    @classmethod
+    def get_server_cert(cls, domain, proto=None, ciphers=None):
+        stat = {}
+        args = [ 
+            cls.OPENSSL, "s_client", "-status", 
+            "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
+            "-CAfile", "gen/ca.pem", 
+            "-servername", domain,
+            "-showcerts"
+        ]
+        if proto is not None:
+            args.extend([ "-{0}".format(proto)])
+        if ciphers is not None:
+            args.extend([ "-cipher", ciphers ])
+        r = TestEnv.run( args )
+        try:
+            return CertUtil.parse_pem_cert(r['stdout'])
+        except:
+            return None
+    
+    @classmethod
+    def verify_cert_key_lenghts(cls, domain, pkeys):
+        for p in pkeys:
+            cert = TestEnv.get_server_cert(domain, proto="tls1_2", ciphers=p['ciphers'])
+            if 0 == p['keylen']:
+                assert cert is None
+            else:
+                assert cert.get_key_length() == p['keylen'] 
 
     @classmethod
     def get_meta(cls, domain, path, useHTTPS=True):
@@ -671,14 +709,20 @@ class TestEnv:
         cls.check_file_access( cls.store_stagings(), 0o755 )
 
     @classmethod
-    def get_ocsp_status( cls, domain ):
+    def get_ocsp_status( cls, domain, proto=None, cipher=None ):
         stat = {}
-        r = TestEnv.run( [ "openssl", "s_client", "-status", 
-                          "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
-                          "-CAfile", "gen/ca.pem", 
-                          "-servername", domain,
-                          "-showcerts"
-                          ] )
+        args = [ 
+            cls.OPENSSL, "s_client", "-status", 
+            "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
+            "-CAfile", "gen/ca.pem", 
+            "-servername", domain,
+            "-showcerts"
+        ]
+        if proto is not None:
+            args.extend([ "-{0}".format(proto)])
+        if cipher is not None:
+            args.extend([ "-cipher", cipher ])
+        r = TestEnv.run( args )
         ocsp_regex = re.compile(r'OCSP response: +([^=\n]+)\n')
         matches = ocsp_regex.finditer(r["stdout"])
         for m in matches:
