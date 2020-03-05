@@ -1,3 +1,5 @@
+ * MDPrivateKeys checks for duplicate key specifications. There can only be one RSA key
+   and a curve name can also only appear once.
  * Test case for curve "x25519" is being skipped as this key does not work correctly - yet.
  * Added more EC and dual keys tests. Tests now verify that the correct certificate is
    used when the client is limited in protocol version and ciphers.

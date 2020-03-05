@@ -303,6 +303,17 @@ void md_pkeys_spec_add_default(md_pkeys_spec_t *pks)
     md_pkeys_spec_add(pks, spec);
 }
 
+int md_pkeys_spec_contains_rsa(md_pkeys_spec_t *pks)
+{
+    md_pkey_spec_t *spec;
+    int i;
+    for (i = 0; i < pks->specs->nelts; ++i) {
+        spec = APR_ARRAY_IDX(pks->specs, i, md_pkey_spec_t*);
+        if (MD_PKEY_TYPE_RSA == spec->type) return 1;   
+    }
+    return 0;
+}
+
 void md_pkeys_spec_add_rsa(md_pkeys_spec_t *pks, unsigned int bits)
 {
     md_pkey_spec_t *spec;
@@ -312,6 +323,19 @@ void md_pkeys_spec_add_rsa(md_pkeys_spec_t *pks, unsigned int bits)
     spec->params.rsa.bits = bits;
     md_pkeys_spec_add(pks, spec);
 }
+
+int md_pkeys_spec_contains_ec(md_pkeys_spec_t *pks, const char *curve)
+{
+    md_pkey_spec_t *spec;
+    int i;
+    for (i = 0; i < pks->specs->nelts; ++i) {
+        spec = APR_ARRAY_IDX(pks->specs, i, md_pkey_spec_t*);
+        if (MD_PKEY_TYPE_EC == spec->type 
+            && !apr_strnatcasecmp(curve, spec->params.ec.curve)) return 1;   
+    }
+    return 0;
+}
+
 void md_pkeys_spec_add_ec(md_pkeys_spec_t *pks, const char *curve)
 {
     md_pkey_spec_t *spec;
@@ -738,7 +762,7 @@ static apr_status_t check_EC_curve(int nid, apr_pool_t *p) {
         }
     }
 leave:
-    if (curves) OPENSSL_free(curves);
+    OPENSSL_free(curves);
     return rv;
 }
 
@@ -833,7 +857,7 @@ static apr_status_t gen_ec(md_pkey_t **ppkey, apr_pool_t *p, const char *curve)
     
 leave:
     if (APR_SUCCESS != rv) *ppkey = NULL;
-    if (NULL != ctx) EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_CTX_free(ctx);
     return rv;
 }
 

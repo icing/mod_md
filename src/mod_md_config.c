@@ -804,9 +804,15 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
                     return apr_psprintf(cmd->pool, "is too large for an RSA key length.");
                 }
             }
+            if (md_pkeys_spec_contains_rsa(config->pks)) {
+                return "two keys of type 'RSA' are not possible.";
+            }
             md_pkeys_spec_add_rsa(config->pks, (unsigned int)bits);
         }
         else {
+            if (md_pkeys_spec_contains_ec(config->pks, argv[i])) {
+                return apr_psprintf(cmd->pool, "two keys of type '%s' are not possible.", argv[i]);
+            }
             md_pkeys_spec_add_ec(config->pks, argv[i]);
         }
     }

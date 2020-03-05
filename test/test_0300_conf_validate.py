@@ -247,7 +247,11 @@ class TestConf:
     @pytest.mark.parametrize("line,expErrMsg", [ 
         ("MDPrivateKeys", "needs to specify the private key type"), 
         ("MDPrivateKeys Default RSA 1024", "'Default' allows no other parameter"),
-        ("MDPrivateKeys RSA 1024", "must be 2048 or higher") ])
+        ("MDPrivateKeys RSA 1024", "must be 2048 or higher"),
+        ("MDPrivateKeys RSA 1024", "must be 2048 or higher"),
+        ("MDPrivateKeys rsa 2048 rsa 4096", "two keys of type 'RSA' are not possible"),
+        ("MDPrivateKeys p-256 secp384r1 P-256", "two keys of type 'P-256' are not possible"),
+        ])
     def test_300_016(self, line, expErrMsg):
         HttpdConf( text=line ).install()
         assert TestEnv.apache_restart() == 1

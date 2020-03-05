@@ -563,7 +563,7 @@ This not only saves you some copy&paste. It also makes all other features of `mo
 
 Such a domain will not be renewed by `mod_md` - unless you configure `MDRenewMode always` for it. But even then, the files you configured will be used as long as you do not remove them from the configuration.
 
-## How to Have Two Certs for One Hosts
+## How to Have Two Certs for One Host
 
 A feature new since version 2.3.0 is that you can have more than one certificate for a domain. Just
 configure more than one private key:
@@ -575,7 +575,7 @@ configure more than one private key:
 ```
 
 Such a configuration will obtain 2 certificates from your ACME CA (e.g. Let's Encrypt). Both
-will be added to you `https:` hosts and the SSL library will choose the one best matching a
+will be added to your `https:` hosts and the SSL library will choose the one best matching a
 connecting client. Search the internet for `ECDSA` if you want to learn more about this kind of 
 cryptography, its advantages and restrictions.
 
@@ -585,11 +585,11 @@ or not. If you specify an unsupported key type, the renewal of certificates will
 message that the type is unsupported.
 
 Besides support in the SSL library, it is also important to note that the Certificate Authority,
-i.e. Let's Encrpyt, also needs to support it. A good example is `secp192r1` which OpenSSL knows
+i.e. Let's Encrypt, also needs to support it. A good example is `secp192r1` which OpenSSL knows
 but Let's Encrypt rejects.
 
 To make it all the more confusing, there are possiblilties to parametrize these curves, but this
-is left to `mod_ssl` and whatever configuration capabiliities the SSL library has.
+is left to `mod_ssl` and whatever configuration capabilities the SSL library has.
 
 The certificates will be listed individually in the JSON data from `md-status`. The httpd `server-status`
 will show aggregated information regarding valid and renewal times.
@@ -1702,10 +1702,9 @@ If you use `-` for the local port, it indicates that this protocol is not availa
 `MDPrivateKeys type [ params... ]`<BR/>
 Default: 'RSA 2048'
 
-Supports RSA with an optional `param` foir the key length in all versions. For example, use `RSA 4096` for 4k keys.
+Supports RSA with an optional `param` for the key length in all versions. For example, use `RSA 4096` for 4k keys.
 
-Since version 2.3.0, you can also specify elliptic curves for ECDSA keys. Examples of such curves are `secp384r1`
-and `secp256r1` and there are others. While for most of us, these names are magic incantations, they can only
+Since version 2.3.0, you can also specify elliptic curves for ECDSA keys. Examples of such curves are `P-384` and `P-256` (also known as `secp384r1` and `secp256r1`). And there are others. These key types can only
 work if the ACME CA (Let's Encrypt) supports them. And browsers as well - or whatever clients you wish to
 serve.
 
