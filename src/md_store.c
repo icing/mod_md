@@ -256,14 +256,15 @@ typedef struct {
 
 static const char *pk_filename(const char *keyname, const char *base, apr_pool_t *p)
 {
-    char *s;
+    char *s, *t;
     /* We also run on various filesystems with difference upper/lower preserve matching
      * rules. Normalize the names we use, since private key specifications are basically
      * user input. */
     s = (keyname && apr_strnatcasecmp("rsa", keyname))?
         apr_pstrcat(p, base, ".", keyname, ".pem", NULL)
         : apr_pstrcat(p, base, ".pem", NULL);
-    apr_tolower(s);
+    for (t = s; *t; t++ )
+        *t = apr_tolower(*t);
     return s;
 }
 
