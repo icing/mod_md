@@ -38,6 +38,7 @@ mod_md-*.tar.gz
 m4
 .cache
 src/a2md
+a2md.1
 
 # Automake test-suite artifacts
 /test-driver
