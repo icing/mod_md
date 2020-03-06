@@ -395,7 +395,7 @@ static int cert_check_iter(void *baton, const char *key, md_json_t *json)
     fingerprint = md_json_gets(json, MD_KEY_SHA256_FINGERPRINT, NULL);
     if (fingerprint) {
         apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<a href=\"%s%s\">%s[%s]</a> ", 
+                           "<a href=\"%s%s\">%s[%s]</a><br>", 
                            ctx->mc->cert_check_url, fingerprint, 
                            ctx->mc->cert_check_name, key);
     }
@@ -445,6 +445,13 @@ static void add_json_val(status_ctx *ctx, md_json_t *j)
     }
 }
 
+static void si_val_names(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    apr_brigade_puts(ctx->bb, NULL, NULL, "<div style=\"max-width:400px;\">");
+    add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
+    apr_brigade_puts(ctx->bb, NULL, NULL, "</div>");
+}
+
 static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     if (info->fn) {
@@ -457,7 +464,7 @@ static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *
 
 static const status_info status_infos[] = {
     { "Domain", MD_KEY_NAME, NULL },
-    { "Names", MD_KEY_DOMAINS, NULL },
+    { "Names", MD_KEY_DOMAINS, si_val_names },
     { "Status", MD_KEY_STATE, si_val_status },
     { "Valid", MD_KEY_CERT, si_val_cert_valid_time },
     { "CA", MD_KEY_CA, si_val_ca_url },
