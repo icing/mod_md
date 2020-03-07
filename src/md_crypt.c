@@ -1759,7 +1759,7 @@ static apr_status_t mk_x509(X509 **px, md_pkey_t *pkey, const char *cn,
         rv = APR_EGENERAL; goto out;
     }
     /* cert are unconstrained (but not very trustworthy) */
-    if (APR_SUCCESS != (rv = add_ext(x, NID_basic_constraints, "CA:FALSE, pathlen:0", p))) {
+    if (APR_SUCCESS != (rv = add_ext(x, NID_basic_constraints, "critical,CA:FALSE", p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set basic constraints ext", cn);
         goto out;
     }
@@ -1801,6 +1801,17 @@ apr_status_t md_cert_self_sign(md_cert_t **pcert, const char *cn,
     /* add the domain as alt name */
     if (APR_SUCCESS != (rv = add_ext(x, NID_subject_alt_name, alt_names(domains, p), p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set alt_name ext", cn);
+        goto out;
+    }
+
+    /* keyUsage, ExtendedKeyUsage */
+
+    if (APR_SUCCESS != (rv = add_ext(x, NID_key_usage, "critical,digitalSignature", p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set keyUsage", cn);
+        goto out;
+    }
+    if (APR_SUCCESS != (rv = add_ext(x, NID_ext_key_usage, "serverAuth", p))) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: set extKeyUsage", cn);
         goto out;
     }
 
