@@ -63,9 +63,9 @@ class TestStatus:
         assert TestEnv.apache_restart() == 0
         status = TestEnv.get_certificate_status( domain )
         assert not 'renewal' in status
-        assert 'sha256-fingerprint' in status
-        assert 'valid' in status
-        assert 'from' in status['valid']
+        assert 'sha256-fingerprint' in status['rsa']
+        assert 'valid' in status['rsa']
+        assert 'from' in status['rsa']['valid']
 
     # simple MD, drive it, manipulate staged credentials and check status
     def test_920_002(self):

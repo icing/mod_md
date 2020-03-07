@@ -59,7 +59,7 @@
 int md_http_cert_status(request_rec *r)
 {
     int i;
-    md_json_t *resp, *mdj;
+    md_json_t *resp, *mdj, *cj;
     const md_srv_conf_t *sc;
     const md_t *md;
     md_pkey_spec_t *spec;
@@ -100,9 +100,11 @@ int md_http_cert_status(request_rec *r)
 
     resp = md_json_create(r->pool);
 
-    for (i = 0; i < md_pkeys_spec_count(md->pks); ++i) {
-        md_json_t *cj;
+    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID, NULL)) {
+         md_json_setj(md_json_getj(mdj, MD_KEY_CERT, MD_KEY_VALID, NULL), resp, MD_KEY_VALID, NULL);
+     }
 
+    for (i = 0; i < md_pkeys_spec_count(md->pks); ++i) {
         spec = md_pkeys_spec_get(md->pks, i);
         keyname = md_pkey_spec_name(spec);
         cj = md_json_create(r->pool);
@@ -120,19 +122,18 @@ int md_http_cert_status(request_rec *r)
             md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SHA256_FINGERPRINT, NULL),
                          cj, MD_KEY_SHA256_FINGERPRINT, NULL);
         }
-    
-        if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_RENEWAL, NULL)) {
-            md_json_t *certj, *j;
-            /* copy over the information we want to make public about this:
-             *  - when not finished, add an empty object to indicate something is going on
-             *  - when a certificate is staged, add the information from that */
-            certj = md_json_getj(mdj, MD_KEY_CERT, keyname, MD_KEY_RENEWAL, NULL);
-            j = certj? certj : md_json_create(r->pool);
-            md_json_setj(j, cj, MD_KEY_RENEWAL, NULL);
-        }
         md_json_setj(cj, resp, keyname, NULL );
     }
-
+    
+    if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
+           /* copy over the information we want to make public about this:
+            *  - when not finished, add an empty object to indicate something is going on
+            *  - when a certificate is staged, add the information from that */
+           cj = md_json_getj(mdj, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
+           cj = cj? cj : md_json_create(r->pool);; 
+           md_json_setj(cj, resp, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
+     }
+    
     ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "md[%s]: sending status", md->name);
     apr_table_set(r->headers_out, "Content-Type", "application/json"); 
     bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);

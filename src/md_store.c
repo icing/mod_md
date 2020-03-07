@@ -264,7 +264,7 @@ static const char *pk_filename(const char *keyname, const char *base, apr_pool_t
         apr_pstrcat(p, base, ".", keyname, ".pem", NULL)
         : apr_pstrcat(p, base, ".pem", NULL);
     for (t = s; *t; t++ )
-        *t = apr_tolower(*t);
+        *t = (char)apr_tolower(*t);
     return s;
 }
 

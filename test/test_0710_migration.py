@@ -75,7 +75,7 @@ class TestMigration:
         # restart, gets cert, should still be the same cert as it remains valid
         assert TestEnv.apache_restart() == 0
         status = TestEnv.get_certificate_status( domain )
-        assert status['serial'] == cert1.get_serial() 
+        assert status['rsa']['serial'] == cert1.get_serial() 
         
         # change the MD so that we need a new cert
         domains = [ domain, "www." + domain, "another."  + domain ]
@@ -88,7 +88,7 @@ class TestMigration:
         assert TestEnv.await_completion([ domain ] )
         # should no longer the same cert
         status = TestEnv.get_certificate_status( domain )
-        assert status['serial'] != cert1.get_serial() 
+        assert status['rsa']['serial'] != cert1.get_serial() 
         TestEnv.check_md_complete(domain)
         # should have a 2 accounts now
         assert 2 == len(TestEnv.list_accounts())

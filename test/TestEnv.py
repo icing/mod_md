@@ -347,7 +347,7 @@ class TestEnv:
      
     @classmethod
     def path_fallback_cert( cls, domain ) :
-        return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'fallback-cert.pem')
+        return os.path.join(TestEnv.STORE_DIR, 'domains', domain, 'fallback-pubcert.pem')
 
     @classmethod
     def path_job( cls, domain ) :

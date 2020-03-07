@@ -1135,53 +1135,27 @@ static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
             /* Provide temporary, self-signed certificate as fallback, so that
              * clients do not get obscure TLS handshake errors or will see a fallback
              * virtual host that is not intended to be served here. */
-            int n;
             char *kfn, *cfn;
 
             store = md_reg_store_get(reg);
             assert(store);
 
-            if( (n = md_pkeys_spec_count(md->pks)) <= 0 ) {
-                md_pkey_spec_t dspec;
-
-                dspec.type = MD_PKEY_TYPE_RSA;
-                dspec.params.rsa.bits = MD_PKEY_RSA_BITS_DEF;
-                fallback_fnames(p, &dspec, &kfn, &cfn);
+            for (i = 0; i < md_pkeys_spec_count(md->pks); ++i) {
+                spec = md_pkeys_spec_get(md->pks, i);
+                fallback_fnames(p, spec, &kfn, &cfn);
 
                 md_store_get_fname(&keyfile, store, MD_SG_DOMAINS, md->name, kfn, p);
                 md_store_get_fname(&chainfile, store, MD_SG_DOMAINS, md->name, cfn, p);
                 if (!md_file_exists(keyfile, p) || !md_file_exists(chainfile, p)) {
-                    if (APR_SUCCESS != (rv = make_fallback_cert(store, md, &dspec, s, p, kfn, cfn))) {
+                    if (APR_SUCCESS != (rv = make_fallback_cert(store, md, spec, s, p, kfn, cfn))) {
                         return rv;
                     }
                 }
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10116)
-                         "%s: providing %s fallback certificate for server %s",
-                             md->name, md_pkey_spec_name(&dspec), s->server_hostname);
+                             "%s: providing %s fallback certificate for server %s",
+                             md->name, md_pkey_spec_name(spec), s->server_hostname);
                 APR_ARRAY_PUSH(key_files, const char*) = keyfile;
                 APR_ARRAY_PUSH(chain_files, const char*) = chainfile;
-            } else {
-                int i;
-
-                for (i = 0; i < n; ++i) {
-                    md_pkey_spec_t *spec;
-
-                    spec = md_pkeys_spec_get(md->pks, i);
-                    fallback_fnames(p, spec, &kfn, &cfn);
-
-                    md_store_get_fname(&keyfile, store, MD_SG_DOMAINS, md->name, kfn, p);
-                    md_store_get_fname(&chainfile, store, MD_SG_DOMAINS, md->name, cfn, p);
-                    if (!md_file_exists(keyfile, p) || !md_file_exists(chainfile, p)) {
-                        if (APR_SUCCESS != (rv = make_fallback_cert(store, md, spec, s, p, kfn, cfn))) {
-                            return rv;
-                        }
-                    }
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10116)
-                                 "%s: providing %s fallback certificate for server %s",
-                                 md->name, md_pkey_spec_name(spec), s->server_hostname);
-                    APR_ARRAY_PUSH(key_files, const char*) = keyfile;
-                    APR_ARRAY_PUSH(chain_files, const char*) = chainfile;
-                }
             }
             rv = APR_EAGAIN;
             goto leave;

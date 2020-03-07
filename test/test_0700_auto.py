@@ -292,7 +292,7 @@ class TestAutov1:
         cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
         # compare with what md reports as status
         stat = TestEnv.get_certificate_status(domain);
-        assert stat['serial'] == cert1.get_serial()
+        assert stat['rsa']['serial'] == cert1.get_serial()
         #
         # create self-signed cert, with critical remaining valid duration -> drive again
         TestEnv.create_self_signed_cert( [domain], { "notBefore": -120, "notAfter": 2  }, serial=7009)
@@ -300,12 +300,12 @@ class TestAutov1:
         assert cert3.get_serial() == '1B61'
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_certificate_status(domain);
-        assert stat['serial'] == cert3.get_serial()
+        assert stat['rsa']['serial'] == cert3.get_serial()
         #
         # cert should renew and be different afterwards
         assert TestEnv.await_completion( [ domain ], must_renew=True )
         stat = TestEnv.get_certificate_status(domain);
-        assert stat['serial'] != cert3.get_serial()
+        assert stat['rsa']['serial'] != cert3.get_serial()
         
     # test case: drive with an unsupported challenge due to port availability 
     def test_700_010(self):
@@ -412,7 +412,7 @@ class TestAutov1:
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md( new_list )
         status = TestEnv.get_certificate_status( nameA )
-        assert status['serial'] == certA.get_serial() 
+        assert status['rsa']['serial'] == certA.get_serial() 
 
     # test case: Same as 7030, but remove *and* add another at the same time.
     # restart. should find and keep the existing MD and renew for additional name.
@@ -458,7 +458,7 @@ class TestAutov1:
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md( new_list )
         status = TestEnv.get_certificate_status( nameA )
-        assert status['serial'] == certA.get_serial() 
+        assert status['rsa']['serial'] == certA.get_serial() 
 
     # test case: create two MDs, move them into one
     # see: <https://bz.apache.org/bugzilla/show_bug.cgi?id=62572>
