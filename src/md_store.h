@@ -78,8 +78,8 @@ typedef enum {
 #define MD_FN_CERT              "cert.pem"
 #define MD_FN_HTTPD_JSON        "httpd.json"
 
-#define MD_FN_FALLBACK_PKEY     "fallback-privkey.pem"
-#define MD_FN_FALLBACK_CERT     "fallback-cert.pem"
+#define MD_FN_FALLBACK_PKEY     "fallback-%s"
+#define MD_FN_FALLBACK_CERT     "fallback-%s"
 
 /**
  * Load the JSON value at key "group/name/aspect", allocated from pool p.

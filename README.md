@@ -934,10 +934,17 @@ upcoming certificates on a domain. You invoke it like this:
 ```
 > curl https://eissing.org/.httpd/certificate-status
 {
-  "valid-from": "Mon, 01 Apr 2019 06:47:43 GMT",
-  "valid-until": "Sun, 30 Jun 2019 06:47:43 GMT",
+  "rsa": {
+    "valid": {
+      "from": "Mon, 01 Apr 2019 06:47:43 GMT",
+      "until": "Sun, 30 Jun 2019 06:47:43 GMT"
+  },
   "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7",
   "sha256-fingerprint" : "xx:yy:zz:..."
+  },
+  "P-256": {
+    ...
+  }
 }
 ```
 
@@ -949,16 +956,29 @@ When a new certificate has been obtained, but is not activated yet, this will sh
 
 ```
 {
-  "valid-from": "Mon, 01 Apr 2019 06:47:43 GMT",
-  "valid-until": "Sun, 30 Jun 2019 06:47:43 GMT",
-  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7"
+  "rsa": {
+    "valid": {
+      "from": "Mon, 01 Apr 2019 06:47:43 GMT",
+      "until": "Sun, 30 Jun 2019 06:47:43 GMT"
+  },
+  "serial": "03D02EDA041CB95BF23B030C308FDE0B35B7",
   "sha256-fingerprint" : "xx:yy:zz:..."
   "renewal": {
-    "valid-from": "Tue, 21 May 2019 11:53:59 GMT",
-    "valid-until": "Mon, 19 Aug 2019 11:53:59 GMT",
-    "serial": "FFC16E5FEFBE90805AC153D70EF9E8D3873A",
-    "sha256-fingerprint" : "aa:bb:cc:..."
+	"name": "example.net",
+        "finished": true,
+        "notified": false,
+        "last-run": "Thu, 02 May 2019 21:54:22 GMT",
+        "errors": 0,
+        "last": {
+          "status": 0,
+          "detail": "certificate status is GOOD, status valid Mon, 01 Apr 2019 06:47:43 GMT - Sun, 30 Jun 2019 06:47:43 GMT",
+          "activity": "status of certid xxyyzzqq, reading response"
+    }
+  },
+  "P-256": {
+    ...
   }
+}
 ```
 with `renewal` giving the properties of the new certificate, once it has been obtained. This can
 be exposed publicly as well, since - once the server is reloaded, it is part of every TLS connection.

@@ -58,7 +58,8 @@
 
 int md_http_cert_status(request_rec *r)
 {
-    md_json_t *resp, *j, *mdj, *certj;
+    int i;
+    md_json_t *resp, *mdj;
     const md_srv_conf_t *sc;
     const md_t *md;
     md_pkey_spec_t *spec;
@@ -98,30 +99,40 @@ int md_http_cert_status(request_rec *r)
                   "status for MD: %s is %s", md->name, md_json_writep(mdj, r->pool, MD_JSON_FMT_INDENT));
 
     resp = md_json_create(r->pool);
-    if (md_json_has_key(mdj, MD_KEY_CERT, MD_KEY_VALID, NULL)) {
-        md_json_setj(md_json_getj(mdj, MD_KEY_CERT, MD_KEY_VALID, NULL), resp, MD_KEY_VALID, NULL);
+
+    for (i = 0; i < md_pkeys_spec_count(md->pks); ++i) {
+        md_json_t *cj;
+
+        spec = md_pkeys_spec_get(md->pks, i);
+        keyname = md_pkey_spec_name(spec);
+        cj = md_json_create(r->pool);
+
+        if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, NULL)) {
+            md_json_setj(md_json_getj(mdj, MD_KEY_CERT, keyname, MD_KEY_VALID, NULL),
+                         cj, MD_KEY_VALID, NULL);
+        }
+
+        if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL)) {
+            md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL),
+                         cj, MD_KEY_SERIAL, NULL);
+        }
+        if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_SHA256_FINGERPRINT, NULL)) {
+            md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SHA256_FINGERPRINT, NULL),
+                         cj, MD_KEY_SHA256_FINGERPRINT, NULL);
+        }
+    
+        if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_RENEWAL, NULL)) {
+            md_json_t *certj, *j;
+            /* copy over the information we want to make public about this:
+             *  - when not finished, add an empty object to indicate something is going on
+             *  - when a certificate is staged, add the information from that */
+            certj = md_json_getj(mdj, MD_KEY_CERT, keyname, MD_KEY_RENEWAL, NULL);
+            j = certj? certj : md_json_create(r->pool);
+            md_json_setj(j, cj, MD_KEY_RENEWAL, NULL);
+        }
+        md_json_setj(cj, resp, keyname, NULL );
     }
 
-    spec = md_pkeys_spec_get(md->pks, 0);
-    keyname = md_pkey_spec_name(spec);
-    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SERIAL, NULL), 
-                     resp, MD_KEY_SERIAL, NULL);
-    }
-    if (md_json_has_key(mdj, MD_KEY_CERT, keyname, MD_KEY_SHA256_FINGERPRINT, NULL)) {
-        md_json_sets(md_json_gets(mdj, MD_KEY_CERT, keyname, MD_KEY_SHA256_FINGERPRINT, NULL), 
-                     resp, MD_KEY_SHA256_FINGERPRINT, NULL);
-    }
-    
-    if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
-        /* copy over the information we want to make public about this:
-         *  - when not finished, add an empty object to indicate something is going on
-         *  - when a certificate is staged, add the information from that */
-        certj = md_json_getj(mdj, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
-        j = certj? certj : md_json_create(r->pool);; 
-        md_json_setj(j, resp, MD_KEY_RENEWAL, MD_KEY_CERT, NULL);
-    }
-    
     ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "md[%s]: sending status", md->name);
     apr_table_set(r->headers_out, "Content-Type", "application/json"); 
     bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
@@ -395,7 +406,7 @@ static int cert_check_iter(void *baton, const char *key, md_json_t *json)
     fingerprint = md_json_gets(json, MD_KEY_SHA256_FINGERPRINT, NULL);
     if (fingerprint) {
         apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<a href=\"%s%s\">%s[%s]</a> ", 
+                           "<a href=\"%s%s\">%s[%s]</a><br>", 
                            ctx->mc->cert_check_url, fingerprint, 
                            ctx->mc->cert_check_name, key);
     }
@@ -445,6 +456,13 @@ static void add_json_val(status_ctx *ctx, md_json_t *j)
     }
 }
 
+static void si_val_names(status_ctx *ctx, md_json_t *mdj, const status_info *info)
+{
+    apr_brigade_puts(ctx->bb, NULL, NULL, "<div style=\"max-width:400px;\">");
+    add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
+    apr_brigade_puts(ctx->bb, NULL, NULL, "</div>");
+}
+
 static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     if (info->fn) {
@@ -457,7 +475,7 @@ static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *
 
 static const status_info status_infos[] = {
     { "Domain", MD_KEY_NAME, NULL },
-    { "Names", MD_KEY_DOMAINS, NULL },
+    { "Names", MD_KEY_DOMAINS, si_val_names },
     { "Status", MD_KEY_STATE, si_val_status },
     { "Valid", MD_KEY_CERT, si_val_cert_valid_time },
     { "CA", MD_KEY_CA, si_val_ca_url },

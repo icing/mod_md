@@ -1,3 +1,10 @@
+V2.3.next
+----------------------------------------------------------------------------------------------------
+ * Fix lowercasing of filenames
+ * Improved format of Managed Certificate Status
+ * Provide fallback certificates for all key types requested in MDPrivateKeys
+ * Update /.httpd/certificate-status to correctly handle multiple keys
+
 v2.3.0 (BETA)
 ----------------------------------------------------------------------------------------------------
  * MDPrivateKeys checks for duplicate key specifications. There can only be one RSA key
