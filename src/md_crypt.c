@@ -1194,10 +1194,12 @@ apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t 
     STACK_OF(GENERAL_NAME) *xalt_names;
     unsigned char *buf;
     int i;
-    
+
     xalt_names = X509_get_ext_d2i(cert->x509, NID_subject_alt_name, NULL, NULL);
     if (xalt_names) {
         GENERAL_NAME *cval;
+        const unsigned char *ip;
+        int len;
         
         names = apr_array_make(p, sk_GENERAL_NAME_num(xalt_names), sizeof(char *));
         for (i = 0; i < sk_GENERAL_NAME_num(xalt_names); ++i) {
@@ -1205,10 +1207,27 @@ apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t 
             switch (cval->type) {
                 case GEN_DNS:
                 case GEN_URI:
-                case GEN_IPADD:
                     ASN1_STRING_to_UTF8(&buf, cval->d.ia5);
                     APR_ARRAY_PUSH(names, const char *) = apr_pstrdup(p, (char*)buf);
                     OPENSSL_free(buf);
+                    break;
+                case GEN_IPADD:
+                    len = ASN1_STRING_length(cval->d.iPAddress);
+                    ip = ASN1_STRING_get0_data(cval->d.iPAddress);
+                    if (len ==  4)      /* IPv4 address */
+                        APR_ARRAY_PUSH(names, const char *) = apr_psprintf(p, "%u.%u.%u.%u",
+                                                                           ip[0], ip[1], ip[2], ip[3]);
+                    else if (len == 16) /* IPv6 address */
+                        APR_ARRAY_PUSH(names, const char *) = apr_psprintf(p, "%02x%02x%02x%02x:"
+                                                                              "%02x%02x%02x%02x:"
+                                                                              "%02x%02x%02x%02x:"
+                                                                              "%02x%02x%02x%02x",
+                                                                           ip[0],  ip[1],  ip[2],  ip[3],
+                                                                           ip[4],  ip[5],  ip[6],  ip[7],
+                                                                           ip[8],  ip[9],  ip[10], ip[11],
+                                                                           ip[12], ip[13], ip[14], ip[15]);
+                    else
+                        ; /* Unknown address type - Log?  Assert? */
                     break;
                 default:
                     break;
