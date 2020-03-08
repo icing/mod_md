@@ -1,0 +1,15 @@
+These are the changes to the standard SeLinux policies
+necessitated by mod_md as of Fedora 31 (and other distros).
+
+To install (recent Fedora):
+in the directory:
+checkmodule -m mod_md.te -o mod_md.mod
+semodule_package -m mod_md.mod -o mod_md.pp
+semodule -i mod_md.pp
+
+For older versions, replicy the "module" line with:
+policy_module(mod_md, 0.1.1)
+Link Makefile to  /usr/share/selinux/devel/Makefile
+and run make load
+
+For other distros, check their documentation.
