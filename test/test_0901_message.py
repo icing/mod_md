@@ -99,8 +99,9 @@ class TestMessage:
         assert stat["renewal"]["log"]["entries"]
         assert stat["renewal"]["log"]["entries"][0]["type"] == "message-renewed"
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
+        assert 2 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert ("MD_STORE=%s" % (TestEnv.STORE_DIR)) == nlines[1].strip()
 
     # test issue #145: 
     # - a server renews a valid certificate and is not restarted when recommended
@@ -136,9 +137,10 @@ class TestMessage:
         time.sleep(3);
         stat = TestEnv.get_md_status(domain)
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
+        assert 2 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
-
+        assert ("MD_STORE=%s" % (TestEnv.STORE_DIR)) == nlines[1].strip()
+    
     def test_901_010(self):
         # MD with static cert files, lifetime in renewal window, no message about renewal
         domain = self.test_domain
@@ -187,13 +189,14 @@ class TestMessage:
         assert TestEnv.apache_restart() == 0
         time.sleep(1)
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
+        assert 2 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert ("MD_STORE=%s" % (TestEnv.STORE_DIR)) == nlines[1].strip()
         # check that we do not get it resend right away again
         assert TestEnv.apache_restart() == 0
         time.sleep(1)
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
+        assert 2 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
 
     # MD, check messages from stapling
@@ -214,10 +217,10 @@ class TestMessage:
         assert os.path.isfile(self.mlog)
         nlines = open(self.mlog).readlines()
         # since v2.1.10, the 'installed' message is second in log
-        assert 3 == len(nlines)
+        assert 6 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
-        assert ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1].strip()
-        assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[2].strip()
+        assert ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[2].strip()
+        assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[4].strip()
 
 
     # test: while testing gh issue #146, it was noted that a failed renew notification never
@@ -264,7 +267,7 @@ class TestMessage:
         time.sleep(5)
         # we see the notification logged by the command
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
+        assert 2 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
         # the error needs to be gone
         with open(TestEnv.store_staged_file( domain, 'job.json')) as f:
