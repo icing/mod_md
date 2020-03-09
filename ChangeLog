@@ -1,9 +1,10 @@
 V2.3.next
 ----------------------------------------------------------------------------------------------------
- * Add key usage extensions to fallback certificates; correct other extensions
- * Correct decoding of IP addresses in certificates
- * Add contrib directory
- * Add SeLinux policy changes necessary for mod_md in contrib/selinux
+ * Added key usage extensions to fallback certificates; correct other extensions.
+ * Corrected decoding of IP addresses in certificates.
+ * Added contrib directory.
+ * Added SeLinux policy changes necessary for mod_md in contrib/selinux.
+ * Added value of MDStoreDir to arguments passed to MDMessageCmd programs.
 
 V2.3.1 (BETA)
 ----------------------------------------------------------------------------------------------------
