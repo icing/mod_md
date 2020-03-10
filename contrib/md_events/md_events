@@ -1,0 +1,940 @@
+#!/bin/bash
+
+# Copyright (C) 2020 Timothe Litt, litt _at__ acm ddot org
+#
+# Handle events triggered by Apache httpd's mod_md
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+VERSION="0.0.1"
+
+SELF="$(basename $0)"
+
+export INITIAL_UMASK="umask $(umask -S)"
+export SAFE_UMASK="umask u=rw,g=r,o="
+export WWW_UMASK="umask u=rw,g=r,o=r"
+
+export E_OK=0 E_FAILED=1 E_RETRY=2
+
+EVENT=
+BINDIR="/usr/local/sbin"
+
+# Under SeLinux, invoked in context system_u:system_r:httpd_t:s0
+# User/Group are httpd's except for the 'installed' event, which
+# runs as 'root'.
+#
+# Any output to stderr is logged at "info" level to the httpd error log
+
+LOG=
+#LOG="/var/log/httpd/md_events.log"
+
+function info() {
+    echo "$*"
+    [ -n "$LOG" ] && echo "$*" >>$LOG
+    return 0
+}
+function debug() {
+    if [ -n "$DEBUG" ]; then
+        echo "$*"
+        [ -n "$LOG" ] && echo "$*" >>$LOG
+    fi
+    return 0
+}
+function error() {
+    local rv="$1"
+    shift
+    echo "$*" >&2
+    [ -n "$LOG" ] && echo "$*" >>$LOG
+    exit $rv
+}
+
+# Try to find httpd
+
+if ! which httpd >/dev/null 2>&1; then
+    export PATH="/usr/local/sbin:/sbin:/usr/local/bin:/usr/bin:$PATH"
+    if ! which httpd >/dev/null 2>&1; then
+        error $E_FAILED "Can't find httpd - please ensure it is in PATH"
+    fi
+fi
+
+# Default config file to md_events.conf in (default) ServerRoot
+HTTPD_ROOT="$(httpd -V | sed -ne 's/^ *-D HTTPD_ROOT="\([^\"]*\)"/\1/p;')"
+if ! [ -n "$HTTPD_ROOT" ]; then
+    error $E_FAILED "Can't find httpd - please ensure it is in PATH"
+fi
+
+CFG="$HTTPD_ROOT/md_events.conf"
+CFGS=
+
+# HTTPD's (default) config file
+HTTPD_CFG="$HTTPD_ROOT/$(httpd -V | sed -ne 's/^ *-D  -D SERVER_CONFIG_FILE="\([^\"]*\)"/\1/p;')/"
+
+function usage() {
+    cat <<EOF
+$SELF - Handler for mod_md's MDMessageCmd
+
+Usage: $SELF [-h -H: I -i: -c: -d -L: -l -m: -r: -u:] event domain [data...]
+V$VERSION
+
+Options:
+ h            Usage
+ H:string     A user-defined string that can identify an HTTPD instance
+ I            Install, placing executable in $BINDIR
+ i: path      Install, placing executable in path
+ l            When installing, link to file (rather than copy) Apache currently rejects.
+ L:file       Log all output to file
+ m:event      Send mail when event occurs. (Can specify more than once or use "all".)
+ c: path      Configuration file name (${CFG}
+ d            Enable debugging messages
+ r: path      Root directory for per-domain configurations
+ u:user@dom   Mail selected notifications to user@dom (webmaster@\$domain)
+
+ events are: all, renewwed, installed, expiring, errored, ocsp-renewed, ocsp-errored
+
+To install or update md_events, use
+  $SELF -I or -i
+  Applicable options: l c r u
+  Creates configuration file (-c), sample domain configuration (example.net.conf in -r)
+  -r is recorded in the configuration file.
+
+To configure httpd:
+  In httpd configuration, add MDMessageCmd [-HLmc] $BINDIR/$SELF to the mod_md configuration.
+    -m expiring is recommended.  Other events may depend on circumstance.
+    -H is optional. It can be used to distinguish multiple instances of httpd without
+       requiring separate configuration files.
+    -c is required if md_events.conf is not in the DEFAULT ServerRoot
+    -L -u are optional - if permanent, can be in md_events.conf.
+
+To configure md_events:
+ Mmodify md_events.conf if needed - see the comments.
+
+To configure for a managed domain:
+  The default action is to send mail (per -m).  Nothing more is required.
+
+  If you want customized actions for a domain:
+    Copy the sample domain configuration to yourdomain.conf.
+    Enable one or more of the event handlers, and/or write your own.
+    For the "installed" event, you can use the public functions to copy files for
+    other applications, create separate or combined files, and/or restart applications.
+    You can customize or suppress e-mail by modifying the MESSAGE variable.
+
+Bug reports/issues to https://github.com/tlhackque/mod_md
+EOF
+
+    exit $E_OK;
+}
+
+# Command arguments
+
+EVENT=
+DEBUG=
+HTTPD=
+LINK=
+MAIL=
+MAILTO=
+
+while getopts "hH:Ii:lm:c:dr:u:" opt; do
+    case "$opt" in
+        c)
+            CFG="$OPTARG"
+            ;;
+        d)
+            DEBUG="true"
+            ;;
+        H)
+            HTTPD="$OPTARG"
+            ;;
+        I)
+            EVENT="_install"
+            ;;
+        i)
+            BINDIR="$OPTARG"
+            EVENT="_install"
+            ;;
+        l)
+            LINK="true"
+            ;;
+        m)
+            MAIL="$MAIL $OPTARG"
+            ;;
+        r)
+            CFGS="$OPTARG"
+            ;;
+        u)
+            MAILTO="$OPTARG"
+            ;;
+        h)
+            usage
+            ;;
+        *)
+            error $E_FAILED "$SELF -h for usage"
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+# Note: any "optional arguments" included in the MDMessageCmd directive that
+# are not parsed by getopt will be before EVENT, DOMAIN, and MD_STORE
+
+[ -z "$EVENT" ] && EVENT="$1"
+DOMAIN="$2"
+shift 2
+export -a DATA=("$@")
+
+# Environment variables passed from mod_md
+
+[ -z "$MD_STORE" ] && MD_STORE="$HTTPD_ROOT/md"
+export MD_VERSION
+
+# Get existing configuration before applying defaults.
+
+[ -f "$CFG" ] && . "$CFG" "$HTTPD"
+
+if [ -z "$CFGS" ]; then
+    # Domain configs are usually in <the config basename> .d/
+    CFGS="$(dirname "$CFG")/$(basename "$CFG" ".conf").d"
+fi
+
+# Set NOTIFY if current event was included in -m
+
+NOTIFY=
+for ACT in $MAIL; do
+    if [ "$ACT" == "$EVENT" -o "$ACT" == "all" ]; then
+       NOTIFY="true"
+       break
+    fi
+done
+unset ACT
+
+[ -z "$MAILTO" ] && MAILTO="webmaster@$DOMAIN"
+
+# Handle install
+
+if [ "$EVENT" == "_install" ]; then
+    if ! [ -d "$BINDIR" ]; then
+        error $E_FAILED "Install: $BINDIR does not exist"
+    fi
+    if [ -n "$LINK" ]; then
+        if ln -sf "$(readlink -e $0)" $BINDIR/ && chown root.root $BINDIR/$SELF; then
+            info "Installed executable in $BINDIR"
+        else
+            error $E_FAILED "Failed to install executable"
+        fi
+    else
+        rm -f "$BINDIR/$SELF"
+        if cp -p "$0" $BINDIR/ && chown root.root $BINDIR/$SELF; then
+            info "Installed executable in $BINDIR"
+        else
+            error $E_FAILED "Failed to install executable"
+        fi
+    fi
+    fname="$CFG"
+    [ -f "$fname" ] && fname="${fname}.new"
+    cat >"$fname" <<EOF
+# Sample configuration file for md_events
+#
+# Place the MDMessageCMD $BINDIR/$SELF directive in the httpd configuration
+# (default: $HTTPD_CFG)
+#
+# An HTTPD instance string, if specified with -H, will be \$1
+#
+# Note that many of these variables can be set by options on the command
+# line.  To ensure the command line has precedence, those are [ -z "\$foo" ] && export foo=
+#
+# Directory containing per-domain configuration (-r)
+[ -z "$CFGS" ] && export CFGS="$CFGS"
+#
+# PATH needed for commands
+# export PATH="/usr/local/sbin:/usr/local/bin:\$PATH"
+#
+# Global Debugging (-d)
+# [ -z "$DEBUG" ] && export DEBUG=true
+#
+# Global MAILTO (-u)
+# [ -z "$MAILTO" ] && export MAILTO=me@example.net
+#
+# Logging (-L)
+# [ -z "$LOG" ] && export LOG="/var/log/httpd/md_events.log"
+#
+# Mail event notifications - space delimited list, or "all" (-m)
+# [ -z "$MAIL" ] && export MAIL="all"
+#
+# UMASK for sensitive files (e.g. keys, passwords)
+# export SAFE_UMASK="umask u=rw,g=r,o="
+#
+# UMASK for www-served files (e.g. tokens)
+# export WWW_UMASK="umask u=rw,g=r,o=r"
+#
+# Do NOT exit - this is a sourced script
+EOF
+    if [ "$?" == "0" ]; then
+        info "Created $CFG with defaults, please review"
+    fi
+
+    if ! [ -d "$CFGS" ]; then
+        if ! md="$(mkdir -pv "$CFGS")" ; then
+            error $E_FAILED "mkdir $CFGS failed: $?"
+        fi
+        [ -n "$md" ] && info "$md"
+    fi
+
+    fname="$CFGS/example.net.conf"
+    [ -f "$fname" ] && fname="${fname}.new"
+
+    # May contain passwords (not recommended), but is out
+    # of httpd content tree.
+    $SAFE_UMASK
+    cat >"$fname" <<EOFEOF
+# Sample configuration file for example.net
+#
+# An HTTPD instance string, if specified with -H, will be \$1
+#
+# Customize a copy of this file for each managed domain, and
+# place it in $CFGS named <domain_name>.conf
+EOFEOF
+        cat >>"$fname" <<'EOFEOF'
+#
+# A function is defined here for any event that is to be handled.
+#
+# The events are exactly the "reason" strings defined for MDMessageCmd.
+# The corresponding function is "${reason}_handler", with any "-" in the
+# reason string replaced with "_".
+#
+# On entry, the following variables are defined and (some) can be modified:
+# DOMAIN   - the domain name that triggered the event
+# EVENT   - the unmodified "reason" string
+# DATA     - an array containg any additional data
+# MD_STORE - the path to the mod_md data store (directory).
+#            $MD_STORE/$WHERE./$DOMAIN/*.pem will be the certificate(s) and key(s).
+# WHERE    - the MD_STORE location of the certificates affected by the event.
+# VERSION  - the version of md_events
+# MAILTO   - e-mail address used for mail (set to -u or webmaster@$DOMAIN)
+# NOTIFY   - set to "true" if MDMessageCmd -m included this event.
+# SUBJECT  - subject for an e-mail about this event.
+# MESSAGE  - body for a generic description of this event
+# TDIR     - a temporary directory
+# INITIAL_UMASK - a umask command to restore umask
+# SAFE_UMASK    - a umask command to set umask for sensitive files
+# WWW_UMASK     - a umask command to set umask for httpd-served files
+# -------  - The following are only present for corresponding events.
+# CERTS    - Full path to each certificate installed/staged for $DOMAIN
+# KEYS     - Full path to each private key installed/staged for $DOMAIN
+# TYPES    - A list of the certificate types (rsa, p-256, ...)
+#
+EOFEOF
+        cat >>"$fname" <<EOFEOF
+# Additional variables from $CFG are also defined
+EOFEOF
+        cat >>"$fname" <<'EOFEOF'
+#
+# MESSAGE is only set if MDMessageCmd -m included this event.
+# If MESSAGE is set on return, an e-mail containing it will be sent.
+#
+# The function "info" will write a message to stdout.
+# The function "debug" will write a message to stderr if -d was specified
+# The function "error" will write a message to stderr and exit.
+#
+# If a handler returns non-zero (or exits), mod_md may retry.
+#
+# The following functions are available for common operations:
+# copy_file_to $description $from $to [$owner]
+#   $description is for messages.  $from is a local filename.
+#   $to can be any of (including a list separated by ';':
+#       scp:user@server.example.net:/where_to_put
+#       sftp:user:password:ftp.example.net:/where_to_put
+#       ftp:user:password:ftp.example.net:/where_to_put
+#       /where_to_put (local filespec)
+# delete_file_from $description $file
+#   $file takes any of the forms noted above for copy_file_to
+#
+#   ftp is NOT recommended since it does not use encryption
+#   sftp requires the `sshpass` utility
+#   scp is a better choice than either ftp since with its public key
+#   authentication, no password is required in this file.
+# get_leaf_chain_certs - extracts all certificates from stdin
+# create_leaf_chain_certs $dir file [file...] - creates PEM file(s) containing leaf & any
+#                                               intermediate certificates in $dir
+# get_leaf_cert - extracts the first (leaf) certificate from stdin
+# create_leaf_pem $dir file [file...]
+# get_chain_cert - extracts all BUT the first certificate from stdin
+# create_chain_pem $dir file [file...]
+# get_key_and_cert $certfile - combines private key with leaf from stdin
+# create_key_and_cert_pem $dir file [file...]
+# get_all_in_1 $certfile - combines private key with leaf and intermediate certificates() from stdin
+# create_all_in_1_pem $dir file [file...]
+#
+# The 'create' versions create one file in $dir for each input file.
+#
+# write_http_token_to $description $token $keyauth $to
+#  Stores a token value  inthe specified file.  $to as above
+#
+# reload_service $cmd
+#  If $cmd is prefixed by "ssh:server:", it is executed remotely, otherwise locally
+#  Use to activate a new certificate (or perform other housekeeping)
+
+# Sample handlers for interesting events
+
+#
+# Sample handler for the "installed" event
+#
+www_owner="apache:apache"
+
+function installed_handler() {
+    # Create all the variant .PEM files
+
+    create_leaf_pem          "$TDIR" "$CERTS"
+    create_chain_pem         "$TDIR" "$CERTS"
+    create_leaf_chain_pem    "$TDIR" "$CERTS"
+    create_key_and_cert_pem  "$TDIR" "$CERTS"
+    create_all_in_1_pem      "$TDIR" "$CERTS"
+
+    # Copy them to your servers from $TDIR
+    # Select whatever your clients need:
+    #  leaf{.type}.pem
+    #  leaf_chain{.type}.pem
+    #  chain{.type}.pem
+    #  key_chain{.type}.pem
+    #  allin1{.type}.pem
+
+    mkdir -v  -p /root/demo{1,2}/certs
+    myserver="/root/demo1/certs;scp:localhost:/root/demo2/certs"
+
+    for F in $TDIR/allin1*.pem; do
+        copy_file_to "Combo file for server" "$F" "$myserver"
+    done
+    for F in $KEYS; do
+        copy_file_to "Private keys for server" "$F" "$myserver"
+    done
+
+    # You can modify the standard message - here with debugging information
+
+    MESSAGE="$(cat <<EOF
+$MESSAGE
+Types: $TYPES
+Certs: $CERTS
+Keys : $KEYS
+Dir  : $TDIR
+`ls -l $TDIR; find /root/demo* -ls`
+EOF
+)"
+    
+    MAILTO=root
+    return $E_OK
+}
+export -f installed_handler
+
+# http-01 challenges for remote hosts
+
+mkdir -v -p /root/demo{1,2}/.wellknown/acme-challenge
+chown -R $www_owner /root/demo{1,2}
+
+function setup_http_01_handler() {
+    local token="${DATA[0]}" keyauth="${DATA[1]}"
+
+    write_http_token_to "http-01 token for $DOMAIN" "$token" "$keyauth" \
+      "/root/demo1/.wellknown/acme-challenge/$token;scp:localhost:/root/demo2/.wellknown/acme-challenge/$token"
+}
+export -f setup_http_01_handler
+
+function teardown_http_01_handler() {
+    local token="${DATA[0]}"
+
+    delete_file_from "http-01 token for $DOMAIN" \
+      "/root/demo1/.wellknown/acme-challenge/$token;ssh:localhost:/root/demo2/.wellknown/acme-challenge/$token"
+
+    return $E_OK
+}
+export -f teardown_http_01_handler
+
+# Simplest form of DNS updates
+# This assumes UPDATE is supported, authorization is by IP address
+#
+# nsupdate_options="-k tsig_key.123+42123,private"
+# You may need "server" and/or "local" commands if nsupdate doesn't default them.
+
+function setup_handler() {
+    local keyauth="${DATA[0]}"
+
+    # Note: Blank line is "send" to nsupdate
+    nsupdate $nsupdate_options <<EOF
+update add _acme-challenge.${DOMAIN}. 300 in TXT "${keyauth}"
+
+EOF
+}
+
+function teardown_handler() {
+
+    nsupdate $nsupdate_options <<EOF
+update delete _acme-challenge.${DOMAIN} TXT
+
+EOF
+}
+
+# Wrapper functions for getssl ( https://github.com/srvrco/getssl ) DNS Update scripts
+#
+# Use these instead of the above if your provider is in the getssl library
+#
+# Depending on the provider, you may need to define variables for API credentials.
+# Thy may also depend on other scripts.  See each script for its requirements.
+#
+# dns_scripts="/usr/local/sbin/getssl/dns_scripts"
+# dns_provider="nsupdate" or "godaddy", "cloudflare", "dnspod", "linode", "ovh", ...
+# At this writing, there are scripts for about a dozen providers there.
+
+function xx_setup_handler() {
+    local keyauth="${DATA[0]}"
+
+    $dns_scripts/dns_add_${provider} "$DOMAIN" "$keyauth"
+    return $?
+}
+function xx_teardown_handler() {
+    local keyauth="${DATA[0]}"
+
+    # NOTE: These expect the token to be deleted - requires a mod_md change
+
+    $dns_scripts/dns_del_${provider} "$DOMAIN" "$keyauth"
+    return $?
+}
+
+# Do NOT exit - this is a sourced script
+EOFEOF
+        $INITIAL_UMASK
+        info "Installed sample domain configuration in $fname"
+    fi
+    info "Installation complete, update the httpd configuration (usually $HTTPD_CFG)"
+    exit $E_OK
+fi
+
+if [ -z "$EVENT" -o -z "$DOMAIN" ]; then
+    error $E_FAILED "Unless installing, event and domain parameters are required"
+fi
+
+export EVENT DOMAIN MD_STORE DEBUG LOG CFG CFGS NOTIFY VERSION HTTPD_ROOT HTTPD_CFG
+export -f info debug error
+
+SUBJECT=
+MESSAGE=
+export SUBJECT MESSAGE
+
+export WHERE=
+case "$EVENT" in
+    "renewed")
+        SUBJECT="renewed $DOMAIN certificate"
+        MESSAGE="Your Apache renewed the certificate for '$DOMAIN'. It will become active after a server reload."
+        WHERE="staging"
+        ;;
+    "installed")
+        SUBJECT="installed $DOMAIN certificate"
+        MESSAGE="Your Apache installed the certificate for '$DOMAIN'. It is now active."
+        WHERE="domains"
+        ;;
+    "expiring")
+        SUBJECT="expiring $DOMAIN certificate"
+        MESSAGE="Your Apache reports that the certificate for '$DOMAIN' will soon expire."
+        ;;
+    "errored")
+        SUBJECT="error renewing $DOMAIN certificate"
+        MESSAGE="There was an error renewing the certificate for '$DOMAIN'. Apache will continue trying. Please check the md-status reso
+urces or the server log for more information should this repeat."
+        ;;
+    "ocsp-renewed")
+        SUBJECT="refreshed OCSP stapling for $DOMAIN"
+        MESSAGE="The OCSP stapling information for '$DOMAIN' was successfully refreshed."
+        ;;
+    "ocsp-errored")
+        SUBJECT="error refreshing OCSP stapling for $DOMAIN"
+        MESSAGE="The was an error refreshing the OCSP stapling information for '$DOMAIN'. Apache will continue trying. Please check the
+md-status resources or the server log for more information should this repeat."
+        ;;
+    "setup")
+        ;;
+    "teardown")
+        ;;
+    "setup-http-01")
+        ;;
+    "teardown-http-01")
+        ;;
+    *)
+        SUBJECT="unknown event in MD message"
+        MESSAGE="Your Apache reported event '$EVENT' for domain '$DOMAIN'."
+        ;;
+esac
+[ -z "$NOTIFY" ] && MESSAGE=
+
+# Public functions
+
+# copies a file, using scp, sftp or ftp if required.
+#
+# SSH/sftp - use certificate (key file) authentication
+# copy_file_to "thisfile" /foo/here/file scp:luser@foo.example.net:/there/dir;scp:...
+#
+# copy_file_to "thisfile" /foo/here/file {s,}ftp:luser:pass:ftp.example.net:/there/dir
+#
+# copy_file_to "thisfile" /foo/here/file /etc/pki/tls/certs/
+
+function copy_file_to() {
+  local desc="$1"   # descriptive name, used for display
+  local from="$2"   # current file location
+  local to="$3"     # location(s) to move file to, separated by ';'
+  local owner="$4"  # remote file owner
+
+  local -a dests
+  IFS=\; read -r -a dests <<< "$to"
+  for to in "${dests[@]}"; do
+      info "copying $desc to $to"
+      debug "copying from $from to $to"
+      if [[ "${to:0:4}" == "scp:" ]] ; then
+          debug "using scp scp -q $from ${to:4}"
+          if ! scp -q -p "$from" "${to:4}" >/dev/null 2>&1 ; then
+              error E_RETRY "scp copy failed :$(scp -p "$from" "${to:4}" 2>&1)"
+          fi
+          if [ -n "$owner" ]; then
+              local servername="$(awk -F":" '{print $2}' <<< "$to")"
+              local tofile="$(awk -F":" '{print $3}' <<< "$to")"
+              debug "servername $servername"
+              debug "file $tofile"
+              ssh "$servername" "chown $owner $tofile"
+          fi
+      elif [[ "${to:0:5}" == "sftp:" ]] ; then
+          debug "using sftp to copy the file from $from"
+          ftpuser=$(awk -F: '{print $2}' <<< "$to")
+          ftppass=$(awk -F: '{print $3}' <<< "$to")
+          ftphost=$(awk -F: '{print $4}' <<< "$to")
+          ftplocn=$(awk -F: '{print $5}' <<< "$to")
+          ftpdirn=$(dirname "$ftplocn")
+          ftpfile=$(basename "$ftplocn")
+          fromdir=$(dirname "$from")
+          fromfile=$(basename "$from")
+          debug "sftp user=$ftpuser - pass=$ftppass - host=$ftphost dir=$ftpdirn file=$ftpfile"
+          debug "from dir=$fromdir  file=$fromfile"
+          sshpass -p "$ftppass" sftp "$ftpuser@$ftphost" <<_EOF
+cd $ftpdirn
+lcd $fromdir
+put $fromfile
+_EOF
+      elif [[ "${to:0:4}" == "ftp:" ]] ; then
+          # FTP is a bad choice
+          debug "using ftp to copy the file from $from"
+          local ftpuser="$(awk -F: '{print $2}' <<< "$to")"
+          local ftppass="$(awk -F: '{print $3}'<<< "$to")"
+          local ftphost="$(awk -F: '{print $4}'<<< "$to")"
+          local ftplocn="$(awk -F: '{print $5}'<<< "$to")"
+          local ftpdirn="$(dirname "$ftplocn")"
+          local ftpfile="$(basename "$ftplocn")"
+          local fromdir="$(dirname "$from")"
+          local fromfile="$(basename "$from")"
+          debug "ftp user=$ftpuser - pass=$ftppass - host=$ftphost dir=$ftpdirn file=$ftpfile"
+          debug "from dir=$fromdir  file=$fromfile"
+          ftp -n <<_EOF
+open $ftphost
+user $ftpuser $ftppass
+cd $ftpdirn
+lcd $fromdir
+put $fromfile
+_EOF
+      else # local file
+          if ! mkdir -p "$(dirname "$to")" ; then
+              error E_RETRY "cannot create directory $(basename "$to")"
+          fi
+          [ -f "$to" ] && rm -f "$to"
+          if ! cp -p "$from" "$to" ; then
+              error E_RETRY "cannot copy $from to $to"
+          fi
+          if [ -n "$owner" ]; then
+              chown "$owner" "$to"
+          fi
+      fi
+      debug "copied $from to $to"
+  done
+  return $E_OK
+}
+export -f copy_file_to
+
+# Delete a file
+# As copy_file to, except "ssh:" replaces "scp:"
+
+function delete_file_from() {
+  local desc="$1"   # descriptive name, used for display
+  local file="$2"   # files to remove separated by ';'
+
+  local -a files
+  IFS=\; read -r -a files <<< "$file"
+  for file in "${files[@]}"; do
+      info "deleting $desc $file"
+      if [[ "${file:0:4}" == "ssh:" ]] ; then
+          debug "using ssh rm ${file:4}"
+          local servername="$(awk -F":" '{print $2}' <<< "$file")"
+          local rfile="$(awk -F":" '{print $3}' <<< "$file")"
+          [ "$rfile" = '/' -o "${#rfile}" -lt 5 ] && error $FAILED "Bad delete: $file"
+          local cmd="rm -f $rfile"
+          debug "$servername $cmd"
+          ssh "$servername" "$cmd" >/dev/null 2>&1
+      elif [[ "${file:0:5}" == "sftp:" ]] ; then
+          debug "using sftp to delete $file"
+          ftpuser=$(awk -F: '{print $2}' <<< "$file")
+          ftppass=$(awk -F: '{print $3}' <<< "$file")
+          ftphost=$(awk -F: '{print $4}' <<< "$file")
+          ftplocn=$(awk -F: '{print $5}' <<< "$file")
+          ftpdirn=$(dirname "$ftplocn")
+          ftpfile=$(basename "$ftplocn")
+          debug "sftp user=$ftpuser - pass=$ftppass - host=$ftphost dir=$ftpdirn file=$ftpfile"
+          sshpass -p "$ftppass" sftp "$ftpuser@$ftphost" <<_EOF
+cd $ftpdirn
+rm $ftpfile
+_EOF
+      elif [[ "${file:0:4}" == "ftp:" ]] ; then
+          # FTP is a bad choice
+          debug "using ftp to delete $file"
+          local ftpuser="$(awk -F: '{print $2}' <<< "$file")"
+          local ftppass="$(awk -F: '{print $3}'<<< "$file")"
+          local ftphost="$(awk -F: '{print $4}'<<< "$file")"
+          local ftplocn="$(awk -F: '{print $5}'<<< "$file")"
+          local ftpdirn="$(dirname "$ftplocn")"
+          local ftpfile="$(basename "$ftplocn")"
+          debug "ftp user=$ftpuser - pass=$ftppass - host=$ftphost dir=$ftpdirn file=$ftpfile"
+          ftp -n <<_EOF
+open $ftphost
+user $ftpuser $ftppass
+cd $ftpdirn
+delete $ftpfile
+_EOF
+      else # local file
+          rm -f $file
+      fi
+      debug "deleted $file"
+  done
+}
+export -f delete_file_from
+
+# Write an http-01 token to one or more storage locations
+# As copy_file_to
+
+function write_http_token_to() {
+    local desc="$1"
+    local token="$2"
+    local keyauth="$3"
+    local to="$4"
+
+    info "Saving $desc"
+    $WWW_UMASK
+    cat >$TDIR/$token <<< "$keyauth"
+    $INITIAL_UMASK
+    chmod $(cut -d' ' -f2 <<< "$WWW_UMASK") $TDIR/$token
+    copy_file_to "$desc" "$TDIR/$token" "$to" "$www_owner"
+}
+export -f write_http_token_to
+
+# Functions to create common variants of PEM files
+#  Some consumers want leaf and intermediate certificates in separate files.
+#  Others want key & certificate(s) in one file.  And so it goes.
+# These also remove anything in the files that is not certificate data.
+#
+# The mod_md files contain (in order) the leaf certificate & the intermediate certificate(s)
+#
+# Stream functions (get_*):
+#   Put certificate file on stdin, result on stdout
+#   Functions needing keys get the certificate filespec as an argument
+# File functions (create_*):
+#
+#   Pass output directory, list of certificate filenames
+
+# Extract leaf and chain certificates
+
+function get_leaf_chain_certs() {
+    sed -ne'/^-----BEGIN.*CERTIFICATE-----$/,/^-----END.*CERTIFICATE-----$/p'
+}
+
+# Create .PEM files of leaf & chain certificates - leaf_chain.type.pem
+
+function create_leaf_chain_pem() {
+    local DIR="$1"
+    shift
+    local F
+    for F in $@; do
+        local OF="$(basename $F)"
+        get_leaf_chain_certs <"$F" >"$DIR/leaf_chain${OF:7}"
+    done
+}
+
+export -f get_leaf_chain_certs create_leaf_chain_pem
+
+# Extract just a leaf certificate
+#  Everything up to the first END
+
+function get_leaf_cert() {
+    get_leaf_chain_certs | sed -ne'1,/^-----END.* CERTIFICATE-----$/p'
+}
+
+# Create .PEM files of leaf certificates - leaf.type.pem
+
+function create_leaf_pem() {
+    local DIR="$1"
+    shift
+    local F
+    for F in $@; do
+        local OF="$(basename $F)"
+        get_leaf_cert <"$F" >"$DIR/leaf${OF:7}"
+    done
+}
+export -f get_leaf_cert create_leaf_pem
+
+# Extract chain (non-leaf) certificate(s)
+#  Everything after the first END
+
+function get_chain_cert() {
+    get_leaf_chain_certs | sed -e'1,/^-----END.* CERTIFICATE-----$/d'
+}
+
+# Create .PEM files of chain certificates - chain.type.pem
+
+function create_chain_pem() {
+    local DIR="$1"
+    shift
+    local F
+    for F in $@; do
+        local OF="$(basename $F)"
+        get_chain_cert <"$F" >"$DIR/chain${OF:7}"
+    done    
+}
+export -f create_chain_pem create_chain_pem
+
+# Create leaf key and certificate file
+# $1 full path of certificate file
+
+function get_key_and_cert() {
+    local certname="$(basename "$1")"
+
+    local keyname="$(sed -e's/pubcert\./privkey./' <<< "$certname")"
+    cat "$(dirname "$1")/$keyname"
+    get_leaf_cert
+}
+
+# Create .PEM key and certificate files - key_chain.type.pem
+
+function create_key_and_cert_pem() {
+    local DIR="$1"
+    shift
+    local F
+    $SAFE_UMASK
+    for F in $@; do
+        local OF="$(basename $F)"
+        get_key_and_cert "$F" <"$F" >"$DIR/key_chain${OF:7}"
+    done
+    $INITIAL_UMASK
+}
+export -f get_key_and_cert create_key_and_cert_pem
+
+# Create all-in-1 file (key, chain)
+# $1 full path of certificate file
+
+function get_all_in_1() {
+    get_key_and_cert "$1"
+    get_chain_cert <"$1"
+}
+
+# Create .PEM all-in-1 files - allin1.type.pem
+
+function create_all_in_1_pem() {
+    local DIR="$1"
+    shift
+    local F
+    $SAFE_UMASK
+    for F in $@; do
+        local OF="$(basename $F)"
+        get_all_in_1 "$F" <"$F" >"$DIR/allin1${OF:7}"
+    done
+    $INITIAL_UMASK
+}
+export -f get_all_in_1 create_all_in_1_pem
+
+# Runs a command to reload services ( via ssh if needed)
+#  If command is prefixed with "ssh:", it will be executed remotely, e.g.
+#   "ssh:myserver.example.net:apachectl reload"
+#  Otherwise it is executed locally
+
+function reload_service() {
+    local cmd="$@"
+
+    info "reloading SSL services"
+    if [[ "${cmd:0:4}" == "ssh:" ]] ; then
+        local sshhost="$(awk -F: '{print $2}' <<< "$cmd")"
+        local command="${cmd:(( ${#sshhost} + 5))}"
+        debug "running following command to reload server"
+        debug "ssh $sshhost ${command}"
+        ssh "$sshhost" "${command}" >/dev/null 2>&1
+    else
+        debug "running reload command $cmd"
+        if ! eval "$cmd" ; then
+            error E_RETRY "error running $cmd"
+        fi
+    fi
+}
+export -f reload_service
+
+# Read domain configuration file
+
+if [ -f "$CFGS/${DOMAIN}.conf" ]; then
+    . "$CFGS/${DOMAIN}.conf" "$HTTPD"
+else
+    debug "Missing configuration file: $CFGS/${DOMAIN}.conf"
+fi
+
+if [ -n "$WHERE" ]; then
+    CERTS="$(find $MD_STORE/$WHERE/$DOMAIN -name 'pubcert*.pem' 2>/dev/null | tr '\n' ' ')"
+    KEYS="$(find $MD_STORE/$WHERE/$DOMAIN  -name 'privkey*.pem' 2>/dev/null | tr '\n' ' ')"
+    TYPES=
+    if [ -n "$CERTS" ]; then
+        for C in $CERTS; do
+            C="$(sed -e's/cert\.pem/cert.rsa.pem/' <<< "$C")"
+            C="$(basename "$C" ".pem" | sed -e's/pubcert\.//')"
+            TYPES="$TYPES $C"
+        done
+        unset C
+        TYPES="${TYPES:1}"
+    fi
+    export CERTS KEYS TYPES
+fi
+
+# Provide a temporary directory in case file variants required
+
+if ! export TDIR="$(mktemp -d)"; then
+    error E_RETRY "Can't create temporary directory"
+fi
+function md_cleanup() {
+    rm -rf $TDIR
+}
+trap md_cleanup INT TERM EXIT
+
+# Take action
+
+F="$(tr -- '-' '_' <<< "$EVENT")"
+
+if  declare -pF ${F}_handler >/dev/null 2>&1 ; then
+    if ! ${F}_handler; then # Tell mod_md to retry
+        RV="$?"
+        if [ -n "$MESSAGE" ]; then
+            mail -s "$SUBJECT" $MAILTO <<EOF
+$MESSAGE
+EOF
+        fi
+        exit $RV
+    fi
+fi
+
+if [ -n "$MESSAGE" ]; then
+    mail -s "$SUBJECT" $MAILTO <<EOF
+$MESSAGE
+EOF
+else
+    exit $E_OK
+fi

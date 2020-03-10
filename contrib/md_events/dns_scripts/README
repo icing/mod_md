@@ -1,0 +1,9 @@
+This directory is a snapshot of https://github.com/srvrco/getssl/dns_scripts
+
+It is provided AS-IS, subject to the licensing of https://github.com/srvrco/getssl.
+
+An interface is provided that MAY work with these scripts to install dns-01 challenge
+responses.  It is highly experimental at this time.  After installing md_events, read
+the example.net.conf description for details.
+
+While not supported, reports of success (or even failure) are welcome.
