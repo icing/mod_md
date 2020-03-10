@@ -152,13 +152,14 @@ static apr_status_t notify(md_job_t *job, const char *reason,
                            md_result_t *result, apr_pool_t *p, void *baton)
 {
     md_mod_conf_t *mc = baton;
-    const char * const *argv;
+    const char * const *argv, *s;
     const char *cmdline;
     int exit_code;
     apr_status_t rv = APR_SUCCESS;
     apr_time_t min_interim = 0;
     md_timeperiod_t since_last;
     const char *log_msg_reason;
+    apr_array_header_t *env;
     int i;
 
     log_msg_reason = apr_psprintf(p, "message-%s", reason);
@@ -177,11 +178,18 @@ static apr_status_t notify(md_job_t *job, const char *reason,
         }
     }
 
+    /* Lets give the executed commands some idea where to find things, in
+     * case they are interested. */
+    env = apr_array_make(p, 5, sizeof(char*));
+    s = ap_server_root_relative(p, mc->base_dir);
+    APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_STORE=%s", s);
+    APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_VERSION=%s", MOD_MD_VERSION);
+     
     if (!strcmp("renewed", reason)) {
         if (mc->notify_cmd) {
             cmdline = apr_psprintf(p, "%s %s", mc->notify_cmd, job->mdomain);
             apr_tokenize_to_argv(cmdline, (char***)&argv, p);
-            rv = md_util_exec(p, argv[0], argv, &exit_code);
+            rv = md_util_exec(p, argv[0], argv, env, &exit_code);
 
             if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
             if (APR_SUCCESS != rv) {
@@ -200,7 +208,7 @@ static apr_status_t notify(md_job_t *job, const char *reason,
     if (mc->message_cmd) {
         cmdline = apr_psprintf(p, "%s %s %s", mc->message_cmd, reason, job->mdomain);
         apr_tokenize_to_argv(cmdline, (char***)&argv, p);
-        rv = md_util_exec(p, argv[0], argv, &exit_code);
+        rv = md_util_exec(p, argv[0], argv, env, &exit_code);
 
         if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
         if (APR_SUCCESS != rv) {
