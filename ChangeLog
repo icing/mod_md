@@ -1,5 +1,7 @@
  * `MDNotifyCmd` and `MDMessageCmd` now get the environment variable `MD_STORE` containing
     the path to the storage directory.
+    Also `MD_VERSION` is added to the environment, containing the version plus an optional
+    `-variation`, e.g. `-git` indicator.
 
 V2.3.1 (BETA)
 ----------------------------------------------------------------------------------------------------
