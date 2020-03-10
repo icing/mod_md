@@ -1680,7 +1680,7 @@ Define a program to be called when the certificate of a Managed Domain has been 
 `MDMessageCmd <path to executable> <optional-args>`<BR/>
 Default: `none`
 
-Define a program to be called when something happened concerning a managed domain. The program is given the optional-args, reason,  the name of the MD, and the `MDStoreDir` as arguments. The program should return 0 to indicate that the message has been handled successfully. The reasons for which it may be called are:
+Define a program to be called when something happened concerning a managed domain. The program is given the optional-args, reason and the name of the MD as arguments. The program should return 0 to indicate that the message has been handled successfully. The reasons for which it may be called are:
 
  * `renewed`: the certificate for the managed domain has been renewed successfully. Should the command return != 0 for this reason, it will be called repeatedly until it does.
  * `installed`: the certificate for the managed domain has been installed at server startup/reload and is now used. Different to all other messages, this one is invoked  while the server is still root and has according privileges. (Hint: you may use this
@@ -1690,7 +1690,7 @@ Define a program to be called when something happened concerning a managed domai
  * `ocsp-renewed`: when MDStapling is enabled for a domain, this indicates that an OCSP response from the Certificate Authority has been updated successfully.
  * `ocsp-errored`: when MDStapling is enabled for a domain, this indicates that an error was encountered retrieveing the OCSP response from the Certificate Authority. `mod_md` will continue trying.
 
- The `reason`, `domain`, and `MDStoreDir` arguments are provided after any optional arguments; that is, they are currently the last two arguments.  Your program should recognize your optional arguments since a future `mod_md` might add additional arguments after `domain`.
+ The `reason` and `domain` arguments are provided after any optional arguments; that is, they are currently the last two arguments.  Your program should recognize your optional arguments since a future `mod_md` might add additional arguments after `domain`.
  
  The calls are rate limited. The successful renewal will only be called once, errrors will triggers this only once per hour. The warning on an expiring certificate will run only once per day.
 
@@ -1702,7 +1702,7 @@ MDMessageCmd /etc/apache/md-message fred
 and the Managed Domain `mydomain.com` was renewed, the program will be called with:
 
 ```
-/etc/apache/md-message fred renewed mydomain.com /etc/httpd/md
+/etc/apache/md-message fred renewed mydomain.com
 ```
 
 The program should not block, as `mod_md` will wait for it to finish. If the program wants more information, you could configure the `md-status` handler that hands out MD information in JSON format. See [the chapter about monitoring](#monitoring) for more details.

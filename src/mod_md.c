@@ -198,8 +198,7 @@ static apr_status_t notify(md_job_t *job, const char *reason,
                      "will be activated on next (graceful) server restart.", job->mdomain);
     }
     if (mc->message_cmd) {
-        cmdline = apr_psprintf(p, "%s %s %s \"%s\"", mc->message_cmd, reason, job->mdomain,
-                               ap_server_root_relative(p, mc->base_dir));
+        cmdline = apr_psprintf(p, "%s %s %s", mc->message_cmd, reason, job->mdomain);
         apr_tokenize_to_argv(cmdline, (char***)&argv, p);
         rv = md_util_exec(p, argv[0], argv, &exit_code);
 
