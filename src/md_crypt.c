@@ -525,11 +525,10 @@ const char *md_pkey_spec_name(const md_pkey_spec_t *spec)
         case MD_PKEY_TYPE_DEFAULT:
         case MD_PKEY_TYPE_RSA:
             return "rsa";
-            break;
         case MD_PKEY_TYPE_EC:
             return spec->params.ec.curve;
-            break;
     }
+    return "unknown";
 }
 
 int md_pkeys_spec_is_empty(const md_pkeys_spec_t *pks)
@@ -1226,8 +1225,9 @@ apr_status_t md_cert_get_alt_names(apr_array_header_t **pnames, const md_cert_t 
                                                                            ip[4],  ip[5],  ip[6],  ip[7],
                                                                            ip[8],  ip[9],  ip[10], ip[11],
                                                                            ip[12], ip[13], ip[14], ip[15]);
-                    else
+                    else {
                         ; /* Unknown address type - Log?  Assert? */
+                    }
                     break;
                 default:
                     break;

@@ -421,6 +421,9 @@ void  md_status_take_stock(md_json_t **pjson, apr_array_header_t *mds,
         ++total;
         switch (md->state) {
             case MD_S_COMPLETE: ++complete; /* fall through */
+#ifdef __GNUC__
+                __attribute__ ((fallthrough));
+#endif
             case MD_S_INCOMPLETE:
                 if (md_reg_should_renew(reg, md, p)) {
                     ++renewing;
