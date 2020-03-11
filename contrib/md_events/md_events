@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION="0.0.1"
+VERSION="0.0.2"
 
 SELF="$(basename $0)"
 
@@ -106,6 +106,7 @@ To install or update md_events, use
   Applicable options: l c r u
   Creates configuration file (-c), sample domain configuration (example.net.conf in -r)
   -r is recorded in the configuration file.
+  The installed version is smaller because it does not contain the installation code.
 
 To configure httpd:
   In httpd configuration, add MDMessageCmd [-HLmc] $BINDIR/$SELF to the mod_md configuration.
@@ -221,6 +222,7 @@ unset ACT
 # Handle install
 
 if [ "$EVENT" == "_install" ]; then
+#-----BEGIN INSTALL
     if ! [ -d "$BINDIR" ]; then
         error $E_FAILED "Install: $BINDIR does not exist"
     fi
@@ -232,7 +234,10 @@ if [ "$EVENT" == "_install" ]; then
         fi
     else
         rm -f "$BINDIR/$SELF"
-        if cp -p "$0" $BINDIR/ && chown root.root $BINDIR/$SELF; then
+        # if cp -p "$0" $BINDIR/ && chown root.root $BINDIR/$SELF; then
+        if sed -e'/^#-----BEGIN INSTALL$/,/^#-----END INSTALL$/d' "$0" >"$BINDIR/$SELF" &&
+            touch --reference=$0 $BINDIR/$SELF && chown root.root $BINDIR/$SELF &&
+            chmod u+x,g+x,o= $BINDIR/$SELF; then
             info "Installed executable in $BINDIR"
         else
             error $E_FAILED "Failed to install executable"
@@ -494,17 +499,32 @@ EOF
 function xx_setup_handler() {
     local keyauth="${DATA[0]}"
 
+    mkdir -p "$CFGS/${DOMAIN}-d"
+    touch "$CFGS/${DOMAIN}_d/${keyauth}.token"
     $dns_scripts/dns_add_${provider} "$DOMAIN" "$keyauth"
     return $?
 }
+
 function xx_teardown_handler() {
     local keyauth="${DATA[0]}"
 
     # NOTE: These expect the token to be deleted - requires a mod_md change
+    #       Work-around: track installed tokens in $CFGS/${DOMAIN}.d/*.token
 
-    $dns_scripts/dns_del_${provider} "$DOMAIN" "$keyauth"
-    return $?
+    local ng="$(shopt -p nullglob)"
+    shopt -s nullglob
+    local T rv="0"
+    for T in $CFGS/${DOMAIN}_d/*.token; do
+        keyauth="$(basename $T .token)"
+        $dns_scripts/dns_del_${provider} "$DOMAIN" "$keyauth"
+        [ "$rv" == "0" ] && rv="$?"
+        rm -f $T
+    done
+    $ng
+    return $rv
 }
+
+export -f setup_handler teardown_handler
 
 # Do NOT exit - this is a sourced script
 EOFEOF
@@ -513,6 +533,8 @@ EOFEOF
     fi
     info "Installation complete, update the httpd configuration (usually $HTTPD_CFG)"
     exit $E_OK
+#-----END INSTALL
+    error $E_FAILED "Installation not supported in this version. Fresh copy required."
 fi
 
 if [ -z "$EVENT" -o -z "$DOMAIN" ]; then
