@@ -9,6 +9,7 @@ V2.3.next
     Also `MD_VERSION` is added to the environment, containing the version plus an optional
     `-variation`, e.g. `-git` indicator.
  * Added very preliminary (and rough) version of contrib/md_events script.
+ * test suite: test of Messages less timing dependant
 
 V2.3.1 (BETA)
 ----------------------------------------------------------------------------------------------------

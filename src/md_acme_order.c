@@ -472,9 +472,6 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
                     md_result_problem_set(result, rv, authz->error_type, authz->error_detail, NULL);
                     goto leave;
                 }
-#ifdef __GNUC__
-                __attribute__ ((fallthrough));
-#endif
                 /* fall through */
             default:
                 rv = APR_EINVAL;
