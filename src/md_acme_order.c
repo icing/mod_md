@@ -241,7 +241,7 @@ static apr_status_t p_purge(void *baton, apr_pool_t *p, apr_pool_t *ptemp, va_li
             if (setup_token) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                               "order teardown setup %s", setup_token);
-                md_acme_authz_teardown(store, setup_token, env, p);
+                md_acme_authz_teardown(store, setup_token, md_name, env, p);
             }
         }
     }
@@ -457,7 +457,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
             case MD_ACME_AUTHZ_S_PENDING:
                 rv = md_acme_authz_respond(authz, acme, store, challenge_types, 
                                            md_pkeys_spec_get(md->pks, 0), 
-                                           md->acme_tls_1_domains,
+                                           md->acme_tls_1_domains, md->name,
                                            env, p, &setup_token, result);
                 if (APR_SUCCESS != rv) {
                     goto leave;
