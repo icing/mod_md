@@ -63,6 +63,44 @@
 		B26A4BE022A7B8C100D002BC /* req_exts.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_exts.conf; sourceTree = "<group>"; };
 		B26A4BE122A7B8C100D002BC /* req_template.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = req_template.conf; sourceTree = "<group>"; };
 		B26A4BE222AAB30600D002BC /* mod_md_status.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mod_md_status.png; sourceTree = SOURCE_ROOT; };
+		B2751AAD241A49DE00C2C037 /* md_events */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = md_events; sourceTree = "<group>"; };
+		B2751AAF241A49DE00C2C037 /* dns_add_nsupdate */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_nsupdate; sourceTree = "<group>"; };
+		B2751AB0241A49DE00C2C037 /* dns_add_pdns-mysql */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "dns_add_pdns-mysql"; sourceTree = "<group>"; };
+		B2751AB1241A49DE00C2C037 /* dns_del_clouddns */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_del_clouddns; sourceTree = "<group>"; };
+		B2751AB2241A49DE00C2C037 /* dns_del_joker */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_joker; sourceTree = "<group>"; };
+		B2751AB3241A49DE00C2C037 /* dns_add_godaddy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_godaddy; sourceTree = "<group>"; };
+		B2751AB4241A49DE00C2C037 /* dns_add_manual */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_manual; sourceTree = "<group>"; };
+		B2751AB5241A49DE00C2C037 /* dns_add_challtestsrv */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_add_challtestsrv; sourceTree = "<group>"; };
+		B2751AB6241A49DE00C2C037 /* dns_del_challtestsrv */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_del_challtestsrv; sourceTree = "<group>"; };
+		B2751AB7241A49DE00C2C037 /* dns_del_lexicon */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_del_lexicon; sourceTree = "<group>"; };
+		B2751AB8241A49DE00C2C037 /* dns_add_duckdns */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_duckdns; sourceTree = "<group>"; };
+		B2751AB9241A49DE00C2C037 /* dns_route53.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = dns_route53.py; sourceTree = "<group>"; };
+		B2751ABA241A49DE00C2C037 /* dns_del_pdns-mysql */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "dns_del_pdns-mysql"; sourceTree = "<group>"; };
+		B2751ABB241A49DE00C2C037 /* dns_add_ovh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_ovh; sourceTree = "<group>"; };
+		B2751ABC241A49DE00C2C037 /* dns_del_linode */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_linode; sourceTree = "<group>"; };
+		B2751ABD241A49DE00C2C037 /* GoDaddy-README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "GoDaddy-README.txt"; sourceTree = "<group>"; };
+		B2751ABE241A49DE00C2C037 /* dns_del_dnspod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_dnspod; sourceTree = "<group>"; };
+		B2751ABF241A49DE00C2C037 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		B2751AC0241A49DE00C2C037 /* dns_add_joker */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_joker; sourceTree = "<group>"; };
+		B2751AC1241A49DE00C2C037 /* dns_del_cloudflare */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_del_cloudflare; sourceTree = "<group>"; };
+		B2751AC2241A49DE00C2C037 /* dns_add_lexicon */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_add_lexicon; sourceTree = "<group>"; };
+		B2751AC3241A49DE00C2C037 /* dns_del_duckdns */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_duckdns; sourceTree = "<group>"; };
+		B2751AC4241A49DE00C2C037 /* dns_godaddy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_godaddy; sourceTree = "<group>"; };
+		B2751AC5241A49DE00C2C037 /* dns_del_manual */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_manual; sourceTree = "<group>"; };
+		B2751AC6241A49DE00C2C037 /* DNS_ROUTE53.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = DNS_ROUTE53.md; sourceTree = "<group>"; };
+		B2751AC7241A49DE00C2C037 /* dns_del_nsupdate */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_nsupdate; sourceTree = "<group>"; };
+		B2751AC8241A49DE00C2C037 /* dns_freedns.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_freedns.sh; sourceTree = "<group>"; };
+		B2751AC9241A49DE00C2C037 /* dns_add_linode */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_linode; sourceTree = "<group>"; };
+		B2751ACA241A49DE00C2C037 /* dns_del_godaddy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_godaddy; sourceTree = "<group>"; };
+		B2751ACB241A49DE00C2C037 /* dns_del_ovh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_del_ovh; sourceTree = "<group>"; };
+		B2751ACC241A49DE00C2C037 /* dns_add_clouddns */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_add_clouddns; sourceTree = "<group>"; };
+		B2751ACD241A49DE00C2C037 /* dns_add_dnspod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dns_add_dnspod; sourceTree = "<group>"; };
+		B2751ACE241A49DE00C2C037 /* dns_add_cloudflare */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dns_add_cloudflare; sourceTree = "<group>"; };
+		B2751ACF241A49DE00C2C037 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		B2751AD1241A49DE00C2C037 /* mod_md.fc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mod_md.fc; sourceTree = "<group>"; };
+		B2751AD2241A49DE00C2C037 /* mod_md.if */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mod_md.if; sourceTree = "<group>"; };
+		B2751AD3241A49DE00C2C037 /* mod_md.te */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mod_md.te; sourceTree = "<group>"; };
+		B2751AD4241A49DE00C2C037 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		B2830C2422B27C3F005DBFBF /* test_0730_static.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0730_static.py; sourceTree = "<group>"; };
 		B28433252403EE530077589E /* test_0810_ec.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0810_ec.py; sourceTree = "<group>"; };
 		B292B2731F2F7C0000FA0E35 /* test_md_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_md_util.c; sourceTree = "<group>"; };
@@ -248,6 +286,75 @@
 			path = ssl;
 			sourceTree = "<group>";
 		};
+		B2751AAB241A49DE00C2C037 /* contrib */ = {
+			isa = PBXGroup;
+			children = (
+				B2751AAC241A49DE00C2C037 /* md_events */,
+				B2751ACF241A49DE00C2C037 /* README */,
+				B2751AD0241A49DE00C2C037 /* selinux */,
+			);
+			path = contrib;
+			sourceTree = SOURCE_ROOT;
+		};
+		B2751AAC241A49DE00C2C037 /* md_events */ = {
+			isa = PBXGroup;
+			children = (
+				B2751AAD241A49DE00C2C037 /* md_events */,
+				B2751AAE241A49DE00C2C037 /* dns_scripts */,
+			);
+			path = md_events;
+			sourceTree = "<group>";
+		};
+		B2751AAE241A49DE00C2C037 /* dns_scripts */ = {
+			isa = PBXGroup;
+			children = (
+				B2751AAF241A49DE00C2C037 /* dns_add_nsupdate */,
+				B2751AB0241A49DE00C2C037 /* dns_add_pdns-mysql */,
+				B2751AB1241A49DE00C2C037 /* dns_del_clouddns */,
+				B2751AB2241A49DE00C2C037 /* dns_del_joker */,
+				B2751AB3241A49DE00C2C037 /* dns_add_godaddy */,
+				B2751AB4241A49DE00C2C037 /* dns_add_manual */,
+				B2751AB5241A49DE00C2C037 /* dns_add_challtestsrv */,
+				B2751AB6241A49DE00C2C037 /* dns_del_challtestsrv */,
+				B2751AB7241A49DE00C2C037 /* dns_del_lexicon */,
+				B2751AB8241A49DE00C2C037 /* dns_add_duckdns */,
+				B2751AB9241A49DE00C2C037 /* dns_route53.py */,
+				B2751ABA241A49DE00C2C037 /* dns_del_pdns-mysql */,
+				B2751ABB241A49DE00C2C037 /* dns_add_ovh */,
+				B2751ABC241A49DE00C2C037 /* dns_del_linode */,
+				B2751ABD241A49DE00C2C037 /* GoDaddy-README.txt */,
+				B2751ABE241A49DE00C2C037 /* dns_del_dnspod */,
+				B2751ABF241A49DE00C2C037 /* README */,
+				B2751AC0241A49DE00C2C037 /* dns_add_joker */,
+				B2751AC1241A49DE00C2C037 /* dns_del_cloudflare */,
+				B2751AC2241A49DE00C2C037 /* dns_add_lexicon */,
+				B2751AC3241A49DE00C2C037 /* dns_del_duckdns */,
+				B2751AC4241A49DE00C2C037 /* dns_godaddy */,
+				B2751AC5241A49DE00C2C037 /* dns_del_manual */,
+				B2751AC6241A49DE00C2C037 /* DNS_ROUTE53.md */,
+				B2751AC7241A49DE00C2C037 /* dns_del_nsupdate */,
+				B2751AC8241A49DE00C2C037 /* dns_freedns.sh */,
+				B2751AC9241A49DE00C2C037 /* dns_add_linode */,
+				B2751ACA241A49DE00C2C037 /* dns_del_godaddy */,
+				B2751ACB241A49DE00C2C037 /* dns_del_ovh */,
+				B2751ACC241A49DE00C2C037 /* dns_add_clouddns */,
+				B2751ACD241A49DE00C2C037 /* dns_add_dnspod */,
+				B2751ACE241A49DE00C2C037 /* dns_add_cloudflare */,
+			);
+			path = dns_scripts;
+			sourceTree = "<group>";
+		};
+		B2751AD0241A49DE00C2C037 /* selinux */ = {
+			isa = PBXGroup;
+			children = (
+				B2751AD1241A49DE00C2C037 /* mod_md.fc */,
+				B2751AD2241A49DE00C2C037 /* mod_md.if */,
+				B2751AD3241A49DE00C2C037 /* mod_md.te */,
+				B2751AD4241A49DE00C2C037 /* README */,
+			);
+			path = selinux;
+			sourceTree = "<group>";
+		};
 		B2B81EC81F13830600E35CA3 /* ssl */ = {
 			isa = PBXGroup;
 			children = (
@@ -270,6 +377,7 @@
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
+				B2751AAB241A49DE00C2C037 /* contrib */,
 				B2D309A01EBA229F007BECC8 /* AUTHORS */,
 				B2127375232F978C00BB7C30 /* buildconf */,
 				B2D309A11EBA229F007BECC8 /* ChangeLog */,

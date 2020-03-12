@@ -510,7 +510,7 @@ One thing to keep in mind, though, is that Let's Encrypt has a rate limit of 50 
 
 ## How to Get a Wildcard Cert
 
-A wildcard certificate is one like `*.mydomain.com` which is valid for all sub domain of `mydomain.com`. Let's Encrypt has special requirements for those and you need to do some extra lifting to make them work. See the [chapter about wildcard certificates](#wildcard-certificates) for a description.
+A wildcard certificate is one like `*.mydomain.com` which is valid for all sub domain of `mydomain.com`. Let's Encrypt has special requirements for those and you need to do some extra lifting to make them work. See the chapter about [`MDChallengeDns01`](#mdchallengedns01) for a description.
 
 But do you need a wildcard certificate? Some common reasons are:
 
@@ -1322,47 +1322,7 @@ Then, the new challenge type is usable.
 
 # Wildcard Certificates
 
-
-Wildcard certificates are possible with version 2.x of `mod_md`. But they are not straight-forward. Let's Encrypt requires the `dns-01` challenge verification for those. No other is considered good enough.
-
-The difficulty here is that Apache cannot do that on its own. (which is also a security benefit, since corrupting a web server or the communication path to it is the scenario `dns-01` protects against). As the name implies, `dns-01` requires you to show some specific DNS records for your domain that contain some challenge data. So you need to _write_ your domain's DNS records
-
-If you know how to do that, you can integrated this with `mod_md`. Let's say you have a script for that in `/usr/bin/acme-setup-dns` you configure Apache with:
-
-```
-MDChallengeDns01 /usr/bin/acme-setup-dns
-```
-and Apache will call this script when it needs to setup/teardown a DNS challenge record for a domain. 
-
-Assuming you want a certificate for `*.mydomain.com`, mod_md will call:
-
-```
-/usr/bin/acme-setup-dns setup mydomain.com challenge-data
-# this needs to remove all existing DNS TXT records for 
-# _acme-challenge.mydomain.com and create a new one with 
-# content "challenge-data"
-```
-and afterwards it will call
-
-```
-/usr/bin/acme-setup-dns teardown mydomain.com
-# this needs to remove all existing DNS TXT records for 
-# _acme-challenge.mydomain.com
-```
-
-If you DNS provider offers an interface for this, there is probably someone who has already
-written such a script. Or he may provide one.
-
-If your DNS provider does _not_ offer an interface that you can script, he _will_ offer at least a web interface where you can enter records manually. You can then configure a script that mails you the the information, so you can do it yourself. Welcome to the machine age!
-
-Alternatively, there are setups where you run your own DNS server, just for the ACME challenges and cleverly redirect your DNS provider record to your own server. But these are not that simple and I have no good knowledge of what can be recommended.
-
-As the very, very last resort: reconsider if you really need a wildcard certificate. If you have many subdomains on your server, putting the all into one certificate might not be feasible (or possible) and also not very efficient. The certificate gets send on each new connection, after all.
-
-But maybe slicing your domains into smaller sets is an option. In the past, when you needed to buy certificates and there was a lot of manual labor for it, this was probably unattractive. But with the automation in Apache, this no longer concerns you. 
-
-But of course, in some setups, wildcard certificates are the only reasonable approach. You know best!
-
+See the documentation of [`MDChallengeDns01`](#mdchallengedns01) for a description on how to get them.
 
 # Dipping the Toe
 
@@ -1617,7 +1577,36 @@ Currently only ACME (LetsEncrypt) is implemented.
 `MDChallengeDns01 <path to executable>`<BR/>
 Default: `none`
 
-Define a program to be called when the `dns-01` challenge needs to be setup/torn down. The program is given the argument `setup` or `teardown` followed by the domain name. For `setup` the challenge content is additionally given. See [wildcard certificates](#wildcard-certificates) for more explanation.
+Wildcard certificates are possible with version 2.x of `mod_md`. But they are not straight-forward. Let's Encrypt requires the `dns-01` challenge verification for those. No other is considered good enough.
+
+When you configure a program to be called for these challenges, you may obtain them using `mod_md`. 
+The program is given the argument `setup` or `teardown` followed by the domain name. 
+For `setup` the challenge content is additionally given. 
+
+The difficulty here is that Apache cannot do that on its own. (which is also a security benefit, since corrupting a web server or the communication path to it is the scenario `dns-01` protects against). As the name implies, `dns-01` requires you to show some specific DNS records for your domain that contain some challenge data. So you need to _write_ your domain's DNS records
+
+If you know how to do that, you can integrated this with `mod_md`. Let's say you have a script for that in `/usr/bin/acme-setup-dns` you configure Apache with:
+
+```
+MDChallengeDns01 /usr/bin/acme-setup-dns
+```
+and Apache will call this script when it needs to setup/teardown a DNS challenge record for a domain. 
+
+Assuming you want a certificate for `*.mydomain.com`, mod_md will call:
+
+```
+/usr/bin/acme-setup-dns setup mydomain.com challenge-data
+# this needs to remove all existing DNS TXT records for 
+# _acme-challenge.mydomain.com and create a new one with 
+# content "challenge-data"
+```
+and afterwards it will call
+
+```
+/usr/bin/acme-setup-dns teardown mydomain.com
+# this needs to remove all existing DNS TXT records for 
+# _acme-challenge.mydomain.com
+```
 
 ## MDCertificateFile
 ***A static certificate (chain) file for the MDomain***<BR/>
