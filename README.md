@@ -1608,10 +1608,6 @@ and afterwards it will call
 # _acme-challenge.mydomain.com
 ```
 
-[Timothe Litt](@tlhackque) integrated several scrips for DNS providers in the `md_events` script you can find in the `contrib` 
-directory. Please consult the documentation of  `md_events` if your DNS provider is covered and how to use it.
-
-
 ## MDCertificateFile
 ***A static certificate (chain) file for the MDomain***<BR/>
 `MDCertificateFile path-of-the-file`<BR/>
