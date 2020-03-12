@@ -1,8 +1,8 @@
-V2.3.next
+V2.3.2 (BETA)
 ----------------------------------------------------------------------------------------------------
  * Add key usage extensions to fallback certificates; correct other extensions.
  * Correct decoding of IP addresses in certificates.
- * Add contrib directory.
+ * Add contrib directory (not yet shipped).
  * Add SeLinux policy changes necessary for mod_md in contrib/selinux.
  * `MDNotifyCmd` and `MDMessageCmd` now get the environment variable `MD_STORE` containing
     the path to the storage directory.
