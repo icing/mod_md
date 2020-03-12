@@ -1,0 +1,17 @@
+module mod_md 0.1.1;
+
+require {
+        type httpd_t;
+        type httpd_sys_script_t;
+        type httpd_sys_content_t;
+        type httpd_config_t;
+        type httpd_tmp_t;
+
+        class dir  {create getattr setattr read write rename open lock execute add_name remove_name unlink search rmdir};
+        class file {create getattr setattr read write rename open lock execute execute_no_trans unlink};
+        class lnk_file { read getattr };
+}
+# mod_md (by default) maintains its data in /etc/httpd/md.  /etc/httpd is labelled httpd_config_t
+
+allow httpd_t httpd_config_t:dir  {create getattr setattr read write rename open lock execute add_name remove_name unlink search rmdir};
+allow httpd_t httpd_config_t:file {create getattr setattr read write rename open lock execute execute_no_trans unlink};

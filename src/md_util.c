@@ -152,7 +152,7 @@ int md_array_remove_at(struct apr_array_header_t *a, int idx)
     else {
         ps = (a->elts + (idx * a->elt_size));
         pe = ps + a->elt_size;
-        memmove(ps, pe, (a->nelts - (idx+1)) * a->elt_size);
+        memmove(ps, pe, (size_t)((a->nelts - (idx+1)) * a->elt_size));
         --a->nelts;
     }
     return 1;
