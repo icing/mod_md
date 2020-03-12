@@ -1,0 +1,286 @@
+This is a work-in-progress attempt to consolidate discussions on
+a consistent event interface for mod_md.  (They have been in
+several GitHub issues.)  It might evolve into a specification -
+but isn't one now.
+
+The current md_events uses MDMessageCmd, so doesn't precisely
+agree with this document, especially for challenges.  But it's
+close.
+
+Also, note that I provided wrapper scripts for 'getssl's library
+of DNS update scripts.
+https://github.com/AnalogJ/lexicon/tree/master/lexicon/providers
+is another possible source of updaters for which a wrapper might
+be desirable.
+
+T. Litt
+
+Background/boundary conditions
+
+mod_md creates and interacts with several external programs,
+currently on an ad-hoc basis.  This is an attempt to unify
+these interfaces and expand them to cover more use cases.
+
+The programs are typically, but not necessarily shell scripts.
+
+One example is the (in progress, pre-pre-alpha prototype found in
+contrib/contrib/md_events.
+
+While it is not required that a single program serve all events,
+it is a goal that this is possible.  This implies a common
+calling sequence, unique/disjoint event names, and standard return
+codes.
+
+The events in question are low frequency, low volume events.  Thus
+this interface serves one event per activation.  It does not define
+or support a persistent event server.
+
+In general, it is difficult to imagine a loadable module that
+efficiently handles all cases.  There are dozens of DNS update
+methods in use; updating a remote system for an http-01 challenge
+may be via scp, ftp, http (dav), rsync, smb.  The files may have
+to be replicated on a cluster.  New certificates may require reloading
+one or more remote servers ... external programs that can easily
+be modified by end users is the best solution.
+
+Current event categories/directives
+
+Challenge Responses
+
+The ACME protocol requires the CA to issue at least one challenge
+to validate that the requestor has control of the domain for which
+a certificate is requested.  Some responses are handled internally
+by mod_md.  Others require an external program's assistance.
+
+MDChallengeDns01 <path to executeable>
+
+Called to add or remove an acme-challenge TXT record to a domain.
+
+For add, called with 'setup' '<domain>' 'challenge-data'
+For remove, called with 'teardown' '<domain>'
+
+'<domain>' here is not necessarily the MDomain name.  It will be
+each of the MDMembers.
+
+Changes:
+ - document that '<optional-args>' can follow executable,
+   and that they appear BEFORE the event name.
+ - Provide MDChallengeResponseDelay dns01=[duration] to
+   allow dns change propagation.
+ - Provide 'challenge-data' with 'teardown'
+ - Add MDomain as 4th arg or environment variable
+ - Doc says that 'setup' should remove all txt records.
+   This probably is wrong - I think LE requires two
+   TXT records for the same domain, but with different
+   values. So the second 'setup' shouldn't remove the
+   first record, right?
+
+MDNotifyCmd <path-to-executable>
+
+Called to notify of renewals.
+
+Called with '<domain>'
+Environment variables: MD_STORE, MD_VERSION
+
+Changes:
+ - document that '<optional-args>' can follow executable,
+   and that they appear BEFORE the event name.
+ - document '<domain>' argument
+ - deprecate - does not provide <event>, MDMessageCmd provides a superset
+
+MDMessageCmd <path to executable> <optional-args>
+
+Intended for messages, but close to an event interface.
+
+Called with one of 'renewed', 'installed', 'expiring',
+                   'errored', 'ocsp-renewed', 'ocsp-errored'
+
+Environment variables: MD_STORE, MD_VERSION
+
+'installed' is called with privileges.
+rate-limited: 'renewal' once; errors once/hour; expiring once/day.
+
+
+Changes:
+ - Support E_FAIL, E_RETRY, E_NEEDS_POLL ?
+ - Rename?
+
+Missing capabilities
+
+No external intervention possible for http-01 - necessary when
+token is stored on a remote server.  (One other than the one
+running mod_md.)
+
+Can't (safely) wait for challenge responses to become visible
+before CA's validator is notified.
+
+Can't report partial completion or poll for end.
+
+Renewal should be easier:
+  - renewed certificates should be loaded locally when obtained.
+    It's possible, though difficult, to do this now - the renewed
+    event would use ssh or sudo to access an account with the necessary
+    privileges.  This is tricky to setup securely.
+
+    The work-around/current practice of reloading httpd daily is inefficient.
+    59/60 days nothing happens.  Other apps/servers have to wait, even if
+    httpd doesn't use the cert.  e.g. remote server, imap cert, etc..
+
+  - Renewed events don't allow distributing certificates to remote
+   systems - they aren't unencrypted until the mod_md httpd reloads.
+   Solved if previous note is solved.
+
+There should be some kind of (documented) interface to force renewals.
+E.g. The recent buld (3M certs) revocation by LE that required many of us
+to force renewals.  Deleting the 'domains' tree & restarting httpd works,
+but it doesn't archive the previous certificate, and is error-prone.
+
+Changes to consider
+
+ - Deprecate MDNotifyCmd (not considered further in this doc)
+
+ - Add MDEventHandler directive
+   - Called for ALL events that do NOT have a specific directive configured.
+     E.g. If MChallengeDNS01 applies, the MDEventHandler will NOT be called.
+   - The domain-name is ALWAYS the MDomain name - for DNS events, the DNS
+     name is the next argument.
+   - Non-zero return codes have meanings described below.
+
+ - Each event class has a configuration directive
+   - All have common format.
+        <path-to-executable> <optional-args> event-name domain-name <event-intrinsics>
+        Where:
+            - <optional-args> are presented to program before event-name
+            - event-names are unique across all directives
+            - domain-name is the MDdomain name OR a DNS name (back-compatible)
+            - event-intrinsics are defined for each event.  These are essential
+              protocol features - like token name, keyauth.
+            - environmental information is provided as environment variables.
+   - Non-zero return codes as now
+   - If the per-class diretive is present, MDEventHandler is NOT invoked.
+   - If the per-class directive is absent, MDEventHandler is invoked.
+
+MDEventHandler details
+
+This is a superset of MDMessageCmd - partly because Message doesn't describe
+the behavior.  And partly because it needs more exit code semantics.
+
+Syntax:
+  MDEventHandler <path-to-executable> <optional-args>
+
+Program called with:
+        <optional-args> 'event-name' 'mdomain-name' <intrinsic data>
+
+Environment variables: MD_STORE, MD_VERSION
+
+Events:
+     'renewed', 'installed', 'expiring',
+     'errored', 'ocsp-renewed', 'ocsp-errored'
+plus:  (not ideal names, but backward compatible)
+     From Dns01
+       'setup'    'mdomain' 'dns-domain' 'challenge-data'
+       'teardown' 'mdomain' 'dns-domain' 'challenge-data'
+
+     New from Http01
+       'setup-http-01' 'mdomain' 'test-domain' 'token' 'keyauth'
+                        Adds a resource with an http-01 challenge response
+                        Used for a resource not served by the httpd
+                        instance running mod_md.  Not called for local
+                        resources.  A certificate (MDomain)  may have a mix
+                        of local and remote.  Remote typically pushes a
+                        file with scp - but could be a database entry.
+
+                        token is the file/resource name in /.wk/a-c/
+                        keyauth is the data stored in the resource
+        'teardown-http-01' 'mdomain' 'test-domain' 'token'
+                        Removes a setup-http-01 resource.
+
+Program can use mdomain-name to get per-domain configuration.
+
+For compatibility with MDMessageCmd, it might be better to put mdomain-name
+into an environment variable (MD_MDOMAIN?) and leave the setup/teardown
+arguments the same as now.
+
+For DNS, this isn't the same as the place the acme-challenge TXT record is stored.
+For HTTP, this isn't the same as the place where the HTTP resource is created.
+
+If this isn't clear - consider a certificate covering multiple hosts.
+
+E.g. example.com, www.example.com
+
+The MDomain is the certificate's CN.
+
+For DNS: the test domain will be each host.
+MDomain=example.com test-domain=_acme-challenge.example.com and
+_acme-challenge.www.example.com
+
+For wildcard, the validation server will be chosing some names that
+aren't known in advance.  MDomain tells the program how to find
+the DNS update method in its configuration.  test-domain is where
+the record goes.
+
+For HTTP:, the test domain will be example.com and www.example.com.
+The data has to end up on each host under /.well-known/acme-challenge/
+token-name
+This may be one place (e.g. one file served by one http server), or
+many (e.g. multiple hosts of a cluster)
+
+The program must have its own list of of hosts and/or storage locations
+to update for a given test domain.
+
+Return codes (values TBD)
+  E_OK The event handling is complete.  Any new resource is visible.
+
+  E_FAILED There was a hard failure.  The event can not be serviced until
+           action is taken by a human.  Do not retry until httpd restart.
+
+           Example: config error, missing command/file, permissions.
+
+  E_RETRY  There was a soft error.  Retry the operation after a reasonable
+           delay.  No part of the operation was completed.
+
+           Example: network issue (can't reach DNS server or remote system)
+                    resource issue (can't fork, get memory, etc)
+  E_NEEDS_POLL The operation has been started, but the result may not
+               be visible to the validation server.  It should not be
+               retried.  (A retry may be counter-productive, but would
+               certainly be wasteful)  After a suitable delay, call again
+                with event 'poll-<event-name>' and original arguments.
+                Any return code is possible.
+
+               Example: DNS update - the poll-setup might check several public
+               DNS servers to see if the record is visible.  http-01 - CDN
+               cache flush needed, but file is on the server.
+
+               Might want a hint for when to poll, e.g.
+               E_NEEDS_SLOW_POLL (~30 min), MEDIUM (~1 min), FAST (~10 sec)
+
+Alternative to polling that works is most circumstances (and is better for
+some cases / worse for others) is a programmable delay between a `setup*`
+event and the 'proceed' message (empty JSON) sent to the validation server.
+
+The delay is site-specific, and challenge-specific.
+
+    MDChallengeResponseDelay http-01=[duration] dns-01=[duration] ...
+
+The required delay depends on the challenge type. DNS can take time to
+propagate. tls-apln and mod_md internal http are instantly available.
+
+Polling too early can be bad with DNS since the polled server may
+cache the negative result.  If the validation server happens to use
+the same recursive server, the validation will fail (or be delayed).
+
+External http usually is visible when the script returns from the copy
+commend - but there might be a cache/CDN/distributed database to update. ..
+
+So scope needs to be per-MDomain. Since mod_md can announce ability to
+respond to more than one challenge type, server can choose which
+challenge(s) to issue.
+
+Other notes:
+
+Timing is not especially critical.  Cert renewal happens every 60 days,
+so a coarse solution should suffice.  OTOH, it doesn't make sense for
+internal responses to wait 10s of minutes for getting the first certificate.
+
+Delays between job steps should not block httpd (or even mod_md's threads).
