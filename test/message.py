@@ -11,8 +11,6 @@ def main(argv):
             f1.write('MD_VERSION=%s\n' % (os.environ['MD_VERSION']))
         if 'MD_STORE' in os.environ:
             f1.write('MD_STORE=%s\n' % (os.environ['MD_STORE']))
-        if 'PATH' in os.environ:
-            f1.write('PATH=%s\n' % (os.environ['PATH']))
         f1.close()
         sys.stderr.write("done, all fine.\n")
         sys.exit(0)
