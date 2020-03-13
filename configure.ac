@@ -151,6 +151,7 @@ if test "x$werror" != "xno"; then
     AX_CHECK_COMPILE_FLAG(["-Wdouble-promotion"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdouble-promotion"])
     AX_CHECK_COMPILE_FLAG(["-Wshadow"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshadow"])
     AX_CHECK_COMPILE_FLAG(["-Wformat=2"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wformat=2"])
+    AX_CHECK_COMPILE_FLAG(["-Wimplicit-fallthrough=3"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wimplicit-fallthrough=3"])
 fi
 AC_SUBST(WERROR_CFLAGS)
 
