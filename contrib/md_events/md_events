@@ -93,7 +93,7 @@ MDE_CFG="$MDE_HTTPD_ROOT/md_events.conf"
 MDE_CFGS=
 
 # HTTPD's (default) config file
-MDE_HTTPD_CFG="$MDE_HTTPD_ROOT/$(httpd -V -f /dev/null 2>/dev/null | sed -ne 's/^ *-D SERVER_CONFIG_FILE="\([^\"]*\)"/\1/p;')/"
+MDE_HTTPD_CFG="$MDE_HTTPD_ROOT/$(httpd -V -f /dev/null 2>/dev/null | sed -ne 's/^ *-D SERVER_CONFIG_FILE="\([^\"]*\)"/\1/p;')"
 
 function usage() {
     cat <<EOF
@@ -145,6 +145,11 @@ To configure for a managed domain:
     For the "installed" event, you can use the public functions to copy files for
     other applications, create separate or combined files, and/or restart applications.
     You can customize or suppress e-mail by modifying the MDE_MESSAGE variable.
+
+    You can also customize for a validation target (e.g. for a dns-01 or remote http-01
+    challenge to a specific host) by creating a <target-name>.conf file.
+
+    If a hander or variable is defined at multiple levels, the most specific is used.
 
 Bug reports/issues to https://github.com/tlhackque/mod_md
 EOF
@@ -394,6 +399,7 @@ unset -f setup_handler teardown_handler
 # **** End sample handlers ****
 
 # Do NOT exit - this is a sourced script
+true
 EOFEOF
     [ "$rv" == "0" ] && rv="$?"
     if [ "$rv" == "0" ]; then
@@ -460,6 +466,9 @@ EOFEOF
 
     cat >>"$fname" <<EOFEOF
 # Additional variables from $MDE_CFG are also defined
+#
+# Function definitions here may be superseded by re-defining them in
+# $MDE_CFGS/<mdomain-name>.conf or $MDE_CFGS/<target-domain-name>.conf
 EOFEOF
     [ "$rv" == "0" ] && rv="$?"
 
@@ -601,6 +610,7 @@ function teardown_http_01_handler() {
 export -f teardown_http_01_handler
 
 # Do NOT exit - this is a sourced script
+true
 EOFEOF
     [ "$rv" == "0" ] && rv="$?"
     $MDE_INITIAL_UMASK
@@ -997,12 +1007,20 @@ function reload_service() {
 }
 export -f reload_service
 
-# Read domain configuration file
+# Read domain configuration file(s)
+
+# - MDOMAIN (Certificate)
 
 if [ -f "$MDE_CFGS/${MD_MDOMAIN}.conf" ]; then
     . "$MDE_CFGS/${MD_MDOMAIN}.conf" "$MDE_HTTPD"
-else
-    debug "Missing configuration file: $MDE_CFGS/${MD_MDOMAIN}.conf"
+    [ "$?" == "0" ] && debug "Read configuration file: $MDE_CFGS/${MD_MDOMAIN}.conf"
+fi
+
+# - Target domain (validation target - host or resource)
+
+if [ "$MDE_DOMAIN" != "$MD_MDOMAIN" -a -f "$MDE_CFGS/${MDE_DOMAIN}.conf" ]; then
+    . "$MDE_CFGS/${MDE_DOMAIN}.conf" "$MDE_HTTPD"
+    [ "$?" == "0" ] && debug "Read configuration file: $MDE_CFGS/${MDE_DOMAIN}.conf"
 fi
 
 if [ -n "$MDE_WHERE" ]; then
