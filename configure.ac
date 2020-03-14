@@ -388,6 +388,24 @@ AC_CONFIG_FILES([
 
 AC_OUTPUT
 
+## Determine the compiler's vendor.
+
+COMPILER_VERSION=`"$CC" --version | head -n1 2>/dev/null`
+
+## IBM xlC test if COMPILER_VERSION is empty
+if test x"$COMPILER_VERSION" = "x"; then
+   COMPILER_VERSION=`"$CC" -qversion | head -n1 2>/dev/null`
+fi
+
+## SunCC test if COMPILER_VERSION is empty
+if test x"$COMPILER_VERSION" = "x"; then
+   COMPILER_VERSION=`"$CC" -V | had -n1 2>&1`
+fi
+
+if test x"$COMPILER_VERSION" != "x"; then
+   COMPILER_VERSION="=> $COMPILER_VERSION"
+fi
+
 AC_MSG_NOTICE([summary of build options:
 
     Version:        ${VERSION} shared $LT_CURRENT:$LT_REVISION:$LT_AGE
@@ -395,7 +413,7 @@ AC_MSG_NOTICE([summary of build options:
     Install prefix: ${prefix}
     APXS:           ${APXS}
     HTTPD-VERSION:  ${HTTPD_VERSION}
-    C compiler:     ${CC}
+    C compiler:     ${CC} ${COMPILER_VERSION}
     CFLAGS:         ${CFLAGS}
     WARNCFLAGS:     ${WERROR_CFLAGS}
     LDFLAGS:        ${LDFLAGS}
