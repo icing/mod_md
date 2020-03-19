@@ -16,10 +16,8 @@
  
 #include <assert.h>
 #include <stdio.h>
-#include <string.h>
 
 #include <apr_lib.h>
-#include <apr_env.h>
 #include <apr_strings.h>
 #include <apr_portable.h>
 #include <apr_file_info.h>
@@ -1017,6 +1015,7 @@ apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *ar
     apr_procattr_t *procattr;
     apr_proc_t *proc;
     apr_exit_why_e ewhy;
+    const char * const *envp = NULL;
     char buffer[1024];
     
     *exit_code = 0;
@@ -1024,27 +1023,17 @@ apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *ar
         return APR_ENOMEM;
     }
     if (env && env->nelts > 0) {
-        /* We want to inherit the current environment variables, adding/setting these.
-         * There's no portable way to do this only for the child, but it turns out
-         * that what we need to pass is harmless to keep in our environment.
-         * Do we need a mutex (the environment is not thread-safe)??
-         */
         apr_array_header_t *nenv;
-        char *np, *vp;
+        
         nenv = apr_array_copy(p, env);
-
-        while ((np = apr_array_pop( nenv )) != NULL) {
-            if ((vp = strchr(np, '=')) != NULL) {
-                *vp++ = '\0';
-                (void) apr_env_set( np, vp, p );
-            }
-        }
+        APR_ARRAY_PUSH(nenv, const char *) = NULL;
+        envp = (const char * const *)nenv->elts;
     }
     if (   APR_SUCCESS == (rv = apr_procattr_create(&procattr, p))
         && APR_SUCCESS == (rv = apr_procattr_io_set(procattr, APR_NO_FILE, 
                                                     APR_NO_PIPE, APR_FULL_BLOCK))
         && APR_SUCCESS == (rv = apr_procattr_cmdtype_set(procattr, APR_PROGRAM))
-        && APR_SUCCESS == (rv = apr_proc_create(proc, cmd, argv, NULL, procattr, p))) {
+        && APR_SUCCESS == (rv = apr_proc_create(proc, cmd, argv, envp, procattr, p))) {
         
         /* read stderr and log on INFO for possible fault analysis. */
         while(APR_SUCCESS == (rv = apr_file_gets(buffer, sizeof(buffer)-1, proc->err))) {
@@ -1054,7 +1043,7 @@ apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *ar
         apr_file_close(proc->err);
         
         if (APR_CHILD_DONE == (rv = apr_proc_wait(proc, exit_code, &ewhy, APR_WAIT))) {
-            /* let's not dwell on exit status, but core should signal something's bad */
+            /* let's not dwell on exit stati, but core should signal something's bad */
             if (*exit_code > 127 || APR_PROC_SIGNAL_CORE == ewhy) {
                 return APR_EINCOMPLETE;
             }
