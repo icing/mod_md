@@ -456,7 +456,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
                 
             case MD_ACME_AUTHZ_S_PENDING:
                 rv = md_acme_authz_respond(authz, acme, store, challenge_types, 
-                                           md_pkeys_spec_get(md->pks, 0), 
+                                           md->pks,
                                            md->acme_tls_1_domains, md->name,
                                            env, p, &setup_token, result);
                 if (APR_SUCCESS != rv) {

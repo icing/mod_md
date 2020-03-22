@@ -358,18 +358,18 @@ apr_status_t md_acme_drive_setup_cred_chain(md_proto_driver_t *d, md_result_t *r
             rv = md_pkey_save(d->store, d->p, MD_SG_STAGING, d->md->name, spec, privkey, 1);
         }
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, 
-                      "%s: generate privkey (%s)", d->md->name, md_pkey_spec_name(spec));
+                      "%s: generate %s privkey", d->md->name, md_pkey_spec_name(spec));
     }
     if (APR_SUCCESS != rv) goto leave;
     
-    md_result_activity_printf(result, "Creating CSR for %s", md_pkey_spec_name(spec));
+    md_result_activity_printf(result, "Creating %s CSR", md_pkey_spec_name(spec));
     rv = md_cert_req_create(&ad->csr_der_64, d->md->name, ad->domains, 
                             ad->md->must_staple, privkey, d->p);
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create CSR (%s)", 
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: create %s CSR", 
                   d->md->name, md_pkey_spec_name(spec));
     if (APR_SUCCESS != rv) goto leave;
     
-    md_result_activity_printf(result, "Submitting CSR to CA for %s", md_pkey_spec_name(spec));
+    md_result_activity_printf(result, "Submitting %s CSR to CA", md_pkey_spec_name(spec));
     switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
         case 1:
             rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, NULL, d);
@@ -624,7 +624,7 @@ static apr_status_t load_missing_creds(md_proto_driver_t *d)
             }
         }
         if (APR_SUCCESS == rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: credentials staged for '%s'", 
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: credentials staged for %s certificate", 
                           d->md->name, md_pkey_spec_name(cred->spec));
         }
         else {
@@ -730,8 +730,8 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
         for (i = 0; i < ad->creds->nelts; ++i) {
             ad->cred = APR_ARRAY_IDX(ad->creds, i, md_credentials_t*);
             if (!ad->cred->pkey || md_array_is_empty(ad->cred->chain)) {
-                md_result_activity_printf(result, "Driving ACME for renewal of %s (%s)", 
-                                          d->md->name, md_pkey_spec_name(ad->cred->spec));
+                md_result_activity_printf(result, "Driving ACME to renew %s certificate for %s", 
+                                          md_pkey_spec_name(ad->cred->spec),d->md->name);
                 /* The process of setting up challenges and verifying domain
                  * names differs between ACME versions. */
                 switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
@@ -751,14 +751,14 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                 if (APR_SUCCESS != rv) goto out;
                 
                 if (md_array_is_empty(ad->cred->chain) || ad->chain_up_link) {
-                    md_result_activity_printf(result, "Retrieving certificate chain for %s (%s)", 
-                                              d->md->name, md_pkey_spec_name(ad->cred->spec));
+                    md_result_activity_printf(result, "Retrieving %s certificate chain for %s", 
+                                              md_pkey_spec_name(ad->cred->spec), d->md->name);
                     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, 
-                                  "%s: retrieving certificate chain (%s)", 
+                                  "%s: retrieving %s certificate chain", 
                                   d->md->name, md_pkey_spec_name(ad->cred->spec));
                     rv = ad_chain_retrieve(d);
                     if (APR_SUCCESS != rv) {
-                        md_result_printf(result, rv, "Unable to retrieve certificate chain (%s).", 
+                        md_result_printf(result, rv, "Unable to retrieve %s certificate chain.", 
                                          md_pkey_spec_name(ad->cred->spec));
                         goto out;
                     }
@@ -767,7 +767,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                         rv = md_pubcert_save(d->store, d->p, MD_SG_STAGING, d->md->name, 
                                              ad->cred->spec, ad->cred->chain, 0);
                         if (APR_SUCCESS != rv) {
-                            md_result_printf(result, rv, "Saving new certificate chain (%s).", 
+                            md_result_printf(result, rv, "Saving new %s certificate chain.", 
                                              md_pkey_spec_name(ad->cred->spec));
                             goto out;
                         }

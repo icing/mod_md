@@ -191,8 +191,10 @@ static int pem_passwd(char *buf, int size, int rwflag, void *baton)
             size = (int)ctx->pass_len;
         }
         memcpy(buf, ctx->pass_phrase, (size_t)size);
+    } else {
+        return 0;
     }
-    return ctx->pass_len;
+    return size;
 }
 
 /**************************************************************************************************/

@@ -312,7 +312,7 @@ static apr_array_header_t *dns_cmd_env(apr_pool_t *p, md_store_t *store, const c
 
 static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                       md_acme_t *acme, md_store_t *store, 
-                                      md_pkey_spec_t *key_spec, 
+                                      md_pkeys_spec_t *key_specs,
                                       apr_array_header_t *acme_tls_1_domains, const char *mdomain,
                                       apr_table_t *env, apr_pool_t *p)
 {
@@ -320,7 +320,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     apr_status_t rv;
     int notify_server;
     
-    (void)key_spec;
+    (void)key_specs;
     (void)env;
     (void)acme_tls_1_domains;
     (void)mdomain;
@@ -350,19 +350,24 @@ out:
     return rv;
 }
 
+void tls_alpn01_fnames(apr_pool_t *p, md_pkey_spec_t *kspec, char **keyfn, char **certfn )
+{
+    *keyfn = apr_psprintf(p, MD_FN_TLSALPN01_PKEY, md_pkey_filename(kspec, p));
+    *certfn = apr_psprintf(p, MD_FN_TLSALPN01_CERT, md_chain_filename(kspec, p));
+}
+
 static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                           md_acme_t *acme, md_store_t *store, 
-                                          md_pkey_spec_t *key_spec,  
+                                          md_pkeys_spec_t *key_specs,
                                           apr_array_header_t *acme_tls_1_domains, const char *mdomain,
                                           apr_table_t *env, apr_pool_t *p)
 {
-    md_cert_t *cha_cert;
-    md_pkey_t *cha_key;
     const char *acme_id, *token;
     apr_status_t rv;
     int notify_server;
     md_data_t data;
-    
+    int i;
+
     (void)env;
     (void)mdomain;
     if (md_array_str_index(acme_tls_1_domains, authz->domain, 0, 0) < 0) {
@@ -375,46 +380,62 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
     if (APR_SUCCESS != (rv = setup_key_authz(cha, authz, acme, p, &notify_server))) {
         goto out;
     }
-    rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_CERT,
-                       MD_SV_CERT, (void**)&cha_cert, p);
-    if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, authz->domain)) 
-        || APR_STATUS_IS_ENOENT(rv)) {
-        
-        if (APR_SUCCESS != (rv = md_pkey_gen(&cha_key, p, key_spec))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 challenge key",
-                          authz->domain);
-            goto out;
-        }
 
-        /* Create a "tls-alpn-01" certificate for the domain we want to authenticate.
-         * The server will need to answer a TLS connection with SNI == authz->domain
-         * and ALPN procotol "acme-tls/1" with this certificate.
-         */
-        MD_DATA_SET_STR(&data, cha->key_authz);
-        rv = md_crypt_sha256_digest_hex(&token, p, &data);
-        if (APR_SUCCESS != rv) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 cert",
-                          authz->domain);
-            goto out;
-        }
+    /* Create a "tls-alpn-01" certificate for the domain we want to authenticate.
+     * The server will need to answer a TLS connection with SNI == authz->domain
+     * and ALPN procotol "acme-tls/1" with this certificate.
+     */
+    MD_DATA_SET_STR(&data, cha->key_authz);
+    rv = md_crypt_sha256_digest_hex(&token, p, &data);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 validation token",
+                      authz->domain);
+        goto out;
+    }
+    acme_id = apr_psprintf(p, "critical,DER:04:20:%s", token);
+
+    /* Each configured key type must be generated to ensure:
+     * that any fallback certs already given to mod_ssl are replaced.
+     * We expect that the validation client (at the CA) can deal with at
+     * least one of them.
+     */
+
+    for (i = 0; i < md_pkeys_spec_count(key_specs); ++i) {
+        char *kfn, *cfn;
+        md_cert_t *cha_cert;
+        md_pkey_t *cha_key;
+        md_pkey_spec_t *key_spec;
+
+        key_spec = md_pkeys_spec_get(key_specs, i);
+        tls_alpn01_fnames(p, key_spec, &kfn, &cfn);
+
+        rv = md_store_load(store, MD_SG_CHALLENGES, authz->domain, cfn,
+                           MD_SV_CERT, (void**)&cha_cert, p);
+        if ((APR_SUCCESS == rv && !md_cert_covers_domain(cha_cert, authz->domain))
+            || APR_STATUS_IS_ENOENT(rv)) {
+            if (APR_SUCCESS != (rv = md_pkey_gen(&cha_key, p, key_spec))) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 %s challenge key",
+                              authz->domain, md_pkey_spec_name(key_spec));
+                goto out;
+            }
+
+            if (APR_SUCCESS != (rv = md_cert_make_tls_alpn_01(&cha_cert, authz->domain, acme_id, cha_key,
+                                                              apr_time_from_sec(7 * MD_SECS_PER_DAY), p))) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 %s challenge cert",
+                              authz->domain, md_pkey_spec_name(key_spec));
+                goto out;
+            }
         
-        acme_id = apr_psprintf(p, "critical,DER:04:20:%s", token);
-        if (APR_SUCCESS != (rv = md_cert_make_tls_alpn_01(&cha_cert, authz->domain, acme_id, cha_key, 
-                                            apr_time_from_sec(7 * MD_SECS_PER_DAY), p))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create tls-alpn-01 cert",
-                          authz->domain);
-            goto out;
+            if (APR_SUCCESS == (rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, kfn,
+                                                   MD_SV_PKEY, (void*)cha_key, 0))) {
+                rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, cfn,
+                                   MD_SV_CERT, (void*)cha_cert, 0);
+            }
+            ++notify_server;
         }
-        
-        if (APR_SUCCESS == (rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_PKEY,
-                                MD_SV_PKEY, (void*)cha_key, 0))) {
-            rv = md_store_save(store, p, MD_SG_CHALLENGES, authz->domain, MD_FN_TLSALPN01_CERT,
-                               MD_SV_CERT, (void*)cha_cert, 0);
-        }
-        notify_server = 1;
     }
     
-    if (APR_SUCCESS == rv && notify_server) {
+    if (APR_SUCCESS == rv && notify_server == i) {
         authz_req_ctx ctx;
 
         /* challenge is setup or was changed from previous data, tell ACME server
@@ -429,7 +450,7 @@ out:
 
 static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                      md_acme_t *acme, md_store_t *store, 
-                                     md_pkey_spec_t *key_spec, 
+                                     md_pkeys_spec_t *key_specs,
                                      apr_array_header_t *acme_tls_1_domains, const char *mdomain,
                                      apr_table_t *env, apr_pool_t *p)
 {
@@ -442,7 +463,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     md_data_t data;
 
     (void)store;
-    (void)key_spec;
+    (void)key_specs;
     (void)acme_tls_1_domains;
     
     dns01_cmd = apr_table_get(env, MD_KEY_CMD_DNS01);
@@ -530,7 +551,7 @@ static apr_status_t cha_teardown_dir(md_store_t *store, const char *domain, cons
 
 typedef apr_status_t cha_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
                                md_acme_t *acme, md_store_t *store, 
-                               md_pkey_spec_t *key_spec, 
+                               md_pkeys_spec_t *key_specs,
                                apr_array_header_t *acme_tls_1_domains, const char *mdomain,
                                apr_table_t *env, apr_pool_t *p);
                                
@@ -582,7 +603,7 @@ static apr_status_t find_type(void *baton, size_t index, md_json_t *json)
 }
 
 apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_store_t *store, 
-                                   apr_array_header_t *challenges, md_pkey_spec_t *key_spec,
+                                   apr_array_header_t *challenges, md_pkeys_spec_t *key_specs,
                                    apr_array_header_t *acme_tls_1_domains, const char *mdomain,
                                    apr_table_t *env, apr_pool_t *p, const char **psetup_token,
                                    md_result_t *result)
@@ -620,7 +641,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                 if (!apr_strnatcasecmp(CHA_TYPES[i].name, fctx.accepted->type)) {
                     md_result_activity_printf(result, "Setting up challenge '%s' for domain %s", 
                                               fctx.accepted->type, authz->domain);
-                    rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_spec, 
+                    rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_specs,
                                             acme_tls_1_domains, mdomain, env, p);
                     if (APR_SUCCESS == rv) {
                         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
