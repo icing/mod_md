@@ -352,8 +352,8 @@ out:
 
 void tls_alpn01_fnames(apr_pool_t *p, md_pkey_spec_t *kspec, char **keyfn, char **certfn )
 {
-    *keyfn = apr_psprintf(p, MD_FN_TLSALPN01_PKEY, md_pkey_filename(kspec, p));
-    *certfn = apr_psprintf(p, MD_FN_TLSALPN01_CERT, md_chain_filename(kspec, p));
+    *keyfn  = apr_pstrcat(p, "acme-tls-alpn-01-", md_pkey_filename(kspec, p), NULL);
+    *certfn = apr_pstrcat(p, "acme-tls-alpn-01-", md_chain_filename(kspec, p), NULL);
 }
 
 static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 

@@ -1048,8 +1048,8 @@ static int md_protocol_switch(conn_rec *c, request_rec *r, server_rec *s,
 
 static void fallback_fnames(apr_pool_t *p, md_pkey_spec_t *kspec, char **keyfn, char **certfn )
 {
-    *keyfn = apr_psprintf(p, MD_FN_FALLBACK_PKEY, md_pkey_filename(kspec, p));
-    *certfn = apr_psprintf(p, MD_FN_FALLBACK_CERT, md_chain_filename(kspec, p));
+    *keyfn  = apr_pstrcat(p, "fallback-", md_pkey_filename(kspec, p), NULL);
+    *certfn = apr_pstrcat(p, "fallback-", md_chain_filename(kspec, p), NULL);
 }
 
 static apr_status_t make_fallback_cert(md_store_t *store, const md_t *md, md_pkey_spec_t *kspec,

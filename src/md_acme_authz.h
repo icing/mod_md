@@ -56,8 +56,6 @@ struct md_acme_authz_t {
 };
 
 #define MD_FN_HTTP01            "acme-http-01.txt"
-#define MD_FN_TLSALPN01_CERT    "acme-tls-alpn-01-%s"
-#define MD_FN_TLSALPN01_PKEY    "acme-tls-alpn-01-%s"
 
 typedef struct md_pkey_spec_t md_pkey_spec_t;
 
