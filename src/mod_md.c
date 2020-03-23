@@ -1566,7 +1566,8 @@ static void md_hooks(apr_pool_t *pool)
     APR_OPTIONAL_HOOK(ssl, add_cert_files, md_add_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, add_fallback_cert_files, md_add_fallback_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, answer_challenge, md_answer_challenge, NULL, NULL, APR_HOOK_MIDDLE);
-    APR_OPTIONAL_HOOK(ssl, answer_challenges, md_answer_challenges, NULL, NULL, APR_HOOK_MIDDLE);
+    /*APR_OPTIONAL_HOOK(ssl, answer_challenges, md_answer_challenges, NULL, NULL, APR_HOOK_MIDDLE);*/
+    (void)md_answer_challenges;
     APR_OPTIONAL_HOOK(ssl, init_stapling_status, md_ocsp_init_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, get_stapling_status, md_ocsp_get_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
 }
