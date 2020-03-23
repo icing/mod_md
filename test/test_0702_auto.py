@@ -331,8 +331,7 @@ class TestAutov2:
         conf.add_vhost( domains )
         conf.install()
         assert TestEnv.apache_restart() == 0
-        time.sleep(1)
-        md = TestEnv.get_md_status( domain )
+        md = TestEnv.await_error( domain )
         assert md["renewal"]["errors"] > 0
         #
         # now the same with a 80 mapped to a supported port 
@@ -362,8 +361,7 @@ class TestAutov2:
         conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        time.sleep(1)
-        md = TestEnv.get_md_status( domain )
+        md = TestEnv.await_error( domain )
         assert md["renewal"]["errors"] > 0
         #
         # now the same with a 443 mapped to a supported port 

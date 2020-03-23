@@ -100,6 +100,12 @@ int md_array_str_add_missing(struct apr_array_header_t *dest,
 
 /**************************************************************************************************/
 /* process execution */
+
+/**
+ * Add the usual suspect from our environment to env. 
+ */
+void md_util_env_inherit(struct apr_array_header_t *env);
+
 apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *argv,
                           struct apr_array_header_t *env, int *exit_code);
 

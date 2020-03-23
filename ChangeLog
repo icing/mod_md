@@ -1,3 +1,6 @@
+ * MDMessageCmd and MDNotifyCmd now get common, important environment variables passed
+   as well, such as PATH, SystemRoot etc - if they existed in the first place. 
+
 V2.3.2 (BETA)
 ----------------------------------------------------------------------------------------------------
  * Add key usage extensions to fallback certificates; correct other extensions.

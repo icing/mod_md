@@ -184,6 +184,7 @@ static apr_status_t notify(md_job_t *job, const char *reason,
     s = ap_server_root_relative(p, mc->base_dir);
     APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_STORE=%s", s);
     APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_VERSION=%s", MOD_MD_VERSION);
+    md_util_env_inherit(env);
      
     if (!strcmp("renewed", reason)) {
         if (mc->notify_cmd) {
