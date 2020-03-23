@@ -36,6 +36,7 @@ A2LIB_OBJECTS = \
     md_core.c \
     md_curl.c \
     md_crypt.c \
+    md_event.c \
     md_http.c \
     md_json.c \
     md_jws.c \
@@ -60,6 +61,7 @@ A2LIB_HFILES = \
     md_acmev2_drive.h \
     md_curl.h \
     md_crypt.h \
+    md_event.h \
     md_http.h \
     md_json.h \
     md_jws.h \

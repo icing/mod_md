@@ -26,6 +26,7 @@
 #include "md_json.h"
 #include "md.h"
 #include "md_crypt.h"
+#include "md_event.h"
 #include "md_log.h"
 #include "md_ocsp.h"
 #include "md_store.h"
@@ -557,9 +558,12 @@ void md_job_retry_at(md_job_t *job, apr_time_t later)
 
 apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *result)
 {
-    if (job->notify) return job->notify(job, reason, result, job->p, job->notify_ctx);
+    apr_status_t rv;
+    
+    md_result_set(result, APR_SUCCESS, NULL);
+    rv = md_event_raise(reason, job->mdomain, job, result, job->p);
     job->dirty = 1;
-    if (APR_SUCCESS == result->status) {
+    if (APR_SUCCESS == rv && APR_SUCCESS == result->status) {
         job->notified = 1;
         job->error_runs = 0;
     }
@@ -570,18 +574,3 @@ apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *resul
     return result->status;
 }
 
-void md_job_holler(md_job_t *job, const char *reason)
-{
-    md_result_t *result;
-    
-    if (job->notify) {
-        result = md_result_make(job->p, APR_SUCCESS);
-        job->notify(job, reason, result, job->p, job->notify_ctx);
-    }
-}
-
-void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton)
-{
-    job->notify = cb;
-    job->notify_ctx = baton;
-}

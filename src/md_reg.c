@@ -26,6 +26,7 @@
 
 #include "md.h"
 #include "md_crypt.h"
+#include "md_event.h"
 #include "md_log.h"
 #include "md_json.h"
 #include "md_result.h"
@@ -1176,7 +1177,7 @@ static apr_status_t run_load_staging(void *baton, apr_pool_t *p, apr_pool_t *pte
     md_store_purge(reg->store, p, MD_SG_STAGING, md->name);
     md_store_purge(reg->store, p, MD_SG_CHALLENGES, md->name);
     md_result_set(result, APR_SUCCESS, "new certificate successfully saved in domains");
-    md_job_notify(job, "installed", result);
+    md_event_holler("installed", md->name, job, result, ptemp);
     if (job->dirty) md_job_save(job, result, ptemp);
     
 out:
@@ -1226,17 +1227,7 @@ void md_reg_set_warn_window_default(md_reg_t *reg, md_timeslice_t *warn_window)
     *reg->warn_window = *warn_window;
 }
 
-void md_reg_set_notify_cb(md_reg_t *reg, md_job_notify_cb *cb, void *baton)
-{
-    reg->notify = cb;
-    reg->notify_ctx = baton;
-}
-
 md_job_t *md_reg_job_make(md_reg_t *reg, const char *mdomain, apr_pool_t *p)
 {
-    md_job_t *job;
-    
-    job = md_job_make(p, reg->store, MD_SG_STAGING, mdomain);
-    md_job_set_notify_cb(job, reg->notify, reg->notify_ctx);
-    return job;
+    return md_job_make(p, reg->store, MD_SG_STAGING, mdomain);
 }

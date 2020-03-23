@@ -31,6 +31,7 @@
 #include "md.h"
 #include "md_curl.h"
 #include "md_crypt.h"
+#include "md_event.h"
 #include "md_http.h"
 #include "md_json.h"
 #include "md_status.h"
@@ -125,13 +126,15 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
                 goto leave;
             }
             
-            if (!job->notified) md_job_notify(job, "renewed", result);
+            if (!job->notified) {
+                md_job_notify(job, "renewed", result);
+            }
         }
         else {
             ap_log_error( APLOG_MARK, APLOG_ERR, result->status, dctx->s, APLOGNO(10056) 
                          "processing %s: %s", job->mdomain, result->detail);
             md_job_log_append(job, "renewal-error", result->problem, result->detail);
-            md_job_holler(job, "errored");
+            md_event_holler("errored", job->mdomain, job, result, ptemp);
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10057) 
                          "%s: encountered error for the %d. time, next run in %s",
                          job->mdomain, job->error_runs, 
@@ -144,9 +147,7 @@ expiry:
         ap_log_error( APLOG_MARK, APLOG_TRACE1, 0, dctx->s,
                      "md(%s): warn about expiration", md->name);
         md_job_start_run(job, result, md_reg_store_get(dctx->mc->reg));
-        if (APR_SUCCESS == md_job_notify(job, "expiring", result)) {
-            md_result_set(result, APR_SUCCESS, NULL);
-        }
+        md_job_notify(job, "expiring", result);
         md_job_end_run(job, result);
     }
 

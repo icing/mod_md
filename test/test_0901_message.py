@@ -255,7 +255,7 @@ class TestMessage:
         assert TestEnv.await_file(TestEnv.store_staged_file( domain, 'job.json'))
         with open(TestEnv.store_staged_file( domain, 'job.json')) as f:
             job = json.load(f)
-            #assert job["errors"] == 1
+            assert job["errors"] > 0
             assert job["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
         # reconfigure to a working notification command and restart
         conf = HttpdConf()

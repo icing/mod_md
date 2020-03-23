@@ -155,6 +155,12 @@
 		B2B81ED21F164AA600E35CA3 /* md_curl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md_curl.h; sourceTree = "<group>"; };
 		B2B81ED41F165F8300E35CA3 /* index.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
 		B2B81ED71F17BF3200E35CA3 /* test_0700_auto.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_0700_auto.py; sourceTree = "<group>"; };
+		B2B9563E2428FC7000157441 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = SOURCE_ROOT; };
+		B2B9563F2428FC7100157441 /* a2md.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = a2md.xml; sourceTree = SOURCE_ROOT; };
+		B2B956402428FC7100157441 /* event_interface_notes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = event_interface_notes.txt; sourceTree = SOURCE_ROOT; };
+		B2B956412428FC7100157441 /* mod_md_ocsp_status.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mod_md_ocsp_status.png; sourceTree = SOURCE_ROOT; };
+		B2B956422428FCD500157441 /* md_event.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_event.h; sourceTree = "<group>"; };
+		B2B956432428FCD500157441 /* md_event.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_event.c; sourceTree = "<group>"; };
 		B2C1BDF821E4FE82002EF7B4 /* test_0202_acmev2_regs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_0202_acmev2_regs.py; sourceTree = "<group>"; };
 		B2C1BDFB21E770C2002EF7B4 /* md_acmev2_drive.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md_acmev2_drive.h; sourceTree = "<group>"; };
 		B2C1BDFC21E770C2002EF7B4 /* md_acmev2_drive.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = md_acmev2_drive.c; sourceTree = "<group>"; };
@@ -377,17 +383,21 @@
 		B2D3099E1EBA227F007BECC8 /* /Users/sei/projects/mod_cert/mod_cert.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
-				B2751AAB241A49DE00C2C037 /* contrib */,
+				B2B9563F2428FC7100157441 /* a2md.xml */,
 				B2D309A01EBA229F007BECC8 /* AUTHORS */,
 				B2127375232F978C00BB7C30 /* buildconf */,
 				B2D309A11EBA229F007BECC8 /* ChangeLog */,
+				B2B9563E2428FC7000157441 /* CMakeLists.txt */,
 				B2D309A21EBA229F007BECC8 /* configure.ac */,
+				B2751AAB241A49DE00C2C037 /* contrib */,
 				B2D309A31EBA229F007BECC8 /* COPYING */,
 				B2D309A41EBA229F007BECC8 /* DISCUSS */,
 				B2127376232FA16500BB7C30 /* Dockerfile */,
+				B2B956402428FC7100157441 /* event_interface_notes.txt */,
 				B2D309A51EBA229F007BECC8 /* INSTALL */,
 				B2D309A61EBA229F007BECC8 /* LICENSE */,
 				B2D309A71EBA229F007BECC8 /* Makefile.am */,
+				B2B956412428FC7100157441 /* mod_md_ocsp_status.png */,
 				B26A4BE222AAB30600D002BC /* mod_md_status.png */,
 				B2D309A81EBA229F007BECC8 /* NEWS */,
 				B2FC60771F5D95DD005B7D9E /* patches */,
@@ -494,6 +504,8 @@
 				B24052171EF9145000E36701 /* md_crypt.h */,
 				B2B81ED11F164AA600E35CA3 /* md_curl.c */,
 				B2B81ED21F164AA600E35CA3 /* md_curl.h */,
+				B2B956432428FCD500157441 /* md_event.c */,
+				B2B956422428FCD500157441 /* md_event.h */,
 				B24052181EF9145000E36701 /* md_http.c */,
 				B24052191EF9145000E36701 /* md_http.h */,
 				B240521A1EF9145000E36701 /* md_json.c */,

@@ -32,6 +32,7 @@
 #include "md.h"
 #include "md_curl.h"
 #include "md_crypt.h"
+#include "md_event.h"
 #include "md_http.h"
 #include "md_json.h"
 #include "md_store.h"
@@ -223,6 +224,13 @@ static apr_status_t notify(md_job_t *job, const char *reason,
     }
     md_job_log_append(job, log_msg_reason, NULL, NULL);
     return APR_SUCCESS;
+}
+
+static apr_status_t on_event(const char *event, const char *mdomain, void *baton, 
+                             md_job_t *job, md_result_t *result, apr_pool_t *p)
+{
+    (void)mdomain;
+    return notify(job, event, result, p, baton); 
 }
 
 /**************************************************************************************************/
@@ -867,12 +875,14 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     mc = sc->mc;
     mc->dry_run = dry_run;
 
+    md_event_init(p);
+    md_event_subscribe(on_event, mc);
+    
     if (APR_SUCCESS != (rv = setup_store(&store, mc, p, s))
         || APR_SUCCESS != (rv = md_reg_create(&mc->reg, p, store, mc->proxy_url))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072) "setup md registry");
         goto leave;
     }
-    md_reg_set_notify_cb(mc->reg, notify, mc);
 
     /* renew on 30% remaining /*/
     rv = md_ocsp_reg_make(&mc->ocsp, p, store, mc->ocsp_renew_window,
@@ -881,7 +891,6 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10196) "setup ocsp registry");
         goto leave;
     }
-    md_ocsp_set_notify_cb(mc->ocsp, notify, mc);
 
     init_ssl();
 
