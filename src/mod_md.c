@@ -1232,79 +1232,6 @@ static int md_add_fallback_cert_files(server_rec *s, apr_pool_t *p,
     return DECLINED;
 }
 
-/* Compatible with old versions of mod_ssl */
-
-static int md_is_challenge(conn_rec *c, const char *servername,
-                           X509 **pcert, EVP_PKEY **pkey)
-{
-    md_srv_conf_t *sc;
-    const char *protocol, *challenge;
-    char *cert_name, *pkey_name;
-    apr_status_t rv;
-
-    ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
-                  "Is challenge for %s", servername? servername : "no server");
-
-    if (!servername) goto out;
-
-    challenge = NULL;
-    if ((protocol = md_protocol_get(c)) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
-        challenge = "tls-alpn-01";
-
-        sc = md_config_get(c->base_server);
-        if (sc && md_pkeys_spec_count( sc->pks ) > 1) {
-            ap_log_cerror(APLOG_MARK, APLOG_EMERG, 0, c,
-                          "%s: Configuring more than one certificate requires a newer mod_ssl",
-                          servername);
-            goto out;
-        }
-        tls_alpn01_fnames(c->pool, md_pkeys_spec_get(sc->pks,0), &pkey_name, &cert_name);
-
-        if (sc && sc->mc->reg) {
-            md_store_t *store = md_reg_store_get(sc->mc->reg);
-            md_cert_t  *mdcert;
-            md_pkey_t  *mdpkey;
-
-            ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
-                          "Loading challenge cert %s, key %s for %s",
-                          cert_name, pkey_name, servername);
-            rv = md_store_load(store, MD_SG_CHALLENGES, servername, cert_name,
-                               MD_SV_CERT, (void**)&mdcert, c->pool);
-            if (APR_SUCCESS == rv && (*pcert = md_cert_get_X509(mdcert))) {
-                rv = md_store_load(store, MD_SG_CHALLENGES, servername, pkey_name,
-                                   MD_SV_PKEY, (void**)&mdpkey, c->pool);
-                if (APR_SUCCESS == rv && (*pkey = md_pkey_get_EVP_PKEY(mdpkey))) {
-                    ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(10078)
-                                  "%s: is a %s challenge host", servername, challenge);
-                    return 1;
-                }
-                ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO(10079)
-                              "%s: %s challenge data not complete, cert/key unavailable",
-                              servername, challenge);
-            }
-            else {
-                ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO(10080)
-                              "%s: unknown %s challenge host", servername, challenge);
-            }
-        }
-    }
-out:
-    *pcert = NULL;
-    *pkey = NULL;
-    return 0;
-}
-
-static int md_answer_challenge(conn_rec *c, const char *servername,
-                               X509 **pcert, EVP_PKEY **pkey)
-{
-    ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
-                  "Answer challenge for %s", servername? servername : "no server");
-    if (md_is_challenge(c, servername, pcert, pkey)) {
-        return APR_SUCCESS;
-    }
-    return DECLINED;
-}
-
 /* Requires newer mod_ssl to handle multiple active certificates per server
  *
  * Return codes were chosen to inform older mod_ssl that hook is present.
@@ -1354,18 +1281,18 @@ static apr_status_t md_answer_challenges(conn_rec *c, const char *servername,
                     rv = md_store_load(store, MD_SG_CHALLENGES, servername, pkey_name,
                                        MD_SV_PKEY, (void**)&mdpkey, c->pool);
                     if (APR_SUCCESS == rv && (pk = md_pkey_get_EVP_PKEY(mdpkey))) {
-                        ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO()
+                        ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(10078)
                                       "%s: is a %s challenge host", servername, challenge);
                         APR_ARRAY_PUSH(certs, X509*)    = x;
                         APR_ARRAY_PUSH(pkeys, EVP_PKEY*) = pk;
                         continue;
                     }
-                    ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO()
+                    ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO(10079)
                                   "%s: %s challenge data not complete, cert/key unavailable",
                                   servername, challenge);
                     return APR_EGENERAL;
                 } else {
-                    ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO()
+                    ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO(10080)
                                   "%s: unknown %s challenge host", servername, challenge);
                     return APR_EGENERAL;
                 }
@@ -1375,6 +1302,30 @@ static apr_status_t md_answer_challenges(conn_rec *c, const char *servername,
     }
     return HTTP_CONTINUE;
 }
+
+static int md_answer_challenge(conn_rec *c, const char *servername,
+                               X509 **pcert, EVP_PKEY **ppkey)
+{
+    const char *protocol;
+    apr_array_header_t *certs, *pkeys;
+
+    if ((protocol = md_protocol_get(c)) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
+        ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
+                      "Answer challenge for %s", servername? servername : "no server");
+        certs = apr_array_make(c->pool, 5, sizeof(X509*));
+        pkeys = apr_array_make(c->pool, 5, sizeof(EVP_PKEY*));
+        if (DONE == md_answer_challenges(c, servername, certs, pkeys) 
+            && certs->nelts > 0 && pkeys->nelts > 0) {
+            *pcert = APR_ARRAY_IDX(certs, 0, X509*);
+            *ppkey = APR_ARRAY_IDX(pkeys, 0, EVP_PKEY*);
+            return APR_SUCCESS;
+        }
+    }
+    *pcert = NULL;
+    *ppkey = NULL;
+    return DECLINED;
+}
+
 
 /**************************************************************************************************/
 /* ACME 'http-01' challenge responses */
