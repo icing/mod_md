@@ -1,3 +1,5 @@
+ V2.3.3 (BETA)
+ ----------------------------------------------------------------------------------------------------
  * MDMessageCmd and MDNotifyCmd now get common, important environment variables passed
    as well, such as PATH, SystemRoot etc - if they existed in the first place. 
 
