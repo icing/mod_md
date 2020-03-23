@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-MDE_VERSION="0.0.3"
+MDE_VERSION="0.0.4"
 
 MDE_SELF="$(basename $0)"
 
@@ -93,7 +93,7 @@ MDE_CFG="$MDE_HTTPD_ROOT/md_events.conf"
 MDE_CFGS=
 
 # HTTPD's (default) config file
-MDE_HTTPD_CFG="$MDE_HTTPD_ROOT/$(httpd -V -f /dev/null 2>/dev/null | sed -ne 's/^ *-D  -D SERVER_CONFIG_FILE="\([^\"]*\)"/\1/p;')/"
+MDE_HTTPD_CFG="$MDE_HTTPD_ROOT/$(httpd -V -f /dev/null 2>/dev/null | sed -ne 's/^ *-D SERVER_CONFIG_FILE="\([^\"]*\)"/\1/p;')"
 
 function usage() {
     cat <<EOF
@@ -145,6 +145,11 @@ To configure for a managed domain:
     For the "installed" event, you can use the public functions to copy files for
     other applications, create separate or combined files, and/or restart applications.
     You can customize or suppress e-mail by modifying the MDE_MESSAGE variable.
+
+    You can also customize for a validation target (e.g. for a dns-01 or remote http-01
+    challenge to a specific host) by creating a <target-name>.conf file.
+
+    If a hander or variable is defined at multiple levels, the most specific is used.
 
 Bug reports/issues to https://github.com/tlhackque/mod_md
 EOF
@@ -212,7 +217,10 @@ export -a MDE_DATA=("$@")
 # Environment variables passed from mod_md
 
 [ -z "$MD_STORE" ] && MD_STORE="$MDE_HTTPD_ROOT/md"
-export MD_MDE_VERSION
+
+[ -z "$MD_MDOMAIN" ] && MD_MDOMAIN="$MDE_DOMAIN"
+export MD_STORE MD_VERSION MD_MDOMAIN
+
 
 # Get existing configuration before applying defaults.
 
@@ -237,7 +245,7 @@ unset MDE_ACT
 # MAILTO - if not set explicitly, perhaps from crontab.  Else default to webmaster.
 
 [ -z "$MDE_MAILTO" ] && MDE_MAILTO="$MAILTO"
-[ -z "$MDE_MAILTO" ] && MDE_MAILTO="webmaster@$MDE_DOMAIN"
+[ -z "$MDE_MAILTO" ] && MDE_MAILTO="webmaster@$MD_MDOMAIN"
 
 # Handle install - bracketed installer code removes itself.
 
@@ -278,23 +286,23 @@ if [ "$MDE_EVENT" == "_install" ]; then
 # Note that many of these variables can be set by options on the command
 # line.  To ensure the command line has precedence, those are [ -z "\$foo" ] && export foo=
 #
-# Directory containing per-domain configuration (-r)
-[ -z "$MDE_CFGS" ] && export MDE_CFGS="$MDE_CFGS"
+# Directory containing per-domain configuration (-r), default is from install
+[ -z "\$MDE_CFGS" ] && export MDE_CFGS="$MDE_CFGS"
 #
 # PATH needed for commands
 # export PATH="/usr/local/sbin:/usr/local/bin:\$PATH"
 #
 # Global Debugging (-d)
-# [ -z "$MDE_DEBUG" ] && export MDE_DEBUG=true
+# [ -z "\$MDE_DEBUG" ] && export MDE_DEBUG=true
 #
 # Global MDE_MAILTO (-u)
-# [ -z "$MDE_MAILTO" ] && export MDE_MAILTO=me@example.net
+# [ -z "\$MDE_MAILTO" ] && export MDE_MAILTO=me@example.net
 #
 # Logging (-L)
-# [ -z "$MDE_LOG" ] && export MDE_LOG="/var/log/httpd/md_events.log"
+# [ -z "\$MDE_LOG" ] && export MDE_LOG="/var/log/httpd/md_events.log"
 #
 # Mail event notifications - space delimited list, or "all" (-m)
-# [ -z "$MDE_MAIL" ] && export MDE_MAIL="all"
+# [ -z "\$MDE_MAIL" ] && export MDE_MAIL="all"
 #
 # UMASK for sensitive files (e.g. keys, passwords)
 # export MDE_SAFE_UMASK="umask u=rw,g=r,o="
@@ -304,9 +312,97 @@ if [ "$MDE_EVENT" == "_install" ]; then
 #
 # SSH/SCP options - e.g. to select an identity (private key)
 # export MDE_SSH_OPTIONS="-i ~certman/.ssh/id_ed25519"
-# Do NOT exit - this is a sourced script
+#
+# Handlers (as defined in $MDE_CFGS/example.net.conf) that are domain-
+# independent.  These are inherited by all MDomains, and can be redefined
+# in a MDomain's specific .conf file.  Note that these are functions, and
+# execute in the request context (which is NOT available when they are
+# defined.)
+#
+# The following are sample handlers that may be useful.  To keep them,
+# see the instructions at the end of the block.
+#
+# **** Begin sample handlers ****
+
 EOF
-    if [ "$?" == "0" ]; then
+    rv="$?"
+    cat >>"$fname" <<'EOFEOF'
+# Simplest form of DNS updates
+# This assumes DNS UPDATE (RFC 2136, etc) is supported, authorization is by IP address
+#
+# nsupdate_options="-k tsig_key.123+42123,private"
+# You may need "server" and/or "local" commands if nsupdate doesn't default them.
+
+function setup_handler() {
+    local keyauth="${MDE_DATA[0]}"
+
+    # Note: Blank line is "send" to nsupdate
+    nsupdate $nsupdate_options <<EOF
+update add _acme-challenge.${MDE_DOMAIN}. 300 in TXT "${keyauth}"
+
+EOF
+}
+
+function teardown_handler() {
+
+    nsupdate $nsupdate_options <<EOF
+update delete _acme-challenge.${MDE_DOMAIN} TXT
+
+EOF
+}
+
+# Wrapper functions for getssl ( https://github.com/srvrco/getssl ) DNS Update scripts
+#
+# Use these instead of the above if your provider is in the getssl library
+#
+# Depending on the provider, you may need to define variables for API credentials.
+# Thy may also depend on other scripts.  See each script for its requirements.
+#
+# dns_scripts="/usr/local/sbin/getssl/dns_scripts"
+# dns_provider="nsupdate" or "godaddy", "cloudflare", "dnspod", "linode", "ovh", ...
+# At this writing, there are scripts for about a dozen providers there.
+
+function xx_setup_handler() {
+    local keyauth="${MDE_DATA[0]}"
+
+    mkdir -p "$MDE_CFGS/${MD_MDOMAIN}-d"
+    touch "$MDE_CFGS/${MD_MDOMAIN}_d/${keyauth}.token"
+    $dns_scripts/dns_add_${provider} "$MD_MDOMAIN" "$keyauth"
+    return $?
+}
+
+function xx_teardown_handler() {
+    local keyauth="${MDE_DATA[0]}"
+
+    # NOTE: These expect the token to be deleted - requires a mod_md change
+    #       Work-around: track installed tokens in $MDE_CFGS/${MD_MDOMAIN}.d/*.token
+
+    local ng="$(shopt -p nullglob)"
+    shopt -s nullglob
+    local T rv="0"
+    for T in $MDE_CFGS/${MD_MDOMAIN}_d/*.token; do
+        keyauth="$(basename $T .token)"
+        $dns_scripts/dns_del_${provider} "$MD_MDOMAIN" "$keyauth"
+        [ "$rv" == "0" ] && rv="$?"
+        rm -f $T
+    done
+    $ng
+    return $rv
+}
+
+export -f setup_handler teardown_handler
+
+# Remove the following line to keep the sample handlers
+
+unset -f setup_handler teardown_handler
+
+# **** End sample handlers ****
+
+# Do NOT exit - this is a sourced script
+true
+EOFEOF
+    [ "$rv" == "0" ] && rv="$?"
+    if [ "$rv" == "0" ]; then
         info "Created $fname with defaults, please review"
     fi
 
@@ -331,6 +427,8 @@ EOF
 # Customize a copy of this file for each managed domain, and
 # place it in $MDE_CFGS named <domain_name>.conf
 EOFEOF
+    rv="$?"
+
     cat >>"$fname" <<'EOFEOF'
 #
 # A function is defined here for any event that is to be handled.
@@ -341,14 +439,16 @@ EOFEOF
 # reason string replaced with "_".
 #
 # On entry, the following variables are defined and (some) can be modified:
-# MDE_DOMAIN        - the domain name that triggered the event
+# MD_MDOMAIN        - the domain name that triggered the event
 # MDE_EVENT         - the unmodified "reason" string
+# MDE_DOMAIN        = the test or target domain identified by mod_md (e.g. DNS)
 # MDE_DATA          - an array containg any additional data passed as command line arguments
 # MD_STORE          - the path to the mod_md data store (directory).
-#                     $MD_STORE/$MDE_WHERE./$MDE_DOMAIN/*.pem will be the certificate(s) and key(s).
+# MD_VERSION        - the version of MOD_MD
+#                     $MD_STORE/$MDE_WHERE./$MD_MDOMAIN/*.pem will be the certificate(s) and key(s).
 # MDE_WHERE         - the MD_STORE location of the certificates affected by the event.
 # MDE_VERSION       - the version of md_events
-# MDE_MAILTO        - e-mail address used for mail (set to -u or webmaster@$MDE_DOMAIN)
+# MDE_MAILTO        - e-mail address used for mail (set to -u or webmaster@$MD_MDOMAIN)
 # MDE_NOTIFY        - set to "true" if MDMessageCmd -m included this event.
 # MDE_SUBJECT       - subject for an e-mail about this event.
 # MDE_MESSAGE       - body for a generic description of this event
@@ -357,14 +457,21 @@ EOFEOF
 # MDE_SAFE_UMASK    - a umask command to set umask for sensitive files
 # MDE_WWW_UMASK     - a umask command to set umask for httpd-served files
 # -------           - The following are only present for corresponding events.
-# MDE_CERTS         - Full path to each certificate installed/staged for $MDE_DOMAIN
-# MDE_KEYS          - Full path to each private key installed/staged for $MDE_DOMAIN
+# MDE_CERTS         - Full path to each certificate installed/staged for $MD_MDOMAIN
+# MDE_KEYS          - Full path to each private key installed/staged for $MD_MDOMAIN
 # MDE_TYPES         - A list of the certificate types (rsa, p-256, ...)
 #
 EOFEOF
+    [ "$rv" == "0" ] && rv="$?"
+
     cat >>"$fname" <<EOFEOF
 # Additional variables from $MDE_CFG are also defined
+#
+# Function definitions here may be superseded by re-defining them in
+# $MDE_CFGS/<mdomain-name>.conf or $MDE_CFGS/<target-domain-name>.conf
 EOFEOF
+    [ "$rv" == "0" ] && rv="$?"
+
     cat >>"$fname" <<'EOFEOF'
 #
 # MDE_MESSAGE is only set if MDMessageCmd -m included this event.
@@ -502,75 +609,13 @@ function teardown_http_01_handler() {
 }
 export -f teardown_http_01_handler
 
-# Simplest form of DNS updates
-# This assumes DNS UPDATE (RFC 2136, etc) is supported, authorization is by IP address
-#
-# nsupdate_options="-k tsig_key.123+42123,private"
-# You may need "server" and/or "local" commands if nsupdate doesn't default them.
-
-function setup_handler() {
-    local keyauth="${MDE_DATA[0]}"
-
-    # Note: Blank line is "send" to nsupdate
-    nsupdate $nsupdate_options <<EOF
-update add _acme-challenge.${MDE_DOMAIN}. 300 in TXT "${keyauth}"
-
-EOF
-}
-
-function teardown_handler() {
-
-    nsupdate $nsupdate_options <<EOF
-update delete _acme-challenge.${MDE_DOMAIN} TXT
-
-EOF
-}
-
-# Wrapper functions for getssl ( https://github.com/srvrco/getssl ) DNS Update scripts
-#
-# Use these instead of the above if your provider is in the getssl library
-#
-# Depending on the provider, you may need to define variables for API credentials.
-# Thy may also depend on other scripts.  See each script for its requirements.
-#
-# dns_scripts="/usr/local/sbin/getssl/dns_scripts"
-# dns_provider="nsupdate" or "godaddy", "cloudflare", "dnspod", "linode", "ovh", ...
-# At this writing, there are scripts for about a dozen providers there.
-
-function xx_setup_handler() {
-    local keyauth="${MDE_DATA[0]}"
-
-    mkdir -p "$MDE_CFGS/${MDE_DOMAIN}-d"
-    touch "$MDE_CFGS/${MDE_DOMAIN}_d/${keyauth}.token"
-    $dns_scripts/dns_add_${provider} "$MDE_DOMAIN" "$keyauth"
-    return $?
-}
-
-function xx_teardown_handler() {
-    local keyauth="${MDE_DATA[0]}"
-
-    # NOTE: These expect the token to be deleted - requires a mod_md change
-    #       Work-around: track installed tokens in $MDE_CFGS/${MDE_DOMAIN}.d/*.token
-
-    local ng="$(shopt -p nullglob)"
-    shopt -s nullglob
-    local T rv="0"
-    for T in $MDE_CFGS/${MDE_DOMAIN}_d/*.token; do
-        keyauth="$(basename $T .token)"
-        $dns_scripts/dns_del_${provider} "$MDE_DOMAIN" "$keyauth"
-        [ "$rv" == "0" ] && rv="$?"
-        rm -f $T
-    done
-    $ng
-    return $rv
-}
-
-export -f setup_handler teardown_handler
-
 # Do NOT exit - this is a sourced script
+true
 EOFEOF
+    [ "$rv" == "0" ] && rv="$?"
     $MDE_INITIAL_UMASK
-    info "Installed sample domain configuration in $fname"
+
+    [ "$rv" == "0" ] && info "Installed sample domain configuration in $fname"
 
     info "Installation complete, update the httpd configuration (usually $MDE_HTTPD_CFG)"
     exit $E_OK
@@ -582,7 +627,7 @@ if [ -z "$MDE_EVENT" -o -z "$MDE_DOMAIN" ]; then
     error $E_FAILED "Unless installing, event and domain parameters are required"
 fi
 
-export MDE_EVENT MDE_DOMAIN MD_STORE MDE_DEBUG MDE_LOG MDE_CFG MDE_CFGS MDE_NOTIFY MDE_VERSION MDE_HTTPD_ROOT MDE_HTTPD_CFG
+export MDE_EVENT MDE_DOMAIN MDE_DEBUG MDE_LOG MDE_CFG MDE_CFGS MDE_NOTIFY MDE_VERSION MDE_HTTPD_ROOT MDE_HTTPD_CFG
 export -f info debug error
 
 MDE_SUBJECT=
@@ -962,17 +1007,25 @@ function reload_service() {
 }
 export -f reload_service
 
-# Read domain configuration file
+# Read domain configuration file(s)
 
-if [ -f "$MDE_CFGS/${MDE_DOMAIN}.conf" ]; then
+# - MDOMAIN (Certificate)
+
+if [ -f "$MDE_CFGS/${MD_MDOMAIN}.conf" ]; then
+    . "$MDE_CFGS/${MD_MDOMAIN}.conf" "$MDE_HTTPD"
+    [ "$?" == "0" ] && debug "Read configuration file: $MDE_CFGS/${MD_MDOMAIN}.conf"
+fi
+
+# - Target domain (validation target - host or resource)
+
+if [ "$MDE_DOMAIN" != "$MD_MDOMAIN" -a -f "$MDE_CFGS/${MDE_DOMAIN}.conf" ]; then
     . "$MDE_CFGS/${MDE_DOMAIN}.conf" "$MDE_HTTPD"
-else
-    debug "Missing configuration file: $MDE_CFGS/${MDE_DOMAIN}.conf"
+    [ "$?" == "0" ] && debug "Read configuration file: $MDE_CFGS/${MDE_DOMAIN}.conf"
 fi
 
 if [ -n "$MDE_WHERE" ]; then
-    MDE_CERTS="$(find $MD_STORE/$MDE_WHERE/$MDE_DOMAIN -name 'pubcert*.pem' 2>/dev/null | tr '\n' ' ')"
-    MDE_KEYS="$(find $MD_STORE/$MDE_WHERE/$MDE_DOMAIN  -name 'privkey*.pem' 2>/dev/null | tr '\n' ' ')"
+    MDE_CERTS="$(find $MD_STORE/$MDE_WHERE/$MD_MDOMAIN -name 'pubcert*.pem' 2>/dev/null | tr '\n' ' ')"
+    MDE_KEYS="$(find $MD_STORE/$MDE_WHERE/$MD_MDOMAIN  -name 'privkey*.pem' 2>/dev/null | tr '\n' ' ')"
     MDE_TYPES=
     if [ -n "$MDE_CERTS" ]; then
         for C in $MDE_CERTS; do

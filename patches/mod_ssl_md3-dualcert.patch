@@ -1,0 +1,315 @@
+--- modules/ssl/mod_ssl_openssl.h.base	2019-07-30 07:23:52.000000000 -0400
++++ modules/ssl/mod_ssl_openssl.h	2020-03-22 01:42:17.497125441 -0400
+@@ -72,12 +72,20 @@
+ /** On TLS connections that do not relate to a configured virtual host,
+  * allow other modules to provide a X509 certificate and EVP_PKEY to
+  * be used on the connection. This first hook which does not
+  * return DECLINED will determine the outcome. */
+ APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, answer_challenge,
+-                          (conn_rec *c, const char *server_name, 
++                          (conn_rec *c, const char *server_name,
+                           X509 **pcert, EVP_PKEY **pkey))
++/** On TLS connections that do not relate to a configured virtual host,
++ * allow other modules to provide a list of X509 certificates and
++ * EVP_PKEYs to be used on the connection. This first hook which does
++ *  not return DECLINED will determine the outcome. */
++APR_DECLARE_EXTERNAL_HOOK(ssl, SSL, int, answer_challenges,
++                          (conn_rec *c, const char *server_name,
++                           apr_array_header_t *certs,
++                           apr_array_header_t *pkeys))
+ 
+ /** During post_config phase, ask around if someone wants to provide
+  * OCSP stapling status information for the given cert (with the also
+  * provided issuer certificate). The first hook which does not
+  * return DECLINED promises to take responsibility (and respond
+--- modules/ssl/ssl_private.h.base	2018-11-23 10:10:24.000000000 -0500
++++ modules/ssl/ssl_private.h	2020-03-22 01:42:50.203283619 -0400
+@@ -1107,8 +1107,11 @@
+ int modssl_request_is_tls(const request_rec *r, SSLConnRec **sslconn);
+ 
+ int ssl_is_challenge(conn_rec *c, const char *servername, 
+                      X509 **pcert, EVP_PKEY **pkey);
+ 
++apr_status_t ssl_is_a_challenge(conn_rec *c, const char *servername,
++                                apr_array_header_t *certs, apr_array_header_t *pkeys);
++
+ #endif /* SSL_PRIVATE_H */
+ /** @} */
+ 
+--- modules/ssl/ssl_engine_init.c.base	2019-08-06 08:16:14.000000000 -0400
++++ modules/ssl/ssl_engine_init.c	2020-03-22 01:44:49.434442219 -0400
+@@ -47,15 +47,22 @@
+                                     apr_array_header_t *cert_files, apr_array_header_t *key_files),
+                                     (s, p, cert_files, key_files),
+                                     OK, DECLINED)
+ 
+ APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, answer_challenge,
+-                                    (conn_rec *c, const char *server_name, 
++                                    (conn_rec *c, const char *server_name,
+                                     X509 **pcert, EVP_PKEY **pkey),
+                                     (c, server_name, pcert, pkey),
+                                     DECLINED, DECLINED)
+ 
++APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, apr_status_t, answer_challenges,
++                                    (conn_rec *c, const char *server_name,
++                                     apr_array_header_t *certs,
++                                     apr_array_header_t *pkeys),
++                                    (c, server_name, certs, pkeys),
++                                    DECLINED, DECLINED)
++
+ 
+ /*  _________________________________________________________________
+ **
+ **  Module Initialization
+ **  _________________________________________________________________
+@@ -184,26 +191,36 @@
+                  modver, AP_SERVER_BASEVERSION, incver);
+ }
+ 
+ /*  _________________________________________________________________
+ **
+-**  Let other answer special connection attempts. 
++**  Let other modules answer special connection attempts
+ **  Used in ACME challenge handling by mod_md.
+ **  _________________________________________________________________
+ */
+ 
+-int ssl_is_challenge(conn_rec *c, const char *servername, 
++/* Version supporting older mod_md, can handle just one active keypair.
++ */
++int ssl_is_challenge(conn_rec *c, const char *servername,
+                      X509 **pcert, EVP_PKEY **pkey)
+ {
+     if (APR_SUCCESS == ssl_run_answer_challenge(c, servername, pcert, pkey)) {
+         return 1;
+     }
+     *pcert = NULL;
+     *pkey = NULL;
+     return 0;
+ }
+ 
++/* Version supporting newer mod_md, can handle any number of keypairs (certs)
++ */
++apr_status_t ssl_is_a_challenge(conn_rec *c, const char *servername,
++                                apr_array_header_t *certs, apr_array_header_t *pkeys)
++{
++    return ssl_run_answer_challenges(c, servername, certs, pkeys);
++}
++
+ #ifdef HAVE_FIPS
+ static apr_status_t modssl_fips_cleanup(void *data)
+ {
+     FIPS_mode_set(0);
+     return APR_SUCCESS;
+--- modules/ssl/ssl_engine_kernel.c.log+verify	2020-03-20 15:51:14.952205475 -0400
++++ modules/ssl/ssl_engine_kernel.c	2020-03-22 15:06:08.302306710 -0400
+@@ -2292,50 +2292,131 @@
+     }
+ }
+ 
+ #ifdef HAVE_TLSEXT
+ 
++static const char *key_type_string( EVP_PKEY *pk) {
++    if (pk != NULL) {
++        int t;
++
++        const char *s;
++        t = EVP_PKEY_base_id(pk);
++        if (t != NID_undef && ((s = OBJ_nid2sn(t)) != NULL)) return s;
++    }
++    return "Unknown";
++}
++static const char *cert_type_string(const X509 *x) {
++    return key_type_string( X509_get0_pubkey(x));
++}
++
++/* Install challenge response certificate(s) delivered by provider.
++ *
++ * Also ensure that client verification is off since challenges will
++ * not offer a client certificate..
++ *
++ * Result is either APR_SUCCESS or APR_EGENERAL.
++ * Other result codes imply there is no challenge pending; adding
++ * any more requires changes to callers.
++ */
++
+ static apr_status_t set_challenge_creds(conn_rec *c, const char *servername,
+-                                        SSL *ssl, X509 *cert, EVP_PKEY *key)
++                                        SSL *ssl, apr_array_header_t *certs,
++                                        apr_array_header_t *pkeys)
+ {
+     SSLConnRec *sslcon = myConnConfig(c);
+-    
++    int i;
++
+     sslcon->service_unavailable = 1;
+-    if ((SSL_use_certificate(ssl, cert) < 1)) {
+-        ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10086)
+-                      "Failed to configure challenge certificate %s",
+-                      servername);
+-        return APR_EGENERAL;
+-    }
+-    
+-    if (!SSL_use_PrivateKey(ssl, key)) {
+-        ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10087)
+-                      "error '%s' using Challenge key: %s",
+-                      ERR_error_string(ERR_peek_last_error(), NULL), 
+-                      servername);
+-        return APR_EGENERAL;
++
++    for (i = 0; i < certs->nelts; i++) {
++        X509     *cert;
++        EVP_PKEY *pkey;
++
++        cert = APR_ARRAY_IDX(certs, i, X509*);
++        pkey = APR_ARRAY_IDX(pkeys, i, EVP_PKEY*);
++
++        if ((SSL_use_certificate(ssl, cert) < 1)) {
++            ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10086)
++                          "Failed to install %s challenge certificate for %s: %s",
++                          cert_type_string(cert), servername,
++                          ERR_error_string(ERR_peek_last_error(), NULL));
++            return APR_EGENERAL;
++        }
++
++        if (!SSL_use_PrivateKey(ssl, pkey)) {
++            ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10087)
++                          "Failed to install %s challenge key for %s: %s",
++                          key_type_string(pkey), servername,
++                          ERR_error_string(ERR_peek_last_error(), NULL));
++            return APR_EGENERAL;
++        }
++        if (SSL_check_private_key(ssl) < 1) {
++            ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10088)
++                          "%s challenge certificate and %s private key for %s "
++                          "do not match", cert_type_string(cert),
++                          key_type_string(pkey), servername);
++            return APR_EGENERAL;
++        }
++        ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
++                      "Installed %s challenge certificate for %s",
++                      cert_type_string(cert), servername);
+     }
+-    
+-    if (SSL_check_private_key(ssl) < 1) {
+-        ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10088)
+-                      "Challenge certificate and private key %s "
+-                      "do not match", servername);
++    SSL_set_verify(ssl, SSL_VERIFY_NONE, ssl_callback_SSLVerify);
++    return APR_SUCCESS;
++}
++
++/* Handle any pending challenge, accounting for mod_md's capabilities..
++ */
++
++static apr_status_t check_challenge(conn_rec *c, const char *servername, SSL *ssl) {
++    apr_array_header_t *certs, *pkeys;
++    apr_status_t rv;
++
++    ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
++                  "Check challenge for %s", servername? servername : "no server");
++
++    certs = apr_array_make(c->pool, 5, sizeof(X509*));
++    pkeys = apr_array_make(c->pool, 5, sizeof(EVP_PKEY*));
++
++
++    rv = ssl_is_a_challenge(c, servername, certs, pkeys);
++    switch( rv ) {
++    case DECLINED: { /* mod_md doesn't have hook, try previous test */
++        X509 *cert;
++        EVP_PKEY *pkey;
++
++        if (ssl_is_challenge(c, servername, &cert, &pkey)) {
++            APR_ARRAY_PUSH(certs, X509*) = cert;
++            APR_ARRAY_PUSH(pkeys, EVP_PKEY*) = pkey;
++            break;      /* Challenge response required */
++        }
++        return DECLINED;/* Not a challenge or no mod_ssl */
++    } 
++    case DONE:          /* Challenge response required */
++        break;
++    case HTTP_CONTINUE: /* Not a challenge, mod_md present */
++        return DECLINED;
++
++    default:
++    case APR_EGENERAL:  /* Challenge, but broken */
+         return APR_EGENERAL;
+     }
+-    return APR_SUCCESS;
++
++    /* Install certs & keys */
++
++    return set_challenge_creds(c,servername, ssl, certs, pkeys);
+ }
+-  
++
+ /*
+  * This function sets the virtual host from an extended
+  * client hello with a server name indication extension ("SNI", cf. RFC 6066).
+  */
+ static apr_status_t init_vhost(conn_rec *c, SSL *ssl)
+ {
+     const char *servername;
+-    X509 *cert;
+-    EVP_PKEY *key;
+-    
++    apr_status_t rv;
++
+     if (c) {
+         SSLConnRec *sslcon = myConnConfig(c);
+         
+         if (sslcon->server != c->base_server) {
+             /* already found the vhost */
+@@ -2347,23 +2428,20 @@
+             if (ap_vhost_iterate_given_conn(c, ssl_find_vhost,
+                                             (void *)servername)) {
+                 ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02043)
+                               "SSL virtual host for servername %s found",
+                               servername);
+-                
++
+                 return APR_SUCCESS;
+             }
+-            else if (ssl_is_challenge(c, servername, &cert, &key)) {
+-                /* With ACMEv1 we can have challenge connections to a unknown domains
+-                 * that need to be answered with a special certificate and will
+-                 * otherwise not answer any requests. */
+-                if (set_challenge_creds(c, servername, ssl, cert, key) != APR_SUCCESS) {
+-                    return APR_EGENERAL;
+-                }
+-                SSL_set_verify(ssl, SSL_VERIFY_NONE, ssl_callback_SSLVerify);
+-            }
+             else {
++                if (APR_SUCCESS == (rv = check_challenge(c, servername, ssl))) {
++                    return APR_NOTFOUND;
++                }
++                if( rv == APR_EGENERAL ) {
++                    return rv;
++                }
+                 ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02044)
+                               "No matching SSL virtual host for servername "
+                               "%s found (using default/first virtual host)",
+                               servername);
+                 /*
+@@ -2658,18 +2736,13 @@
+          * However, exclude challenge checks on our best known traffic protocol.
+          * (http/1.1 is the default, we never switch to it anyway.)
+          */
+         if (strcmp("h2", proposed)) {
+             const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+-            X509 *cert;
+-            EVP_PKEY *key;
+-            
+-            if (ssl_is_challenge(c, servername, &cert, &key)) {
+-                if (set_challenge_creds(c, servername, ssl, cert, key) != APR_SUCCESS) {
+-                    return SSL_TLSEXT_ERR_ALERT_FATAL;
+-                }
+-                SSL_set_verify(ssl, SSL_VERIFY_NONE, ssl_callback_SSLVerify);
++
++            if (APR_SUCCESS != check_challenge(c, servername, ssl)) {
++                return SSL_TLSEXT_ERR_ALERT_FATAL;
+             }
+         }
+     }
+ 
+     return SSL_TLSEXT_ERR_OK;

@@ -73,13 +73,19 @@ typedef enum {
 
 #define MD_FN_MD                "md.json"
 #define MD_FN_JOB               "job.json"
+#define MD_FN_HTTPD_JSON        "httpd.json"
+
+/* The corresponding names for current cert & key files are constructed
+ * in md_store and md_crypt.
+ */
+
+/* These three legacy filenames are only used in md_store_fs to
+ * upgrade 1.0 directories.  They should not be used for any other
+ * purpose.
+ */
 #define MD_FN_PRIVKEY           "privkey.pem"
 #define MD_FN_PUBCERT           "pubcert.pem"
 #define MD_FN_CERT              "cert.pem"
-#define MD_FN_HTTPD_JSON        "httpd.json"
-
-#define MD_FN_FALLBACK_PKEY     "fallback-%s"
-#define MD_FN_FALLBACK_CERT     "fallback-%s"
 
 /**
  * Load the JSON value at key "group/name/aspect", allocated from pool p.
