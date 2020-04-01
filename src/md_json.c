@@ -1186,6 +1186,7 @@ apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, const md_htt
     if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {
         rv = md_json_readb(pjson, pool, res->body);
     }
+    if (APR_SUCCESS != rv) *pjson = NULL;
     return rv;
 }
 
