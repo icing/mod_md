@@ -217,6 +217,7 @@ class TestMessage:
         assert TestEnv.await_completion( [ domain ] )
         stat = TestEnv.await_ocsp_status(domain)
         assert TestEnv.await_file(self.mlog)
+        time.sleep(1)
         nlines = open(self.mlog).readlines()
         # since v2.1.10, the 'installed' message is second in log
         lc = 1+self.menv_lines
