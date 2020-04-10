@@ -46,12 +46,6 @@ class TestMessage:
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    def await_log(self):
-        # wait for file to appear stop server
-        while not os.path.isfile(self.mlog):
-            time.sleep(.1)
-        assert TestEnv.apache_stop() == 0
-    
     # test: signup with configured message cmd that is invalid
     def test_901_001(self):
         domain = self.test_domain
@@ -145,7 +139,7 @@ class TestMessage:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ], restart=False )
         stat = TestEnv.get_md_status(domain)
-        self.await_log()
+        assert TestEnv.await_file(self.mlog)
         nlines = open(self.mlog).readlines()
         assert 1+self.menv_lines == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
@@ -196,7 +190,7 @@ class TestMessage:
         conf.add_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        self.await_log()
+        assert TestEnv.await_file(self.mlog)
         nlines = open(self.mlog).readlines()
         assert 1+self.menv_lines == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
@@ -222,7 +216,7 @@ class TestMessage:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_completion( [ domain ] )
         stat = TestEnv.await_ocsp_status(domain)
-        self.await_log()
+        assert TestEnv.await_file(self.mlog)
         nlines = open(self.mlog).readlines()
         # since v2.1.10, the 'installed' message is second in log
         lc = 1+self.menv_lines
@@ -257,11 +251,11 @@ class TestMessage:
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_md_status(domain)
         # this command should have failed and logged an error
-        # shut down server to make sure that md has completed 
-        assert TestEnv.apache_stop() == 0
+        # shut down server to make sure that md has completed
+        assert TestEnv.await_file(TestEnv.store_staged_file( domain, 'job.json'))
         with open(TestEnv.store_staged_file( domain, 'job.json')) as f:
             job = json.load(f)
-            #assert job["errors"] == 1
+            assert job["errors"] > 0
             assert job["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
         # reconfigure to a working notification command and restart
         conf = HttpdConf()
@@ -274,12 +268,13 @@ class TestMessage:
         conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        self.await_log()
+        assert TestEnv.await_file(self.mlog)
         # we see the notification logged by the command
         nlines = open(self.mlog).readlines()
         assert 1+self.menv_lines == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
         # the error needs to be gone
+        assert TestEnv.await_file(TestEnv.store_staged_file( domain, 'job.json'))
         with open(TestEnv.store_staged_file( domain, 'job.json')) as f:
             job = json.load(f)
             assert job["errors"] == 0

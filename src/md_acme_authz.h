@@ -57,9 +57,7 @@ struct md_acme_authz_t {
 
 #define MD_FN_HTTP01            "acme-http-01.txt"
 
-typedef struct md_pkey_spec_t md_pkey_spec_t;
-
-void tls_alpn01_fnames(apr_pool_t *p, md_pkey_spec_t *kspec, char **keyfn, char **certfn );
+void tls_alpn01_fnames(apr_pool_t *p, struct md_pkey_spec_t *kspec, char **keyfn, char **certfn );
 
 md_acme_authz_t *md_acme_authz_create(apr_pool_t *p);
 

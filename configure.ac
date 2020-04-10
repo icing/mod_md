@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [2.3.2], [stefan.eissing@greenbytes.de])
+AC_INIT([mod_md], [2.3.3], [stefan.eissing@greenbytes.de])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -151,10 +151,6 @@ if test "x$werror" != "xno"; then
     AX_CHECK_COMPILE_FLAG(["-Wdouble-promotion"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdouble-promotion"])
     AX_CHECK_COMPILE_FLAG(["-Wshadow"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshadow"])
     AX_CHECK_COMPILE_FLAG(["-Wformat=2"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wformat=2"])
-    # clang accepts =3 here, but fails on compile
-    if test "x$CC" == "xgcc"; then
-        AX_CHECK_COMPILE_FLAG(["-Wimplicit-fallthrough=3"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wimplicit-fallthrough=3"])
-    fi
 fi
 AC_SUBST(WERROR_CFLAGS)
 

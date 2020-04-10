@@ -41,6 +41,7 @@
 
 #include "md.h"
 #include "md_crypt.h"
+#include "md_event.h"
 #include "md_json.h"
 #include "md_log.h"
 #include "md_http.h"
@@ -751,10 +752,10 @@ static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status
         md_result_log(update->result, MD_LOG_DEBUG);
         md_job_log_append(update->job, "ocsp-error", 
                           update->result->problem, update->result->detail);
-        md_job_holler(update->job, "ocsp-errored");
+        md_event_holler("ocsp-errored", update->job->mdomain, update->job, update->result, update->p);
         goto leave;
     }
-    md_job_notify(update->job, "ocsp-renewed", update->result);
+    md_event_holler("ocsp-renewed", update->job->mdomain, update->job, update->result, update->p);
 
 leave:
     md_job_save(update->job, update->result, update->p);
@@ -1032,17 +1033,7 @@ void md_ocsp_get_status_all(md_json_t **pjson, md_ocsp_reg_t *reg, apr_pool_t *p
     *pjson = json;
 }
 
-void md_ocsp_set_notify_cb(md_ocsp_reg_t *ocsp, md_job_notify_cb *cb, void *baton)
-{
-    ocsp->notify = cb;
-    ocsp->notify_ctx = baton;
-}
-
 md_job_t *md_ocsp_job_make(md_ocsp_reg_t *ocsp, const char *mdomain, apr_pool_t *p)
 {
-    md_job_t *job;
-    
-    job = md_job_make(p, ocsp->store, MD_SG_OCSP, mdomain);
-    md_job_set_notify_cb(job, ocsp->notify, ocsp->notify_ctx);
-    return job;
+    return md_job_make(p, ocsp->store, MD_SG_OCSP, mdomain);
 }

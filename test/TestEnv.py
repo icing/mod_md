@@ -686,6 +686,16 @@ class TestEnv:
             time.sleep(0.1)
 
     @classmethod
+    def await_file(cls, fpath, timeout=60):
+        try_until = time.time() + timeout
+        while True:
+            if time.time() >= try_until:
+                return False
+            if os.path.isfile(fpath):
+                return True
+            time.sleep(0.1)
+
+    @classmethod
     def check_file_permissions( cls, domain ):
         md = cls.a2md([ "list", domain ])['jout']['output'][0]
         assert md

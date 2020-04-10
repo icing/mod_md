@@ -120,7 +120,5 @@ apr_time_t md_job_delay_on_errors(int err_count);
 
 void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton);
 apr_status_t md_job_notify(md_job_t *job, const char *reason, struct md_result_t *result);
-/* Same as notify but without checks on success and no change to job */
-void md_job_holler(md_job_t *job, const char *reason);
 
 #endif /* md_status_h */

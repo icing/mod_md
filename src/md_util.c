@@ -25,6 +25,10 @@
 #include <apr_tables.h>
 #include <apr_uri.h>
 
+#if APR_HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+
 #include "md.h"
 #include "md_log.h"
 #include "md_util.h"
@@ -1007,6 +1011,38 @@ apr_status_t md_util_try(md_util_try_fn *fn, void *baton, int ignore_errs,
 }
 
 /* execute process ********************************************************************************/
+
+/* Set of all environment variables essential across the known operating systems.
+ * This is a bit hacky, but we seem unable to iterate the existing names. 
+ */
+static const char* inherit_names[] = {
+    "PATH"
+    "ETC",
+    "TMP",
+    "PERLLIB_PREFIX",
+    "LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH",
+    "LIBPATH",
+    "SHLIB_PATH",
+    "LD_LIBRARY_PATH",
+    "SystemRoot",
+    "COMSPEC",
+    "PATHEXT",
+    "WINDIR",
+    "DPATH",
+};
+
+void md_util_env_inherit(struct apr_array_header_t *env)
+{
+    const char *name, *val;
+    size_t i;
+    
+    for (i = 0; i < sizeof(inherit_names)/sizeof(inherit_names[0]); ++i) {
+        name = inherit_names[i];
+        val = getenv(name);
+        if (val) APR_ARRAY_PUSH(env, const char*) = apr_psprintf(env->pool, "%s=%s", name, val);
+    }
+}
 
 apr_status_t md_util_exec(apr_pool_t *p, const char *cmd, const char * const *argv,
                           apr_array_header_t *env, int *exit_code)

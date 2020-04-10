@@ -17,6 +17,8 @@
 #ifndef mod_md_md_h
 #define mod_md_md_h
 
+#include <apr_time.h>
+
 #include "md_time.h"
 #include "md_version.h"
 
