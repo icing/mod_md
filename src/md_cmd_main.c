@@ -41,6 +41,15 @@
 #include "md_cmd_store.h"
 #include "md_curl.h"
 
+/* Called by md_curl to get the trusted CA paths.
+ */
+static const char *cafile = NULL, *capath = NULL;
+
+void md_config_get_trusted( const char **certfile, const char **certpath )
+{
+    if( *certfile ) *certfile = cafile;
+    if( *certpath ) *certpath = capath;
+}
 
 /**************************************************************************************************/
 /* command infrastructure */
@@ -364,6 +373,12 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
         case 't':
             ctx->tos = optarg;
             break;
+        case 'T':
+            cafile = optarg;
+            break;
+        case 'P':
+            capath = optarg;
+            break;
         default:
             return APR_EINVAL;
     }
@@ -388,6 +403,8 @@ static apr_getopt_option_t MainOptions [] = {
     { "proxy",   'p', 1, "use the HTTP proxy url"},
     { "quiet",   'q', 0, "produce less output"},
     { "terms",   't', 1, "you agree to the terms of services (url)" },
+    { "trust",   'T', 1, "file containing certificates of CAs to trust (filename)" },
+    { "trustdir",'P', 1, "hashed directory containing certificates of CAs to trust (directory)" },
     { "verbose", 'v', 0, "produce more output" },
     { "version", 'V', 0, "print version" },
     { NULL,       0,  0, NULL }
