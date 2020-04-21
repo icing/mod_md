@@ -406,12 +406,12 @@ typedef struct {
 
 static apr_status_t on_init_acct_upd(md_acme_req_t *req, void *baton)
 {
-    md_json_t *jpayload;
+    md_json_t *jpayload = NULL;
 
     (void)baton;
-    jpayload = md_json_create(req->p);
     switch (MD_ACME_VERSION_MAJOR(req->acme->version)) {
         case 1:
+            jpayload = md_json_create(req->p);
             md_json_sets("reg", jpayload, MD_KEY_RESOURCE, NULL);
             break;
         default:
