@@ -1,4 +1,12 @@
-
+v2.3.next
+----------------------------------------------------------------------------------------------------
+ * a2md now has options to specify the trusted root certificates used when contacting the CA
+ * ACME problem reports from CAs that include parameters in the Content-Type header are handled correctly.
+   (Previously, the problem text would not be reported and retries could exist CA limits.)
+ * Account Update transactions to V2 CAs now use the correct POST-AS-GET method.  Previously, an
+   empty JSON object was sent - which apparently LE accepted, but others reject.
+ * If a CA directory includes both V1 and V2 endpoints, mod_md now will use the V2 endpoint.  Previously,
+   it would prefer V1 in this unusual configuration.  V2 is standard; V1 is deprecated.
 
 v2.3.3 (BETA)
 ----------------------------------------------------------------------------------------------------
