@@ -45,11 +45,13 @@
  */
 static const char *cafile = NULL, *capath = NULL;
 
+#if 0
 void md_config_get_trusted( const char **certfile, const char **certpath )
 {
     if( *certfile ) *certfile = cafile;
     if( *certpath ) *certpath = capath;
 }
+#endif
 
 /**************************************************************************************************/
 /* command infrastructure */
