@@ -165,7 +165,7 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
     md_json_t *problem;
     
     ctype = apr_table_get(req->resp_hdrs, "content-type");
-    if (ctype && !strcmp(ctype, "application/problem+json")) {
+    if (ctype && !strncmp(ctype, "application/problem+json", 24 )) {
         /* RFC 7807 */
         md_json_read_http(&problem, req->p, res);
         if (problem) {
@@ -705,21 +705,7 @@ static apr_status_t update_directory(const md_http_response_t *res, void *data)
     }
     
     /* What have we got? */
-    if ((s = md_json_dups(acme->p, json, "new-authz", NULL))) {
-        acme->api.v1.new_authz = s;
-        acme->api.v1.new_cert = md_json_dups(acme->p, json, "new-cert", NULL);
-        acme->api.v1.new_reg = md_json_dups(acme->p, json, "new-reg", NULL);
-        acme->api.v1.revoke_cert = md_json_dups(acme->p, json, "revoke-cert", NULL);
-        if (acme->api.v1.new_authz && acme->api.v1.new_cert 
-            && acme->api.v1.new_reg && acme->api.v1.revoke_cert) {
-            acme->version = MD_ACME_VERSION_1;
-        }
-        acme->ca_agreement = md_json_dups(acme->p, json, "meta", "terms-of-service", NULL);
-        acme->new_nonce_fn = acmev1_new_nonce;
-        acme->req_init_fn = acmev1_req_init;
-        acme->post_new_account_fn = acmev1_POST_new_account;
-    }
-    else if ((s = md_json_dups(acme->p, json, "newAccount", NULL))) {
+    if ((s = md_json_dups(acme->p, json, "newAccount", NULL))) {
         acme->api.v2.new_account = s;
         acme->api.v2.new_order = md_json_dups(acme->p, json, "newOrder", NULL);
         acme->api.v2.revoke_cert = md_json_dups(acme->p, json, "revokeCert", NULL);
@@ -734,6 +720,20 @@ static apr_status_t update_directory(const md_http_response_t *res, void *data)
         acme->new_nonce_fn = acmev2_new_nonce;
         acme->req_init_fn = acmev2_req_init;
         acme->post_new_account_fn = acmev2_POST_new_account;
+    }
+    else if ((s = md_json_dups(acme->p, json, "new-authz", NULL))) {
+        acme->api.v1.new_authz = s;
+        acme->api.v1.new_cert = md_json_dups(acme->p, json, "new-cert", NULL);
+        acme->api.v1.new_reg = md_json_dups(acme->p, json, "new-reg", NULL);
+        acme->api.v1.revoke_cert = md_json_dups(acme->p, json, "revoke-cert", NULL);
+        if (acme->api.v1.new_authz && acme->api.v1.new_cert
+            && acme->api.v1.new_reg && acme->api.v1.revoke_cert) {
+            acme->version = MD_ACME_VERSION_1;
+        }
+        acme->ca_agreement = md_json_dups(acme->p, json, "meta", "terms-of-service", NULL);
+        acme->new_nonce_fn = acmev1_new_nonce;
+        acme->req_init_fn = acmev1_req_init;
+        acme->post_new_account_fn = acmev1_POST_new_account;
     }
     
     if (MD_ACME_VERSION_UNKNOWN == acme->version) {

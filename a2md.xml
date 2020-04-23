@@ -124,7 +124,23 @@
           </term>
           <listitem><simpara>You agree to the terms of services (url)</simpara></listitem>
        </varlistentry>
+
+       <varlistentry>
+          <term>
+             <option>-T</option> <replaceable>arg</replaceable>,
+             <option>--trust</option> <replaceable>arg</replaceable>
+          </term>
+          <listitem><simpara>File containing certificates fo the CAs you trust. See OpenSSL verify -CAfile.</simpara></listitem>
+       </varlistentry>
        
+       <varlistentry>
+          <term>
+             <option>-P</option> <replaceable>arg</replaceable>,
+             <option>--trustdir</option> <replaceable>arg</replaceable>
+          </term>
+          <listitem><simpara>Directory containing certificates fo the CAs you trust. Filenames must be hashed with c_rehash - See OpenSSL verify -CApath.</simpara></listitem>
+       </varlistentry>
+
        <varlistentry>
           <term>
              <option>-v</option>, 
