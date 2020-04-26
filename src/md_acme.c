@@ -165,7 +165,8 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
     md_json_t *problem;
     
     ctype = apr_table_get(req->resp_hdrs, "content-type");
-    if (ctype && !strncmp(ctype, "application/problem+json", 24 )) {
+    ctype = md_util_parse_ct(res->req->pool, ctype);
+    if (ctype && !strcmp(ctype, "application/problem+json")) {
         /* RFC 7807 */
         md_json_read_http(&problem, req->p, res);
         if (problem) {

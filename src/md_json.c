@@ -1183,6 +1183,7 @@ apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, const md_htt
 {
     apr_status_t rv = APR_ENOENT;
     const char *ctype = apr_table_get(res->headers, "content-type");
+    ctype = md_util_parse_ct(res->req->pool, ctype);
     if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {
         rv = md_json_readb(pjson, pool, res->body);
     }
