@@ -590,7 +590,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
                              dis_http? " The http: challenge 'http-01' is disabled because the server seems not reachable on public port 80." : "",
                              dis_https? " The https: challenge 'tls-alpn-01' is disabled because the server seems not reachable on public port 443." : "",
                              dis_alpn_acme? " The https: challenge 'tls-alpn-01' is disabled because the Protocols configuration does not include the 'acme-tls/1' protocol." : "",
-                             dis_dns? "The DNS challenge 'dns-01' is disabled because the directive 'MDChallengeDns01' is not configured." : ""
+                             dis_dns? " The DNS challenge 'dns-01' is disabled because the directive 'MDChallengeDns01' is not configured." : ""
                              );
             goto leave;
         }
