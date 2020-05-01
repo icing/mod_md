@@ -162,14 +162,15 @@ apr_status_t md_acme_init(apr_pool_t *p, const char *base,  int init_ssl)
 static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t *res)
 {
     const char *ctype;
-    md_json_t *problem;
-    
+    md_json_t *problem = NULL;
+    apr_status_t rv;
+
     ctype = apr_table_get(req->resp_hdrs, "content-type");
     ctype = md_util_parse_ct(res->req->pool, ctype);
     if (ctype && !strcmp(ctype, "application/problem+json")) {
         /* RFC 7807 */
-        md_json_read_http(&problem, req->p, res);
-        if (problem) {
+        rv = md_json_read_http(&problem, req->p, res);
+        if (rv == APR_SUCCESS && problem) {
             const char *ptype, *pdetail;
             
             req->resp_json = problem;
@@ -573,7 +574,7 @@ apr_status_t md_acme_use_acct(md_acme_t *acme, md_store_t *store,
             rv = md_acme_acct_validate(acme, store, p);
         }
         else {
-            /* account is from a nother server or, more likely, from another
+            /* account is from another server or, more likely, from another
              * protocol endpoint on the same server */
             rv = APR_ENOENT;
         }

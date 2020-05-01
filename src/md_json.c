@@ -1182,9 +1182,13 @@ apr_status_t md_json_readf(md_json_t **pjson, apr_pool_t *p, const char *fpath)
 apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, const md_http_response_t *res)
 {
     apr_status_t rv = APR_ENOENT;
-    const char *ctype = apr_table_get(res->headers, "content-type");
+    const char *ctype = apr_table_get(res->headers, "content-type"), *p;
+
+    *pjson = NULL;
     ctype = md_util_parse_ct(res->req->pool, ctype);
-    if (ctype && res->body && (strstr(ctype, "/json") || strstr(ctype, "+json"))) {
+    p = ctype + strlen(ctype) +1;
+    if (ctype && res->body && (!strcmp(p - sizeof("/json"), "/json") ||
+                               !strcmp(p - sizeof("+json"), "+json"))) {
         rv = md_json_readb(pjson, pool, res->body);
     }
     return rv;
