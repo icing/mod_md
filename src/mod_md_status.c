@@ -340,7 +340,7 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
         return;
     }
     
-    finished = (int)md_json_getl(mdj, key, MD_KEY_FINISHED, NULL);
+    finished = md_json_getb(mdj, key, MD_KEY_FINISHED, NULL);
     errors = (int)md_json_getl(mdj, key, MD_KEY_ERRORS, NULL);
     rv = (apr_status_t)md_json_getl(mdj, key, MD_KEY_LAST, MD_KEY_STATUS, NULL);
     

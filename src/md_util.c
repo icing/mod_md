@@ -1515,3 +1515,23 @@ const char *md_link_find_relation(const apr_table_t *headers,
     return ctx.url;
 }
 
+const char *md_util_parse_ct(apr_pool_t *pool, const char *cth)
+{
+    char       *type;
+    const char *p;
+    apr_size_t  hlen;
+
+    if (!cth) return NULL;
+
+    for( p = cth; *p && *p != ' ' && *p != ';'; ++p)
+        ;
+    hlen = (apr_size_t)(p - cth);
+    type = apr_pcalloc( pool, hlen + 1 );
+    assert(type);
+    memcpy(type, cth, hlen);
+    type[hlen] = '\0';
+
+    return type;
+    /* Could parse and return parameters here, but we don't need any at present.
+     */
+}
