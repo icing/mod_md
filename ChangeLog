@@ -1,5 +1,7 @@
-* Fixed a theoretical uninitialized read when testing for JSON error responses from the
-  ACME CA. Bugreported at <https://bz.apache.org/bugzilla/show_bug.cgi?id=64297>.
+ * Synchronized with Apache trunk. Spelling fixes and an added check when unsuccessfully
+   reading JSON files.
+ * Fixed a theoretical uninitialized read when testing for JSON error responses from the
+   ACME CA. Bugreported at <https://bz.apache.org/bugzilla/show_bug.cgi?id=64297>.
 
 v2.2.7
 ----------------------------------------------------------------------------------------------------
