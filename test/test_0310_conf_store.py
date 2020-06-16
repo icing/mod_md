@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import time
+import shutil
 
 from configparser import SafeConfigParser
 from datetime import datetime
@@ -810,4 +811,25 @@ class TestConf:
         TestEnv.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
         TestEnv.clear_store()
         TestEnv.set_store_dir_default()
+
+    # test case: place an unexpected file into the store, check startup survival, see #218
+    def test_310_501(self):
+        # setup: create complete md in store
+        domain = self.test_domain
+        conf = HttpdConf()
+        conf.add_admin("admin@" + domain)
+        conf.start_md( [domain])
+        #conf.add_drive_mode("manual")
+        conf.end_md()
+        conf.add_vhost(domain)
+        conf.add_line('LogLevel md:trace1')
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        # add a file at top level
+        assert TestEnv.await_completion( [ domain ] )
+        fpath = os.path.join(TestEnv.store_domains(), "wrong.com")
+        with open(fpath, 'w') as fd:
+            fd.write("this does not belong here\n")
+        assert TestEnv.apache_restart() == 0
+
 
