@@ -5,7 +5,8 @@ v2.3.next
  * Account Update transactions to V2 CAs now use the correct POST-AS-GET method.  Previously, an
    empty JSON object was sent - which apparently LE accepted, but others reject.
  * If a CA directory includes both V1 and V2 endpoints, mod_md now will use the V2 endpoint.  Previously,
-   it would prefer V1 in this unusual configuration.  V2 is standard; V1 is deprecated.
+   it would prefer V1 in this unusual configuration. V2 is standard; V1 is deprecated.
+ * Synchronized with Apache trunk changes, added test case for issue #218.
 
 v2.3.3 (BETA)
 ----------------------------------------------------------------------------------------------------
