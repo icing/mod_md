@@ -77,6 +77,7 @@ class TestEnv:
         cls.ACME_SERVER_OK = False
 
         cls.DOMAIN_SUFFIX = "%d.org" % time.time()
+        cls.CA_PEM_FILE = None
 
         cls.set_store_dir_default()
         cls.set_acme('acmev2')
@@ -514,6 +515,26 @@ class TestEnv:
     # --------- check utilities ---------
 
     @classmethod
+    def _init_ca_pem(cls):
+        # we need to certificates that boulder uses for signing. Do this at most
+        # once per this class instance, since boulder updates these on every
+        # docker start
+        if cls.CA_PEM_FILE is None:
+            fpath = os.path.join(cls.GEN_DIR, "ca.pem")
+            r = cls.run(["docker", "exec", "boulder_boulder_1", "find", "/tmp", "-name", "*.pem"])
+            assert 0 == r['rv']
+            args = ["docker", "exec", "boulder_boulder_1", "cat"]
+            args.extend([s for s in re.split(r'[ \n]+', r['stdout']) if len(s) > 0])
+            sys.stderr.write("collecting certs via: {0}".format(args))
+            with open(fpath, 'w') as fd:
+                r = cls.run(args)
+                assert 0 == r['rv']
+                fd.write(r['stdout'])
+            cls.CA_PEM_FILE = fpath
+            return
+        
+
+    @classmethod
     def check_json_contains(cls, actual, expected):
         # write all expected key:value bindings to a copy of the actual data ... 
         # ... assert it stays unchanged 
@@ -543,6 +564,7 @@ class TestEnv:
     @classmethod
     def get_server_cert(cls, domain, proto=None, ciphers=None):
         stat = {}
+        cls._init_ca_pem()
         args = [ 
             cls.OPENSSL, "s_client", "-status", 
             "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
@@ -720,11 +742,12 @@ class TestEnv:
 
     @classmethod
     def get_ocsp_status( cls, domain, proto=None, cipher=None ):
+        cls._init_ca_pem()
         stat = {}
         args = [ 
             cls.OPENSSL, "s_client", "-status", 
             "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
-            "-CAfile", "gen/ca.pem", 
+            "-CAfile", "gen/ca.pem",   
             "-servername", domain,
             "-showcerts"
         ]
