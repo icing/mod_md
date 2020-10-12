@@ -1,6 +1,8 @@
-* Fixed a theoretical uninitialized read when testing for JSON error responses from the
-  ACME CA. Bugreported at <https://bz.apache.org/bugzilla/show_bug.cgi?id=64297>.
-  (Ported from maintenance-2.2.x branch)
+ * Retry delays now have a random +/-[0-50]% modification applied to let retries from several
+   servers spread out more, should they have been restarted at the same time of day.
+ * Fixed a theoretical uninitialized read when testing for JSON error responses from the
+   ACME CA. Bugreported at <https://bz.apache.org/bugzilla/show_bug.cgi?id=64297>.
+   (Ported from maintenance-2.2.x branch)
 
 v2.3.3 (BETA)
 ----------------------------------------------------------------------------------------------------

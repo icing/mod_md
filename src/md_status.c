@@ -519,9 +519,10 @@ void md_job_start_run(md_job_t *job, md_result_t *result, md_store_t *store)
     md_job_log_append(job, "starting", NULL, NULL);
 }
 
-apr_time_t md_job_delay_on_errors(int err_count)
+apr_time_t md_job_delay_on_errors(md_job_t *job, int err_count)
 {
     apr_time_t delay = 0;
+    unsigned char c;
     
     if (err_count > 0) {
         /* back off duration, depending on the errors we encounter in a row */
@@ -529,6 +530,14 @@ apr_time_t md_job_delay_on_errors(int err_count)
         if (delay > apr_time_from_sec(60*60)) {
             delay = apr_time_from_sec(60*60);
         }
+        /* jitter the delay by +/- 0-50%.
+         * Background: we see retries of jobs being to regular, possibly cumulating
+         * from many installations that restart their Apache at midnight or another
+         * fixed hour. This can contribute to an overload at the CA and a continuation
+         * of failure. 
+         */
+        md_rand_bytes(&c, sizeof(c), job->p);
+        delay += apr_time_from_sec((apr_time_sec(delay) * (c - 128)) / 256);
     }
     return delay;
 }
@@ -545,7 +554,7 @@ void md_job_end_run(md_job_t *job, md_result_t *result)
     else {
         ++job->error_runs;
         job->dirty = 1;
-        job->next_run = apr_time_now() + md_job_delay_on_errors(job->error_runs);
+        job->next_run = apr_time_now() + md_job_delay_on_errors(job, job->error_runs);
     }
     job_observation_end(job);
 }
@@ -569,7 +578,7 @@ apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *resul
     }
     else {
         ++job->error_runs;
-        job->next_run = apr_time_now() + md_job_delay_on_errors(job->error_runs);
+        job->next_run = apr_time_now() + md_job_delay_on_errors(job, job->error_runs);
     }
     return result->status;
 }

@@ -746,7 +746,7 @@ static apr_status_t ostat_on_req_status(const md_http_request_t *req, apr_status
     md_job_end_run(update->job, update->result);
     if (APR_SUCCESS != status) {
         ++ostat->errors;
-        ostat->next_run = apr_time_now() + md_job_delay_on_errors(ostat->errors); 
+        ostat->next_run = apr_time_now() + md_job_delay_on_errors(update->job, ostat->errors); 
         md_result_printf(update->result, status, "OCSP status update failed (%d. time)",  
                          ostat->errors);
         md_result_log(update->result, MD_LOG_DEBUG);

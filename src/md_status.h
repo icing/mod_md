@@ -115,8 +115,8 @@ void md_job_start_run(md_job_t *job, struct md_result_t *result, md_store_t *sto
 void md_job_end_run(md_job_t *job, struct md_result_t *result);
 void md_job_retry_at(md_job_t *job, apr_time_t later);
 
-/* Given the number of errors encountered, recommend a delay for the next attempt */
-apr_time_t md_job_delay_on_errors(int err_count);
+/* Given the number of errors encountered, recommend a delay for the next attempt of job */
+apr_time_t md_job_delay_on_errors(md_job_t *job, int err_count);
 
 void md_job_set_notify_cb(md_job_t *job, md_job_notify_cb *cb, void *baton);
 apr_status_t md_job_notify(md_job_t *job, const char *reason, struct md_result_t *result);
