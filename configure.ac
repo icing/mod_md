@@ -281,7 +281,7 @@ AC_CHECK_HEADERS([curl/curl.h])
 CFLAGS=`$curl_config --cflags`" $CFLAGS"
 LDFLAGS=`$curl_config --libs`" $LDFLAGS"
 
-AC_MSG_CHECKING([for curl version >= 7.50])
+AC_MSG_CHECKING([for curl version >= 7.29])
 AC_TRY_COMPILE([#include <curl/curlver.h>],[
 #if !defined(LIBCURL_VERSION_MAJOR)
 #error "Missing libcurl version"
@@ -289,7 +289,7 @@ AC_TRY_COMPILE([#include <curl/curlver.h>],[
 #if LIBCURL_VERSION_MAJOR < 7
 #error "Unsupported libcurl version " LIBCURL_VERSION
 #endif
-#if LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR < 50
+#if LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR < 29
 #error "Unsupported libcurl version " LIBCURL_VERSION
 #endif],
       [AC_MSG_RESULT(OK)
@@ -297,7 +297,7 @@ AC_TRY_COMPILE([#include <curl/curlver.h>],[
       [AC_MSG_RESULT(FAILED)])
 
 if test x"$curl_version_ok" = "x"; then
-    AC_MSG_ERROR([curl from $curl_config must be at least version 7.50.])
+    AC_MSG_ERROR([curl from $curl_config must be at least version 7.29.])
 fi
 
 

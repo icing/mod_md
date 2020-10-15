@@ -1,3 +1,4 @@
+ * Changed minimal curl version necessary to 7.29, as proposed by @xl32.
  * Retry delays now have a random +/-[0-50]% modification applied to let retries from several
    servers spread out more, should they have been restarted at the same time of day.
  * Fixed a theoretical uninitialized read when testing for JSON error responses from the
