@@ -82,10 +82,14 @@ test: $(SERVER_DIR)/.test-setup unit_tests
 @BOULDER_DIR@:
 	@test -d $(BOULDER_DIR) || echo "boulder installation not found. Please configure using --with-boulder-dir to specify the correct location."; exit 1
 
+# we used to get the test root cert this way, but boulder keeps changing it
+#@cat $(BOULDER_DIR)/test/test-root.pem > $(GEN)/ca.pem
+# this is the current way, boulder docker needs to be running    
 $(GEN)/ca.pem: \
     $(BOULDER_DIR) \
     $(BOULDER_DIR)/test/test-root.pem
-	@cat $(BOULDER_DIR)/test/test-root.pem > $(GEN)/ca.pem
+	@echo "copying issuer certitificates from boulder docker image"    
+	@docker exec boulder_boulder_1 bash -c "cat /tmp/root*.pem" >$@
 
 $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/htdocs/index.html \
