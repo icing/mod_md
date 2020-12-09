@@ -3,10 +3,11 @@
 import os
 import sys
 
+
 def main(argv):
     if len(argv) > 2:
         f1 = open(argv[1], 'a+')
-        f1.write('%s\n' % (argv))
+        f1.write('%s\n' % argv)
         if 'MD_VERSION' in os.environ:
             f1.write('MD_VERSION=%s\n' % (os.environ['MD_VERSION']))
         if 'MD_STORE' in os.environ:
@@ -18,7 +19,6 @@ def main(argv):
         sys.stderr.write("%s without arguments" % (argv[0]))
         sys.exit(7)
     
+
 if __name__ == "__main__":
     main(sys.argv)
-
-

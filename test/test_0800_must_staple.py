@@ -1,21 +1,12 @@
 # test mod_md must-staple support
 
-import json
-import os
-import pytest
-import re
-import socket
-import ssl
-import sys
-import time
-
-from datetime import datetime
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
 from TestCertUtil import CertUtil
 
 
 class TestMustStaple:
+    domain = None
 
     @classmethod
     def setup_class(cls):
@@ -26,7 +17,7 @@ class TestMustStaple:
         cls.domain = TestEnv.get_class_domain(cls)
         cls.configure_httpd(cls.domain)
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ cls.domain ] )
+        assert TestEnv.await_completion([cls.domain])
 
     @classmethod
     def teardown_class(cls):
@@ -37,9 +28,9 @@ class TestMustStaple:
     def configure_httpd(cls, domain, add_lines=""):
         cls.domain = domain 
         conf = HttpdConf()
-        conf.add_admin( "admin@" + domain )
-        conf.add_line( add_lines )
-        conf.add_md([ domain ])
+        conf.add_admin("admin@" + domain)
+        conf.add_line(add_lines)
+        conf.add_md([domain])
         conf.add_vhost(domain)
         conf.install()
         return domain
@@ -48,7 +39,7 @@ class TestMustStaple:
     def test_800_001(self):
         domain = TestMustStaple.domain
         TestEnv.check_md_complete(domain)
-        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
+        cert1 = CertUtil(TestEnv.store_domain_file(domain, 'pubcert.pem'))
         assert not cert1.get_must_staple()
 
     # MD that should explicitly not staple
@@ -57,7 +48,7 @@ class TestMustStaple:
         TestMustStaple.configure_httpd(domain, "MDMustStaple off")
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md_complete(domain)
-        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
+        cert1 = CertUtil(TestEnv.store_domain_file(domain, 'pubcert.pem'))
         assert not cert1.get_must_staple()
         stat = TestEnv.get_ocsp_status(domain)
         assert stat['ocsp'] == "no response sent" 
@@ -67,15 +58,15 @@ class TestMustStaple:
         domain = TestMustStaple.domain
         TestMustStaple.configure_httpd(domain, "MDMustStaple on")
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ] )
+        assert TestEnv.await_completion([domain])
         TestEnv.check_md_complete(domain)
-        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
+        cert1 = CertUtil(TestEnv.store_domain_file(domain, 'pubcert.pem'))
         assert cert1.get_must_staple()
         domain = TestMustStaple.configure_httpd(domain, "MDMustStaple off")
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion( [ domain ] )
+        assert TestEnv.await_completion([domain])
         TestEnv.check_md_complete(domain)
-        cert1 = CertUtil( TestEnv.store_domain_file(domain, 'pubcert.pem') )
+        cert1 = CertUtil(TestEnv.store_domain_file(domain, 'pubcert.pem'))
         assert not cert1.get_must_staple()
 
     # MD that must staple

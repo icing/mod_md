@@ -49,3 +49,4 @@ a2md.1
 wiki
 test/conf/std_vhosts.conf
 build/
+.idea

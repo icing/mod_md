@@ -1,16 +1,10 @@
 # test mod_md acme terms-of-service handling
 
-import os.path
 import json
 import re
-import sys
-import time
-import pytest
 
-from configparser import SafeConfigParser
-from datetime import datetime
-from shutil import copyfile
 from TestEnv import TestEnv
+
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
@@ -20,7 +14,8 @@ def setup_module(module):
 def teardown_module(module):
     print("teardown_module:%s" % module.__name__)
 
-class TestAcmeToS :
+
+class TestAcmeToS:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
@@ -39,7 +34,7 @@ class TestAcmeToS :
     # test case: register a new account with valid tos agreements (short cli argument)
     def test_210_002(self):
         contact = "test210-002@not-forbidden.org"
-        run = TestEnv.a2md(["-t", TestEnv.ACME_TOS, "acme", "newreg", contact], raw=True )
+        run = TestEnv.a2md(["-t", TestEnv.ACME_TOS, "acme", "newreg", contact], raw=True)
         assert run['rv'] == 0
         acct = re.match("registered: (.*)$", run['stdout']).group(1)
         self._check_account(acct, ["mailto:" + contact], TestEnv.ACME_TOS)
@@ -88,14 +83,14 @@ class TestAcmeToS :
     def test_210_007(self):
         contact = "test210-007@not-forbidden.org"
         acct = self._prepare_account([contact], None)
-        assert TestEnv.a2md( ["acme", "delreg", acct] )['rv'] == 0
+        assert TestEnv.a2md(["acme", "delreg", acct])['rv'] == 0
         assert TestEnv.a2md(["--terms", TestEnv.ACME_TOS, "acme", "agree", acct])['rv'] == 1
 
     def _prepare_account(self, contact, tos):
-        args = [ "acme", "newreg"] + contact
+        args = ["acme", "newreg"] + contact
         if tos:
             args = ["--terms", tos] + args
-        run = TestEnv.a2md(args, raw=True )
+        run = TestEnv.a2md(args, raw=True)
         assert run['rv'] == 0
         return re.match("registered: (.*)$", run['stdout']).group(1)
 

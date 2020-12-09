@@ -1,26 +1,23 @@
 # test mod_md basic configurations
 
-import os.path
 import re
 import pytest
-import subprocess
-import sys
-import time
 
-from configparser import SafeConfigParser
-from datetime import datetime
+from configparser import ConfigParser
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
 
-config = SafeConfigParser()
+config = ConfigParser()
 config.read('test.ini')
 PREFIX = config.get('global', 'prefix')
+
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
     TestEnv.init()
     TestEnv.clear_store()
     
+
 def teardown_module(module):
     print("teardown_module module:%s" % module.__name__)
     TestEnv.apache_stop()
@@ -173,7 +170,7 @@ class TestConf:
                 ServerAlias test4.not-forbidden.org
                 SSLEngine on
             </VirtualHost>
-            """ % (TestEnv.HTTPS_PORT)).install()
+            """ % TestEnv.HTTPS_PORT).install()
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.httpd_error_log_count()
 
@@ -189,7 +186,7 @@ class TestConf:
                 ServerAlias test4.not-forbidden.org
                 SSLEngine on
             </VirtualHost>
-            """ % (TestEnv.HTTPS_PORT)).install()
+            """ % TestEnv.HTTPS_PORT).install()
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.httpd_error_log_count()
 
@@ -227,7 +224,7 @@ class TestConf:
             <VirtualHost *:12346>
                 ServerName www.example2.org
             </VirtualHost>
-            """ % (TestEnv.HOSTNAME)).install()
+            """ % TestEnv.HOSTNAME).install()
         assert TestEnv.apache_restart() == 0
         assert (0, 0) == TestEnv.httpd_error_log_count()
 
@@ -244,7 +241,7 @@ class TestConf:
         assert (0, 0) == TestEnv.httpd_error_log_count()
 
     # test case: invalid pkey specification
-    @pytest.mark.parametrize("line,expErrMsg", [ 
+    @pytest.mark.parametrize("line,exp_err_msg", [
         ("MDPrivateKeys", "needs to specify the private key type"), 
         ("MDPrivateKeys Default RSA 1024", "'Default' allows no other parameter"),
         ("MDPrivateKeys RSA 1024", "must be 2048 or higher"),
@@ -252,51 +249,51 @@ class TestConf:
         ("MDPrivateKeys rsa 2048 rsa 4096", "two keys of type 'RSA' are not possible"),
         ("MDPrivateKeys p-256 secp384r1 P-256", "two keys of type 'P-256' are not possible"),
         ])
-    def test_300_016(self, line, expErrMsg):
-        HttpdConf( text=line ).install()
+    def test_300_016(self, line, exp_err_msg):
+        HttpdConf(text=line).install()
         assert TestEnv.apache_restart() == 1
-        assert expErrMsg in TestEnv.apachectl_stderr
+        assert exp_err_msg in TestEnv.apachectl_stderr
 
     # test case: invalid renew window directive
-    @pytest.mark.parametrize("line,expErrMsg", [ 
+    @pytest.mark.parametrize("line,exp_err_msg", [
         ("MDRenewWindow dec-31", "has unrecognized format"), 
         ("MDRenewWindow 1y", "has unrecognized format"), 
         ("MDRenewWindow 10 d", "takes one argument"), 
-        ("MDRenewWindow 102%", "a length of 100% or more is not allowed.") ])
-    def test_300_017(self, line, expErrMsg):
-        HttpdConf( text=line ).install()
+        ("MDRenewWindow 102%", "a length of 100% or more is not allowed.")])
+    def test_300_017(self, line, exp_err_msg):
+        HttpdConf(text=line).install()
         assert TestEnv.apache_restart() == 1
-        assert expErrMsg in TestEnv.apachectl_stderr
+        assert exp_err_msg in TestEnv.apachectl_stderr
 
     # test case: invalid uri for MDProxyPass
-    @pytest.mark.parametrize("line,expErrMsg", [ 
+    @pytest.mark.parametrize("line,exp_err_msg", [
         ("MDHttpProxy", "takes one argument"), 
         ("MDHttpProxy localhost:8080", "scheme must be http or https"),
         ("MDHttpProxy https://127.0.0.1:-443", "invalid port"),
-        ("MDHttpProxy HTTP localhost 8080", "takes one argument") ])
-    def test_300_018(self, line, expErrMsg):
-        HttpdConf( text=line ).install()
+        ("MDHttpProxy HTTP localhost 8080", "takes one argument")])
+    def test_300_018(self, line, exp_err_msg):
+        HttpdConf(text=line).install()
         assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(line)
-        assert expErrMsg in TestEnv.apachectl_stderr
+        assert exp_err_msg in TestEnv.apachectl_stderr
 
     # test case: invalid parameter for MDRequireHttps
-    @pytest.mark.parametrize("line,expErrMsg", [ 
-        ("MDRequireHTTPS yes", "supported parameter values are 'temporary' and 'permanent'"), 
-        ("MDRequireHTTPS", "takes one argument") ])
-    def test_300_019(self, line, expErrMsg):
-        HttpdConf( text=line ).install()
+    @pytest.mark.parametrize("line,exp_err_msg", [
+        ("MDRequireHTTPS yes", "supported parameter values are 'temporary' and 'permanent'"),
+        ("MDRequireHTTPS", "takes one argument")])
+    def test_300_019(self, line, exp_err_msg):
+        HttpdConf(text=line).install()
         assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(line)
-        assert expErrMsg in TestEnv.apachectl_stderr
+        assert exp_err_msg in TestEnv.apachectl_stderr
 
     # test case: invalid parameter for MDMustStaple
-    @pytest.mark.parametrize("line,expErrMsg", [ 
+    @pytest.mark.parametrize("line,exp_err_msg", [
         ("MDMustStaple", "takes one argument"), 
         ("MDMustStaple yes", "supported parameter values are 'on' and 'off'"),
-        ("MDMustStaple true", "supported parameter values are 'on' and 'off'") ])
-    def test_300_020(self, line, expErrMsg):
-        HttpdConf( text=line ).install()
+        ("MDMustStaple true", "supported parameter values are 'on' and 'off'")])
+    def test_300_020(self, line, exp_err_msg):
+        HttpdConf(text=line).install()
         assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(line)
-        assert expErrMsg in TestEnv.apachectl_stderr
+        assert exp_err_msg in TestEnv.apachectl_stderr
 
     # test case: alt-names incomplete detection, github isse #68
     def test_300_021(self):
@@ -311,7 +308,10 @@ class TestConf:
             """).install()
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.httpd_error_log_count()
-        assert TestEnv.httpd_error_log_scan( re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', but the name/alias not.secret.com itself is not managed. A requested MD certificate will not match ServerName.*") )
+        assert TestEnv.httpd_error_log_scan(
+            re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', "
+                       "but the name/alias not.secret.com itself is not managed. A requested "
+                       "MD certificate will not match ServerName.*"))
 
     # test case: use MDRequireHttps in an <if> construct, but not in <Directory
     def test_300_022(self):
@@ -337,4 +337,3 @@ class TestConf:
             </VirtualHost>
             """).install()
         assert TestEnv.apache_restart() == 1
-

@@ -4,28 +4,16 @@
 # (c) 2019 greenbytes GmbH
 ###################################################################################################
 
-import json
-import pytest
-import re
 import os
-import shutil
-import subprocess
-import sys
-import string
-import time
-import requests
-
-from datetime import datetime
-from datetime import tzinfo
-from datetime import timedelta
 from shutil import copyfile
 
 from TestEnv import TestEnv
 
+
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, name="test.conf", local_CA=True, text=None, std_vhosts=True, proxy=False):
+    def __init__(self, name="test.conf", local_ca=True, text=None, std_vhosts=True, proxy=False):
         self.path = os.path.join(TestEnv.GEN_DIR, name)
         if os.path.isfile(self.path):
             os.remove(self.path)
@@ -36,7 +24,7 @@ LogLevel ssl:debug
                 
                 """
             
-        if local_CA:
+        if local_ca:
             text = """
 MDCertificateAuthority %s
 MDCertificateAgreement accepted
@@ -54,15 +42,14 @@ MDPortMap 80:%s 443:%s
 include "conf/std_vhosts.conf"
                 
 %s
-""" % (TestEnv.HTTP_PORT, TestEnv.HTTPS_PORT, 
-       TestEnv.HTTP_PORT, TestEnv.HTTPS_PORT, text)
+""" % (TestEnv.HTTP_PORT, TestEnv.HTTPS_PORT, TestEnv.HTTP_PORT, TestEnv.HTTPS_PORT, text)
 
         if proxy:
             text = """
 include "conf/proxy.conf"
                 
 %s
-""" % (text)
+""" % text
         open(self.path, "a").write(text)
 
     def clear(self):
@@ -81,8 +68,8 @@ include "conf/proxy.conf"
     def add_renew_window(self, window):
         self._add_line("  MDRenewWindow %s\n" % window)
 
-    def add_private_key(self, keyType, keyParams):
-        self._add_line("  MDPrivateKeys %s %s\n" % (keyType, " ".join(map(lambda p: str(p), keyParams))) )
+    def add_private_key(self, key_type, key_params):
+        self._add_line("  MDPrivateKeys %s %s\n" % (key_type, " ".join(map(lambda p: str(p), key_params))))
 
     def add_admin(self, email):
         self._add_line("  ServerAdmin mailto:%s\n\n" % email)
@@ -123,11 +110,11 @@ include "conf/proxy.conf"
     def add_dns01_cmd(self, cmd):
         self._add_line("  MDChallengeDns01 %s\n" % cmd)
 
-    def add_vhost(self, domains, port=None, docRoot="htdocs"):
-        self.start_vhost(domains, port=port, docRoot=docRoot)
+    def add_vhost(self, domains, port=None, doc_root="htdocs"):
+        self.start_vhost(domains, port=port, doc_root=doc_root)
         self.end_vhost()
 
-    def start_vhost(self, domains, port=None, docRoot="htdocs"):
+    def start_vhost(self, domains, port=None, doc_root="htdocs"):
         if not isinstance(domains, list):
             domains = [domains]
         if not port:
@@ -136,8 +123,8 @@ include "conf/proxy.conf"
         f.write("<VirtualHost *:%s>\n" % port)
         f.write("    ServerName %s\n" % domains[0])
         for alias in domains[1:]:
-            f.write("    ServerAlias %s\n" % alias )
-        f.write("    DocumentRoot %s\n\n" % docRoot)
+            f.write("    ServerAlias %s\n" % alias)
+        f.write("    DocumentRoot %s\n\n" % doc_root)
         if TestEnv.HTTPS_PORT == port:
             f.write("    SSLEngine on\n")
                   
@@ -146,4 +133,3 @@ include "conf/proxy.conf"
 
     def install(self):
         copyfile(self.path, TestEnv.APACHE_TEST_CONF)
-
