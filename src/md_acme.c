@@ -121,6 +121,7 @@ static md_acme_req_t *md_acme_req_create(md_acme_t *acme, const char *method, co
     if (rv != APR_SUCCESS) {
         return NULL;
     }
+    apr_pool_tag(pool, "md_acme_req");
     
     req = apr_pcalloc(pool, sizeof(*req));
     if (!req) {
@@ -162,13 +163,15 @@ apr_status_t md_acme_init(apr_pool_t *p, const char *base,  int init_ssl)
 static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t *res)
 {
     const char *ctype;
-    md_json_t *problem;
-    
+    md_json_t *problem = NULL;
+    apr_status_t rv;
+
     ctype = apr_table_get(req->resp_hdrs, "content-type");
+    ctype = md_util_parse_ct(res->req->pool, ctype);
     if (ctype && !strcmp(ctype, "application/problem+json")) {
         /* RFC 7807 */
-        md_json_read_http(&problem, req->p, res);
-        if (problem) {
+        rv = md_json_read_http(&problem, req->p, res);
+        if (rv == APR_SUCCESS && problem) {
             const char *ptype, *pdetail;
             
             req->resp_json = problem;
@@ -572,7 +575,7 @@ apr_status_t md_acme_use_acct(md_acme_t *acme, md_store_t *store,
             rv = md_acme_acct_validate(acme, store, p);
         }
         else {
-            /* account is from a nother server or, more likely, from another
+            /* account is from another server or, more likely, from another
              * protocol endpoint on the same server */
             rv = APR_ENOENT;
         }
@@ -705,28 +708,21 @@ static apr_status_t update_directory(const md_http_response_t *res, void *data)
     }
     
     /* What have we got? */
-    if ((s = md_json_dups(acme->p, json, "new-authz", NULL))) {
-        acme->api.v1.new_authz = s;
-        acme->api.v1.new_cert = md_json_dups(acme->p, json, "new-cert", NULL);
-        acme->api.v1.new_reg = md_json_dups(acme->p, json, "new-reg", NULL);
-        acme->api.v1.revoke_cert = md_json_dups(acme->p, json, "revoke-cert", NULL);
-        if (acme->api.v1.new_authz && acme->api.v1.new_cert 
-            && acme->api.v1.new_reg && acme->api.v1.revoke_cert) {
-            acme->version = MD_ACME_VERSION_1;
-        }
-        acme->ca_agreement = md_json_dups(acme->p, json, "meta", "terms-of-service", NULL);
-        acme->new_nonce_fn = acmev1_new_nonce;
-        acme->req_init_fn = acmev1_req_init;
-        acme->post_new_account_fn = acmev1_POST_new_account;
-    }
-    else if ((s = md_json_dups(acme->p, json, "newAccount", NULL))) {
+    if ((s = md_json_dups(acme->p, json, "newAccount", NULL))) {
         acme->api.v2.new_account = s;
         acme->api.v2.new_order = md_json_dups(acme->p, json, "newOrder", NULL);
         acme->api.v2.revoke_cert = md_json_dups(acme->p, json, "revokeCert", NULL);
         acme->api.v2.key_change = md_json_dups(acme->p, json, "keyChange", NULL);
         acme->api.v2.new_nonce = md_json_dups(acme->p, json, "newNonce", NULL);
-        if (acme->api.v2.new_account && acme->api.v2.new_order 
-            && acme->api.v2.revoke_cert && acme->api.v2.key_change
+        /* RFC 8555 only requires "directory" and "newNonce" resources.
+         * mod_md uses "newAccount" and "newOrder" so check for them.
+         * But mod_md does not use the "revokeCert" or "keyChange"
+         * resources, so tolerate the absense of those keys.  In the
+         * future if mod_md implements revocation or key rollover then
+         * the use of those features should be predicated on the
+         * server's advertised capabilities. */
+        if (acme->api.v2.new_account
+            && acme->api.v2.new_order
             && acme->api.v2.new_nonce) {
             acme->version = MD_ACME_VERSION_2;
         }
@@ -734,6 +730,20 @@ static apr_status_t update_directory(const md_http_response_t *res, void *data)
         acme->new_nonce_fn = acmev2_new_nonce;
         acme->req_init_fn = acmev2_req_init;
         acme->post_new_account_fn = acmev2_POST_new_account;
+    }
+    else if ((s = md_json_dups(acme->p, json, "new-authz", NULL))) {
+        acme->api.v1.new_authz = s;
+        acme->api.v1.new_cert = md_json_dups(acme->p, json, "new-cert", NULL);
+        acme->api.v1.new_reg = md_json_dups(acme->p, json, "new-reg", NULL);
+        acme->api.v1.revoke_cert = md_json_dups(acme->p, json, "revoke-cert", NULL);
+        if (acme->api.v1.new_authz && acme->api.v1.new_cert
+            && acme->api.v1.new_reg && acme->api.v1.revoke_cert) {
+            acme->version = MD_ACME_VERSION_1;
+        }
+        acme->ca_agreement = md_json_dups(acme->p, json, "meta", "terms-of-service", NULL);
+        acme->new_nonce_fn = acmev1_new_nonce;
+        acme->req_init_fn = acmev1_req_init;
+        acme->post_new_account_fn = acmev1_POST_new_account;
     }
     
     if (MD_ACME_VERSION_UNKNOWN == acme->version) {

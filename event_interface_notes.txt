@@ -13,9 +13,97 @@ https://github.com/AnalogJ/lexicon/tree/master/lexicon/providers
 is another possible source of updaters for which a wrapper might
 be desirable.
 
+Rev 2.
 T. Litt
 
 Background/boundary conditions
+
+mod_md's terminology is somewhat confusing, specifically
+in terms of how it uses the word 'domain'.  In this document,
+we consider that mod_md interacts with a certificate
+authority (usually Let's Encrypt) in units of "certificates".
+A certificate has one or more "subjects".  Currently, Let's
+Encrypt only allows DNS host names (including wildcards) to
+be the subject(s) of a certificate.  But IP addresses are
+coming to LE, and I fully expect that e-mail addresses will
+be offered by some other CA, if not LE.
+
+In mod_md, a certificate is named by the MDomain directive.
+E.g. MDomain example.net
+If it has more than one subject, the secondary subjects (or
+in X.509 terms, "subject alternate names"  are listed after
+the certificate name.  E.g. MDomain example.net www.example.net.
+
+An alternate syntax is a configuration block, where the
+secondary subjects are specified within a <MDomain> block
+with MDmember directives.  E.g. <MDomain example.net>
+MDmember example.org
+MDmember www.example.net
+</MDomain>
+In this syntax, certain attributes of the certificate
+can be assigned on a per-certificate basis, including
+which Certificate Authority is to issue the certificate,
+agreement to terms of service, verification (challenge)
+method(s) to be used, and so forth.
+.
+In either case, for each grouping a single certificate
+is requested that will identify all the subjects listed.
+It is important to note that a single certificate can
+have MANY subjects - LE supports up to 100, but other
+CAs could support more.  There is no practical upper
+bound, though the size of a certificate with that
+many ibkects could become an issue.
+
+Mod_md documentation and internals use "domain" for both
+the certificate and the subject.  I'll try not to do that
+here.
+
+Multiple certificates can be requested for distinct
+groups of subjects.  (Technically, there could be
+overlap - a subject could be included in more than one
+certificate, but mod_md doesn't handle this gracefully.
+
+For the purposes of this document, an event is a state change
+that occurs to, or within a certificate and/or its subjects.
+
+For this document, Interesting events are those that interact
+with people or software other than mod_md.  They are listed
+below, but include things like certificate issuance,
+expiration, renewal, and revocation.
+
+There are several ways to categorize events.  One is
+to consider events that apply to the certificate as a
+whole (e.g. issuance) vs. those that apply to the subjects
+of a certificate (e.g. a validation challenge).  In
+either case, responding to an event notification will
+require identification of both the certificate name
+and the subject(s).
+
+Another categorization notes that while mod_md manges
+the issuance, renewal, and revocation of certificates,
+all of the certificates that it manges are not necessarily
+installed in the httpd instance that runs mod_md.  Some
+(or all) subjects may be for other services (e.g. imap,
+ldap,...) and some may be installed on other machines.  I
+refer to these as "remote" subjects.
+
+Remote subject have unique issues with respect to HTTP
+(and even DNS) validation, certificate installation, and
+server restart.
+
+A third categorization is what action or response is required
+to an event.  This varies - from the sample script previously
+distributed with mod_md tht e-mail and administrator, to 
+responses that enable the issuance/renewal and/or installation
+processes.  For example, pushing a validation token or
+issued certificate and key to a remote host, and/or
+restarting a remote HTTPD server.
+
+There are common aspects to all these actions:
+The certificate needs to be identified.  Configuration
+data needs to be maintained.  And logging is desirable.
+For events that require action by (or for) each subject,
+the subject(s) need to be identified.
 
 mod_md creates and interacts with several external programs,
 currently on an ad-hoc basis.  This is an attempt to unify
@@ -30,6 +118,7 @@ While it is not required that a single program serve all events,
 it is a goal that this is possible.  This implies a common
 calling sequence, unique/disjoint event names, and standard return
 codes.
+
 
 The events in question are low frequency, low volume events.  Thus
 this interface serves one event per activation.  It does not define
@@ -60,7 +149,19 @@ For add, called with 'setup' '<domain>' 'challenge-data'
 For remove, called with 'teardown' '<domain>'
 
 '<domain>' here is not necessarily the MDomain name.  It will be
-each of the MDMembers.
+each of a certificate's subjects - one event per subject per
+state change.  E.g. renewing a certificate may require 100
+DNS updates to install the validation tokens, and 100 more
+to remove them.  (The CA's validation agent may query
+the token multiple times from multiple viewpoints.)
+
+A DNS update to install a token may take considerable
+time to propagate through the DNS,  Thus, the
+delay time should be configurable and the delay should
+not block the service thread in HTTPD.
+
+DNS update is registrar-specific, and usually done via
+a custom script.
 
 Changes:
  - document that '<optional-args>' can follow executable,
@@ -80,7 +181,7 @@ MDNotifyCmd <path-to-executable>
 Called to notify of renewals.
 
 Called with '<domain>'
-Environment variables: MD_STORE, MD_VERSION
+Additional data required: MD_STORE, MD_VERSION, subjects.
 
 Changes:
  - document that '<optional-args>' can follow executable,
@@ -95,7 +196,7 @@ Intended for messages, but close to an event interface.
 Called with one of 'renewed', 'installed', 'expiring',
                    'errored', 'ocsp-renewed', 'ocsp-errored'
 
-Environment variables: MD_STORE, MD_VERSION
+Additional data required: MD_STORE, MD_VERSION
 
 'installed' is called with privileges.
 rate-limited: 'renewal' once; errors once/hour; expiring once/day.
@@ -171,7 +272,7 @@ Syntax:
 Program called with:
         <optional-args> 'event-name' 'mdomain-name' <intrinsic data>
 
-Environment variables: MD_STORE, MD_VERSION
+Additional data required: MD_STORE, MD_VERSION
 
 Events:
      'renewed', 'installed', 'expiring',
@@ -195,11 +296,11 @@ plus:  (not ideal names, but backward compatible)
         'teardown-http-01' 'mdomain' 'test-domain' 'token'
                         Removes a setup-http-01 resource.
 
-Program can use mdomain-name to get per-domain configuration.
+Program can use mdomain-name to get per certificate configuration.
 
 For compatibility with MDMessageCmd, it might be better to put mdomain-name
-into an environment variable (MD_MDOMAIN?) and leave the setup/teardown
-arguments the same as now.
+into a named variable (MD_MDOMAIN?) after the current arguments, and
+leave the setup/teardown arguments the same as now.
 
 For DNS, this isn't the same as the place the acme-challenge TXT record is stored.
 For HTTP, this isn't the same as the place where the HTTP resource is created.
@@ -284,3 +385,21 @@ so a coarse solution should suffice.  OTOH, it doesn't make sense for
 internal responses to wait 10s of minutes for getting the first certificate.
 
 Delays between job steps should not block httpd (or even mod_md's threads).
+
+Stefan's suggestion of named variables instead of environment variables
+is attractive, at least for data that isn't intrinsic to an event.  It
+would be nice to have the 
+
+See issues:
+  #198, where the envar issues were most recently discussed.
+  #189, where we agree that "a more general event interface"
+ is the apparent direction;
+  #200, that drove a mod_ssl change that needs to go upstream
+  #187, excluding status pages from MdRequireHttps
+  #194, where I also mentioned why a certificate ("mdomain" name)
+        differs from the subject name/test domain probed by the
+        CA's validator for DNS01.  Note that one of my commits
+        in yesterday's merge brings the certificate name to what
+        was to be an envvar, now a trailing named parameter.  It
+        should not be lost...
+ 

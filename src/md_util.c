@@ -41,8 +41,8 @@ apr_status_t md_util_pool_do(md_util_action *cb, void *baton, apr_pool_t *p)
     apr_pool_t *ptemp;
     apr_status_t rv = apr_pool_create(&ptemp, p);
     if (APR_SUCCESS == rv) {
+        apr_pool_tag(ptemp, "md_pool_do");
         rv = cb(baton, p, ptemp);
-        
         apr_pool_destroy(ptemp);
     }
     return rv;
@@ -55,6 +55,7 @@ static apr_status_t pool_vado(md_util_vaction *cb, void *baton, apr_pool_t *p, v
     
     rv = apr_pool_create(&ptemp, p);
     if (APR_SUCCESS == rv) {
+        apr_pool_tag(ptemp, "md_pool_vado");
         rv = cb(baton, p, ptemp, ap);
         apr_pool_destroy(ptemp);
     }
@@ -1515,3 +1516,23 @@ const char *md_link_find_relation(const apr_table_t *headers,
     return ctx.url;
 }
 
+const char *md_util_parse_ct(apr_pool_t *pool, const char *cth)
+{
+    char       *type;
+    const char *p;
+    apr_size_t  hlen;
+
+    if (!cth) return NULL;
+
+    for( p = cth; *p && *p != ' ' && *p != ';'; ++p)
+        ;
+    hlen = (apr_size_t)(p - cth);
+    type = apr_pcalloc( pool, hlen + 1 );
+    assert(type);
+    memcpy(type, cth, hlen);
+    type[hlen] = '\0';
+
+    return type;
+    /* Could parse and return parameters here, but we don't need any at present.
+     */
+}

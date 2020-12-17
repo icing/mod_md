@@ -4,6 +4,18 @@
  * Fixed a theoretical uninitialized read when testing for JSON error responses from the
    ACME CA. Bugreported at <https://bz.apache.org/bugzilla/show_bug.cgi?id=64297>.
    (Ported from maintenance-2.2.x branch)
+ * Adapted test suite to run against a current letsencrypt boulder version.
+ 
+v2.3.next
+----------------------------------------------------------------------------------------------------
+ * ACME problem reports from CAs that include parameters in the Content-Type header are handled correctly.
+   (Previously, the problem text would not be reported and retries could exist CA limits.)
+ * Account Update transactions to V2 CAs now use the correct POST-AS-GET method.  Previously, an
+   empty JSON object was sent - which apparently LE accepted, but others reject.
+ * If a CA directory includes both V1 and V2 endpoints, mod_md now will use the V2 endpoint.  Previously,
+   it would prefer V1 in this unusual configuration. V2 is standard; V1 is deprecated.
+ * Synchronized with Apache trunk changes, added test case for issue #218.
+>>>>>>> dbad16be376d67785ac1bbad256c349c90c3d5f6
 
 v2.3.3 (BETA)
 ----------------------------------------------------------------------------------------------------

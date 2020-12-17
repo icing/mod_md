@@ -608,7 +608,7 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
                     uri = md_util_schemify(p, s->server_admin, "mailto");
                     if (md_array_str_index(md->contacts, uri, 0, 0) < 0) {
                         APR_ARRAY_PUSH(md->contacts, const char *) = uri;
-                        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10044)
+                        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10237)
                                      "%s: added contact %s", md->name, uri);
                     }
                 }
@@ -1124,7 +1124,7 @@ static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
     }
     else if (sc->assigned->nelts != 1) {
         if (!fallback) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(10042)
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(10238)
                          "conflict: %d MDs match Virtualhost %s which uses SSL, however "
                          "there can be at most 1.",
                          (int)sc->assigned->nelts, s->server_hostname);
