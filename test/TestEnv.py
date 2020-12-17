@@ -17,9 +17,7 @@ import time
 import OpenSSL
 
 from datetime import datetime
-from datetime import tzinfo
-from datetime import timedelta
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 from http.client import HTTPConnection
 from urllib.parse import urlparse
 
@@ -32,7 +30,7 @@ class TestEnv:
         cls.ACME_URL = None
         cls.STORE_DIR = None
 
-        cls.config = SafeConfigParser()
+        cls.config = ConfigParser()
         cls.config.read('test.ini')
         cls.PREFIX = cls.config.get('global', 'prefix')
 
