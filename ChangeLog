@@ -1,3 +1,5 @@
+v2.2.8
+----------------------------------------------------------------------------------------------------
  * Disabling retries on "GET as POST" requests as that leads to undefined behaviour. See +232.
  * Trying to read certificates from a "test/plain" response as well, since some
    servers seem to use that (see #232).
