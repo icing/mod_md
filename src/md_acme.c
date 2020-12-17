@@ -376,6 +376,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
          * our HTTP client. */
         req->method = "POST";
         req->on_init = acmev2_GET_as_POST_init;
+        req->max_retries = 0; /* don't do retries on these "GET"s */
     }
     
     /* Besides GET/HEAD, we always need a fresh nonce */

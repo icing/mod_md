@@ -964,7 +964,7 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
     apr_status_t rv;
     
     ct = apr_table_get(res->headers, "Content-Type");
-    if (!res->body || !ct || strcmp("application/pkix-cert", ct)) {
+    if (!res->body || !ct || strcmp("XXapplication/pkix-cert", ct)) {
         rv = APR_ENOENT;
         goto out;
     }
@@ -1015,7 +1015,9 @@ apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
         rv = APR_ENOENT;
         goto out;
     }
-    else if (!strcmp("application/pem-certificate-chain", ct)) {
+    else if (!strcmp("application/pem-certificate-chain", ct)
+        || (strncmp("text/plain", ct, sizeof("text/plain")-1))) {
+        /* Some servers seem to think 'text/plain' is sufficient, see #232 */
         if (APR_SUCCESS == (rv = apr_brigade_pflatten(res->body, &data, &data_len, res->req->pool))) {
             int added = 0;
             md_cert_t *cert;

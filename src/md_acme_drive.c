@@ -421,6 +421,11 @@ static apr_status_t get_chain(void *baton, int attempt)
             if (APR_SUCCESS == rv && nelts == ad->certs->nelts) {
                 break;
             }
+            else if (APR_SUCCESS != rv) {
+                md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, d->p,
+                              "error retrieving certificate from %s", ad->next_up_link);
+                return rv;
+            }
         }
         else if (ad->certs->nelts <= 1) {
             /* This cannot be the complete chain (no one signs new web certs with their root)

@@ -1,3 +1,6 @@
+ * Disabling retries on "GET as POST" requests as that leads to undefined behaviour. See +232.
+ * Trying to read certificates from a "test/plain" response as well, since some
+   servers seem to use that (see #232).
  * Synchronized with Apache trunk. Spelling fixes and an added check when unsuccessfully
    reading JSON files.
  * Fixed a theoretical uninitialized read when testing for JSON error responses from the
