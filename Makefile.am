@@ -25,7 +25,7 @@ man1_MANS = a2md.1
 
 a2md.1: $(srcdir)/a2md.xml
 	rm -f a2md.1
-	$(XMLTO) man $(srcdir)/a2md.xml
+	$(XMLTO) --skip-validation man $(srcdir)/a2md.xml
 
 endif
 
