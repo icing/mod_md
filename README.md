@@ -1989,6 +1989,16 @@ test_0001_store.py ...................
 
 The test suite will itself start the Apache (several times with varying configurations) and terminate it on shutdown.
 
+# Testing with Pebble
+
+Follow the [instructions at the Pebble github repository](https://github.com/letsencrypt/pebble)
+in order to install it. Use docker to make and start an image. Then tell the now running
+Pebble server you local IP address (ipv4 is what it wants).
+```
+> docker-compose up
+> echo curl --request POST --data '{"ip":"'$(myinet)'"}' http://localhost:8055/set-default-ipv4
+```
+
 
 # Licensing
 

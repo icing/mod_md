@@ -13,16 +13,7 @@ gen_dir = @GEN_DIR@
 curl_bin = @CURL_BIN@
 openssl_bin = @OPENSSL_BIN@
 
-[acmev1]
-url_default=@ACME_DEFv1_URL@
-url = @BOULDER_URL@
-tos = @BOULDER_TOS@
-tos2 = @BOULDER_TOS@/invalid
-boulder_dir = @BOULDER_DIR@ 
-
-[acmev2]
+[acme]
 url_default=@ACME_DEF_URL@
-url = @BOULDERv2_URL@
-tos = @BOULDER_TOS@
-tos2 = @BOULDER_TOS@/invalid
-boulder_dir = @BOULDER_DIR@ 
+url = @ACME_TEST_URL@
+tos = accepted

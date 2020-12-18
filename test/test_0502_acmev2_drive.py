@@ -13,7 +13,6 @@ from TestCertUtil import CertUtil
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
-    TestEnv.initv2()
     TestEnv.check_acme()
     TestEnv.httpd_error_log_clear()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"

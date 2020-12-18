@@ -15,7 +15,7 @@
 
 SERVER_DIR     = @SERVER_DIR@
 GEN            = gen
-BOULDER_DIR    = @BOULDER_DIR@
+ACME_TEST_URL  = @ACME_TEST_URL@
 
 .phony: unit_tests
 
@@ -77,27 +77,20 @@ test: $(SERVER_DIR)/.test-setup unit_tests
 	python3 -m pytest
 
 # The certificates we need to verify the cert chain we retrieved from ACME
-# For now, we need these two, although a fix is underway that only one becomes
-# necessary. See: https://github.com/letsencrypt/boulder/issues/3307
-@BOULDER_DIR@:
-	@test -d $(BOULDER_DIR) || echo "boulder installation not found. Please configure using --with-boulder-dir to specify the correct location."; exit 1
-
-# we used to get the test root cert this way, but boulder keeps changing it
-#@cat $(BOULDER_DIR)/test/test-root.pem > $(GEN)/ca.pem
-# this is the current way, boulder docker needs to be running    
-$(GEN)/ca.pem: \
-    $(BOULDER_DIR) \
-    $(BOULDER_DIR)/test/test-root.pem
-	@echo "copying issuer certitificates from boulder docker image"    
+$(GEN)/ca.pem:
+	@echo "copying issuer certitificates from boulder docker image"
 	@docker exec boulder_boulder_1 bash -c "cat /tmp/root*.pem" >$@
+
+$(GEN)/pebble-ca.pem:
+	curl --insecure $(ACME_TEST_URL)
 
 $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/htdocs/index.html \
 		$(SERVER_DIR)/conf/ssl/valid_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_pkey.pem \
-                $(wildcard conf/*.conf) \
-                $(GEN)/ca.pem      
+	 	$(wildcard conf/*.conf) \
+		$(GEN)/ca.pem
 	@mkdir -p $(SERVER_DIR)/conf/ssl
 	@mkdir -p $(SERVER_DIR)/logs
 	rsync -a --exclude="*.in" conf/*.* $(SERVER_DIR)/conf

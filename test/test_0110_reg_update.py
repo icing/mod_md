@@ -252,17 +252,6 @@ class TestRegUpdate:
             "state": TestEnv.MD_S_INCOMPLETE
         })
 
-    # test case: update tos agreement
-    def test_110_401(self):
-        assert TestEnv.a2md(["update", self.NAME1, "agreement", TestEnv.ACME_TOS])['rv'] == 0
-        md = TestEnv.a2md(["update", self.NAME1, "agreement", TestEnv.ACME_TOS2])['jout']['output'][0]
-        TestEnv.check_json_contains(md['ca'], {
-            "url": TestEnv.ACME_URL,
-            "proto": "ACME",
-            "agreement": TestEnv.ACME_TOS2
-        })
-        assert md['state'] == 1
-
     # test case: remove tos agreement
     def test_110_402(self):
         assert TestEnv.a2md(["update", self.NAME1, "agreement", TestEnv.ACME_TOS])['rv'] == 0
@@ -276,7 +265,7 @@ class TestRegUpdate:
     # test case: ignore additional arguments
     def test_110_403(self):
         md = TestEnv.a2md(["update", self.NAME1, "agreement",
-                           TestEnv.ACME_TOS, TestEnv.ACME_TOS2])['jout']['output'][0]
+                           TestEnv.ACME_TOS, "http://invalid.tos/"])['jout']['output'][0]
         TestEnv.check_json_contains(md['ca'], {
             "url": TestEnv.ACME_URL,
             "proto": "ACME",

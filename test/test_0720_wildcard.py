@@ -6,7 +6,6 @@ from TestHttpdConf import HttpdConf
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
-    TestEnv.initv2()
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
@@ -23,38 +22,11 @@ class TestWildcard:
 
     def setup_method(self, method):
         print("setup_method: %s" % method.__name__)
-        TestEnv.initv2()
         TestEnv.clear_store()
         self.test_domain = TestEnv.get_method_domain(method)
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
-
-    # -----------------------------------------------------------------------------------------------
-    # test case: a wildcard certificate with ACMEv1 
-    #
-    def test_720_000(self):
-        domain = self.test_domain
-        
-        # switch to ACMEv1
-        TestEnv.initv1()
-        
-        # generate config with DNS wildcard
-        domains = [domain, "*." + domain]
-        conf = HttpdConf()
-        conf.add_admin("admin@not-forbidden.org")
-        conf.add_md(domains)
-        conf.add_vhost(domains)
-        conf.install()
-
-        # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
-        # await drive error as ACMEv1 does not accept DNS wildcards
-        md = TestEnv.await_error(domain)
-        assert md
-        assert md['renewal']['errors'] > 0
-        assert md['renewal']['last']['problem'] == 'urn:acme:error:malformed'
 
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, no dns-01 supported

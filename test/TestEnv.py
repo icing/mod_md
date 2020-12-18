@@ -71,8 +71,6 @@ class TestEnv:
     ACME_SERVER_DOWN = False
     ACME_SERVER_OK = False
     ACME_URL_DEFAULT = None
-    ACME_TOS = None
-    ACME_TOS2 = None
 
     DOMAIN_SUFFIX = "%d.org" % time.time()
 
@@ -81,7 +79,7 @@ class TestEnv:
     @classmethod
     def _init_base(cls):
         cls.set_store_dir_default()
-        cls.set_acme('acmev2')
+        cls.set_acme('acme')
         cls.clear_store()
 
     @classmethod
@@ -89,23 +87,12 @@ class TestEnv:
         cls.ACME_URL_DEFAULT = cls.config.get(acme_section, 'url_default')
         cls.ACME_URL = cls.config.get(acme_section, 'url')
         cls.ACME_TOS = cls.config.get(acme_section, 'tos')
-        cls.ACME_TOS2 = cls.config.get(acme_section, 'tos2')
-        cls.BOULDER_DIR = cls.config.get(acme_section, 'boulder_dir')
         if cls.STORE_DIR:
             cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j"])
             cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR])
 
     @classmethod
     def init(cls):
-        cls._init_base()
-
-    @classmethod
-    def initv1(cls):
-        cls._init_base()
-        cls.set_acme('acmev1')
-
-    @classmethod
-    def initv2(cls):
         cls._init_base()
 
     @classmethod

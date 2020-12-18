@@ -6,7 +6,6 @@ from TestHttpdConf import HttpdConf
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
-    TestEnv.initv2()
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()

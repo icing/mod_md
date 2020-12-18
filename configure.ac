@@ -65,6 +65,9 @@ AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
     [Use serverdir directory for setup [default=gen/apache]])],
     [request_serverdir=$withval], [request_serverdir=$PWD/test/gen/apache])
 
+AC_ARG_WITH([pebble], [AS_HELP_STRING([--with-pebble], [Use given url for pebble])],
+    [request_pebble=$withval], [request_pebble=def])
+
 AC_ARG_WITH([boulder], [AS_HELP_STRING([--with-boulder], [Use given url for boulder])],
     [request_boulder=$withval], [request_boulder=def])
 
@@ -73,9 +76,6 @@ AC_ARG_WITH([jansson], [AS_HELP_STRING([--with-jansson], [Use jansson from this 
 
 AC_ARG_WITH([openssl], [AS_HELP_STRING([--with-openssl], [Use openssl from this prefix])],
     [request_openssl=$withval], [request_openssl=check])
-
-AC_ARG_WITH([boulder-dir], [AS_HELP_STRING([--with-boulder-dir], [Use boulder from this directory])],
-    [request_boulder_dir=$withval], [request_boulder_dir=def])
 
 
 SERVER_NAME=$(hostname -f)
@@ -158,36 +158,24 @@ AC_SUBST(WERROR_CFLAGS)
 AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
 AC_PATH_PROG([PKGCONFIG], [pkg-config])
 
-ACME_DEFv1_URL=https://acme-v01.api.letsencrypt.org/directory
-AC_SUBST(ACME_DEFv1_URL)
-
 ACME_DEF_URL=https://acme-v02.api.letsencrypt.org/directory
 AC_SUBST(ACME_DEF_URL)
 
-if test "x$request_boulder" = "xdef"; then
-    BOULDER_URL=http://localhost:4000/directory
-    BOULDERv2_URL=http://localhost:4001/directory
+if test "x$request_pebble" != "xdef"; then
+    ACME_TEST_URL="$request_pebble"
+    ACME_TEST_TYPE=pebble
+elif test "x$request_boulder" = "xdef"; then
+    ACME_TEST_URL=http://localhost:4001/directory
+    ACME_TEST_TYPE=boulder
 elif test "x${request_boulder##http}" = "x${request_boulder}"; then
-    BOULDER_URL="http://${request_boulder}/directory"
+    ACME_TEST_URL="http://${request_boulder}/directory"
+    ACME_TEST_TYPE=boulder
 else
-    BOULDER_URL="$request_boulder"
+    ACME_TEST_URL="$request_boulder"
+    ACME_TEST_TYPE=boulder
 fi
-AC_SUBST(BOULDER_URL)
-AC_SUBST(BOULDERv2_URL)
-
-# the path where boulder is installed
-if test "x$request_boulder_dir" = "xdef"; then
-    BOULDER_DIR="$GOPATH/src/github.com/letsencrypt/boulder"
-else
-    BOULDER_DIR="$request_boulder_dir"
-fi
-
-AC_SUBST(BOULDER_DIR)
-
-# this is always the same, so far
-BOULDER_TOS=http://boulder:4000/terms/v1
-AC_SUBST(BOULDER_TOS)
-
+AC_SUBST(ACME_TEST_TYPE)
+AC_SUBST(ACME_TEST_URL)
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.
@@ -423,5 +411,5 @@ AC_MSG_NOTICE([summary of build options:
     curl-config     ${curl_config:--}
     jansson         ${JANSSON_PREFIX:--}
     openssl         ${OPENSSL_BIN:--}
-    boulder         ${BOULDER_DIR} (${BOULDER_URL})
+    test-server     ${ACME_TEST_URL} (${ACME_TEST_TYPE})
 ])
