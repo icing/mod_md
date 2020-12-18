@@ -164,18 +164,23 @@ AC_SUBST(ACME_DEF_URL)
 if test "x$request_pebble" != "xdef"; then
     ACME_TEST_URL="$request_pebble"
     ACME_TEST_TYPE=pebble
+    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/pebble
 elif test "x$request_boulder" = "xdef"; then
     ACME_TEST_URL=http://localhost:4001/directory
     ACME_TEST_TYPE=boulder
+    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/boulder
 elif test "x${request_boulder##http}" = "x${request_boulder}"; then
     ACME_TEST_URL="http://${request_boulder}/directory"
     ACME_TEST_TYPE=boulder
+    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/boulder
 else
     ACME_TEST_URL="$request_boulder"
     ACME_TEST_TYPE=boulder
+    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/boulder
 fi
 AC_SUBST(ACME_TEST_TYPE)
 AC_SUBST(ACME_TEST_URL)
+AC_SUBST(ACME_TEST_DIR)
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.

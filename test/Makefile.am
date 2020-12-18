@@ -16,6 +16,8 @@
 SERVER_DIR     = @SERVER_DIR@
 GEN            = gen
 ACME_TEST_URL  = @ACME_TEST_URL@
+ACME_TEST_DIR  = @ACME_TEST_DIR@
+
 
 .phony: unit_tests
 
@@ -77,12 +79,17 @@ test: $(SERVER_DIR)/.test-setup unit_tests
 	python3 -m pytest
 
 # The certificates we need to verify the cert chain we retrieved from ACME
-$(GEN)/ca.pem:
-	@echo "copying issuer certitificates from boulder docker image"
-	@docker exec boulder_boulder_1 bash -c "cat /tmp/root*.pem" >$@
-
-$(GEN)/pebble-ca.pem:
-	curl --insecure $(ACME_TEST_URL)
+$(SERVER_DIR)/test-ca.pem:
+	@if test @ACME_TEST_TYPE@ = boulder; then \
+		echo "copying issuer certitificates from boulder docker image"; \
+		docker exec boulder_boulder_1 bash -c "cat /tmp/root*.pem" >$@; \
+	elif test @ACME_TEST_TYPE@ = pebble; then \
+		echo "copying pebble test CA from running server"; \
+		cp $(ACME_TEST_DIR)/test/certs/pebble.minica.pem $@; \
+		curl --insecure https://localhost:15000/roots/0 >>$@; \
+	else \
+	    touch $@; \
+	fi
 
 $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/htdocs/index.html \
@@ -90,7 +97,7 @@ $(SERVER_DIR)/.test-setup: conf/* \
 		$(SERVER_DIR)/conf/ssl/expired_cert.pem \
 		$(SERVER_DIR)/conf/ssl/expired_pkey.pem \
 	 	$(wildcard conf/*.conf) \
-		$(GEN)/ca.pem
+		$(SERVER_DIR)/test-ca.pem
 	@mkdir -p $(SERVER_DIR)/conf/ssl
 	@mkdir -p $(SERVER_DIR)/logs
 	rsync -a --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
