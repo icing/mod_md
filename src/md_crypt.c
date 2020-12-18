@@ -1401,7 +1401,8 @@ apr_status_t md_cert_read_http(md_cert_t **pcert, apr_pool_t *p,
             else {
                 cert = md_cert_make(p, x509);
                 rv = APR_SUCCESS;
-                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "cert parsed");
+                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, p,
+                    "parsing cert from content-type=%s, content-length=%ld", ct, (long)data_len);
             }
         }
     }
@@ -1433,7 +1434,9 @@ apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
         goto out;
     }
     ct = md_util_parse_ct(res->req->pool, ct);
-    if (!strcmp("application/pem-certificate-chain", ct)) {
+    if (!strcmp("application/pem-certificate-chain", ct)
+        || !strncmp("text/plain", ct, sizeof("text/plain")-1)) {
+        /* Some servers seem to think 'text/plain' is sufficient, see #232 */
         if (APR_SUCCESS == (rv = apr_brigade_pflatten(res->body, &data, &data_len, res->req->pool))) {
             int added = 0;
             md_cert_t *cert;
@@ -1451,7 +1454,8 @@ apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
                 rv = APR_SUCCESS;
             }
         }
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, rv, p, "cert parsed");
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, p,
+            "parsing cert from content-type=%s, content-length=%ld", ct, (long)data_len);
     }
     else if (!strcmp("application/pkix-cert", ct)) {
         md_cert_t *cert;

@@ -1,3 +1,4 @@
+Merges from 2.2.x maintenance branch:
  * Changed minimal curl version necessary to 7.29, as proposed by @xl32.
  * Retry delays now have a random +/-[0-50]% modification applied to let retries from several
    servers spread out more, should they have been restarted at the same time of day.
@@ -15,7 +16,6 @@ v2.3.next
  * If a CA directory includes both V1 and V2 endpoints, mod_md now will use the V2 endpoint.  Previously,
    it would prefer V1 in this unusual configuration. V2 is standard; V1 is deprecated.
  * Synchronized with Apache trunk changes, added test case for issue #218.
->>>>>>> dbad16be376d67785ac1bbad256c349c90c3d5f6
 
 v2.3.3 (BETA)
 ----------------------------------------------------------------------------------------------------
@@ -59,6 +59,17 @@ v2.3.0 (BETA)
    key lengths elliptic curves can be configured. Right now, the module only creates a
    certificate for the first key type given.
  * Test cases added for "secp256r1" and "secp384r1" which are supported by Let's Encrypt.
+=======
+v2.2.8
+----------------------------------------------------------------------------------------------------
+ * Disabling retries on "GET as POST" requests as that leads to undefined behaviour. See +232.
+ * Trying to read certificates from a "test/plain" response as well, since some
+   servers seem to use that (see #232).
+ * Synchronized with Apache trunk. Spelling fixes and an added check when unsuccessfully
+   reading JSON files.
+ * Fixed a theoretical uninitialized read when testing for JSON error responses from the
+   ACME CA. Bugreported at <https://bz.apache.org/bugzilla/show_bug.cgi?id=64297>.
+>>>>>>> maintenance-2.2.x
 
 v2.2.7
 ----------------------------------------------------------------------------------------------------
