@@ -1948,6 +1948,15 @@ CA you have configured) has entered your certificates into the CTLogs.
 
 The ACME protocol requires you to give a contact url when you sign up. Currently, Let's Encrypt wants an email address (and it will use it to inform you about renewals or changed terms of service). ```mod_md``` uses the ```MDContactEmail``` directive email in your Apache configuration, so please specify the correct address there.  If ```MDContactEmail``` is not present, ```mod_md``` will use the ```ServerAdmin```  directive.
 
+## MDCACertificateFile
+***Sets the root (CA) certificates to use for TLS connections***<BR/>
+`MDCACertificateFile path-to-pem-file`<BR/>
+Default: none
+
+This is mainly used in test setups where the module needs to connect to a test ACME
+server that has its own root certificate. People who run an enterprise wide internal
+CA might find a use for this, but they have probably adapted the general CA root 
+store already and there is no special need.
 
 # Test Suite
 
@@ -1991,14 +2000,31 @@ The test suite will itself start the Apache (several times with varying configur
 
 # Testing with Pebble
 
+This is work in progress.
+
 Follow the [instructions at the Pebble github repository](https://github.com/letsencrypt/pebble)
 in order to install it. Use docker to make and start an image. Then tell the now running
 Pebble server you local IP address (ipv4 is what it wants).
+
 ```
-> docker-compose up
-> echo curl --request POST --data '{"ip":"'$(myinet)'"}' http://localhost:8055/set-default-ipv4
+> PEBBLE_WFE_NONCEREJECT=0 PEBBLE_VA_NOSLEEP=1 pebble -config ./test/config/pebble-config.json -dnsserver :8053
+> pebble-challtestsrv -http01 '' -https01 '' -tlsalpn01 ''
 ```
 
+Configure mod_md to test with pebble:
+
+```
+> /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble=https://localhost:14000/dir
+> make clean install test
+```
+
+And the tests should run. There are several which are skipped, notably the ones
+which test OCSP stapling. That is not supported by pebble. Also some validation 
+trigger tests are skipped because pebble certificates are valid for 5 years.
+
+The one thing that needs attention is pebble's "nonce" handling where it pretends
+to no longer honor nonces handed out. mod_md fails here and it should not. That
+is the reason why the env variable ```PEBBLE_WFE_NONCEREJECT=0``` is set. 
 
 # Licensing
 

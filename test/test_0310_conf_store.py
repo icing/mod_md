@@ -2,6 +2,7 @@
 
 import pytest
 import os
+import time
 
 from configparser import ConfigParser
 from TestEnv import TestEnv
@@ -768,7 +769,8 @@ class TestConf:
         assert TestEnv.a2md(["update", name, "agreement", TestEnv.ACME_TOS])['rv'] == 0
         assert TestEnv.apache_start() == 0
         # setup: drive it
-        assert TestEnv.a2md(["-v", "drive", name])['rv'] == 0
+        r = TestEnv.a2md(["-v", "drive", name])
+        assert r['rv'] == 0, "drive not successfull: {0}".format(r['stderr'])
         assert TestEnv.a2md(["list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
 
         # remove one domain -> status stays COMPLETE

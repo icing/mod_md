@@ -64,6 +64,7 @@ struct md_http_request_t {
     const char *url;
     const char *user_agent;
     const char *proxy_url;
+    const char *ca_file;
     apr_table_t *headers;
     struct apr_bucket_brigade *body;
     apr_off_t body_len;
@@ -108,6 +109,13 @@ void md_http_set_connect_timeout(md_http_request_t *req, apr_time_t timeout);
  */
 void md_http_set_stalling_default(md_http_t *http, long bytes_per_sec, apr_time_t timeout);
 void md_http_set_stalling(md_http_request_t *req, long bytes_per_sec, apr_time_t timeout);
+
+/**
+ * Set a CA file (in PERM format) to use for root certificates when
+ * verifying SSL connections. If not set (or set to NULL), the systems
+ * certificate store will be used.
+ */
+void md_http_set_ca_file(md_http_t *http, const char *ca_file);
 
 /**
  * Perform the request. Then this function returns, the request and

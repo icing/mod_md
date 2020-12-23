@@ -623,7 +623,7 @@ apr_status_t md_acme_POST_new_account(md_acme_t *acme,
 /* ACME setup */
 
 apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
-                            const char *proxy_url)
+                            const char *proxy_url, const char *ca_file)
 {
     md_acme_t *acme;
     const char *err = NULL;
@@ -648,7 +648,8 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
                                     base_product, MOD_MD_VERSION);
     acme->proxy_url = proxy_url? apr_pstrdup(p, proxy_url) : NULL;
     acme->max_retries = 3;
-    
+    acme->ca_file = ca_file;
+
     if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri_parsed))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "parsing ACME uri: %s", url);
         return APR_EINVAL;
@@ -776,6 +777,7 @@ apr_status_t md_acme_setup(md_acme_t *acme, md_result_t *result)
     md_http_set_timeout_default(acme->http, apr_time_from_sec(10 * 60));
     md_http_set_connect_timeout_default(acme->http, apr_time_from_sec(30));
     md_http_set_stalling_default(acme->http, 10, apr_time_from_sec(30));
+    md_http_set_ca_file(acme->http, acme->ca_file);
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "get directory from %s", acme->url);
     

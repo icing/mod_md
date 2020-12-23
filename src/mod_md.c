@@ -879,7 +879,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     md_event_subscribe(on_event, mc);
     
     if (APR_SUCCESS != (rv = setup_store(&store, mc, p, s))
-        || APR_SUCCESS != (rv = md_reg_create(&mc->reg, p, store, mc->proxy_url))) {
+        || APR_SUCCESS != (rv = md_reg_create(&mc->reg, p, store, mc->proxy_url, mc->ca_certs))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10072) "setup md registry");
         goto leave;
     }

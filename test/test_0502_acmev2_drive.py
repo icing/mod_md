@@ -13,6 +13,7 @@ from TestCertUtil import CertUtil
 
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
+    TestEnv.init()
     TestEnv.check_acme()
     TestEnv.httpd_error_log_clear()
     TestEnv.APACHE_CONF_SRC = "data/test_drive"
@@ -82,7 +83,7 @@ class TestDrivev2:
         assert TestEnv.apache_start() == 0
         # drive
         prev_md = TestEnv.a2md(["list", name])['jout']['output'][0]
-        assert TestEnv.a2md(["-v", "drive", "-c", "http-01", name])['rv'] == 0
+        assert TestEnv.a2md(["-vvvvvvvv", "drive", "-c", "http-01", name])['rv'] == 0
         TestEnv.check_md_credentials([name])
         self._check_account_key(name)
 
@@ -201,7 +202,9 @@ class TestDrivev2:
         domain = self.test_domain
         name = "www." + domain
         self._prepare_md([name])
-        HttpdConf(proxy=True).install()
+        conf = HttpdConf(proxy=True)
+        conf.add_line('LogLevel proxy:trace8')
+        conf.install()
         assert TestEnv.apache_restart() == 0
 
         # drive it, with wrong proxy url -> FAIL
@@ -210,8 +213,9 @@ class TestDrivev2:
         assert "Connection refused" in r['stderr']
 
         # drive it, working proxy url -> SUCCESS
-        assert TestEnv.a2md(["-p", "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT),
-                             "drive", name])['rv'] == 0
+        proxy_url = "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT)
+        r = TestEnv.a2md(["-vvvvv", "-p", proxy_url, "drive", name])
+        assert 0 == r['rv'], "a2md failed: {0}".format(r['stderr'])
         TestEnv.check_md_credentials([name])
 
     def test_502_109(self):

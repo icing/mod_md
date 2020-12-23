@@ -705,7 +705,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     /* Need to renew */
     md_result_activity_printf(result, "Contacting ACME server for %s at %s", 
                               d->md->name, d->md->ca_url);
-    if (APR_SUCCESS != (rv = md_acme_create(&ad->acme, d->p, d->md->ca_url, d->proxy_url))) {
+    if (APR_SUCCESS != (rv = md_acme_create(&ad->acme, d->p, d->md->ca_url, d->proxy_url, d->ca_file))) {
         md_result_printf(result, rv, "setup ACME communications");
         md_result_log(result, MD_LOG_ERR);
         goto out;
@@ -951,7 +951,7 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
             }
         }
         
-        if (APR_SUCCESS != (rv = md_acme_create(&acme, d->p, md->ca_url, d->proxy_url))) {
+        if (APR_SUCCESS != (rv = md_acme_create(&acme, d->p, md->ca_url, d->proxy_url, d->ca_file))) {
             md_result_set(result, rv, "error setting up acme");
             goto leave;
         }

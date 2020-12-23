@@ -1,4 +1,5 @@
 # test mod_md must-staple support
+import pytest
 
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
@@ -54,6 +55,7 @@ class TestMustStaple:
         assert stat['ocsp'] == "no response sent" 
 
     # MD that must staple and toggle off again
+    @pytest.mark.skipif(TestEnv.ACME_LACKS_OCSP, reason="no OCSP responder")
     def test_800_003(self):
         domain = TestMustStaple.domain
         TestMustStaple.configure_httpd(domain, "MDMustStaple on")
@@ -70,6 +72,7 @@ class TestMustStaple:
         assert not cert1.get_must_staple()
 
     # MD that must staple
+    @pytest.mark.skipif(TestEnv.ACME_LACKS_OCSP, reason="no OCSP responder")
     def test_800_004(self):
         domain = TestMustStaple.domain
         # mod_ssl stapling is off, expect no stapling

@@ -36,7 +36,7 @@ typedef struct md_reg_t md_reg_t;
  * Create the MD registry, using the pool and store.
  */
 apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *pm, md_store_t *store,
-                           const char *proxy_url);
+                           const char *proxy_url, const char *ca_file);
 
 md_store_t *md_reg_store_get(md_reg_t *reg);
 
@@ -206,6 +206,7 @@ struct md_proto_driver_t {
     md_reg_t *reg;
     md_store_t *store;
     const char *proxy_url;
+    const char *ca_file;
     const md_t *md;
 
     int can_http;

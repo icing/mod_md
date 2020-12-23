@@ -34,7 +34,7 @@ class TestAcmeAcc:
         run = TestEnv.a2md(["-t", "accepted", "acme", "newreg", contact], raw=True)
         assert run['rv'] == 0
         m = re.match("registered: (.*)$", run["stdout"])
-        assert m
+        assert m, "did not match: {0}".format(run["stdout"])
         acct = m.group(1)
         print("newreg: %s" % m.group(1))
         self._check_account(acct, ["mailto:" + contact])
@@ -44,7 +44,10 @@ class TestAcmeAcc:
         run = TestEnv.a2md(["acme", "newreg", "x@not-forbidden.org"], raw=True)
         assert run['rv'] == 1
         m = re.match(".*must agree to terms of service.*", run["stderr"])
-        assert m
+        if m is None:
+            # the pebble variant
+            m = re.match(".*account did not agree to the terms of service.*", run["stderr"])
+        assert m, "did not match: {0}".format(run["stderr"])
 
     # test case: respect 'mailto:' prefix in contact url
     def test_202_001(self):

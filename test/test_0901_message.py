@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+import pytest
 
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
@@ -111,6 +112,7 @@ class TestMessage:
     # - reset the next run
     # - no longer adds the re-validations to the log
     # - messages only once
+    @pytest.mark.skipif(TestEnv.ACME_SERVER == 'pebble', reason="ACME server certs valid too long")
     def test_901_004(self):
         domain = self.test_domain
         domains = [domain, "www." + domain]
@@ -196,6 +198,7 @@ class TestMessage:
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
 
     # MD, check messages from stapling
+    @pytest.mark.skipif(TestEnv.ACME_LACKS_OCSP, reason="no OCSP responder")
     def test_901_020(self):
         domain = self.test_domain
         domains = [domain]
@@ -222,6 +225,7 @@ class TestMessage:
 
     # test: while testing gh issue #146, it was noted that a failed renew notification never
     # resets the MD activity.
+    @pytest.mark.skipif(TestEnv.ACME_SERVER == 'pebble', reason="ACME server certs valid too long")
     def test_901_030(self):
         domain = self.test_domain
         domains = [domain, "www." + domain]

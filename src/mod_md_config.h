@@ -70,6 +70,7 @@ struct md_mod_conf_t {
     md_timeslice_t *ocsp_renew_window; /* time before exp. that we start renewing ocsp resp. */
     const char *cert_check_name;       /* name of the linked certificate check site */
     const char *cert_check_url;        /* url "template for" checking a certificate */
+    const char *ca_certs;              /* root certificates to use for connections */
 };
 
 typedef struct md_srv_conf_t {

@@ -6,6 +6,7 @@ from TestHttpdConf import HttpdConf
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
+    TestEnv.init()
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
@@ -42,10 +43,14 @@ class TestAcmeErrors:
         md = TestEnv.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
-        assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:rejectedIdentifier'
-        assert md['renewal']['last']['detail'] == ("Error creating new order :: Cannot issue for "
-                                                   "\"%s\": Domain name contains an invalid character"
-                                                   % domains[1])
+        if TestEnv.ACME_SERVER == 'pebble':
+            assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
+            assert md['renewal']['last']['detail'] == "Order included DNS identifier with a value containing an illegal character: '!'"
+        else:
+            assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:rejectedIdentifier'
+            assert md['renewal']['last']['detail'] == (
+                    "Error creating new order :: Cannot issue for "
+                    "\"%s\": Domain name contains an invalid character" % domains[1])
 
     # test case: MD with 3 names, 2 invalid
     #
@@ -61,8 +66,13 @@ class TestAcmeErrors:
         md = TestEnv.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
-        assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:rejectedIdentifier'
-        # just check the beginning, reported name seems to vary sometimes
-        assert md['renewal']['last']['detail'].startswith("Error creating new order :: Cannot issue for")
-        assert md['renewal']['last']['subproblems']
-        assert len(md['renewal']['last']['subproblems']) == 2
+        if TestEnv.ACME_SERVER == 'pebble':
+            assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
+            assert md['renewal']['last']['detail'].startswith(
+                "Order included DNS identifier with a value containing an illegal character")
+        else:
+            assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:rejectedIdentifier'
+            assert md['renewal']['last']['detail'].startswith(
+                "Error creating new order :: Cannot issue for")
+            assert md['renewal']['last']['subproblems']
+            assert len(md['renewal']['last']['subproblems']) == 2

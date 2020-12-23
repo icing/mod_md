@@ -28,9 +28,10 @@ LogLevel ssl:debug
             text = """
 MDCertificateAuthority %s
 MDCertificateAgreement accepted
+MDCACertificateFile %s/test-ca.pem
                 
 %s
-""" % (TestEnv.ACME_URL, text)
+""" % (TestEnv.ACME_URL, TestEnv.WEBROOT, text)
 
         if std_vhosts:
             text = """

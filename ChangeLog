@@ -1,3 +1,5 @@
+ * first successful test run against the pebble server. See README.md for details
+   on how to set this up.
 Merges from 2.2.x maintenance branch:
  * Changed minimal curl version necessary to 7.29, as proposed by @xl32.
  * Retry delays now have a random +/-[0-50]% modification applied to let retries from several

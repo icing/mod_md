@@ -2,11 +2,13 @@
 
 import os
 import time
+import pytest
 
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
 
 
+@pytest.mark.skipif(TestEnv.ACME_LACKS_OCSP, reason="no OCSP responder")
 class TestStapling:
     domain = None
     mdA = None

@@ -185,7 +185,8 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             return APR_EINVAL;
         }
         if (APR_SUCCESS != (rv = md_reg_create(&ctx->reg, ctx->p, ctx->store,
-                                               md_cmd_ctx_get_option(ctx, MD_CMD_OPT_PROXY_URL)))) {
+                                               md_cmd_ctx_get_option(ctx, MD_CMD_OPT_PROXY_URL),
+                                               ctx->ca_file))) {
             fprintf(stderr, "error %d creating registry from store: %s\n", rv, ctx->base_dir);
             return APR_EINVAL;
         }
@@ -196,7 +197,8 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
             return APR_EINVAL;
         }
         rv = md_acme_create(&ctx->acme, ctx->p, ctx->ca_url, 
-                            md_cmd_ctx_get_option(ctx, MD_CMD_OPT_PROXY_URL));
+                            md_cmd_ctx_get_option(ctx, MD_CMD_OPT_PROXY_URL),
+                            ctx->ca_file);
         if (APR_SUCCESS != rv) {
             fprintf(stderr, "error creating acme instance %s (%s)\n", 
                     ctx->ca_url, ctx->base_dir);
@@ -335,6 +337,9 @@ static apr_status_t main_opts(md_cmd_ctx *ctx, int option, const char *optarg)
         case 'a':
             ctx->ca_url = optarg;
             break;
+        case 'C':
+            ctx->ca_file = optarg;
+            break;
         case 'd':
             ctx->base_dir = optarg;
             break;
@@ -381,6 +386,7 @@ static const md_cmd_t *MainSubCmds[] = {
 
 static apr_getopt_option_t MainOptions [] = {
     { "acme",    'a', 1, "the url of the ACME server directory"},
+    { "cafile",  'C', 1, "file with root certificates (PEM format)"},
     { "dir",     'd', 1, "directory for file data"},
     { "help",    'h', 0, "print usage information"},
     { "json",    'j', 0, "produce json output"},

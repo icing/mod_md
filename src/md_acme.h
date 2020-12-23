@@ -97,6 +97,7 @@ struct md_acme_t {
     apr_pool_t *p;
     const char *user_agent;
     const char *proxy_url;
+    const char *ca_file;
     
     const char *acct_id;            /* local storage id account was loaded from or NULL */
     struct md_acme_acct_t *acct;    /* account at ACME server to use for requests */
@@ -149,7 +150,7 @@ apr_status_t md_acme_init(apr_pool_t *pool, const char *base_version, int init_s
  * @param proxy_url optional url of a HTTP(S) proxy to use
  */
 apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
-                            const char *proxy_url);
+                            const char *proxy_url, const char *ca_file);
 
 /**
  * Contact the ACME server and retrieve its directory information.

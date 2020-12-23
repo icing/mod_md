@@ -33,6 +33,7 @@ struct md_http_t {
     const char *user_agent;
     const char *proxy_url;
     md_http_timeouts_t timeout;
+    const char *ca_file;
 };
 
 static md_http_impl_t *cur_impl;
@@ -116,6 +117,11 @@ void md_http_set_stalling(md_http_request_t *req, long bytes_per_sec, apr_time_t
     req->timeout.stalled = timeout;
 }
 
+void md_http_set_ca_file(md_http_t *http, const char *ca_file)
+{
+    http->ca_file = ca_file;
+}
+
 static apr_status_t req_set_body(md_http_request_t *req, const char *content_type,
                                  apr_bucket_brigade *body, apr_off_t body_len,
                                  int detect_len)
@@ -183,6 +189,7 @@ static apr_status_t req_create(md_http_request_t **preq, md_http_t *http,
     req->user_agent = http->user_agent;
     req->proxy_url = http->proxy_url;
     req->timeout = http->timeout;
+    req->ca_file = http->ca_file;
     *preq = req;
     return rv;
 }

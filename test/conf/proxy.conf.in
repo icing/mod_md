@@ -5,6 +5,8 @@ Listen @HTTP_PROXY_PORT@
 <VirtualHost *:@HTTP_PROXY_PORT@>
     ProxyRequests On
     ProxyVia On
+    # be totally open
+    AllowCONNECT 0-56535
 
     <Proxy *>
         # No require or other restrictions, this is just a test server

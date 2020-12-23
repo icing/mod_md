@@ -81,6 +81,7 @@ static md_mod_conf_t defmc = {
     &def_ocsp_renew_window,    /* default time to renew ocsp responses */
     "crt.sh",                  /* default cert checker site name */
     "https://crt.sh?q=",       /* default cert checker site url */
+    NULL,                      /* CA cert file to use */
 };
 
 static md_timeslice_t def_renew_window = {
@@ -970,6 +971,15 @@ static const char *md_config_set_activation_delay(cmd_parms *cmd, void *mconfig,
     return NULL;
 }
 
+static const char *md_config_set_ca_certs(cmd_parms *cmd, void *dc, const char *path)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+
+    (void)dc;
+    sc->mc->ca_certs = path;
+    return NULL;
+}
+
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
                   "URL of CA issuing the certificates"),
@@ -1044,6 +1054,8 @@ const command_rec md_cmds[] = {
                   "Set name and URL pattern for a certificate monitoring site."),
     AP_INIT_TAKE1("MDActivationDelay", md_config_set_activation_delay, NULL, RSRC_CONF, 
                   "How long to delay activation of new certificates"),
+    AP_INIT_TAKE1("MDCACertificateFile", md_config_set_ca_certs, NULL, RSRC_CONF,
+                  "Set the CA file to use for connections"),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

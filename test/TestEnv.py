@@ -24,7 +24,6 @@ from TestCertUtil import CertUtil
 
 
 class TestEnv:
-    ACME_URL = None
     STORE_DIR = None
 
     config = ConfigParser()
@@ -56,6 +55,14 @@ class TestEnv:
     HTTPD_PROXY_URL = "http://" + HTTPD_HOST + ":" + HTTP_PROXY_PORT
     HTTPD_CHECK_URL = HTTPD_URL
 
+    ACME_URL_DEFAULT = config.get('acme', 'url_default')
+    ACME_URL = config.get('acme', 'url')
+    ACME_TOS = config.get('acme', 'tos')
+    ACME_SERVER = config.get('acme', 'server').strip()
+    ACME_LACKS_OCSP = (ACME_SERVER == 'pebble')
+    ACME_SERVER_DOWN = False
+    ACME_SERVER_OK = False
+
     A2MD = config.get('global', 'a2md_bin')
     CURL = config.get('global', 'curl_bin')
     OPENSSL = config.get('global', 'openssl_bin')
@@ -68,28 +75,15 @@ class TestEnv:
 
     EMPTY_JOUT = {'status': 0, 'output': []}
 
-    ACME_SERVER_DOWN = False
-    ACME_SERVER_OK = False
-    ACME_URL_DEFAULT = None
-
     DOMAIN_SUFFIX = "%d.org" % time.time()
 
     apachectl_stderr = None
 
     @classmethod
-    def _init_base(cls):
+    def _init_base(cls) -> bool:
         cls.set_store_dir_default()
-        cls.set_acme('acme')
         cls.clear_store()
-
-    @classmethod
-    def set_acme(cls, acme_section):
-        cls.ACME_URL_DEFAULT = cls.config.get(acme_section, 'url_default')
-        cls.ACME_URL = cls.config.get(acme_section, 'url')
-        cls.ACME_TOS = cls.config.get(acme_section, 'tos')
-        if cls.STORE_DIR:
-            cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j"])
-            cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR])
+        return True
 
     @classmethod
     def init(cls):
@@ -99,8 +93,8 @@ class TestEnv:
     def set_store_dir(cls, dirpath):
         cls.STORE_DIR = os.path.join(cls.WEBROOT, dirpath)
         if cls.ACME_URL:
-            cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR, "-j"])
-            cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR])
+            cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR,  "-C", "gen/apache/test-ca.pem", "-j"])
+            cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR,  "-C", "gen/apache/test-ca.pem"])
 
     @classmethod
     def set_store_dir_default(cls):
@@ -156,6 +150,7 @@ class TestEnv:
         preargs = cls._a2md_args
         if raw:
             preargs = cls._a2md_args_raw
+        print("running: {0} {1}".format(preargs, args))
         return cls.run(preargs + args)
 
     @classmethod
@@ -396,7 +391,7 @@ class TestEnv:
     def check_md_complete(cls, domain, pkey=None):
         md = cls.get_md_status(domain)
         assert md
-        assert md['state'] == TestEnv.MD_S_COMPLETE
+        assert md['state'] is TestEnv.MD_S_COMPLETE, "unexpected state: {0}".format(md['state'])
         assert os.path.isfile(TestEnv.store_domain_file(domain, cls.pkey_fname(pkey)))
         assert os.path.isfile(TestEnv.store_domain_file(domain, cls.cert_fname(pkey)))
 

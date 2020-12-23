@@ -242,4 +242,5 @@ MDBaseServer on
         assert 'valid' in stat['cert']
         for ktype in ['rsa', 'secp256r1']:
             assert ktype in stat['cert']
-            assert 'ocsp' in stat['cert'][ktype]
+            if not TestEnv.ACME_LACKS_OCSP:
+                assert 'ocsp' in stat['cert'][ktype]
