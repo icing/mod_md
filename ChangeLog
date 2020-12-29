@@ -1,3 +1,6 @@
+ * Fixed a bug introduced by the multiple private key feature that did not trigger
+   the tls-alpn-01 challenge at the ACME server on the first attempt. (It picked it up
+   on the subsequent ones, though, prolonging the test suite but not failing it.)
  * first successful test run against the pebble server. See README.md for details
    on how to set this up.
 Merges from 2.2.x maintenance branch:

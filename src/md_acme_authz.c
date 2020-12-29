@@ -436,7 +436,7 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
         }
     }
     
-    if (APR_SUCCESS == rv && notify_server == i) {
+    if (APR_SUCCESS == rv && notify_server) {
         authz_req_ctx ctx;
 
         /* challenge is setup or was changed from previous data, tell ACME server

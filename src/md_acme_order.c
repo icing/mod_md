@@ -445,7 +445,7 @@ apr_status_t md_acme_order_start_challenges(md_acme_order_t *order, md_acme_t *a
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: check AUTHZ at %s", md->name, url);
         
         if (APR_SUCCESS != (rv = md_acme_authz_retrieve(acme, p, url, &authz))) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: check authz for %s",
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: check authz for %s",
                           md->name, authz->domain);
             goto leave;
         }
