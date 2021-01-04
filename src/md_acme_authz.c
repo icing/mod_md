@@ -244,17 +244,10 @@ static md_acme_authz_cha_t *cha_from_json(apr_pool_t *p, size_t index, md_json_t
 
 static apr_status_t on_init_authz_resp(md_acme_req_t *req, void *baton)
 {
-    authz_req_ctx *ctx = baton;
     md_json_t *jpayload;
 
+    (void)baton;
     jpayload = md_json_create(req->p);
-    if (MD_ACME_VERSION_MAJOR(req->acme->version) <= 1) {
-        md_json_sets(MD_KEY_CHALLENGE, jpayload, MD_KEY_RESOURCE, NULL);
-        if (ctx->challenge->key_authz) {
-            md_json_sets(ctx->challenge->key_authz, jpayload, MD_KEY_KEYAUTHZ, NULL);
-        }
-    }
-
     return md_acme_req_body_init(req, jpayload);
 } 
 

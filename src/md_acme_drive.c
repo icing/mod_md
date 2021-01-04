@@ -40,7 +40,6 @@
 #include "md_acme_order.h"
 
 #include "md_acme_drive.h"
-#include "md_acmev1_drive.h"
 #include "md_acmev2_drive.h"
 
 /**************************************************************************************************/
@@ -140,7 +139,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
         /* ACMEv1 allowed registration of accounts without accepted Terms-of-Service.
          * ACMEv2 requires it. Fail early in this case with a meaningful error message.
          */ 
-        if (!md->ca_agreement && MD_ACME_VERSION_MAJOR(ad->acme->version) > 1) {
+        if (!md->ca_agreement) {
             md_result_printf(result, APR_EINVAL,
                   "the CA requires you to accept the terms-of-service "
                   "as specified in <%s>. "
@@ -277,9 +276,6 @@ static apr_status_t on_init_csr_req(md_acme_req_t *req, void *baton)
     md_json_t *jpayload;
 
     jpayload = md_json_create(req->p);
-    if (MD_ACME_VERSION_MAJOR(req->acme->version) == 1) {
-        md_json_sets("new-cert", jpayload, MD_KEY_RESOURCE, NULL);
-    }
     md_json_sets(ad->csr_der_64, jpayload, MD_KEY_CSR, NULL);
     
     return md_acme_req_body_init(req, jpayload);
@@ -371,16 +367,9 @@ apr_status_t md_acme_drive_setup_cred_chain(md_proto_driver_t *d, md_result_t *r
     if (APR_SUCCESS != rv) goto leave;
     
     md_result_activity_printf(result, "Submitting %s CSR to CA", md_pkey_spec_name(spec));
-    switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
-        case 1:
-            rv = md_acme_POST(ad->acme, ad->acme->api.v1.new_cert, on_init_csr_req, NULL, csr_req, NULL, d);
-            break;
-        default:
-            assert(ad->order->finalize);
-            rv = md_acme_POST(ad->acme, ad->order->finalize, on_init_csr_req, NULL, csr_req, NULL, d);
-            break;
-    }
-    
+    assert(ad->order->finalize);
+    rv = md_acme_POST(ad->acme, ad->order->finalize, on_init_csr_req, NULL, csr_req, NULL, d);
+
 leave:
     md_acme_report_result(ad->acme, rv, result);
     return rv;
@@ -742,17 +731,19 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                 /* The process of setting up challenges and verifying domain
                  * names differs between ACME versions. */
                 switch (MD_ACME_VERSION_MAJOR(ad->acme->version)) {
-                        case 1:
-                        rv = md_acmev1_drive_renew(ad, d, result);
-                        break;
-                        case 2:
-                        rv = md_acmev2_drive_renew(ad, d, result);
+                    case 1:
+                        md_result_printf(result, APR_EINVAL,
+                            "ACME server speaks version 1, an obsolete version of the ACME "
+                            "protocol that is no longer supported.");
+                        rv = result->status;
                         break;
                     default:
-                        md_result_printf(result, APR_EINVAL,
-                            "ACME server has unknown major version %d (%x)",
-                            MD_ACME_VERSION_MAJOR(ad->acme->version), ad->acme->version);
-                        rv = result->status;
+                        /* In principle, we only know ACME version 2. But we assume
+                        that a new protocol which announces a directory with all members
+                        from version 2 will act backward compatible.
+                        This is, of course, an assumption...
+                        */
+                        rv = md_acmev2_drive_renew(ad, d, result);
                         break;
                 }
                 if (APR_SUCCESS != rv) goto out;

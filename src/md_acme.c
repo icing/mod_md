@@ -368,8 +368,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
         if (APR_SUCCESS != rv) goto leave;
     }
     
-    if (!strcmp("GET", req->method) && !req->on_init && !req->req_json 
-        && MD_ACME_VERSION_MAJOR(acme->version) > 1) {
+    if (!strcmp("GET", req->method) && !req->on_init && !req->req_json) {
         /* See <https://ietf-wg-acme.github.io/acme/draft-ietf-acme-acme.html#rfc.section.6.3>
          * and <https://mailarchive.ietf.org/arch/msg/acme/sotffSQ0OWV-qQJodLwWYWcEVKI>
          * and <https://community.letsencrypt.org/t/acme-v2-scheduled-deprecation-of-unauthenticated-resource-gets/74380>
@@ -394,9 +393,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
         }
         
         apr_table_set(req->prot_hdrs, "nonce", acme->nonce);
-        if (MD_ACME_VERSION_MAJOR(acme->version) > 1) {
-            apr_table_set(req->prot_hdrs, "url", req->url);
-        }
+        apr_table_set(req->prot_hdrs, "url", req->url);
         acme->nonce = NULL;
     }
     
