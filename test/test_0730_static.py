@@ -54,7 +54,7 @@ class TestStatus:
         
         # check if the domain uses it, it appears in our stats and renewal is off
         cert = TestEnv.get_cert(domain)
-        assert ('%X' % 730001) == cert.get_serial()
+        assert cert.same_serial_as(730001)
         stat = TestEnv.get_md_status(domain)
         assert stat
         assert 'cert' in stat
@@ -86,7 +86,7 @@ class TestStatus:
         
         # check if the domain uses it, it appears in our stats and renewal is off
         cert = TestEnv.get_cert(domain)
-        assert ('%X' % 730001) == cert.get_serial()
+        assert cert.same_serial_as(730001)
         stat = TestEnv.get_md_status(domain)
         assert stat
         assert 'cert' in stat

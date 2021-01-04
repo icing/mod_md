@@ -136,7 +136,21 @@ class CertUtil(object):
         return self.cert.get_issuer()
 
     def get_serial(self):
+        # the string representation of a serial number is not unique. Some
+        # add leading 0s to align with word boundaries.
         return ("%lx" % (self.cert.get_serial_number())).upper()
+
+    def same_serial_as(self, other):
+        if isinstance(other, CertUtil):
+            return self.cert.get_serial_number() == other.cert.get_serial_number()
+        elif isinstance(other, OpenSSL.crypto.X509):
+            return self.cert.get_serial_number() == other.get_serial_number()
+        elif isinstance(other, str):
+            # assume a hex number
+            return self.cert.get_serial_number() == int(other, 16)
+        elif isinstance(other, int):
+            return self.cert.get_serial_number() == other
+        return False
 
     def get_not_before(self):
         tsp = self.cert.get_notBefore()

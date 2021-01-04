@@ -185,17 +185,17 @@ class TestDrivev2:
         TestEnv.check_md_credentials([name])
         cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
-        assert cert.get_serial() == orig_cert.get_serial()
+        assert cert.same_serial_as(orig_cert)
 
         # drive --force
         assert TestEnv.a2md(["-vv", "drive", "--force", name])['rv'] == 0
         TestEnv.check_md_credentials([name])
         cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
         # check: cert not changed
-        assert cert.get_serial() != orig_cert.get_serial()
+        assert not cert.same_serial_as(orig_cert)
         # check: previous cert was archived
         cert = CertUtil(TestEnv.store_archived_file(name, 2, 'pubcert.pem'))
-        assert cert.get_serial() == orig_cert.get_serial()
+        assert cert.same_serial_as(orig_cert)
 
     def test_502_108(self):
         # test case: drive via HTTP proxy
@@ -395,7 +395,7 @@ class TestDrivev2:
         # check new cert
         TestEnv.check_md_credentials([name, "test." + domain])
         new_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
-        assert old_cert.get_serial() != new_cert.get_serial()
+        assert not old_cert.same_serial_as(new_cert.get_serial)
 
     @pytest.mark.parametrize("renew_window,test_data_list", [
         ("14d", [
@@ -433,7 +433,7 @@ class TestDrivev2:
             print("TRACE: create self-signed cert: %s" % tc["valid"])
             TestEnv.create_self_signed_cert([name], tc["valid"])
             cert2 = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
-            assert cert2.get_serial() != cert1.get_serial()
+            assert not cert2.same_serial_as(cert1)
             md = TestEnv.a2md(["list", name])['jout']['output'][0]
             assert md["renew"] == tc["renew"], \
                 "Expected renew == {} indicator in {}, test case {}".format(tc["renew"], md, tc)
@@ -485,7 +485,7 @@ class TestDrivev2:
         assert TestEnv.a2md(["-vv", "drive", name])['rv'] == 0
         # compare cert serial
         new_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
-        assert old_cert.get_serial() == new_cert.get_serial()
+        assert old_cert.same_serial_as(new_cert)
 
     def test_502_301(self):
         # test case: change contact info on existing valid md
@@ -503,7 +503,7 @@ class TestDrivev2:
         assert TestEnv.a2md(["drive", name])['rv'] == 0
         # compare cert serial
         new_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
-        assert old_cert.get_serial() == new_cert.get_serial()
+        assert old_cert.same_serial_as(new_cert)
 
     # --------- network problems ---------
 

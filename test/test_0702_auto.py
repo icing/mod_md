@@ -136,7 +136,7 @@ class TestAutov2:
         assert name_a in cert_a.get_san_list()
         cert_b = TestEnv.get_cert(name_b)
         assert name_b in cert_b.get_san_list()
-        assert cert_a.get_serial() == cert_b.get_serial()
+        assert cert_a.same_serial_as(cert_b)
         #
         assert TestEnv.get_content(name_a, "/name.txt") == name_a
         assert TestEnv.get_content(name_b, "/name.txt") == name_b
@@ -197,7 +197,7 @@ class TestAutov2:
         #
         # check temporary cert from server
         cert2 = CertUtil(TestEnv.path_fallback_cert(domain))
-        assert cert1.get_serial() == cert2.get_serial(), \
+        assert cert1.same_serial_as(cert2), \
             "Unexpected temporary certificate on vhost %s. Expected cn: %s , "\
             "but found cn: %s" % (name_a, cert2.get_cn(), cert1.get_cn())
 
@@ -294,20 +294,20 @@ class TestAutov2:
         cert1 = CertUtil(TestEnv.store_domain_file(domain, 'pubcert.pem'))
         # compare with what md reports as status
         stat = TestEnv.get_certificate_status(domain)
-        assert stat['rsa']['serial'] == cert1.get_serial()
+        assert cert1.same_serial_as(stat['rsa']['serial'])
         #
         # create self-signed cert, with critical remaining valid duration -> drive again
         TestEnv.create_self_signed_cert([domain], {"notBefore": -120, "notAfter": 2}, serial=7029)
         cert3 = CertUtil(TestEnv.store_domain_file(domain, 'pubcert.pem'))
-        assert cert3.get_serial() == '1B75'
+        assert cert3.same_serial_as('1B75')
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_certificate_status(domain)
-        assert stat['rsa']['serial'] == cert3.get_serial()
+        assert cert3.same_serial_as(stat['rsa']['serial'])
         #
         # cert should renew and be different afterwards
         assert TestEnv.await_completion([domain], must_renew=True)
         stat = TestEnv.get_certificate_status(domain)
-        assert stat['rsa']['serial'] != cert3.get_serial()
+        assert not cert3.same_serial_as(stat['rsa']['serial'])
         
     # test case: drive with an unsupported challenge due to port availability 
     def test_702_010(self):
@@ -399,7 +399,7 @@ class TestAutov2:
         assert name_a in cert_a.get_san_list()
         cert_b = TestEnv.get_cert(name_b)
         assert name_b in cert_b.get_san_list()
-        assert cert_a.get_serial() == cert_b.get_serial()
+        assert cert_a.same_serial_as(cert_b)
         #        
         # change MD by removing 1st name
         new_list = [name_a, name_b]
@@ -413,7 +413,7 @@ class TestAutov2:
         assert TestEnv.apache_restart() == 0
         TestEnv.check_md(new_list)
         status = TestEnv.get_certificate_status(name_a)
-        assert status['rsa']['serial'] == cert_a.get_serial()
+        assert cert_a.same_serial_as(status['rsa']['serial'])
 
     # test case: Same as 7030, but remove *and* add another at the same time.
     # restart. should find and keep the existing MD and renew for additional name.
@@ -445,7 +445,7 @@ class TestAutov2:
         assert name_a in cert_a.get_san_list()
         cert_b = TestEnv.get_cert(name_b)
         assert name_b in cert_b.get_san_list()
-        assert cert_a.get_serial() == cert_b.get_serial()
+        assert cert_a.same_serial_as(cert_b)
         #        
         # change MD by removing 1st name and adding another
         new_list = [name_a, name_b, name_c]
@@ -462,7 +462,7 @@ class TestAutov2:
         #
         cert_a2 = TestEnv.get_cert(name_a)
         assert name_a in cert_a2.get_san_list()
-        assert cert_a.get_serial() != cert_a2.get_serial()
+        assert not cert_a.same_serial_as(cert_a2)
 
     # test case: create two MDs, move them into one
     # see: <https://bz.apache.org/bugzilla/show_bug.cgi?id=62572>
@@ -508,7 +508,7 @@ class TestAutov2:
         cert1b = TestEnv.get_cert(name1)
         assert name1 in cert1b.get_san_list()
         assert name2 in cert1b.get_san_list()
-        assert cert1.get_serial() != cert1b.get_serial()
+        assert not cert1.same_serial_as(cert1b)
 
     # test case: test "tls-alpn-01" challenge handling
     def test_702_040(self):

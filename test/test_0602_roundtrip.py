@@ -140,7 +140,7 @@ class TestRoundtripv2:
         assert name_a in cert_a.get_san_list()
         cert_b = TestEnv.get_cert(name_b)
         assert name_b in cert_b.get_san_list()
-        assert cert_a.get_serial() == cert_b.get_serial()
+        assert cert_a.same_serial_as(cert_b)
         assert TestEnv.get_content(name_a, "/name.txt") == name_a
         assert TestEnv.get_content(name_b, "/name.txt") == name_b
 
