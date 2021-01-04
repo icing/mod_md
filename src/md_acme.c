@@ -101,13 +101,7 @@ static void req_update_nonce(md_acme_t *acme, apr_table_t *hdrs)
 
 static apr_status_t http_update_nonce(const md_http_response_t *res, void *data)
 {
-    md_acme_t *acme = data;
-    if (res->headers) {
-        const char *nonce = apr_table_get(res->headers, "Replay-Nonce");
-        if (nonce) {
-            acme->nonce = apr_pstrdup(acme->p, nonce);
-        }
-    }
+    req_update_nonce(data, res->headers);
     return APR_SUCCESS;
 }
 
@@ -143,11 +137,6 @@ static md_acme_req_t *md_acme_req_create(md_acme_t *acme, const char *method, co
     return req;
 }
  
-static apr_status_t acmev1_new_nonce(md_acme_t *acme)
-{
-    return md_http_HEAD_perform(acme->http, acme->api.v1.new_reg, NULL, http_update_nonce, acme);
-}
-
 static apr_status_t acmev2_new_nonce(md_acme_t *acme)
 {
     return md_http_HEAD_perform(acme->http, acme->api.v2.new_nonce, NULL, http_update_nonce, acme);
@@ -214,30 +203,6 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
 
 /**************************************************************************************************/
 /* ACME requests with nonce handling */
-
-static apr_status_t acmev1_req_init(md_acme_req_t *req, md_json_t *jpayload)
-{
-    md_data_t payload;
-    
-    if (!req->acme->acct) {
-        return APR_EINVAL;
-    }
-    if (jpayload) {
-        payload.data = md_json_writep(jpayload, req->p, MD_JSON_FMT_COMPACT);
-        if (!payload.data) {
-            return APR_EINVAL;
-        }
-    }
-    else {
-        payload.data = "";
-    }
-
-    payload.len = strlen(payload.data);
-    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
-                  "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload.len, payload.data);
-    return md_jws_sign(&req->req_json, req->p, &payload,
-                       req->prot_hdrs, req->acme->acct_key, NULL);
-}
 
 static apr_status_t acmev2_req_init(md_acme_req_t *req, md_json_t *jpayload)
 {
@@ -377,7 +342,7 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
          * our HTTP client. */
         req->method = "POST";
         req->on_init = acmev2_GET_as_POST_init;
-        req->max_retries = 0; /* don't do retries on these "GET"s */
+        /*req->max_retries = 0;  don't do retries on these "GET"s */
     }
     
     /* Besides GET/HEAD, we always need a fresh nonce */
@@ -586,17 +551,7 @@ apr_status_t md_acme_save_acct(md_acme_t *acme, apr_pool_t *p, md_store_t *store
     return md_acme_acct_save(store, p, acme, &acme->acct_id, acme->acct, acme->acct_key);
 }
 
-static apr_status_t acmev1_POST_new_account(md_acme_t *acme, 
-                                            md_acme_req_init_cb *on_init,
-                                            md_acme_req_json_cb *on_json,
-                                            md_acme_req_res_cb *on_res,
-                                            md_acme_req_err_cb *on_err,
-                                            void *baton)
-{
-    return md_acme_POST(acme, acme->api.v1.new_reg, on_init, on_json, on_res, on_err, baton);
-}
-
-static apr_status_t acmev2_POST_new_account(md_acme_t *acme, 
+static apr_status_t acmev2_POST_new_account(md_acme_t *acme,
                                             md_acme_req_init_cb *on_init,
                                             md_acme_req_json_cb *on_json,
                                             md_acme_req_res_cb *on_res,
@@ -644,7 +599,7 @@ apr_status_t md_acme_create(md_acme_t **pacme, apr_pool_t *p, const char *url,
     acme->user_agent = apr_psprintf(p, "%s mod_md/%s", 
                                     base_product, MOD_MD_VERSION);
     acme->proxy_url = proxy_url? apr_pstrdup(p, proxy_url) : NULL;
-    acme->max_retries = 3;
+    acme->max_retries = 99;
     acme->ca_file = ca_file;
 
     if (APR_SUCCESS != (rv = apr_uri_parse(p, url, &uri_parsed))) {
@@ -740,11 +695,9 @@ static apr_status_t update_directory(const md_http_response_t *res, void *data)
             acme->version = MD_ACME_VERSION_1;
         }
         acme->ca_agreement = md_json_dups(acme->p, json, "meta", "terms-of-service", NULL);
-        acme->new_nonce_fn = acmev1_new_nonce;
-        acme->req_init_fn = acmev1_req_init;
-        acme->post_new_account_fn = acmev1_POST_new_account;
+        /* we init that far, but will not use the v1 api */
     }
-    
+
     if (MD_ACME_VERSION_UNKNOWN == acme->version) {
         md_result_printf(result, APR_EINVAL,
             "Unable to understand ACME server response from <%s>. "

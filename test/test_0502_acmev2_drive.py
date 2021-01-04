@@ -83,7 +83,8 @@ class TestDrivev2:
         assert TestEnv.apache_start() == 0
         # drive
         prev_md = TestEnv.a2md(["list", name])['jout']['output'][0]
-        assert TestEnv.a2md(["-vvvvvvvv", "drive", "-c", "http-01", name])['rv'] == 0
+        r = TestEnv.a2md(["-vv", "drive", "-c", "http-01", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         TestEnv.check_md_credentials([name])
         self._check_account_key(name)
 
@@ -122,7 +123,8 @@ class TestDrivev2:
         self._prepare_md([name, "test." + domain])
         assert TestEnv.apache_start() == 0
         # drive
-        assert TestEnv.a2md(["-vv", "drive", "-c", "http-01", name])['rv'] == 0
+        r = TestEnv.a2md(["-vv", "drive", "-c", "http-01", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         TestEnv.check_md_credentials([name, "test." + domain])
 
     # test_502_102 removed, as accounts without ToS are not allowed in ACMEv2
@@ -142,7 +144,8 @@ class TestDrivev2:
         # setup: link md to account
         assert TestEnv.a2md(["update", name, "account", acct])['rv'] == 0
         # drive
-        assert TestEnv.a2md(["-vv", "drive", name])['rv'] == 0
+        r = TestEnv.a2md(["-vv", "drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         TestEnv.check_md_credentials([name])
 
     # test_502_104 removed, order are created differently in ACMEv2
@@ -163,9 +166,8 @@ class TestDrivev2:
         # setup: delete account on server
         assert TestEnv.a2md(["acme", "delreg", acct])['rv'] == 0
         # drive
-        run = TestEnv.a2md(["drive", name])
-        print(run["stderr"])
-        assert run['rv'] == 0
+        r = TestEnv.a2md(["drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         TestEnv.check_md_credentials([name])
 
     def test_502_107(self):
@@ -176,7 +178,8 @@ class TestDrivev2:
         self._prepare_md([name])
         assert TestEnv.apache_start() == 0
         # drive
-        assert TestEnv.a2md(["-vv", "drive", name])['rv'] == 0
+        r = TestEnv.a2md(["-vv", "drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         TestEnv.check_md_credentials([name])
         orig_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
 
@@ -214,7 +217,7 @@ class TestDrivev2:
 
         # drive it, working proxy url -> SUCCESS
         proxy_url = "http://%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTP_PROXY_PORT)
-        r = TestEnv.a2md(["-vvvvv", "-p", proxy_url, "drive", name])
+        r = TestEnv.a2md(["-vv", "-p", proxy_url, "drive", name])
         assert 0 == r['rv'], "a2md failed: {0}".format(r['stderr'])
         TestEnv.check_md_credentials([name])
 
@@ -332,7 +335,8 @@ class TestDrivev2:
         conf.install()
         assert TestEnv.apache_restart() == 0
         # drive it
-        assert TestEnv.a2md(["drive", name])['rv'] == 0
+        r = TestEnv.a2md(["-v", "drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         assert TestEnv.apache_restart() == 0
 
         # setup: place redirect rules
@@ -386,12 +390,14 @@ class TestDrivev2:
         self._prepare_md([name])
         assert TestEnv.apache_start() == 0
         # setup: drive it
-        assert TestEnv.a2md(["drive", name])['rv'] == 0
+        r = TestEnv.a2md(["drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         old_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
         # setup: add second domain
         assert TestEnv.a2md(["update", name, "domains", name, "test." + domain])['rv'] == 0
         # drive
-        assert TestEnv.a2md(["-vv", "drive", name])['rv'] == 0
+        r = TestEnv.a2md(["-vv", "drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         # check new cert
         TestEnv.check_md_credentials([name, "test." + domain])
         new_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
@@ -423,7 +429,8 @@ class TestDrivev2:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # setup: drive it
-        assert TestEnv.a2md(["drive", name])['rv'] == 0
+        r = TestEnv.a2md(["drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         cert1 = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
         assert TestEnv.a2md(["list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
 
@@ -458,8 +465,8 @@ class TestDrivev2:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_INCOMPLETE
         # setup: drive it
-        assert TestEnv.a2md(["-vv", "drive", name])['rv'] == 0, \
-            "Expected drive to succeed for MDPrivateKeys {} {}".format(key_type, key_params)
+        r = TestEnv.a2md(["-vv", "drive", name])
+        assert r['rv'] == 0, "drive for MDPrivateKeys {} {}: {}".format(key_type, key_params, r['stderr'])
         assert TestEnv.a2md(["list", name])['jout']['output'][0]['state'] == TestEnv.MD_S_COMPLETE
         # check cert key length
         cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
@@ -477,7 +484,8 @@ class TestDrivev2:
         self._prepare_md([name, "test." + domain, "xxx." + domain])
         assert TestEnv.apache_start() == 0
         # setup: drive it
-        assert TestEnv.a2md(["drive", name])['rv'] == 0
+        r = TestEnv.a2md(["drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         old_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
         # setup: remove one domain
         assert TestEnv.a2md(["update", name, "domains"] + [name, "test." + domain])['rv'] == 0
@@ -495,7 +503,8 @@ class TestDrivev2:
         self._prepare_md([name])
         assert TestEnv.apache_start() == 0
         # setup: drive it
-        assert TestEnv.a2md(["drive", name])['rv'] == 0
+        r = TestEnv.a2md(["drive", name])
+        assert r['rv'] == 0, "a2md drive failed: {0}".format(r['stderr'])
         old_cert = CertUtil(TestEnv.store_domain_file(name, 'pubcert.pem'))
         # setup: add second domain
         assert TestEnv.a2md(["update", name, "contacts", "test@" + domain])['rv'] == 0

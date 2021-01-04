@@ -105,7 +105,7 @@ struct md_acme_t {
     
     int version;                    /* as detected from the server */
     union {
-        struct {
+        struct { /* obsolete */
             const char *new_authz;
             const char *new_cert;
             const char *new_reg;

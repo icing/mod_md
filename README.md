@@ -2003,11 +2003,11 @@ The test suite will itself start the Apache (several times with varying configur
 This is work in progress.
 
 Follow the [instructions at the Pebble github repository](https://github.com/letsencrypt/pebble)
-in order to install it. Use docker to make and start an image. Then tell the now running
-Pebble server you local IP address (ipv4 is what it wants).
+in order to install it. Start pebble directoy (no docker) and also start the challenge test 
+server in another shell. 
 
 ```
-> PEBBLE_WFE_NONCEREJECT=0 PEBBLE_VA_NOSLEEP=1 pebble -config ./test/config/pebble-config.json -dnsserver :8053
+> PEBBLE_VA_NOSLEEP=1 pebble -config ./test/config/pebble-config.json -dnsserver :8053
 > pebble-challtestsrv -http01 '' -https01 '' -tlsalpn01 ''
 ```
 
@@ -2022,9 +2022,9 @@ And the tests should run. There are several which are skipped, notably the ones
 which test OCSP stapling. That is not supported by pebble. Also some validation 
 trigger tests are skipped because pebble certificates are valid for 5 years.
 
-The one thing that needs attention is pebble's "nonce" handling where it pretends
-to no longer honor nonces handed out. mod_md fails here and it should not. That
-is the reason why the env variable ```PEBBLE_WFE_NONCEREJECT=0``` is set. 
+If you leave out the ```PEBBLE_VA_NOSLEEP=1``` the tests should also run, but will
+take longer since pebble adds some waiting times in challenge validations.
+
 
 # Licensing
 

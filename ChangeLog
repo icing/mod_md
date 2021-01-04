@@ -1,3 +1,6 @@
+ * Fixed several places where the 'badNonce' return code from an ACME server was not
+   handled correctly. The test server 'pebble' simulates this behaviour by default
+   and helps nicely in verifying this behaviour. Thanks, pebble!
  * Removed support for ACMEv1 servers. The only known installation used to be Let's Encrypt
    which is disabled that version more than a year ago.
  * Fixed a bug introduced by the multiple private key feature that did not trigger
