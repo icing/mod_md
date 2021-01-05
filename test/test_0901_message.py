@@ -34,7 +34,6 @@ class TestMessage:
         self.mcmd = ("%s/message.py" % TestEnv.TESTROOT)
         self.mcmdfail = ("%s/notifail.py" % TestEnv.TESTROOT)
         self.mlog = ("%s/message.log" % TestEnv.GEN_DIR)
-        self.menv_lines = 2  # mcmd log files add 2 additional lines with environment vars 
         if os.path.isfile(self.mlog):
             os.remove(self.mlog)
 
@@ -97,10 +96,8 @@ class TestMessage:
         # shut down server to make sure that md has completed 
         assert TestEnv.apache_stop() == 0
         nlines = open(self.mlog).readlines()
-        assert 1+self.menv_lines == len(nlines)
+        assert 1 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
-        assert (re.match(r'MD_VERSION=(\d+\.\d+\.\d+)(-.+)?', nlines[1].strip()))
-        assert ("MD_STORE=%s" % TestEnv.STORE_DIR) == nlines[2].strip()
 
     # test issue #145: 
     # - a server renews a valid certificate and is not restarted when recommended
@@ -137,7 +134,7 @@ class TestMessage:
         TestEnv.get_md_status(domain)
         assert TestEnv.await_file(self.mlog)
         nlines = open(self.mlog).readlines()
-        assert 1+self.menv_lines == len(nlines)
+        assert 1 == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
     
     def test_901_010(self):
@@ -188,13 +185,13 @@ class TestMessage:
         assert TestEnv.apache_restart() == 0
         assert TestEnv.await_file(self.mlog)
         nlines = open(self.mlog).readlines()
-        assert 1+self.menv_lines == len(nlines)
+        assert 1 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
         # check that we do not get it resend right away again
         assert TestEnv.apache_restart() == 0
         time.sleep(1)
         nlines = open(self.mlog).readlines()
-        assert 1+self.menv_lines == len(nlines)
+        assert 1 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
 
     # MD, check messages from stapling
@@ -217,7 +214,7 @@ class TestMessage:
         time.sleep(1)
         nlines = open(self.mlog).readlines()
         # since v2.1.10, the 'installed' message is second in log
-        lc = 1+self.menv_lines
+        lc = 1
         assert 3*lc == len(nlines)
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0*lc].strip()
         assert ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1*lc].strip()
@@ -269,7 +266,7 @@ class TestMessage:
         assert TestEnv.await_file(self.mlog)
         # we see the notification logged by the command
         nlines = open(self.mlog).readlines()
-        assert 1+self.menv_lines == len(nlines)
+        assert 1 == len(nlines)
         assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
         # the error needs to be gone
         assert TestEnv.await_file(TestEnv.store_staged_file(domain, 'job.json'))

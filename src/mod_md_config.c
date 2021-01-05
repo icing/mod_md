@@ -73,6 +73,7 @@ static md_mod_conf_t defmc = {
     NULL,                      /* init errors hash */
     NULL,                      /* notify cmd */
     NULL,                      /* message cmd */
+    NULL,                      /* event cmd */
     NULL,                      /* env table */
     0,                         /* dry_run flag */
     1,                         /* server_status_enabled */

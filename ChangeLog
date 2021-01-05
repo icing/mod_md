@@ -1,3 +1,7 @@
+ * Reverted setting the environment variables for MDMessageCmd and MDNotifyCmd. This
+   prevented the inheritance of existing environment variables as there seems to be
+   no portable way to iterate those on all platforms. This led to a regression on
+   Windows, see #198.
  * Fixed several places where the 'badNonce' return code from an ACME server was not
    handled correctly. The test server 'pebble' simulates this behaviour by default
    and helps nicely in verifying this behaviour. Thanks, pebble!

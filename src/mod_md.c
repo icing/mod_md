@@ -160,7 +160,6 @@ static apr_status_t notify(md_job_t *job, const char *reason,
     apr_time_t min_interim = 0;
     md_timeperiod_t since_last;
     const char *log_msg_reason;
-    apr_array_header_t *env;
     int i;
 
     log_msg_reason = apr_psprintf(p, "message-%s", reason);
@@ -179,19 +178,11 @@ static apr_status_t notify(md_job_t *job, const char *reason,
         }
     }
 
-    /* Lets give the executed commands some idea where to find things, in
-     * case they are interested. */
-    env = apr_array_make(p, 5, sizeof(char*));
-    s = ap_server_root_relative(p, mc->base_dir);
-    APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_STORE=%s", s);
-    APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_VERSION=%s", MOD_MD_VERSION);
-    md_util_env_inherit(env);
-     
     if (!strcmp("renewed", reason)) {
         if (mc->notify_cmd) {
             cmdline = apr_psprintf(p, "%s %s", mc->notify_cmd, job->mdomain);
             apr_tokenize_to_argv(cmdline, (char***)&argv, p);
-            rv = md_util_exec(p, argv[0], argv, env, &exit_code);
+            rv = md_util_exec(p, argv[0], argv, NULL, &exit_code);
 
             if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
             if (APR_SUCCESS != rv) {
@@ -210,7 +201,7 @@ static apr_status_t notify(md_job_t *job, const char *reason,
     if (mc->message_cmd) {
         cmdline = apr_psprintf(p, "%s %s %s", mc->message_cmd, reason, job->mdomain);
         apr_tokenize_to_argv(cmdline, (char***)&argv, p);
-        rv = md_util_exec(p, argv[0], argv, env, &exit_code);
+        rv = md_util_exec(p, argv[0], argv, NULL, &exit_code);
 
         if (APR_SUCCESS == rv && exit_code) rv = APR_EGENERAL;
         if (APR_SUCCESS != rv) {
@@ -222,6 +213,21 @@ static apr_status_t notify(md_job_t *job, const char *reason,
             return rv;
         }
     }
+    /* The passing of env variables to the message cmd was not working, see #198.
+     * Therefore we need to pass extra information in the arguments and therefore
+     * need an additional command to remain backward compatible.
+     */
+    if (mc->event_cmd) {
+        apr_array_header_t *env;
+        /* Lets give the executed commands some idea where to find things, in
+         * case they are interested. */
+        env = apr_array_make(p, 5, sizeof(char*));
+        s = ap_server_root_relative(p, mc->base_dir);
+        APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_STORE=%s", s);
+        APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_VERSION=%s", MOD_MD_VERSION);
+        md_util_env_inherit(env);
+    }
+
     md_job_log_append(job, log_msg_reason, NULL, NULL);
     return APR_SUCCESS;
 }

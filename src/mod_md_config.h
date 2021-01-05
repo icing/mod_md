@@ -62,6 +62,7 @@ struct md_mod_conf_t {
 
     const char *notify_cmd;            /* notification command to execute on signup/renew */
     const char *message_cmd;           /* message command to execute on signup/renew/warnings */
+    const char *event_cmd;             /* event command for even more calls/info than message */
     struct apr_table_t *env;           /* environment for operation */
     int dry_run;                       /* != 0 iff config dry run */
     int server_status_enabled;         /* if module should add to server-status handler */
