@@ -666,7 +666,7 @@ class TestEnv:
                 return False
             md = cls.get_md_status(domain)
             if md:
-                if md['state'] == TestEnv.MD_S_ERROR:
+                if 'state' in md and md['state'] == TestEnv.MD_S_ERROR:
                     return md
                 if 'renewal' in md and 'errors' in md['renewal'] and md['renewal']['errors'] > 0:
                     return md

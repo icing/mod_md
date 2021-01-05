@@ -1,3 +1,10 @@
+ * Test case and work around for domain names > 64 octets. Fixes #227.
+   When the first DNS name of an MD is longer than 63 octets, the certificate
+   request will not contain a CN field, but leave it up to the CA to choose one.
+   Currently, Lets Encrypt looks for a shorter name in the SAN list given and
+   fails the request if none is found. But it is really up to the CA (and what
+   browsers/libs accept here) and may change over the years. That is why
+   the decision is best made at the CA.
  * Reverted setting the environment variables for MDMessageCmd and MDNotifyCmd. This
    prevented the inheritance of existing environment variables as there seems to be
    no portable way to iterate those on all platforms. This led to a regression on

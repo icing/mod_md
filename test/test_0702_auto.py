@@ -628,6 +628,50 @@ class TestAutov2:
         assert stat["proto"]["acme-tls/1"] == [domain]
         assert TestEnv.await_completion([domain])
 
+    # Test a domain name longer than 64 chars, but components < 64, see #227
+    # Background: DNS has an official limit of 253 ASCII chars and components must be
+    # of length [1, 63].
+    # However the CN in a certificate is restricted too, see
+    # <https://github.com/letsencrypt/boulder/issues/2093>.
+    @pytest.mark.parametrize("challenge_type", [
+        "tls-alpn-01", "http-01"
+    ])
+    def test_702_060(self, challenge_type):
+        domain = self.test_domain
+        # use only too long names, this is expected to fail:
+        # see <https://github.com/jetstack/cert-manager/issues/1462>
+        long_domain = ("x" * (65 - len(domain))) + domain
+        domains = [long_domain, "www." + long_domain]
+        conf = HttpdConf()
+        conf.add_admin("admin@" + domain)
+        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add_drive_mode("auto")
+        conf.add_ca_challenges([challenge_type])
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        TestEnv.check_md(domains)
+        assert TestEnv.await_error(long_domain)
+        # add a short domain to the SAN list, the CA should now use that one
+        # and issue a cert.
+        domains = [long_domain, "www." + long_domain, "xxx." + domain]
+        conf = HttpdConf()
+        conf.add_admin("admin@" + domain)
+        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add_drive_mode("auto")
+        conf.add_ca_challenges([challenge_type])
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        assert TestEnv.apache_restart() == 0
+        assert TestEnv.await_completion([long_domain])
+        TestEnv.check_md_complete(long_domain)
+        #
+        # check SSL running OK
+        cert = TestEnv.get_cert(long_domain)
+        assert long_domain in cert.get_san_list()
+
     # --------- _utils_ ---------
 
     def _write_res_file(self, doc_root, name, content):

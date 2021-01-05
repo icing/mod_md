@@ -1686,8 +1686,18 @@ apr_status_t md_cert_req_create(const char **pcsr_der_64, const char *name,
 
     /* subject name == first domain */
     domain = APR_ARRAY_IDX(domains, 0, const unsigned char *);
-    if (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, domain, -1, -1, 0)
-        || !X509_REQ_set_subject_name(csr, n)) {
+    /* Do not set the domain in the CN if it is longer than 64 octets.
+     * Instead, let the CA choose a 'proper' name. At the moment (2021-01), LE will
+     * inspect all SAN names and use one < 64 chars if it can be found. It will fail
+     * otherwise.
+     * The reason we do not check this beforehand is that the restrictions on CNs
+     * are in flux. They used to be authoritative, now browsers no longer do that, but
+     * no one wants to hand out a cert with "google.com" as CN either. So, we leave
+     * it for the CA to decide if and how it hands out a cert for this or fails.
+     * This solves issue where the name is too long, see #227 */
+    if (strlen((const char*)domain) < 64
+        && (!X509_NAME_add_entry_by_txt(n, "CN", MBSTRING_ASC, domain, -1, -1, 0)
+            || !X509_REQ_set_subject_name(csr, n))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, "%s: REQ name add entry", name);
         rv = APR_EGENERAL; goto out;
     }
@@ -1880,7 +1890,7 @@ apr_status_t md_cert_make_tls_alpn_01(md_cert_t **pcert, const char *domain,
     const char *alts;
     apr_status_t rv;
 
-    if (APR_SUCCESS != (rv = mk_x509(&x, pkey, domain, valid_for, p))) goto out;
+    if (APR_SUCCESS != (rv = mk_x509(&x, pkey, "tls-alpn-01-challenge", valid_for, p))) goto out;
     
     /* add the domain as alt name */
     alts = apr_psprintf(p, "DNS:%s", domain);
