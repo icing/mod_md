@@ -633,6 +633,7 @@ class TestAutov2:
     # of length [1, 63].
     # However the CN in a certificate is restricted too, see
     # <https://github.com/letsencrypt/boulder/issues/2093>.
+    @pytest.mark.skipif(TestEnv.ACME_SERVER == 'pebble', reason="pebble differs here from boulder")
     @pytest.mark.parametrize("challenge_type", [
         "tls-alpn-01", "http-01"
     ])
