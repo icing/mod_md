@@ -27,10 +27,12 @@ This README always describes the current version of the module. This might not a
 into your Apache server log where `mod_md` logs its version at startup. There are three major release lines nowadays which are all upwards compatible:
 
  * `v2.3.x` releases are ***beta***, the new feature is support for multiple certificates and ECDSA keys. 
- * `v2.2.x` releases are ***stable***. They can be used in production and new versions will be backward compatible with existing configurations. These are planned to ship in the next Apache httpd 2.4 release. The large feature added in v2.2.0 is OCSP stapling.
+ * `v2.2.x` releases are ***stable***. They can be used in production and new versions will be backward 
+   compatible with existing configurations.  
+   The large feature added in v2.2.0 is OCSP stapling. This release line shipped in Apache httpd 2.4.46.
+   Apache releases will always get the latest, stable version from here. 
  * `v2.1.x` releases have been ***beta***, leading up to v2.2.0 
- * `v2.0.x` releases should be upgraded to `v2.2.x` whenever convenient. No new releases in this line will happen. This release line shipped in Apache httpd 2.4.41. 
-Apache releases will always get the latest, stable version from here. 
+ * `v2.0.x` releases should be upgraded to `v2.2.x` whenever convenient. No new releases in this line will happen. 
 
 
 ## Index
