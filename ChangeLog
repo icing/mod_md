@@ -1,3 +1,5 @@
+v2.3.5 (BETA)
+----------------------------------------------------------------------------------------------------
  * Certain error codes reported by the ACME server that indicate a problem with the
    configured data now immediately switch to daily retries. For example: if the ACME
    server rejects a contact email or a domain name, frequent retries will most likely
