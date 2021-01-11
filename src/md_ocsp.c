@@ -893,7 +893,7 @@ leave:
     if (ctx.time < apr_time_now()) ctx.time = apr_time_now() + apr_time_from_sec(1);
     *pnext_run = ctx.time;
 
-    if (APR_SUCCESS != rv) {
+    if (APR_SUCCESS != rv && APR_ENOENT != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "ocsp_renew done");
     }
     return;

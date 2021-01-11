@@ -1,3 +1,4 @@
+ * No longer debug logging the ocsp renewal success with an error indicator. Fixes #197.
  * When handling ACME authorization resources, the module no longer requires the server
    to return a "Location" header, as was necessary in ACMEv1. Fixes #216.
  * Removed the "authz" subcommand from the a2md executable. This was a left over of ACMEv1.
