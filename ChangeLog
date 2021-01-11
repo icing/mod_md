@@ -1,3 +1,6 @@
+ * When handling ACME authorization resources, the module no longer requires the server
+   to return a "Location" header, as was necessary in ACMEv1. Fixes #216.
+ * Removed the "authz" subcommand from the a2md executable. This was a left over of ACMEv1.
  * The module now reuses the internal curl instance in each MDs interaction
    with the ACME server. This means that open connections are reused.
 

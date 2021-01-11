@@ -61,11 +61,7 @@ void tls_alpn01_fnames(apr_pool_t *p, struct md_pkey_spec_t *kspec, char **keyfn
 
 md_acme_authz_t *md_acme_authz_create(apr_pool_t *p);
 
-/* authz interaction with ACME server */
-apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, struct md_acme_t *acme,
-                                    const char *domain, apr_pool_t *p);
-
-apr_status_t md_acme_authz_retrieve(md_acme_t *acme, apr_pool_t *p, const char *url, 
+apr_status_t md_acme_authz_retrieve(md_acme_t *acme, apr_pool_t *p, const char *url,
                                     md_acme_authz_t **pauthz);
 apr_status_t md_acme_authz_update(md_acme_authz_t *authz, struct md_acme_t *acme, apr_pool_t *p);
 

@@ -223,65 +223,12 @@ static md_cmd_t AcmeDelregCmd = {
 };
 
 /**************************************************************************************************/
-/* command: acme authz */
-
-static apr_status_t acme_newauthz(md_cmd_ctx *ctx, const char *domain) 
-{
-    apr_status_t rv;
-    md_acme_authz_t *authz;
-
-    rv = md_acme_authz_register(&authz, ctx->acme, domain, ctx->p); 
-    
-    if (rv == APR_SUCCESS) {
-        fprintf(stdout, "authz: %s %s\n", domain, authz->url);
-    }
-    else {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, ctx->p, "register new authz");
-    }
-    return rv;
-}
-
-static apr_status_t cmd_acme_authz(md_cmd_ctx *ctx, const md_cmd_t *cmd)
-{
-    const char *s;
-    apr_status_t rv;
-    int i;
-    
-    if (ctx->argc <= 0) {
-        return usage(cmd, NULL);
-    }
-    s = ctx->argv[0];
-    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, s))) {
-        for (i = 1; i < ctx->argc; ++i) {
-            rv = acme_newauthz(ctx, ctx->argv[i]);
-            if (rv != APR_SUCCESS) {
-                break;
-            }
-        }
-    }
-    else if (APR_ENOENT == rv) {
-        fprintf(stderr, "unknown account: %s\n", s);
-        return APR_EGENERAL;
-    }
-    
-    return rv;
-}
-
-static md_cmd_t AcmeAuthzCmd = {
-    "authz", MD_CTX_STORE|MD_CTX_ACME, 
-    NULL, cmd_acme_authz, MD_NoOptions, NULL,
-    "authz account domain",
-    "request a new authorization for an account and domain",
-};
-
-/**************************************************************************************************/
 /* command: acme */
 
 static const md_cmd_t *AcmeSubCmds[] = {
     &AcmeNewregCmd,
     &AcmeDelregCmd,
     &AcmeAgreeCmd,
-    &AcmeAuthzCmd,
     &AcmeValidateCmd,
     NULL
 };

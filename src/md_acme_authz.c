@@ -76,57 +76,6 @@ static void authz_req_ctx_init(authz_req_ctx *ctx, md_acme_t *acme,
     ctx->authz = authz;
 }
 
-static apr_status_t on_init_authz(md_acme_req_t *req, void *baton)
-{
-    authz_req_ctx *ctx = baton;
-    md_json_t *jpayload;
-
-    jpayload = md_json_create(req->p);
-    md_json_sets("new-authz", jpayload, MD_KEY_RESOURCE, NULL);
-    md_json_sets("dns", jpayload, MD_KEY_IDENTIFIER, MD_KEY_TYPE, NULL);
-    md_json_sets(ctx->domain, jpayload, MD_KEY_IDENTIFIER, MD_KEY_VALUE, NULL);
-    
-    return md_acme_req_body_init(req, jpayload);
-} 
-
-static apr_status_t authz_created(md_acme_t *acme, apr_pool_t *p, const apr_table_t *hdrs, 
-                                  md_json_t *body, void *baton)
-{
-    authz_req_ctx *ctx = baton;
-    const char *location = apr_table_get(hdrs, "location");
-    apr_status_t rv = APR_SUCCESS;
-    
-    (void)acme;
-    (void)p;
-    if (location) {
-        ctx->authz = md_acme_authz_create(ctx->p);
-        ctx->authz->domain = apr_pstrdup(ctx->p, ctx->domain);
-        ctx->authz->url = apr_pstrdup(ctx->p, location);
-        ctx->authz->resource = md_json_clone(ctx->p, body);
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, ctx->p, "authz_new at %s", location);
-    }
-    else {
-        rv = APR_EINVAL;
-        md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, ctx->p, "new authz, no location header");
-    }
-    return rv;
-}
-
-apr_status_t md_acme_authz_register(struct md_acme_authz_t **pauthz, md_acme_t *acme, 
-                                    const char *domain, apr_pool_t *p)
-{
-    apr_status_t rv;
-    authz_req_ctx ctx;
-    
-    authz_req_ctx_init(&ctx, acme, domain, NULL, p);
-    
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "create new authz");
-    rv = md_acme_POST(acme, acme->api.v1.new_authz, on_init_authz, authz_created, NULL, NULL, &ctx);
-    
-    *pauthz = (APR_SUCCESS == rv)? ctx.authz : NULL;
-    return rv;
-}
-
 /**************************************************************************************************/
 /* Update an existing authorization */
 
