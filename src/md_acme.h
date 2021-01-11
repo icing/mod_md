@@ -289,4 +289,11 @@ apr_status_t md_acme_req_body_init(md_acme_req_t *req, struct md_json_t *jpayloa
 
 apr_status_t md_acme_protos_add(struct apr_hash_t *protos, apr_pool_t *p);
 
+/**
+ * Return != 0 iff the given problem identifier is an ACME error string
+ * indicating something is wrong with the input values, e.g. from our
+ * configuration.
+ */
+int md_acme_problem_is_input_related(const char *problem);
+
 #endif /* md_acme_h */

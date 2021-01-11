@@ -1,3 +1,10 @@
+ * Certain error codes reported by the ACME server that indicate a problem with the
+   configured data now immediately switch to daily retries. For example: if the ACME
+   server rejects a contact email or a domain name, frequent retries will most likely
+   not solve the problem. But daily retries still make sense as there might be an
+   error at the server and un-supervised certificate renewal is the goal. Refs #222.
+ * The max delay for retries has been raised to daily (this is like all retries jittered
+   somewhat to avoid repeats at fixed time of day).
  * No longer debug logging the ocsp renewal success with an error indicator. Fixes #197.
  * When handling ACME authorization resources, the module no longer requires the server
    to return a "Location" header, as was necessary in ACMEv1. Fixes #216.

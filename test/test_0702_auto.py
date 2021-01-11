@@ -656,6 +656,7 @@ class TestAutov2:
         assert TestEnv.await_error(long_domain)
         # add a short domain to the SAN list, the CA should now use that one
         # and issue a cert.
+        long_domain = ("y" * (65 - len(domain))) + domain
         domains = [long_domain, "www." + long_domain, "xxx." + domain]
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)

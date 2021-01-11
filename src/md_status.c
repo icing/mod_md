@@ -25,6 +25,7 @@
 
 #include "md_json.h"
 #include "md.h"
+#include "md_acme.h"
 #include "md_crypt.h"
 #include "md_event.h"
 #include "md_log.h"
@@ -519,22 +520,32 @@ void md_job_start_run(md_job_t *job, md_result_t *result, md_store_t *store)
     md_job_log_append(job, "starting", NULL, NULL);
 }
 
-apr_time_t md_job_delay_on_errors(md_job_t *job, int err_count)
+apr_time_t md_job_delay_on_errors(md_job_t *job, int err_count, const char *last_problem)
 {
-    apr_time_t delay = 0;
+    apr_time_t delay = 0, max_delay = apr_time_from_sec(24*60*60); /* daily */
     unsigned char c;
-    
-    if (err_count > 0) {
+
+    if (last_problem && md_acme_problem_is_input_related(last_problem)) {
+        /* If ACME server reported a problem and that problem indicates that our
+         * input values, e.g. our configuration, has something wrong, we always
+         * go to max delay as frequent retries are unlikely to resolve the situation.
+         * However, we should nevertheless retry daily, bc. it might be that there
+         * is a bug in the server. Unlikely, but... */
+        delay = max_delay;
+    }
+    else if (err_count > 0) {
         /* back off duration, depending on the errors we encounter in a row */
         delay = apr_time_from_sec(5 << (err_count - 1));
-        if (delay > apr_time_from_sec(60*60)) {
-            delay = apr_time_from_sec(60*60);
+        if (delay > max_delay) {
+            delay = max_delay;
         }
+    }
+    if (delay > 0) {
         /* jitter the delay by +/- 0-50%.
-         * Background: we see retries of jobs being to regular, possibly cumulating
-         * from many installations that restart their Apache at midnight or another
+         * Background: we see retries of jobs being too regular (e.g. all at midnight),
+         * possibly cumulating from many installations that restart their Apache at a
          * fixed hour. This can contribute to an overload at the CA and a continuation
-         * of failure. 
+         * of failure.
          */
         md_rand_bytes(&c, sizeof(c), job->p);
         delay += apr_time_from_sec((apr_time_sec(delay) * (c - 128)) / 256);
@@ -554,7 +565,7 @@ void md_job_end_run(md_job_t *job, md_result_t *result)
     else {
         ++job->error_runs;
         job->dirty = 1;
-        job->next_run = apr_time_now() + md_job_delay_on_errors(job, job->error_runs);
+        job->next_run = apr_time_now() + md_job_delay_on_errors(job, job->error_runs, result->problem);
     }
     job_observation_end(job);
 }
@@ -578,7 +589,7 @@ apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *resul
     }
     else {
         ++job->error_runs;
-        job->next_run = apr_time_now() + md_job_delay_on_errors(job, job->error_runs);
+        job->next_run = apr_time_now() + md_job_delay_on_errors(job, job->error_runs, result->problem);
     }
     return result->status;
 }
