@@ -216,6 +216,7 @@ class TestMessage:
         # since v2.1.10, the 'installed' message is second in log
         lc = 1
         assert 3*lc == len(nlines)
+        assert ("['%s', '%s', 'renewing', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0*lc].strip()
         assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0*lc].strip()
         assert ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1*lc].strip()
         assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[2*lc].strip()

@@ -12,6 +12,10 @@ domain="$2"
 USER="webmaster@$domain"
 
 case "$action" in
+    "renewing")
+        subject="renewing $domain certificate"
+        msg="Your Apache starts renewing the certificate for '$domain'."
+        ;;
     "renewed")
         subject="renewed $domain certificate"
         msg="Your Apache renewed the certificate for '$domain'. It will become active after a server reload."
@@ -43,6 +47,6 @@ esac
 
 if test "x$msg" = "x"; then exit 0; fi
 
-mail -s "$subject" $USER <<EOF
+mail -s "$subject" "$USER" <<EOF
 $msg
 EOF

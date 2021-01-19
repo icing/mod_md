@@ -1673,6 +1673,7 @@ Default: `none`
 
 Define a program to be called when something happened concerning a managed domain. The program is given the optional-args, reason and the name of the MD as arguments. The program should return 0 to indicate that the message has been handled successfully. The reasons for which it may be called are:
 
+ * `renewing`: event triggered before starting renew process for the managed domain. Should the command return != 0 for this reason, renew will be repeated on next cycle.
  * `renewed`: the certificate for the managed domain has been renewed successfully. Should the command return != 0 for this reason, it will be called repeatedly until it does.
  * `installed`: the certificate for the managed domain has been installed at server startup/reload and is now used. Different to all other messages, this one is invoked  while the server is still root and has according privileges. (Hint: you may use this
      to copy a certificate+key to another application's preferred location/format.)
