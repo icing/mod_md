@@ -141,6 +141,7 @@ typedef struct {
 } notify_rate;
 
 static notify_rate notify_rates[] = {
+    { "renewing", apr_time_from_sec(MD_SECS_PER_HOUR) }, /* once per month */
     { "renewed", apr_time_from_sec(28 * MD_SECS_PER_DAY) }, /* once per month */
     { "installed", apr_time_from_sec(MD_SECS_PER_DAY) }, /* once per day */
     { "expiring", apr_time_from_sec(MD_SECS_PER_DAY) },     /* once per day */

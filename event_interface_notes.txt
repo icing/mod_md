@@ -193,7 +193,7 @@ MDMessageCmd <path to executable> <optional-args>
 
 Intended for messages, but close to an event interface.
 
-Called with one of 'renewed', 'installed', 'expiring',
+Called with one of 'renewing', 'renewed', 'installed', 'expiring',
                    'errored', 'ocsp-renewed', 'ocsp-errored'
 
 Additional data required: MD_STORE, MD_VERSION
@@ -275,7 +275,7 @@ Program called with:
 Additional data required: MD_STORE, MD_VERSION
 
 Events:
-     'renewed', 'installed', 'expiring',
+     'renewing', 'renewed', 'installed', 'expiring',
      'errored', 'ocsp-renewed', 'ocsp-errored'
 plus:  (not ideal names, but backward compatible)
      From Dns01

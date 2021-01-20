@@ -108,6 +108,14 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
                      "md(%s): state=%d, driving", job->mdomain, md->state);
 
+        rv = md_event_raise("renewing", md->name, job, result, ptemp);
+        if (APR_SUCCESS != rv) {
+                ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10060)
+                             "%s: event-handler for 'renewing' event failed with code %d",
+                             job->mdomain, rv);
+                goto expiry;
+        }
+
         if (!md_reg_should_renew(dctx->mc->reg, md, dctx->p)) {
             ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
                          "md(%s): no need to renew", job->mdomain);
