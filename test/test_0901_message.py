@@ -52,7 +52,7 @@ class TestMessage:
         conf.add_vhost(domains)
         conf.install()
         assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([domain], restart=False)
+        assert TestEnv.await_file(TestEnv.store_staged_file(domain, 'job.json'))
         stat = TestEnv.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
@@ -216,10 +216,9 @@ class TestMessage:
         # since v2.1.10, the 'installed' message is second in log
         lc = 1
         assert 3*lc == len(nlines)
-        assert ("['%s', '%s', 'renewing', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0*lc].strip()
-        assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0*lc].strip()
-        assert ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[1*lc].strip()
-        assert ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[2*lc].strip()
+        assert nlines[0*lc].strip() == ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain))
+        assert nlines[1*lc].strip() == ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain))
+        assert nlines[2*lc].strip() ==  ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain))
 
     # test: while testing gh issue #146, it was noted that a failed renew notification never
     # resets the MD activity.
@@ -249,10 +248,15 @@ class TestMessage:
         # this command should have failed and logged an error
         # shut down server to make sure that md has completed
         assert TestEnv.await_file(TestEnv.store_staged_file(domain, 'job.json'))
-        with open(TestEnv.store_staged_file(domain, 'job.json')) as f:
-            job = json.load(f)
-            assert job["errors"] > 0
-            assert job["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
+        while True:
+            with open(TestEnv.store_staged_file(domain, 'job.json')) as f:
+                job = json.load(f)
+                if job["errors"] > 0:
+                    assert job["errors"] > 0,  "unexpected job result: {0}".format(job)
+                    assert job["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
+                    break
+            time.sleep(0.1)
+
         # reconfigure to a working notification command and restart
         conf = HttpdConf()
         conf.add_admin("admin@not-forbidden.org")
