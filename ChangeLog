@@ -1,3 +1,5 @@
+v2.3.6 (BETA)
+----------------------------------------------------------------------------------------------------
  * Andreas Ulm (<https://github.com/root360-AndreasUlm>) implemented the ```renewing``` call
    to ```MDMessageCmd``` that can deny a certificate renewal attempt. This is useful in clustered
    installations, as discussed in #233).
