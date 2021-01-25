@@ -10,7 +10,7 @@ This repository contains `mod_md`, a module for Apache httpd that helps you to m
 1. Provide ***SSL certificates*** for your domains from Let's Encrypt (or another Certificate Authority that supports the ACME protocol, rfc8555)
 2. Offer robust ***OCSP Stapling*** of SSL certificates which is important for fast page loads in modern browsers.
 
-Both functions work well together, but you can use one without the other. Read the HowTos about stapling for more information.
+Both functions work well together, but you can use one without the other. If you do not want the ACME/Let's Encrypt parts, there is ["Just the Stapling, Mam!"](#just-the-stapling-mam)
 
 ## Thanks
 
@@ -599,6 +599,21 @@ will show aggregated information regarding valid and renewal times.
 The renewal is triggered by the certificate that expires first. The renewal process will renew
 all certificates. For Let's Encrypt, this does not make a difference, since lifetimes for RSA and
 ECDSA certificates are handled the same. It is expected that other CA will do the same.
+
+
+# Just the Stapling, Mam!
+
+If you just want to use the new OCSP Stapling feature of the module, load it into your apache and configure
+
+```
+MDStapling on
+MDStapleOthers on
+```
+
+and that is all you need to do. All your existing https: sites get provided with OCSP 
+stapling information by mod_md. You can see it [in your server status pages](#how-would-you-know-it-works). 
+(Remember to reload your server afterconfig changes.)
+
 
 
 # How to Staple All My Certificates
