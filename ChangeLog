@@ -1,3 +1,6 @@
+ * mod_md is enabled in freebsd's apache24 package since August 2020, thanks to
+   Mina Galić (@igalic). Nice!
+
 v2.3.6 (BETA)
 ----------------------------------------------------------------------------------------------------
  * Andreas Ulm (<https://github.com/root360-AndreasUlm>) implemented the ```renewing``` call

@@ -851,7 +851,7 @@ enable the module and restart:
 
 ## FreeBSD
 
-Version 2-x status: unknown, see #124.
+The module is enabled in freebsd's apache24 package since August 2020 (thanks to Mina Galić, @igalic).
 
 
 # Upgrading
