@@ -1,3 +1,6 @@
+ * Support added for MDomains consisting of a wildcard. Configuring ```MDomain *.host.net```
+   will match all virtual hosts matching that pattern and obtain one certificate for it
+   (assuming you have 'dns-01' challenge support configured). Addresses #239.
  * Fixed a bug that prevented "renewed" notifications to be sent out when a renewal job
    had already successfully notified about another event. See #235.
  * new event ```challenge-setup:<type>:<domain>```, triggered when the challenge data

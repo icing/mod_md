@@ -33,7 +33,10 @@
 
 int md_contains(const md_t *md, const char *domain, int case_sensitive)
 {
-   return md_array_str_index(md->domains, domain, 0, case_sensitive) >= 0;
+    if (md_array_str_index(md->domains, domain, 0, case_sensitive) >= 0) {
+        return 1;
+    }
+    return md_dns_domains_match(md->domains, domain);
 }
 
 const char *md_common_name(const md_t *md1, const md_t *md2)

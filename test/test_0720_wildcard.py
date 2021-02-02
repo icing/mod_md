@@ -6,6 +6,7 @@ from TestHttpdConf import HttpdConf
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
+    TestEnv.init()
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
@@ -191,7 +192,6 @@ class TestWildcard:
 
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name and 2nd normal vhost, overlapping
-    #
     def test_720_006(self):
         dns01cmd = ("%s/dns01.py" % TestEnv.TESTROOT)
 
@@ -220,3 +220,32 @@ class TestWildcard:
         altnames = cert_a.get_san_list()
         for domain in [domain, dwild]:
             assert domain in altnames
+
+    # -----------------------------------------------------------------------------------------------
+    # test case: a MDomain with just a wildcard, see #239
+    def test_720_007(self):
+        dns01cmd = ("%s/dns01.py" % TestEnv.TESTROOT)
+
+        domain = self.test_domain
+        dwild = "*." + domain
+        wwwdomain = "www." + domain
+        domains = [dwild]
+
+        conf = HttpdConf()
+        conf.add_admin("admin@not-forbidden.org")
+        conf.add_ca_challenges(["dns-01"])
+        conf.add_dns01_cmd(dns01cmd)
+        conf.add_md(domains)
+        conf.add_vhost(wwwdomain)
+        conf.install()
+
+        # restart, check that md is in store
+        assert TestEnv.apache_restart() == 0
+        TestEnv.check_md(domains)
+        # await drive completion
+        assert TestEnv.await_completion([wwwdomain])
+        TestEnv.check_md_complete(dwild)
+        # check: SSL is running OK
+        cert_a = TestEnv.get_cert(wwwdomain)
+        altnames = cert_a.get_san_list()
+        assert domains == altnames

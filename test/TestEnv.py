@@ -63,6 +63,8 @@ class TestEnv:
     ACME_SERVER_DOWN = False
     ACME_SERVER_OK = False
 
+    TEST_CA_PEM = "gen/apache/test-ca.pem"
+
     A2MD = config.get('global', 'a2md_bin')
     CURL = config.get('global', 'curl_bin')
     OPENSSL = config.get('global', 'openssl_bin')
@@ -80,21 +82,16 @@ class TestEnv:
     apachectl_stderr = None
 
     @classmethod
-    def _init_base(cls) -> bool:
+    def init(cls):
         cls.set_store_dir_default()
         cls.clear_store()
-        return True
-
-    @classmethod
-    def init(cls):
-        cls._init_base()
 
     @classmethod
     def set_store_dir(cls, dirpath):
         cls.STORE_DIR = os.path.join(cls.WEBROOT, dirpath)
         if cls.ACME_URL:
-            cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR,  "-C", "gen/apache/test-ca.pem", "-j"])
-            cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR,  "-C", "gen/apache/test-ca.pem"])
+            cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR,  "-C", cls.TEST_CA_PEM, "-j"])
+            cls.a2md_rawargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR,  "-C", cls.TEST_CA_PEM])
 
     @classmethod
     def set_store_dir_default(cls):
@@ -391,6 +388,7 @@ class TestEnv:
     def check_md_complete(cls, domain, pkey=None):
         md = cls.get_md_status(domain)
         assert md
+        assert 'state' in md, "md is unexpeted: {0}".format(md)
         assert md['state'] is TestEnv.MD_S_COMPLETE, "unexpected state: {0}".format(md['state'])
         assert os.path.isfile(TestEnv.store_domain_file(domain, cls.pkey_fname(pkey)))
         assert os.path.isfile(TestEnv.store_domain_file(domain, cls.cert_fname(pkey)))
@@ -535,7 +533,7 @@ class TestEnv:
         args = [
             cls.OPENSSL, "s_client", "-status",
             "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
-            "-CAfile", "gen/ca.pem",
+            "-CAfile", cls.TEST_CA_PEM,
             "-servername", domain,
             "-showcerts"
         ]
@@ -557,7 +555,8 @@ class TestEnv:
             if 0 == p['keylen']:
                 assert cert is None
             else:
-                assert cert.get_key_length() == p['keylen']
+                assert cert, "no cert returned for cipher: {0}".format(p['ciphers'])
+                assert cert.get_key_length() == p['keylen'], "what?: {0}".format(cert)
 
     @classmethod
     def get_meta(cls, domain, path, use_https=True):
@@ -711,7 +710,7 @@ class TestEnv:
         args = [
             cls.OPENSSL, "s_client", "-status",
             "-connect", "%s:%s" % (TestEnv.HTTPD_HOST, TestEnv.HTTPS_PORT),
-            "-CAfile", "gen/ca.pem",
+            "-CAfile", cls.TEST_CA_PEM,
             "-servername", domain,
             "-showcerts"
         ]

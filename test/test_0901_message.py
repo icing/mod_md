@@ -97,10 +97,11 @@ class TestMessage:
         assert TestEnv.apache_stop() == 0
         nlines = open(self.mlog).readlines()
         assert 3 == len(nlines)
-        assert nlines[0].strip() == "['{cmd}', '{logfile}', 'challenge-setup:http-01:{dns}', '{mdomain}']".format(
-            cmd=self.mcmd, logfile=self.mlog, mdomain=domain, dns=domains[0])
-        assert nlines[1].strip() == "['{cmd}', '{logfile}', 'challenge-setup:http-01:{dns}', '{mdomain}']".format(
-            cmd=self.mcmd, logfile=self.mlog, mdomain=domain, dns=domains[1])
+        nlines = [s.strip() for s in nlines]
+        assert "['{cmd}', '{logfile}', 'challenge-setup:http-01:{dns}', '{mdomain}']".format(
+            cmd=self.mcmd, logfile=self.mlog, mdomain=domain, dns=domains[0]) in nlines
+        assert "['{cmd}', '{logfile}', 'challenge-setup:http-01:{dns}', '{mdomain}']".format(
+            cmd=self.mcmd, logfile=self.mlog, mdomain=domain, dns=domains[1]) in nlines
         assert nlines[2].strip() == "['{cmd}', '{logfile}', 'renewed', '{mdomain}']".format(
             cmd=self.mcmd, logfile=self.mlog, mdomain=domain)
 

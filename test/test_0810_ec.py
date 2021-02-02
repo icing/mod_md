@@ -8,6 +8,7 @@ from TestHttpdConf import HttpdConf
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)
+    TestEnv.init()
     TestEnv.APACHE_CONF_SRC = "data/test_auto"
     TestEnv.check_acme()
     TestEnv.clear_store()
@@ -54,10 +55,10 @@ class TestAutov2:
         self.set_get_pkeys(domain, pkeys, conf=conf)
         self.check_pkeys(domain, pkeys)
         
-    # one EC key, no RSSA
+    # one EC key, no RSA
     def test_810_001(self):
         domain = self.test_domain
-        self.set_get_check_pkeys(domain, [ 
+        self.set_get_check_pkeys(domain, [
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256},
             {'spec': "", 'ciphers': "RSA", 'keylen': 0},
         ])

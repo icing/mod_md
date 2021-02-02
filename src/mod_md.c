@@ -150,7 +150,7 @@ static notify_rate notify_rates[] = {
     { "ocsp-errored", apr_time_from_sec(MD_SECS_PER_HOUR) }, /* once per hour */
 };
 
-static apr_status_t notifyX(md_job_t *job, const char *reason,
+static apr_status_t notify(md_job_t *job, const char *reason,
                            md_result_t *result, apr_pool_t *p, void *baton)
 {
     md_mod_conf_t *mc = baton;
@@ -237,7 +237,7 @@ static apr_status_t on_event(const char *event, const char *mdomain, void *baton
                              md_job_t *job, md_result_t *result, apr_pool_t *p)
 {
     (void)mdomain;
-    return notifyX(job, event, result, p, baton);
+    return notify(job, event, result, p, baton);
 }
 
 /**************************************************************************************************/
@@ -592,7 +592,8 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
         for (i = 0; i < md->domains->nelts; ++i) {
             domain = APR_ARRAY_IDX(md->domains, i, const char*);
 
-            if (ap_matches_request_vhost(&r, domain, s->port)) {
+            if (ap_matches_request_vhost(&r, domain, s->port)
+                || (md_dns_is_wildcard(p, domain) && md_dns_matches(domain, s->server_hostname))) {
                 /* Create a unique md_srv_conf_t record for this server, if there is none yet */
                 sc = md_config_get_unique(s, p);
                 if (!sc->assigned) sc->assigned = apr_array_make(p, 2, sizeof(md_t*));
