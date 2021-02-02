@@ -96,8 +96,13 @@ class TestMessage:
         # shut down server to make sure that md has completed 
         assert TestEnv.apache_stop() == 0
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
-        assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert 3 == len(nlines)
+        assert nlines[0].strip() == "['{cmd}', '{logfile}', 'challenge-setup:http-01:{dns}', '{mdomain}']".format(
+            cmd=self.mcmd, logfile=self.mlog, mdomain=domain, dns=domains[0])
+        assert nlines[1].strip() == "['{cmd}', '{logfile}', 'challenge-setup:http-01:{dns}', '{mdomain}']".format(
+            cmd=self.mcmd, logfile=self.mlog, mdomain=domain, dns=domains[1])
+        assert nlines[2].strip() == "['{cmd}', '{logfile}', 'renewed', '{mdomain}']".format(
+            cmd=self.mcmd, logfile=self.mlog, mdomain=domain)
 
     # test issue #145: 
     # - a server renews a valid certificate and is not restarted when recommended
@@ -213,12 +218,12 @@ class TestMessage:
         assert TestEnv.await_file(self.mlog)
         time.sleep(1)
         nlines = open(self.mlog).readlines()
-        # since v2.1.10, the 'installed' message is second in log
-        lc = 1
-        assert 3*lc == len(nlines)
-        assert nlines[0*lc].strip() == ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain))
-        assert nlines[1*lc].strip() == ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain))
-        assert nlines[2*lc].strip() ==  ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain))
+        assert 4 == len(nlines)
+        assert nlines[0].strip() == ("['%s', '%s', 'challenge-setup:http-01:%s', '%s']"
+                                     % (self.mcmd, self.mlog, domain, domain))
+        assert nlines[1].strip() == ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain))
+        assert nlines[2].strip() == ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain))
+        assert nlines[3].strip() ==  ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain))
 
     # test: while testing gh issue #146, it was noted that a failed renew notification never
     # resets the MD activity.

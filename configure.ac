@@ -162,10 +162,14 @@ ACME_DEF_URL=https://acme-v02.api.letsencrypt.org/directory
 AC_SUBST(ACME_DEF_URL)
 
 if test "x$request_pebble" != "xdef"; then
-    ACME_TEST_URL="$request_pebble"
+    if test "$request_pebble" = "yes"; then
+        ACME_TEST_URL="https://localhost:14000/dir"  # default location
+    else
+        ACME_TEST_URL="$request_pebble"
+    fi
     ACME_TEST_TYPE=pebble
     ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/pebble
-elif test "x$request_boulder" = "xdef"; then
+elif test "x$request_boulder" = "xdef" -o "x$request_boulder" = "xyes"; then
     ACME_TEST_URL=http://localhost:4001/directory
     ACME_TEST_TYPE=boulder
     ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/boulder

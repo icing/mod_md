@@ -1,3 +1,11 @@
+ * Fixed a bug that prevented "renewed" notifications to be sent out when a renewal job
+   had already successfully notified about another event. See #235.
+ * new event ```challenge-setup:<type>:<domain>```, triggered when the challenge data
+   for a domain has been created. This is invoked before the ACME server is told to
+   check for it. The type is one of the ACME challenge types. This is invoked for
+   every DNS name in a MDomain.
+ * Using ```configure``` with ```--with-boulder``` or ```--with-pebble``` selects the
+   default URLs for both test servers.
  * Removed the special environment variable passing for MDChallengeDns01 again as
    this interferes with needed environment variables on platforms.
  * mod_md is enabled in freebsd's apache24 package since August 2020, thanks to

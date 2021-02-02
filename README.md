@@ -1689,6 +1689,7 @@ Default: `none`
 Define a program to be called when something happened concerning a managed domain. The program is given the optional-args, reason and the name of the MD as arguments. The program should return 0 to indicate that the message has been handled successfully. The reasons for which it may be called are:
 
  * `renewing`: event triggered before starting renew process for the managed domain. Should the command return != 0 for this reason, renew will be repeated on next cycle.
+ * `challenge-setup:<type>:<domain>`: event triggered when the challenge data for a domain has been created. This is invoked before the ACME server is told to check for it. The type is one of the ACME challenge types. This is invoked for every DNS name in a MDomain.
  * `renewed`: the certificate for the managed domain has been renewed successfully. Should the command return != 0 for this reason, it will be called repeatedly until it does.
  * `installed`: the certificate for the managed domain has been installed at server startup/reload and is now used. Different to all other messages, this one is invoked  while the server is still root and has according privileges. (Hint: you may use this
      to copy a certificate+key to another application's preferred location/format.)
@@ -2032,7 +2033,7 @@ server in another shell.
 Configure mod_md to test with pebble:
 
 ```
-> /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble=https://localhost:14000/dir
+> /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble
 > make clean install test
 ```
 
@@ -2043,6 +2044,11 @@ trigger tests are skipped because pebble certificates are valid for 5 years.
 If you leave out the ```PEBBLE_VA_NOSLEEP=1``` the tests should also run, but will
 take longer since pebble adds some waiting times in challenge validations.
 
+If you have pebble configure on a non-standard URL, you can specify:
+
+```
+> /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble=<pebble-url>
+```
 
 # Licensing
 

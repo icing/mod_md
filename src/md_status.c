@@ -279,6 +279,7 @@ static void md_job_from_json(md_job_t *job, md_json_t *json, apr_pool_t *p)
     /*job->mdomain = md_json_gets(json, MD_KEY_NAME, NULL);*/
     job->finished = md_json_getb(json, MD_KEY_FINISHED, NULL);
     job->notified = md_json_getb(json, MD_KEY_NOTIFIED, NULL);
+    job->notified_renewed = md_json_getb(json, MD_KEY_NOTIFIED_RENEWED, NULL);
     s = md_json_dups(p, json, MD_KEY_NEXT_RUN, NULL);
     if (s && *s) job->next_run = apr_date_parse_rfc(s);
     s = md_json_dups(p, json, MD_KEY_LAST_RUN, NULL);
@@ -300,6 +301,7 @@ static void job_to_json(md_json_t *json, const md_job_t *job,
     md_json_sets(job->mdomain, json, MD_KEY_NAME, NULL);
     md_json_setb(job->finished, json, MD_KEY_FINISHED, NULL);
     md_json_setb(job->notified, json, MD_KEY_NOTIFIED, NULL);
+    md_json_setb(job->notified_renewed, json, MD_KEY_NOTIFIED_RENEWED, NULL);
     if (job->next_run > 0) {
         apr_rfc822_date(ts, job->next_run);
         md_json_sets(ts, json, MD_KEY_NEXT_RUN, NULL);
@@ -490,6 +492,24 @@ static void job_result_update(md_result_t *result, void *data)
     }
 }
 
+static apr_status_t job_result_raise(md_result_t *result, void *data, const char *event, apr_pool_t *p)
+{
+    md_job_result_ctx *ctx = data;
+    (void)p;
+    if (result == ctx->job->observing) {
+        return md_job_notify(ctx->job, event, result);
+    }
+    return APR_SUCCESS;
+}
+
+static void job_result_holler(md_result_t *result, void *data, const char *event, apr_pool_t *p)
+{
+    md_job_result_ctx *ctx = data;
+    if (result == ctx->job->observing) {
+        md_event_holler(event, ctx->job->mdomain, ctx->job, result, p);
+    }
+}
+
 static void job_observation_start(md_job_t *job, md_result_t *result, md_store_t *store)
 {
     md_job_result_ctx *ctx;
@@ -504,6 +524,8 @@ static void job_observation_start(md_job_t *job, md_result_t *result, md_store_t
     ctx->last = md_result_md_make(result->p, APR_SUCCESS);
     md_result_assign(ctx->last, result);
     md_result_on_change(result, job_result_update, ctx);
+    md_result_on_raise(result, job_result_raise, ctx);
+    md_result_on_holler(result, job_result_holler, ctx);
 }
 
 static void job_observation_end(md_job_t *job)
@@ -585,6 +607,7 @@ apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *resul
     job->dirty = 1;
     if (APR_SUCCESS == rv && APR_SUCCESS == result->status) {
         job->notified = 1;
+        if (!strcmp("renewed", reason)) job->notified_renewed = 1;
         job->error_runs = 0;
     }
     else {

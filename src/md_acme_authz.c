@@ -244,7 +244,7 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
                                       md_acme_t *acme, md_store_t *store, 
                                       md_pkeys_spec_t *key_specs,
                                       apr_array_header_t *acme_tls_1_domains, const char *mdomain,
-                                      apr_table_t *env, apr_pool_t *p)
+                                      apr_table_t *env, md_result_t *result, apr_pool_t *p)
 {
     const char *data;
     apr_status_t rv;
@@ -270,7 +270,12 @@ static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t 
     
     if (APR_SUCCESS == rv && notify_server) {
         authz_req_ctx ctx;
+        const char *event;
 
+        /* Raise event that challenge data has been set up before we tell the
+           ACME server. Clusters might want to distribute it. */
+        event = apr_psprintf(p, "challenge-setup:%s:%s", MD_AUTHZ_TYPE_HTTP01, authz->domain);
+        md_result_holler(result, event, p);
         /* challenge is setup or was changed from previous data, tell ACME server
          * so it may (re)try verification */        
         authz_req_ctx_init(&ctx, acme, NULL, authz, p);
@@ -291,7 +296,7 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
                                           md_acme_t *acme, md_store_t *store, 
                                           md_pkeys_spec_t *key_specs,
                                           apr_array_header_t *acme_tls_1_domains, const char *mdomain,
-                                          apr_table_t *env, apr_pool_t *p)
+                                          apr_table_t *env, md_result_t *result, apr_pool_t *p)
 {
     const char *acme_id, *token;
     apr_status_t rv;
@@ -368,7 +373,12 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
     
     if (APR_SUCCESS == rv && notify_server) {
         authz_req_ctx ctx;
+        const char *event;
 
+        /* Raise event that challenge data has been set up before we tell the
+           ACME server. Clusters might want to distribute it. */
+        event = apr_psprintf(p, "challenge-setup:%s:%s", MD_AUTHZ_TYPE_TLSALPN01, authz->domain);
+        md_result_holler(result, event, p);
         /* challenge is setup or was changed from previous data, tell ACME server
          * so it may (re)try verification */        
         authz_req_ctx_init(&ctx, acme, NULL, authz, p);
@@ -383,7 +393,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
                                      md_acme_t *acme, md_store_t *store, 
                                      md_pkeys_spec_t *key_specs,
                                      apr_array_header_t *acme_tls_1_domains, const char *mdomain,
-                                     apr_table_t *env, apr_pool_t *p)
+                                     apr_table_t *env, md_result_t *result, apr_pool_t *p)
 {
     const char *token;
     const char * const *argv;
@@ -392,6 +402,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     int exit_code, notify_server;
     authz_req_ctx ctx;
     md_data_t data;
+    const char *event;
 
     (void)store;
     (void)key_specs;
@@ -434,7 +445,11 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
         goto out;
     }
     
-    /* challenge is setup, tell ACME server so it may (re)try verification */        
+    /* Raise event that challenge data has been set up before we tell the
+       ACME server. Clusters might want to distribute it. */
+    event = apr_psprintf(p, "challenge-setup:%s:%s", MD_AUTHZ_TYPE_DNS01, authz->domain);
+    md_result_holler(result, event, p);
+    /* challenge is setup, tell ACME server so it may (re)try verification */
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: dns-01 setup succeeded for %s",
        mdomain, authz->domain);
     authz_req_ctx_init(&ctx, acme, NULL, authz, p);
@@ -486,7 +501,7 @@ typedef apr_status_t cha_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz,
                                md_acme_t *acme, md_store_t *store, 
                                md_pkeys_spec_t *key_specs,
                                apr_array_header_t *acme_tls_1_domains, const char *mdomain,
-                               apr_table_t *env, apr_pool_t *p);
+                               apr_table_t *env, md_result_t *result, apr_pool_t *p);
                                
 typedef apr_status_t cha_teardown(md_store_t *store, const char *domain, const char *mdomain,
                                   apr_table_t *env, apr_pool_t *p);
@@ -575,12 +590,12 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                     md_result_activity_printf(result, "Setting up challenge '%s' for domain %s", 
                                               fctx.accepted->type, authz->domain);
                     rv = CHA_TYPES[i].setup(fctx.accepted, authz, acme, store, key_specs,
-                                            acme_tls_1_domains, mdomain, env, p);
+                                            acme_tls_1_domains, mdomain, env, result, p);
                     if (APR_SUCCESS == rv) {
                         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                                       "%s: set up challenge '%s' for %s", 
                                       authz->domain, fctx.accepted->type, mdomain);
-                        challenge_setup = CHA_TYPES[i].name; 
+                        challenge_setup = CHA_TYPES[i].name;
                         goto out;
                     }
                     md_result_printf(result, rv, "error setting up challenge '%s' for %s, "

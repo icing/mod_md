@@ -158,6 +158,7 @@ struct md_t {
 #define MD_KEY_NAME             "name"
 #define MD_KEY_NEXT_RUN         "next-run"
 #define MD_KEY_NOTIFIED         "notified"
+#define MD_KEY_NOTIFIED_RENEWED "notified-renewed"
 #define MD_KEY_OCSP             "ocsp"
 #define MD_KEY_OCSPS            "ocsps"
 #define MD_KEY_ORDERS           "orders"

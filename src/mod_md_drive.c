@@ -80,7 +80,7 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
     if (apr_time_now() < job->next_run) return;
     
     job->next_run = 0;
-    if (job->finished && job->notified) {
+    if (job->finished && job->notified_renewed) {
         /* finished and notification handled, nothing to do. */
         goto leave;
     }
@@ -102,12 +102,14 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
     if (md_will_renew_cert(md)) {
         /* Renew the MDs credentials in a STAGING area. Might be invoked repeatedly 
          * without discarding previous/intermediate results.
-         * Only returns SUCCESS when the renewal is complete, e.g. STAGING as a
+         * Only returns SUCCESS when the renewal is complete, e.g. STAGING has a
          * complete set of new credentials.
          */
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
                      "md(%s): state=%d, driving", job->mdomain, md->state);
 
+        /* The (possibly configured) event handler may veto renewals. This
+         * is used in cluster installtations, see #233. */
         rv = md_event_raise("renewing", md->name, job, result, ptemp);
         if (APR_SUCCESS != rv) {
                 ap_log_error(APLOG_MARK, APLOG_INFO, 0, dctx->s, APLOGNO(10060)
@@ -134,7 +136,7 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
                 goto leave;
             }
             
-            if (!job->notified) {
+            if (!job->notified_renewed) {
                 md_job_notify(job, "renewed", result);
             }
         }

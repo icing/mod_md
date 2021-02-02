@@ -150,7 +150,7 @@ static notify_rate notify_rates[] = {
     { "ocsp-errored", apr_time_from_sec(MD_SECS_PER_HOUR) }, /* once per hour */
 };
 
-static apr_status_t notify(md_job_t *job, const char *reason,
+static apr_status_t notifyX(md_job_t *job, const char *reason,
                            md_result_t *result, apr_pool_t *p, void *baton)
 {
     md_mod_conf_t *mc = baton;
@@ -237,7 +237,7 @@ static apr_status_t on_event(const char *event, const char *mdomain, void *baton
                              md_job_t *job, md_result_t *result, apr_pool_t *p)
 {
     (void)mdomain;
-    return notify(job, event, result, p, baton); 
+    return notifyX(job, event, result, p, baton);
 }
 
 /**************************************************************************************************/
