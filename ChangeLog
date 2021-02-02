@@ -1,3 +1,5 @@
+ * Removed the special environment variable passing for MDChallengeDns01 again as
+   this interferes with needed environment variables on platforms.
  * mod_md is enabled in freebsd's apache24 package since August 2020, thanks to
    Mina Galić (@igalic). Nice!
 

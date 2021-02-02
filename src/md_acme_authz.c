@@ -240,19 +240,7 @@ static apr_status_t setup_key_authz(md_acme_authz_cha_t *cha, md_acme_authz_t *a
     return rv;
 }
 
-static apr_array_header_t *dns_cmd_env(apr_pool_t *p, md_store_t *store, const char *mdomain) {
-    apr_array_header_t *env;
-    const char *s;
-
-    env = apr_array_make(p, 5, sizeof(char*));
-    if (APR_SUCCESS == store->get_fname( &s, store, MD_SG_NONE, NULL, NULL, p))
-        APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_STORE=%s", s);
-    APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_MDOMAIN=%s", mdomain);
-    APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_VERSION=%s", MOD_MD_VERSION);
-    return env;
-}
-
-static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz, 
+static apr_status_t cha_http_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *authz,
                                       md_acme_t *acme, md_store_t *store, 
                                       md_pkeys_spec_t *key_specs,
                                       apr_array_header_t *acme_tls_1_domains, const char *mdomain,
@@ -408,7 +396,7 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     (void)store;
     (void)key_specs;
     (void)acme_tls_1_domains;
-    
+
     dns01_cmd = apr_table_get(env, MD_KEY_CMD_DNS01);
     if (!dns01_cmd) {
         rv = APR_ENOTIMPL;
@@ -424,8 +412,8 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     MD_DATA_SET_STR(&data, cha->key_authz);
     rv = md_crypt_sha256_digest64(&token, p, &data);
     if (APR_SUCCESS != rv) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create dns-01 token",
-                      authz->domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "%s: create dns-01 token for %s",
+                      mdomain, authz->domain);
         goto out;
     }
 
@@ -434,20 +422,21 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
                   "%s: dns-01 setup command: %s", authz->domain, cmdline);
 
     apr_tokenize_to_argv(cmdline, (char***)&argv, p);
-    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, dns_cmd_env(p,store,mdomain), &exit_code))) {
+    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, NULL, &exit_code))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                      "%s: dns-01 setup command failed to execute", authz->domain);
+                      "%s: dns-01 setup command failed to execute for %s", mdomain, authz->domain);
         goto out;
     }
     if (exit_code) {
         rv = APR_EGENERAL;
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p, 
-                      "%s: dns-01 setup command returns %d", authz->domain, exit_code);
+                      "%s: dns-01 setup command returns %d for %s", mdomain, exit_code, authz->domain);
         goto out;
     }
     
     /* challenge is setup, tell ACME server so it may (re)try verification */        
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: dns-01 setup succeeded", authz->domain);
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: dns-01 setup succeeded for %s",
+       mdomain, authz->domain);
     authz_req_ctx_init(&ctx, acme, NULL, authz, p);
     ctx.challenge = cha;
     rv = md_acme_POST(acme, cha->uri, on_init_authz_resp, authz_http_set, NULL, NULL, &ctx);
@@ -469,16 +458,17 @@ static apr_status_t cha_dns_01_teardown(md_store_t *store, const char *domain, c
     dns01_cmd = apr_table_get(env, MD_KEY_CMD_DNS01);
     if (!dns01_cmd) {
         rv = APR_ENOTIMPL;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: dns-01 command not set", domain);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "%s: dns-01 command not set for %s",
+            mdomain, domain);
         goto out;
     }
     
     cmdline = apr_psprintf(p, "%s teardown %s", dns01_cmd, domain); 
     apr_tokenize_to_argv(cmdline, (char***)&argv, p);
-    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, dns_cmd_env(p,store,mdomain), &exit_code)) || exit_code) {
+    if (APR_SUCCESS != (rv = md_util_exec(p, argv[0], argv, NULL, &exit_code)) || exit_code) {
         md_log_perror(MD_LOG_MARK, MD_LOG_WARNING, rv, p, 
-                      "%s: dns-01 teardown command failed (exit code=%d)",
-                      domain, exit_code);
+                      "%s: dns-01 teardown command failed (exit code=%d) for %s",
+                      mdomain, exit_code, domain);
     }
 out:    
     return rv;
