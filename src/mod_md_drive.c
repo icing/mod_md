@@ -108,6 +108,12 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
         ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10052) 
                      "md(%s): state=%d, driving", job->mdomain, md->state);
 
+        if (!md_reg_should_renew(dctx->mc->reg, md, dctx->p)) {
+            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
+                         "md(%s): no need to renew", job->mdomain);
+            goto expiry;
+        }
+    
         /* The (possibly configured) event handler may veto renewals. This
          * is used in cluster installtations, see #233. */
         rv = md_event_raise("renewing", md->name, job, result, ptemp);
@@ -118,13 +124,7 @@ static void process_drive_job(md_renew_ctx_t *dctx, md_job_t *job, apr_pool_t *p
                 goto leave;
         }
 
-        if (!md_reg_should_renew(dctx->mc->reg, md, dctx->p)) {
-            ap_log_error( APLOG_MARK, APLOG_DEBUG, 0, dctx->s, APLOGNO(10053) 
-                         "md(%s): no need to renew", job->mdomain);
-            goto expiry;
-        }
-    
-        md_job_start_run(job, result, md_reg_store_get(dctx->mc->reg)); 
+        md_job_start_run(job, result, md_reg_store_get(dctx->mc->reg));
         md_reg_renew(dctx->mc->reg, md, dctx->mc->env, 0, result, ptemp);
         md_job_end_run(job, result);
         

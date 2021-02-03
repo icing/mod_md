@@ -1,3 +1,7 @@
+ * The "renewing" invocations of ```MDMessageCmd``` now only happend when it is actually
+   time to renew a certification, not before the necessity is checked. This led to calls
+   every time the module became active.
+
 v2.3.7 (BETA)
 ----------------------------------------------------------------------------------------------------
  * Support added for MDomains consisting of a wildcard. Configuring ```MDomain *.host.net```
