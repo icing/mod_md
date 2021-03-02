@@ -5,6 +5,7 @@
 ###################################################################################################
 
 import copy
+import inspect
 import json
 import pytest
 import re
@@ -27,7 +28,7 @@ class TestEnv:
     STORE_DIR = None
 
     config = ConfigParser()
-    config.read('test.ini')
+    config.read(os.path.join(os.path.dirname(inspect.getfile(CertUtil)), 'test.ini'))
     PREFIX = config.get('global', 'prefix')
 
     GEN_DIR = config.get('global', 'gen_dir')

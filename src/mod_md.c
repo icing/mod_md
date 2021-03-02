@@ -109,11 +109,9 @@ static void log_print(const char *file, int line, md_log_level_t level,
 /**************************************************************************************************/
 /* mod_ssl interface */
 
-static APR_OPTIONAL_FN_TYPE(ssl_is_https) *opt_ssl_is_https;
-
 static void init_ssl(void)
 {
-    opt_ssl_is_https = APR_RETRIEVE_OPTIONAL_FN(ssl_is_https);
+    /* nop */
 }
 
 /**************************************************************************************************/
@@ -1031,7 +1029,7 @@ static int md_protocol_propose(conn_rec *c, request_rec *r,
                                apr_array_header_t *proposals)
 {
     (void)s;
-    if (!r && offers && opt_ssl_is_https && opt_ssl_is_https(c)
+    if (!r && offers && ap_ssl_conn_is_ssl(c)
         && ap_array_str_contains(offers, PROTO_ACME_TLS_1)) {
         ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
                       "proposing protocol '%s'", PROTO_ACME_TLS_1);
@@ -1047,7 +1045,7 @@ static int md_protocol_switch(conn_rec *c, request_rec *r, server_rec *s,
     md_conn_ctx *ctx;
 
     (void)s;
-    if (!r && opt_ssl_is_https && opt_ssl_is_https(c) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
+    if (!r && ap_ssl_conn_is_ssl(c) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
         ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
                       "switching protocol '%s'", PROTO_ACME_TLS_1);
         ctx = apr_pcalloc(c->pool, sizeof(*ctx));
@@ -1250,98 +1248,58 @@ static int md_add_fallback_cert_files(server_rec *s, apr_pool_t *p,
     return DECLINED;
 }
 
-/* Requires newer mod_ssl to handle multiple active certificates per server
- *
- * Return codes were chosen to inform older mod_ssl that hook is present.
- *
- * If this hook is not present, DECLINED is returned by the hook mechanism,
- * and newer mod_ssl will try md_answer_challenge.
- *
- */
-static apr_status_t md_answer_challenges(conn_rec *c, const char *servername,
-                                         apr_array_header_t *certs, apr_array_header_t *pkeys)
-{
-    md_srv_conf_t *sc;
-    const char *protocol, *challenge;
-    char *cert_name, *pkey_name;
-    apr_status_t rv;
-    int i;
-
-    ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
-                  "Answer challenges for %s", servername? servername : "no server");
-
-    if (!servername) return HTTP_CONTINUE;
-
-    challenge = NULL;
-    if ((protocol = md_protocol_get(c)) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
-        challenge = "tls-alpn-01";
-
-        sc = md_config_get(c->base_server);
-
-        if (sc && sc->mc->reg) {
-            md_store_t *store = md_reg_store_get(sc->mc->reg);
-            md_cert_t  *mdcert;
-            md_pkey_t  *mdpkey;
-
-            for (i = 0; i < md_pkeys_spec_count( sc->pks ); i++) {
-                X509     *x;
-                EVP_PKEY *pk;
-
-                tls_alpn01_fnames(c->pool, md_pkeys_spec_get(sc->pks,i),
-                                  &pkey_name, &cert_name);
-
-                ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
-                              "Loading challenge cert %s, key %s for %s",
-                              cert_name, pkey_name, servername);
-                rv = md_store_load(store, MD_SG_CHALLENGES, servername, cert_name,
-                                   MD_SV_CERT, (void**)&mdcert, c->pool);
-                if (APR_SUCCESS == rv && (x = md_cert_get_X509(mdcert))) {
-                    rv = md_store_load(store, MD_SG_CHALLENGES, servername, pkey_name,
-                                       MD_SV_PKEY, (void**)&mdpkey, c->pool);
-                    if (APR_SUCCESS == rv && (pk = md_pkey_get_EVP_PKEY(mdpkey))) {
-                        ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(10078)
-                                      "%s: is a %s challenge host", servername, challenge);
-                        APR_ARRAY_PUSH(certs, X509*)    = x;
-                        APR_ARRAY_PUSH(pkeys, EVP_PKEY*) = pk;
-                        continue;
-                    }
-                    ap_log_cerror(APLOG_MARK, APLOG_WARNING, rv, c, APLOGNO(10079)
-                                  "%s: %s challenge data not complete, cert/key unavailable",
-                                  servername, challenge);
-                    return APR_EGENERAL;
-                } else {
-                    ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO(10080)
-                                  "%s: unknown %s challenge host", servername, challenge);
-                    return APR_EGENERAL;
-                }
-            }
-            return DONE;
-        }
-    }
-    return HTTP_CONTINUE;
-}
-
 static int md_answer_challenge(conn_rec *c, const char *servername,
-                               X509 **pcert, EVP_PKEY **ppkey)
+                               const char **pcert_file, const char **pkey_file)
 {
     const char *protocol;
-    apr_array_header_t *certs, *pkeys;
+    int hook_rv = DECLINED;
+    apr_status_t rv = APR_ENOENT;
+    md_srv_conf_t *sc;
+    md_store_t *store;
+    char *cert_name, *pkey_name;
+    const char *cert_file, *key_file;
+    int i;
 
-    if ((protocol = md_protocol_get(c)) && !strcmp(PROTO_ACME_TLS_1, protocol)) {
-        ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
-                      "Answer challenge for %s", servername? servername : "no server");
-        certs = apr_array_make(c->pool, 5, sizeof(X509*));
-        pkeys = apr_array_make(c->pool, 5, sizeof(EVP_PKEY*));
-        if (DONE == md_answer_challenges(c, servername, certs, pkeys) 
-            && certs->nelts > 0 && pkeys->nelts > 0) {
-            *pcert = APR_ARRAY_IDX(certs, 0, X509*);
-            *ppkey = APR_ARRAY_IDX(pkeys, 0, EVP_PKEY*);
-            return APR_SUCCESS;
-        }
+    if (!servername
+        || !(protocol = md_protocol_get(c))
+        || strcmp(PROTO_ACME_TLS_1, protocol)) {
+        goto cleanup;
     }
-    *pcert = NULL;
-    *ppkey = NULL;
-    return DECLINED;
+    sc = md_config_get(c->base_server);
+    if (!sc || !sc->mc->reg) goto cleanup;
+
+    ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
+                  "Answer challenge[tls-alpn-01] for %s", servername);
+    store = md_reg_store_get(sc->mc->reg);
+
+    for (i = 0; i < md_pkeys_spec_count( sc->pks ); i++) {
+        tls_alpn01_fnames(c->pool, md_pkeys_spec_get(sc->pks,i),
+                          &pkey_name, &cert_name);
+
+        rv = md_store_get_fname(&cert_file, store, MD_SG_CHALLENGES, servername, cert_name, c->pool);
+        if (APR_SUCCESS != rv) goto cleanup;
+        if (APR_SUCCESS != md_util_is_file(cert_file, c->pool)) continue;
+
+        rv = md_store_get_fname(&key_file, store, MD_SG_CHALLENGES, servername, pkey_name, c->pool);
+        if (APR_SUCCESS != rv) goto cleanup;
+        if (APR_SUCCESS != md_util_is_file(cert_file, c->pool)) continue;
+
+        ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
+                      "Found challenge cert %s, key %s for %s",
+                      cert_name, pkey_name, servername);
+        *pcert_file = cert_file;
+        *pkey_file = key_file;
+        hook_rv = OK;
+        break;
+    }
+
+    if (DECLINED == hook_rv) {
+        ap_log_cerror(APLOG_MARK, APLOG_INFO, rv, c, APLOGNO(10080)
+                      "%s: unknown tls-alpn-01 challenge host", servername);
+    }
+
+cleanup:
+    return hook_rv;
 }
 
 
@@ -1433,8 +1391,7 @@ static int md_require_https_maybe(request_rec *r)
      * https: redirects or HSTS header additions.
      */
     sc = ap_get_module_config(r->server->module_config, &md_module);
-    if (!sc || !sc->assigned || !sc->assigned->nelts
-        || !opt_ssl_is_https || !r->parsed_uri.path
+    if (!sc || !sc->assigned || !sc->assigned->nelts || !r->parsed_uri.path
         || !strncmp(WELL_KNOWN_PREFIX, r->parsed_uri.path, sizeof(WELL_KNOWN_PREFIX)-1)) {
         goto declined;
     }
@@ -1443,7 +1400,7 @@ static int md_require_https_maybe(request_rec *r)
     md = md_get_for_domain(r->server, host);
     if (!md) goto declined;
 
-    if (opt_ssl_is_https(r->connection)) {
+    if (ap_ssl_conn_is_ssl(r->connection)) {
         /* Using https:
          * if 'permanent' and no one else set a HSTS header already, do it */
         if (md->require_https == MD_REQUIRE_PERMANENT
@@ -1528,15 +1485,13 @@ static void md_hooks(apr_pool_t *pool)
     APR_OPTIONAL_HOOK(ap, status_hook, md_ocsp_status_hook, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(md_status_handler, NULL, NULL, APR_HOOK_MIDDLE);
 
+    ap_hook_ssl_answer_challenge(md_answer_challenge, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_ssl_add_cert_files(md_add_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_ssl_add_fallback_cert_files(md_add_fallback_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
 
 #ifndef SSL_CERT_HOOKS
 #error "This version of mod_md requires Apache httpd 2.4.41 or newer."
 #endif
-    APR_OPTIONAL_HOOK(ssl, add_cert_files, md_add_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
-    APR_OPTIONAL_HOOK(ssl, add_fallback_cert_files, md_add_fallback_cert_files, NULL, NULL, APR_HOOK_MIDDLE);
-    APR_OPTIONAL_HOOK(ssl, answer_challenge, md_answer_challenge, NULL, NULL, APR_HOOK_MIDDLE);
-    /*APR_OPTIONAL_HOOK(ssl, answer_challenges, md_answer_challenges, NULL, NULL, APR_HOOK_MIDDLE);*/
-    (void)md_answer_challenges;
     APR_OPTIONAL_HOOK(ssl, init_stapling_status, md_ocsp_init_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
     APR_OPTIONAL_HOOK(ssl, get_stapling_status, md_ocsp_get_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
 }
