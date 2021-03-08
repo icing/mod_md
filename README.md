@@ -572,7 +572,7 @@ configure more than one private key:
 
 ```
 <MDomain mydomain.com>
-  MDPrivateKeys RSA secp256r1
+  MDPrivateKeys secp256r1 rsa3072
 </MDomain>
 ```
 

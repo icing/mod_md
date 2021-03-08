@@ -3,7 +3,9 @@ v2.4.0
  * MDPrivateKeys allows the specification of several types. Beside "RSA" plus optional
    key lengths elliptic curves can be configured. This means you can have multiple
    certificates for a Managed Domain with different key types.
-
+   With ```MDPrivateKeys secp384r1 rsa2048``` you get one ECDSA  and one RSA certificate
+   and all modern client will use the shorter ECDSA, while older client will
+   get the RSA certificate.
  * Support added for MDomains consisting of a wildcard. Configuring ```MDomain *.host.net```
    will match all virtual hosts matching that pattern and obtain one certificate for it
    (assuming you have 'dns-01' challenge support configured). Addresses #239.
