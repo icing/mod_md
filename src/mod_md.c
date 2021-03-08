@@ -1249,7 +1249,7 @@ static int md_add_fallback_cert_files(server_rec *s, apr_pool_t *p,
 }
 
 static int md_answer_challenge(conn_rec *c, const char *servername,
-                               const char **pcert_file, const char **pkey_file)
+                               const char **pcert_pem, const char **pkey_pem)
 {
     const char *protocol;
     int hook_rv = DECLINED;
@@ -1257,7 +1257,7 @@ static int md_answer_challenge(conn_rec *c, const char *servername,
     md_srv_conf_t *sc;
     md_store_t *store;
     char *cert_name, *pkey_name;
-    const char *cert_file, *key_file;
+    const char *cert_pem, *key_pem;
     int i;
 
     if (!servername
@@ -1276,19 +1276,21 @@ static int md_answer_challenge(conn_rec *c, const char *servername,
         tls_alpn01_fnames(c->pool, md_pkeys_spec_get(sc->pks,i),
                           &pkey_name, &cert_name);
 
-        rv = md_store_get_fname(&cert_file, store, MD_SG_CHALLENGES, servername, cert_name, c->pool);
+        rv = md_store_load(store, MD_SG_CHALLENGES, servername, cert_name, MD_SV_TEXT,
+                           (void**)&cert_pem, c->pool);
+        if (APR_STATUS_IS_ENOENT(rv)) continue;
         if (APR_SUCCESS != rv) goto cleanup;
-        if (APR_SUCCESS != md_util_is_file(cert_file, c->pool)) continue;
 
-        rv = md_store_get_fname(&key_file, store, MD_SG_CHALLENGES, servername, pkey_name, c->pool);
+        rv = md_store_load(store, MD_SG_CHALLENGES, servername, pkey_name, MD_SV_TEXT,
+                           (void**)&key_pem, c->pool);
+        if (APR_STATUS_IS_ENOENT(rv)) continue;
         if (APR_SUCCESS != rv) goto cleanup;
-        if (APR_SUCCESS != md_util_is_file(cert_file, c->pool)) continue;
 
         ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
                       "Found challenge cert %s, key %s for %s",
                       cert_name, pkey_name, servername);
-        *pcert_file = cert_file;
-        *pkey_file = key_file;
+        *pcert_pem = cert_pem;
+        *pkey_pem = key_pem;
         hook_rv = OK;
         break;
     }
