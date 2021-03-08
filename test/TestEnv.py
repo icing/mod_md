@@ -375,13 +375,13 @@ class TestEnv:
 
     @classmethod
     def pkey_fname(cls, pkeyspec=None):
-        if pkeyspec and not re.match(r'^rsa( .+)?$', pkeyspec.lower()):
+        if pkeyspec and not re.match(r'^rsa( ?\d+)?$', pkeyspec.lower()):
             return "privkey.{0}.pem".format(pkeyspec)
         return 'privkey.pem'
 
     @classmethod
     def cert_fname(cls, pkeyspec=None):
-        if pkeyspec and not re.match(r'^rsa( .+)?$', pkeyspec.lower()):
+        if pkeyspec and not re.match(r'^rsa( ?\d+)?$', pkeyspec.lower()):
             return "pubcert.{0}.pem".format(pkeyspec)
         return 'pubcert.pem'
 
@@ -557,7 +557,9 @@ class TestEnv:
                 assert cert is None
             else:
                 assert cert, "no cert returned for cipher: {0}".format(p['ciphers'])
-                assert cert.get_key_length() == p['keylen'], "what?: {0}".format(cert)
+                assert cert.get_key_length() == p['keylen'], "key length, expected {0}, got {1}".format(
+                    p['keylen'], cert.get_key_length()
+                )
 
     @classmethod
     def get_meta(cls, domain, path, use_https=True):

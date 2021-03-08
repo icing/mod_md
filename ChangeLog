@@ -1,50 +1,31 @@
- * The "renewing" invocations of ```MDMessageCmd``` now only happend when it is actually
-   time to renew a certification, not before the necessity is checked. This led to calls
-   every time the module became active.
-
-v2.3.7 (BETA)
+v2.4.0
 ----------------------------------------------------------------------------------------------------
+ * MDPrivateKeys allows the specification of several types. Beside "RSA" plus optional
+   key lengths elliptic curves can be configured. This means you can have multiple
+   certificates for a Managed Domain with different key types.
+   With ```MDPrivateKeys secp384r1 rsa2048``` you get one ECDSA  and one RSA certificate
+   and all modern client will use the shorter ECDSA, while older client will
+   get the RSA certificate.
+   Many thanks to @tlhackque who pushed and helped on this.
  * Support added for MDomains consisting of a wildcard. Configuring ```MDomain *.host.net```
    will match all virtual hosts matching that pattern and obtain one certificate for it
    (assuming you have 'dns-01' challenge support configured). Addresses #239.
- * Fixed a bug that prevented "renewed" notifications to be sent out when a renewal job
-   had already successfully notified about another event. See #235.
+ * Removed support for ACMEv1 servers. The only known installation used to be Let's Encrypt
+   which has disabled that version more than a year ago for new accounts.
+ * Andreas Ulm (<https://github.com/root360-AndreasUlm>) implemented the ```renewing``` call
+   to ```MDMessageCmd``` that can deny a certificate renewal attempt. This is useful in clustered
+   installations, as discussed in #233).
  * new event ```challenge-setup:<type>:<domain>```, triggered when the challenge data
    for a domain has been created. This is invoked before the ACME server is told to
    check for it. The type is one of the ACME challenge types. This is invoked for
    every DNS name in a MDomain.
- * Using ```configure``` with ```--with-boulder``` or ```--with-pebble``` selects the
-   default URLs for both test servers.
- * Removed the special environment variable passing for MDChallengeDns01 again as
-   this interferes with needed environment variables on platforms.
- * mod_md is enabled in freebsd's apache24 package since August 2020, thanks to
-   Mina Galić (@igalic). Nice!
-
-v2.3.6 (BETA)
-----------------------------------------------------------------------------------------------------
- * Andreas Ulm (<https://github.com/root360-AndreasUlm>) implemented the ```renewing``` call
-   to ```MDMessageCmd``` that can deny a certificate renewal attempt. This is useful in clustered
-   installations, as discussed in #233).
- * Fixed tests to accommodate for the new message type.
-
-v2.3.5 (BETA)
-----------------------------------------------------------------------------------------------------
+ * The max delay for retries has been raised to daily (this is like all retries jittered
+   somewhat to avoid repeats at fixed time of day).
  * Certain error codes reported by the ACME server that indicate a problem with the
    configured data now immediately switch to daily retries. For example: if the ACME
    server rejects a contact email or a domain name, frequent retries will most likely
    not solve the problem. But daily retries still make sense as there might be an
    error at the server and un-supervised certificate renewal is the goal. Refs #222.
- * The max delay for retries has been raised to daily (this is like all retries jittered
-   somewhat to avoid repeats at fixed time of day).
- * No longer debug logging the ocsp renewal success with an error indicator. Fixes #197.
- * When handling ACME authorization resources, the module no longer requires the server
-   to return a "Location" header, as was necessary in ACMEv1. Fixes #216.
- * Removed the "authz" subcommand from the a2md executable. This was a left over of ACMEv1.
- * The module now reuses the internal curl instance in each MDs interaction
-   with the ACME server. This means that open connections are reused.
-
-v2.3.4 (BETA)
-----------------------------------------------------------------------------------------------------
  * Test case and work around for domain names > 64 octets. Fixes #227.
    When the first DNS name of an MD is longer than 63 octets, the certificate
    request will not contain a CN field, but leave it up to the CA to choose one.
@@ -52,79 +33,29 @@ v2.3.4 (BETA)
    fails the request if none is found. But it is really up to the CA (and what
    browsers/libs accept here) and may change over the years. That is why
    the decision is best made at the CA.
- * Reverted setting the environment variables for MDMessageCmd and MDNotifyCmd. This
-   prevented the inheritance of existing environment variables as there seems to be
-   no portable way to iterate those on all platforms. This led to a regression on
-   Windows, see #198.
+ * Retry delays now have a random +/-[0-50]% modification applied to let retries from several
+   servers spread out more, should they have been restarted at the same time of day.
  * Fixed several places where the 'badNonce' return code from an ACME server was not
    handled correctly. The test server 'pebble' simulates this behaviour by default
    and helps nicely in verifying this behaviour. Thanks, pebble!
- * Removed support for ACMEv1 servers. The only known installation used to be Let's Encrypt
-   which is disabled that version more than a year ago.
- * Fixed a bug introduced by the multiple private key feature that did not trigger
-   the tls-alpn-01 challenge at the ACME server on the first attempt. (It picked it up
-   on the subsequent ones, though, prolonging the test suite but not failing it.)
- * first successful test run against the pebble server. See README.md for details
-   on how to set this up.
-Merges from 2.2.x maintenance branch:
- * Changed minimal curl version necessary to 7.29, as proposed by @xl32.
- * Retry delays now have a random +/-[0-50]% modification applied to let retries from several
-   servers spread out more, should they have been restarted at the same time of day.
+ * Set the default `MDActivationDelay` to 0. This was confusing to users that
+   new certificates were deemed not usably before a day of delay. When clocks are
+   correct, using a new certificate right away should not pose a problem.
+ * When handling ACME authorization resources, the module no longer requires the server
+   to return a "Location" header, as was necessary in ACMEv1. Fixes #216.
+ * The test suite now also runs with the `Pebble` server. Use ```configure```
+   with ```--with-boulder``` or ```--with-pebble``` selects the default
+   URLs for both test servers.
+ * mod_md is enabled in freebsd's apache24 package since August 2020, thanks to
+   Mina Galić (@igalic). Nice!
  * Fixed a theoretical uninitialized read when testing for JSON error responses from the
    ACME CA. Bugreported at <https://bz.apache.org/bugzilla/show_bug.cgi?id=64297>.
    (Ported from maintenance-2.2.x branch)
- * Adapted test suite to run against a current letsencrypt boulder version.
  * ACME problem reports from CAs that include parameters in the Content-Type header are handled correctly.
    (Previously, the problem text would not be reported and retries could exist CA limits.)
  * Account Update transactions to V2 CAs now use the correct POST-AS-GET method.  Previously, an
    empty JSON object was sent - which apparently LE accepted, but others reject.
- * If a CA directory includes both V1 and V2 endpoints, mod_md now will use the V2 endpoint.  Previously,
-   it would prefer V1 in this unusual configuration. V2 is standard; V1 is deprecated.
- * Synchronized with Apache trunk changes, added test case for issue #218.
 
-v2.3.3 (BETA)
-----------------------------------------------------------------------------------------------------
- * MDMessageCmd and MDNotifyCmd now get common, important environment variables passed
-   as well, such as PATH, SystemRoot etc - if they existed in the first place. 
-
-v2.3.2 (BETA)
-----------------------------------------------------------------------------------------------------
- * Add key usage extensions to fallback certificates; correct other extensions.
- * Correct decoding of IP addresses in certificates.
- * Add contrib directory (not yet shipped).
- * Add SeLinux policy changes necessary for mod_md in contrib/selinux.
- * `MDNotifyCmd` and `MDMessageCmd` now get the environment variable `MD_STORE` containing
-    the path to the storage directory.
-    Also `MD_VERSION` is added to the environment, containing the version plus an optional
-    `-variation`, e.g. `-git` indicator.
- * Added very preliminary (and rough) version of contrib/md_events script.
- * test suite: test of Messages less timing dependant
-
-v2.3.1 (BETA)
-----------------------------------------------------------------------------------------------------
- * The keyname in key and certificate files is now forced lower case.
- * Formatting in 'server-status' page has been improved when showing >1 certificates
- * Fallback certificates (when the domain has none yet) are now generated for all 
-   key types requested in MDPrivateKeys of that domain.
- * Update /.httpd/certificate-status to correctly handle multiple keys.
-
-v2.3.0 (BETA)
-----------------------------------------------------------------------------------------------------
- * MDPrivateKeys checks for duplicate key specifications. There can only be one RSA key
-   and a curve name can also only appear once.
- * Test case for curve "x25519" is being skipped as this key does not work correctly - yet.
- * Added more EC and dual keys tests. Tests now verify that the correct certificate is
-   used when the client is limited in protocol version and ciphers.
- * Tests run with multiple certificates. Certificates are listed in status reports. The
-   "server-status" html table gives individual links. Expiry durations are aggregated.
-   OCSP stapling picks up the new certificates nicely.
- * The JSON format for reporting certificates changed, not sure if it stays now as it
-   is or if there should be come backward compat with 1 cert use.
- * MDPrivateKeys allows the specification of several types. Beside "RSA" plus optional
-   key lengths elliptic curves can be configured. Right now, the module only creates a
-   certificate for the first key type given.
- * Test cases added for "secp256r1" and "secp384r1" which are supported by Let's Encrypt.
-=======
 v2.2.8
 ----------------------------------------------------------------------------------------------------
  * Disabling retries on "GET as POST" requests as that leads to undefined behaviour. See +232.

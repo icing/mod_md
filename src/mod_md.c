@@ -140,7 +140,7 @@ typedef struct {
 
 static notify_rate notify_rates[] = {
     { "renewing", apr_time_from_sec(MD_SECS_PER_HOUR) }, /* once per hour */
-    { "renewed", apr_time_from_sec(28 * MD_SECS_PER_DAY) }, /* once per month */
+    { "renewed", apr_time_from_sec(MD_SECS_PER_DAY) }, /* once per day */
     { "installed", apr_time_from_sec(MD_SECS_PER_DAY) }, /* once per day */
     { "expiring", apr_time_from_sec(MD_SECS_PER_DAY) },     /* once per day */
     { "errored", apr_time_from_sec(MD_SECS_PER_HOUR) },     /* once per hour */
@@ -152,7 +152,7 @@ static apr_status_t notify(md_job_t *job, const char *reason,
                            md_result_t *result, apr_pool_t *p, void *baton)
 {
     md_mod_conf_t *mc = baton;
-    const char * const *argv, *s;
+    const char * const *argv;
     const char *cmdline;
     int exit_code;
     apr_status_t rv = APR_SUCCESS;
@@ -170,9 +170,11 @@ static apr_status_t notify(md_job_t *job, const char *reason,
     if (min_interim > 0) {
         since_last.start = md_job_log_get_time_of_latest(job, log_msg_reason);
         since_last.end = apr_time_now();
-        if (md_timeperiod_length(&since_last) < min_interim) {
+        if (since_last.start > 0 && md_timeperiod_length(&since_last) < min_interim) {
             /* not enough time has passed since we sent the last notification
              * for this reason. */
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, APLOGNO()
+                "%s: rate limiting notification about '%s'", job->mdomain, reason);
             return APR_SUCCESS;
         }
     }
@@ -211,20 +213,6 @@ static apr_status_t notify(md_job_t *job, const char *reason,
             md_job_log_append(job, "message-error", reason, result->detail);
             return rv;
         }
-    }
-    /* The passing of env variables to the message cmd was not working, see #198.
-     * Therefore we need to pass extra information in the arguments and therefore
-     * need an additional command to remain backward compatible.
-     */
-    if (mc->event_cmd) {
-        apr_array_header_t *env;
-        /* Lets give the executed commands some idea where to find things, in
-         * case they are interested. */
-        env = apr_array_make(p, 5, sizeof(char*));
-        s = ap_server_root_relative(p, mc->base_dir);
-        APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_STORE=%s", s);
-        APR_ARRAY_PUSH(env, const char*) = apr_psprintf(p, "MD_VERSION=%s", MOD_MD_VERSION);
-        md_util_env_inherit(env);
     }
 
     md_job_log_append(job, log_msg_reason, NULL, NULL);

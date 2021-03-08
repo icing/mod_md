@@ -73,7 +73,6 @@ static md_mod_conf_t defmc = {
     NULL,                      /* init errors hash */
     NULL,                      /* notify cmd */
     NULL,                      /* message cmd */
-    NULL,                      /* event cmd */
     NULL,                      /* env table */
     0,                         /* dry_run flag */
     1,                         /* server_status_enabled */
@@ -789,6 +788,25 @@ static const char *md_config_set_pkeys(cmd_parms *cmd, void *dc,
                 return "'Default' allows no other parameter";
             }
             md_pkeys_spec_add_default(config->pks);
+        }
+        else if (strlen(ptype) > 3
+            && (ptype[0] == 'R' || ptype[0] == 'r')
+            && (ptype[1] == 'S' || ptype[1] == 's')
+            && (ptype[2] == 'A' || ptype[2] == 'a')
+            && isdigit(ptype[3])) {
+            bits = (int)apr_atoi64(ptype+3);
+            if (bits < MD_PKEY_RSA_BITS_MIN) {
+                return apr_psprintf(cmd->pool,
+                                    "must be %d or higher in order to be considered safe.",
+                                    MD_PKEY_RSA_BITS_MIN);
+            }
+            if (bits >= INT_MAX) {
+                return apr_psprintf(cmd->pool, "is too large for an RSA key length.");
+            }
+            if (md_pkeys_spec_contains_rsa(config->pks)) {
+                return "two keys of type 'RSA' are not possible.";
+            }
+            md_pkeys_spec_add_rsa(config->pks, (unsigned int)bits);
         }
         else if (!apr_strnatcasecmp("RSA", ptype)) {
             if (i+1 >= argc || !isdigit(argv[i+1][0])) {

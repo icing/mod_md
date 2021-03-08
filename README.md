@@ -24,15 +24,13 @@ Many thanks!
 ## Versions and Releases
 
 This README always describes the current version of the module. This might not actually be what you use. You can look
-into your Apache server log where `mod_md` logs its version at startup. There are three major release lines nowadays which are all upwards compatible:
+into your Apache server log where `mod_md` logs its version at startup. 
 
- * `v2.3.x` releases are ***beta***, the new feature is support for multiple certificates and ECDSA keys. 
- * `v2.2.x` releases are ***stable***. They can be used in production and new versions will be backward 
-   compatible with existing configurations.  
+ * `v2.4.x` releases are ***stable***. They can be used in production and new versions will be backward 
+   compatible with existing configurations.
+   Among other improvements v2.4.0 brings support for multiple certificates with different key types.
    The large feature added in v2.2.0 is OCSP stapling. This release line shipped in Apache httpd 2.4.46.
    Apache releases will always get the latest, stable version from here. 
- * `v2.1.x` releases have been ***beta***, leading up to v2.2.0 
- * `v2.0.x` releases should be upgraded to `v2.2.x` whenever convenient. No new releases in this line will happen. 
 
 
 ## Index
@@ -567,12 +565,12 @@ Such a domain will not be renewed by `mod_md` - unless you configure `MDRenewMod
 
 ## How to Have Two Certs for One Host
 
-A feature new since version 2.3.0 is that you can have more than one certificate for a domain. Just
+A feature new since version 2.4.0 is that you can have more than one certificate for a domain. Just
 configure more than one private key:
 
 ```
 <MDomain mydomain.com>
-  MDPrivateKeys RSA secp256r1
+  MDPrivateKeys secp256r1 rsa3072
 </MDomain>
 ```
 
@@ -1734,7 +1732,7 @@ Default: 'RSA 2048'
 
 Supports RSA with an optional `param` for the key length in all versions. For example, use `RSA 4096` for 4k keys.
 
-Since version 2.3.0, you can also specify elliptic curves for ECDSA keys. Examples of such curves are `P-384` and `P-256` (also known as `secp384r1` and `secp256r1`). And there are others. These key types can only
+Since version 2.4.0, you can also specify elliptic curves for ECDSA keys. Examples of such curves are `P-384` and `P-256` (also known as `secp384r1` and `secp256r1`). And there are others. These key types can only
 work if the ACME CA (Let's Encrypt) supports them. And browsers as well - or whatever clients you wish to
 serve.
 
