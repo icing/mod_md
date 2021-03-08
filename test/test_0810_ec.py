@@ -122,6 +122,14 @@ class TestAutov2:
             {'spec': "P-384", 'ciphers': "ECDSA", 'keylen': 384},
         ])
 
+    # set three key specs
+    def test_810_006(self):
+        domain = self.test_domain
+        self.set_get_check_pkeys(domain, [
+            {'spec': "rsa2048", 'ciphers': "RSA", 'keylen': 2048},
+            {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256},
+        ])
+
     # disabled completely, since LE does not support that key type
     # X25529 key type which has some special quirks
     #@pytest.mark.skip(reason="this is not working yet.")
