@@ -1043,7 +1043,7 @@ static apr_status_t run_init(void *baton, apr_pool_t *p, ...)
     
     s = apr_table_get(driver->env, MD_KEY_ACTIVATION_DELAY);
     if (!s || APR_SUCCESS != md_duration_parse(&driver->activation_delay, s, "d")) {
-        driver->activation_delay = apr_time_from_sec(MD_SECS_PER_DAY);
+        driver->activation_delay = 0;
     }
 
     if (!md->ca_proto) {

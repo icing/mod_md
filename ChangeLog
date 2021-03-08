@@ -1,3 +1,6 @@
+ * Set the default `MDActivationDelay` to 0. This was confusing to users that
+   new certificates were deemed not usably before a day of delay. When clocks are
+   correct, using a new certificate right away should not pose a problem.
  * The "renewing" invocations of ```MDMessageCmd``` now only happend when it is actually
    time to renew a certification, not before the necessity is checked. This led to calls
    every time the module became active.
