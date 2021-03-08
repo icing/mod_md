@@ -6,6 +6,7 @@ v2.4.0
    With ```MDPrivateKeys secp384r1 rsa2048``` you get one ECDSA  and one RSA certificate
    and all modern client will use the shorter ECDSA, while older client will
    get the RSA certificate.
+   Many thanks to @tlhackque who pushed and helped on this.
  * Support added for MDomains consisting of a wildcard. Configuring ```MDomain *.host.net```
    will match all virtual hosts matching that pattern and obtain one certificate for it
    (assuming you have 'dns-01' challenge support configured). Addresses #239.
