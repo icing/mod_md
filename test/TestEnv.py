@@ -23,52 +23,13 @@ from urllib.parse import urlparse
 
 from TestCertUtil import CertUtil
 
+class Dummy:
+    pass
 
 class TestEnv:
+
+    INITIALIZED = False
     STORE_DIR = None
-
-    config = ConfigParser()
-    config.read(os.path.join(os.path.dirname(inspect.getfile(CertUtil)), 'test.ini'))
-    PREFIX = config.get('global', 'prefix')
-
-    GEN_DIR = config.get('global', 'gen_dir')
-
-    WEBROOT = config.get('global', 'server_dir')
-    HOSTNAME = config.get('global', 'server_name')
-    TESTROOT = os.path.join(WEBROOT, '..', '..')
-
-    APACHECTL = os.path.join(PREFIX, 'bin', 'apachectl')
-    APXS = os.path.join(PREFIX, 'bin', 'apxs')
-    ERROR_LOG = os.path.join(WEBROOT, "logs", "error_log")
-    APACHE_CONF_DIR = os.path.join(WEBROOT, "conf")
-    APACHE_TEST_CONF = os.path.join(APACHE_CONF_DIR, "test.conf")
-    APACHE_SSL_DIR = os.path.join(APACHE_CONF_DIR, "ssl")
-    APACHE_CONF = os.path.join(APACHE_CONF_DIR, "httpd.conf")
-    APACHE_CONF_SRC = "data"
-    APACHE_HTDOCS_DIR = os.path.join(WEBROOT, "htdocs")
-
-    HTTP_PORT = config.get('global', 'http_port')
-    HTTPS_PORT = config.get('global', 'https_port')
-    HTTP_PROXY_PORT = config.get('global', 'http_proxy_port')
-    HTTPD_HOST = "localhost"
-    HTTPD_URL = "http://" + HTTPD_HOST + ":" + HTTP_PORT
-    HTTPD_URL_SSL = "https://" + HTTPD_HOST + ":" + HTTPS_PORT
-    HTTPD_PROXY_URL = "http://" + HTTPD_HOST + ":" + HTTP_PROXY_PORT
-    HTTPD_CHECK_URL = HTTPD_URL
-
-    ACME_URL_DEFAULT = config.get('acme', 'url_default')
-    ACME_URL = config.get('acme', 'url')
-    ACME_TOS = config.get('acme', 'tos')
-    ACME_SERVER = config.get('acme', 'server').strip()
-    ACME_LACKS_OCSP = (ACME_SERVER == 'pebble')
-    ACME_SERVER_DOWN = False
-    ACME_SERVER_OK = False
-
-    TEST_CA_PEM = "gen/apache/test-ca.pem"
-
-    A2MD = config.get('global', 'a2md_bin')
-    CURL = config.get('global', 'curl_bin')
-    OPENSSL = config.get('global', 'openssl_bin')
 
     MD_S_UNKNOWN = 0
     MD_S_INCOMPLETE = 1
@@ -84,11 +45,66 @@ class TestEnv:
 
     @classmethod
     def init(cls):
+        if cls.INITIALIZED:
+            return
+        our_dir = os.path.dirname(inspect.getfile(TestEnv))
+        config = ConfigParser()
+        config.read(os.path.join(our_dir, 'test.ini'))
+        cls.TEST_SRC = our_dir
+        cls.PREFIX = config.get('global', 'prefix')
+
+        cls.GEN_DIR = config.get('global', 'gen_dir')
+
+        cls.WEBROOT = config.get('global', 'server_dir')
+        cls.HOSTNAME = config.get('global', 'server_name')
+        cls.TESTROOT = os.path.join(cls.WEBROOT, '..', '..')
+
+        cls.APACHECTL = os.path.join(cls.PREFIX, 'bin', 'apachectl')
+        cls.APXS = os.path.join(cls.PREFIX, 'bin', 'apxs')
+        cls.ERROR_LOG = os.path.join(cls.WEBROOT, "logs", "error_log")
+        cls.APACHE_CONF_DIR = os.path.join(cls.WEBROOT, "conf")
+        cls.APACHE_TEST_CONF = os.path.join(cls.APACHE_CONF_DIR, "test.conf")
+        cls.APACHE_SSL_DIR = os.path.join(cls.APACHE_CONF_DIR, "ssl")
+        cls.APACHE_CONF = os.path.join(cls.APACHE_CONF_DIR, "httpd.conf")
+        cls.APACHE_CONF_SRC = "data"
+        cls.APACHE_HTDOCS_DIR = os.path.join(cls.WEBROOT, "htdocs")
+
+        cls.HTTP_PORT = config.get('global', 'http_port')
+        cls.HTTPS_PORT = config.get('global', 'https_port')
+        cls.HTTP_PROXY_PORT = config.get('global', 'http_proxy_port')
+        cls.HTTPD_HOST = "localhost"
+        cls.HTTPD_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PORT
+        cls.HTTPD_URL_SSL = "https://" + cls.HTTPD_HOST + ":" + cls.HTTPS_PORT
+        cls.HTTPD_PROXY_URL = "http://" + cls.HTTPD_HOST + ":" + cls.HTTP_PROXY_PORT
+        cls.HTTPD_CHECK_URL = cls.HTTPD_URL
+
+        cls.ACME_URL_DEFAULT = config.get('acme', 'url_default')
+        cls.ACME_URL = config.get('acme', 'url')
+        cls.ACME_TOS = config.get('acme', 'tos')
+        cls.ACME_SERVER = config.get('acme', 'server').strip()
+        cls.ACME_LACKS_OCSP = (cls.ACME_SERVER == 'pebble')
+        cls.ACME_SERVER_DOWN = False
+        cls.ACME_SERVER_OK = False
+
+        cls.TEST_CA_PEM = os.path.join(our_dir, "gen/apache/test-ca.pem")
+
+        cls.A2MD = os.path.join(our_dir, config.get('global', 'a2md_bin'))
+        cls.A2MD_VERSION = config.get('global', 'a2md_version')
+
+        cls.CURL = config.get('global', 'curl_bin')
+        cls.OPENSSL = config.get('global', 'openssl_bin')
+        cls.INITIALIZED = True
         cls.set_store_dir_default()
         cls.clear_store()
 
     @classmethod
+    def is_pebble(cls) -> bool:
+        cls.init()
+        return cls.ACME_SERVER == 'pebble'
+
+    @classmethod
     def set_store_dir(cls, dirpath):
+        cls.init()
         cls.STORE_DIR = os.path.join(cls.WEBROOT, dirpath)
         if cls.ACME_URL:
             cls.a2md_stdargs([cls.A2MD, "-a", cls.ACME_URL, "-d", cls.STORE_DIR,  "-C", cls.TEST_CA_PEM, "-j"])
@@ -96,6 +112,7 @@ class TestEnv:
 
     @classmethod
     def set_store_dir_default(cls):
+        cls.init()
         dirpath = "md"
         if cls.httpd_is_at_least("2.5.0"):
             dirpath = os.path.join("state", dirpath)
@@ -255,6 +272,7 @@ class TestEnv:
 
     @classmethod
     def httpd_is_at_least(cls, minv):
+        cls.init()
         hv = cls._versiontuple(cls.get_httpd_version())
         return hv >= cls._versiontuple(minv)
 

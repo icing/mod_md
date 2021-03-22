@@ -8,10 +8,6 @@ from configparser import ConfigParser
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
 
-config = ConfigParser()
-config.read('test.ini')
-PREFIX = config.get('global', 'prefix')
-
 SEC_PER_DAY = 24 * 60 * 60
 MS_PER_DAY = SEC_PER_DAY * 1000
 NS_PER_DAY = MS_PER_DAY * 1000

@@ -7,10 +7,6 @@ from configparser import ConfigParser
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
 
-config = ConfigParser()
-config.read('test.ini')
-PREFIX = config.get('global', 'prefix')
-
 
 def setup_module(module):
     print("setup_module    module:%s" % module.__name__)

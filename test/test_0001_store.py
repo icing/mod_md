@@ -30,8 +30,7 @@ class TestStore:
     # verify expected binary version
     def test_000_001(self):
         run = TestEnv.run([TestEnv.A2MD, "-V"])
-        m = re.match("version: %s(-git)?$" %
-                     TestEnv.config.get('global', 'a2md_version'), run['stdout'])
+        m = re.match("version: %s(-git)?$" % TestEnv.A2MD_VERSION, run['stdout'])
         assert m
 
     # verify that store is clean

@@ -74,7 +74,7 @@ class TestStatus:
         assert TestEnv.await_completion([domain], restart=False)
         # copy a real certificate from LE over to staging
         staged_cert = os.path.join(TestEnv.STORE_DIR, 'staging', domain, 'pubcert.pem') 
-        real_cert = os.path.join('data', 'test_920', '002.pubcert')
+        real_cert = os.path.join(TestEnv.TEST_SRC, 'data', 'test_920', '002.pubcert')
         assert copyfile(real_cert, staged_cert)
         status = TestEnv.get_certificate_status(domain)
         # status shows the copied cert's properties as staged

@@ -1,3 +1,7 @@
+ * MDCertificateFile and MDCertificateKeyFile can now be specified several
+   times to add multiple, static certificates to a MDomain.
+ * pytest runs also from the top level directory.
+
 v2.4.0
 ----------------------------------------------------------------------------------------------------
  * MDPrivateKeys allows the specification of several types. Beside "RSA" plus optional

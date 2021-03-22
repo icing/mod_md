@@ -8,8 +8,6 @@ from TestEnv import TestEnv
 def setup_module(module):
     print("setup_module: %s" % module.__name__)
     TestEnv.init()
-    TestEnv.a2md_stdargs([TestEnv.A2MD, "-d", TestEnv.STORE_DIR, "-j"])
-    TestEnv.a2md_rawargs([TestEnv.A2MD, "-d", TestEnv.STORE_DIR])
 
 
 def teardown_module(module):
