@@ -69,6 +69,8 @@ class TestEnv:
         cls.APACHE_CONF_SRC = "data"
         cls.APACHE_HTDOCS_DIR = os.path.join(cls.WEBROOT, "htdocs")
 
+        cls.SSL_MODULE = os.environ['SSL_MODULE'] if 'SSL_MODULE' in os.environ else "ssl"
+
         cls.HTTP_PORT = config.get('global', 'http_port')
         cls.HTTPS_PORT = config.get('global', 'https_port')
         cls.HTTP_PROXY_PORT = config.get('global', 'http_proxy_port')
@@ -612,7 +614,7 @@ class TestEnv:
         port = cls.HTTPS_PORT if use_https else cls.HTTP_PORT
         result = TestEnv.curl(["-k", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)),
                                ("%s://%s:%s%s" % (schema, domain, port, path))])
-        assert result['rv'] == 0
+        assert result['rv'] == 0, result['stderr']
         return result['jout'] if 'jout' in result else None
 
     @classmethod
@@ -621,11 +623,11 @@ class TestEnv:
 
     @classmethod
     def get_md_status(cls, domain) -> Dict:
-        return TestEnv.get_json_content("localhost", "/md-status/%s" % domain)
+        return TestEnv.get_json_content("not-forbidden.org", "/md-status/%s" % domain)
 
     @classmethod
     def get_server_status(cls, query="/"):
-        return TestEnv.get_content("localhost", "/server-status%s" % query)
+        return TestEnv.get_content("not-forbidden.org", "/server-status%s" % query)
 
     @classmethod
     def await_completion(cls, names, must_renew=False, restart=True, timeout=60):

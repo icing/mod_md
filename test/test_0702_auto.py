@@ -143,7 +143,7 @@ class TestAutov2:
 
     # test case: drive with using single challenge type explicitly
     @pytest.mark.parametrize("challenge_type", [
-        "tls-alpn-01", "http-01"
+        "tls-alpn-01", "http-01",
     ])
     def test_702_004(self, challenge_type):
         domain = self.test_domain
@@ -153,6 +153,7 @@ class TestAutov2:
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)
         conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add_line("LogLevel tls:trace8")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
         conf.add_md(domains)

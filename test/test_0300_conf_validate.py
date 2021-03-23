@@ -116,30 +116,16 @@ class TestConf:
     # test case: vhosts with overlapping MDs
     def test_300_009(self):
         assert TestEnv.apache_stop() == 0
-        HttpdConf(text="""
+        conf = HttpdConf(text="""
             ServerAdmin admin@not-forbidden.org
             MDMembers manual
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             MDomain example2.org www.example2.org www.example3.org
-
-            <VirtualHost *:12346>
-                ServerName example2.org
-                ServerAlias www.example3.org
-                SSLEngine on
-            </VirtualHost>
-
-            <VirtualHost *:12346>
-                ServerName www.example2.org
-                ServerAlias example2.org
-                SSLEngine on
-            </VirtualHost>
-
-            <VirtualHost *:12346>
-                ServerName not-forbidden.org
-                ServerAlias example2.org
-                SSLEngine on
-            </VirtualHost>
-            """).install()
+            """)
+        conf.add_ssl_vhost(port=12346, domains=["example2.org", "www.example3.org"])
+        conf.add_ssl_vhost(port=12346, domains=["www.example2.org", "example2.org"])
+        conf.add_ssl_vhost(port=12346, domains=["not-forbidden.org", "example2.org"])
+        conf.install()
         assert TestEnv.apache_fail() == 0
 
     # test case: MDomain, vhost with matching ServerAlias
@@ -156,17 +142,14 @@ class TestConf:
         assert (0, 0) == TestEnv.httpd_error_log_count()
 
     # test case: MDomain, misses one ServerAlias
-    def test_300_011(self):
-        HttpdConf(text="""
+    def test_300_011a(self):
+        conf = HttpdConf(text="""
             MDomain not-forbidden.org manual www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
-
-            <VirtualHost *:%s>
-                ServerName not-forbidden.org
-                ServerAlias test3.not-forbidden.org
-                ServerAlias test4.not-forbidden.org
-                SSLEngine on
-            </VirtualHost>
-            """ % TestEnv.HTTPS_PORT).install()
+        """)
+        conf.add_ssl_vhost(port=TestEnv.HTTPS_PORT, domains=[
+            "not-forbidden.org", "test3.not-forbidden.org", "test4.not-forbidden.org"
+        ])
+        conf.install()
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.httpd_error_log_count()
 
@@ -180,7 +163,6 @@ class TestConf:
                 ServerName not-forbidden.org
                 ServerAlias test3.not-forbidden.org
                 ServerAlias test4.not-forbidden.org
-                SSLEngine on
             </VirtualHost>
             """ % TestEnv.HTTPS_PORT).install()
         assert TestEnv.apache_restart() == 0
@@ -293,15 +275,14 @@ class TestConf:
 
     # test case: alt-names incomplete detection, github isse #68
     def test_300_021(self):
-        HttpdConf(text="""
+        conf = HttpdConf(text="""
             MDMembers manual
             MDomain secret.com
-            <VirtualHost *:12344>
-                ServerName not.secret.com
-                ServerAlias secret.com
-                SSLEngine on
-            </VirtualHost>
-            """).install()
+            """)
+        conf.add_ssl_vhost(port=12344, domains=[
+            "not.secret.com", "secret.com"
+        ])
+        conf.install()
         assert TestEnv.apache_fail() == 0
         assert (1, 0) == TestEnv.httpd_error_log_count()
         assert TestEnv.httpd_error_log_scan(
@@ -318,18 +299,15 @@ class TestConf:
             </If>
             <VirtualHost *:12344>
                 ServerName secret.com
-                SSLEngine on
             </VirtualHost>
             """).install()
         assert TestEnv.apache_start() == 0
-        HttpdConf(text="""
+        conf = HttpdConf(text="""
             MDomain secret.com
             <Directory /tmp>
               MDRequireHttps temporary
             </Directory>
-            <VirtualHost *:12344>
-                ServerName secret.com
-                SSLEngine on
-            </VirtualHost>
-            """).install()
+            """)
+        conf.add_ssl_vhost(port=12344, domains=["secret.com"])
+        conf.install()
         assert TestEnv.apache_restart() == 1

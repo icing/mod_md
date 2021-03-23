@@ -20,8 +20,16 @@ DocumentRoot "@SERVER_DIR@/htdocs"
     
     DocumentRoot "@SERVER_DIR@/htdocs"
     
+<IfModule ssl_module>
     SSLEngine on
     SSLCertificateFile conf/ssl/valid_cert.pem
     SSLCertificateKeyFile conf/ssl/valid_pkey.pem
+</IfModule>
+
+<IfModule tls_module>
+    <IfModule !ssl_module>
+    TLSCertificate conf/ssl/valid_cert.pem conf/ssl/valid_pkey.pem
+    </IfModule>
+</IfModule>
 
 </VirtualHost>

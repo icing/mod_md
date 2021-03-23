@@ -85,7 +85,7 @@ class TestConf:
             MDCertificateAgreement http://acme.test.org:4000/terms/v1
 
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
-            """).install()
+            """, local_ca=False).install()
         assert TestEnv.apache_restart() == 0
         name = "testdomain.org"
         TestEnv.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
@@ -250,18 +250,14 @@ class TestConf:
 
     # test case: automatically collect md names from vhost config
     def test_310_117(self):
-        HttpdConf(text="""
+        conf = HttpdConf(text="""
             MDMember auto
             MDomain testdomain.org
-
-            <VirtualHost *:12346>
-                ServerName testdomain.org
-                ServerAlias test.testdomain.org
-                ServerAlias mail.testdomain.org
-                DocumentRoot htdocs
-                SSLEngine on
-            </VirtualHost>
-            """).install()
+            """)
+        conf.add_ssl_vhost(port=12346, domains=[
+            "testdomain.org", "test.testdomain.org", "mail.testdomain.org",
+        ])
+        conf.install()
         assert TestEnv.apache_restart() == 0
         assert TestEnv.a2md(["list"])['jout']['output'][0]['domains'] == \
                ['testdomain.org', 'test.testdomain.org', 'mail.testdomain.org']
@@ -749,7 +745,7 @@ class TestConf:
         conf.add_drive_mode("manual")
         conf.add_renew_window(window)
         conf.end_md()
-        conf.add_vhost(domain)
+        conf.add_ssl_vhost(domain)
         conf.install()
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_md_status(domain)
