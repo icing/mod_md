@@ -576,7 +576,7 @@ apr_status_t md_reg_get_pubcert(const md_pubcert_t **ppubcert, md_reg_t *reg,
     const md_pubcert_t *pubcert;
     const char *name;
 
-    name = apr_psprintf(p, "%s[%d]", md->name, i, NULL);
+    name = apr_psprintf(p, "%s[%d]", md->name, i);
     pubcert = apr_hash_get(reg->certs, name, (apr_ssize_t)strlen(name));
     if (!pubcert && !reg->domains_frozen) {
         rv = md_util_pool_vdo(pubcert_load, reg, reg->p, &pubcert, MD_SG_DOMAINS, md, i, NULL);
@@ -637,7 +637,6 @@ apr_time_t md_reg_renew_at(md_reg_t *reg, const md_t *md, apr_pool_t *p)
     const md_pubcert_t *pub;
     const md_cert_t *cert;
     md_timeperiod_t certlife, renewal;
-    md_pkey_spec_t *spec;
     int i;
     apr_time_t renew_at = 0;
     apr_status_t rv;
@@ -654,8 +653,8 @@ apr_time_t md_reg_renew_at(md_reg_t *reg, const md_t *md, apr_pool_t *p)
             renewal = md_timeperiod_slice_before_end(&certlife, md->renew_window);
             if (md_log_is_level(p, MD_LOG_TRACE1)) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p, 
-                              "md[%s]: certificate(%s) valid[%s] renewal[%s]", 
-                              md->name, md_pkey_spec_name(spec),  
+                              "md[%s]: certificate(%d) valid[%s] renewal[%s]", 
+                              md->name, i,  
                               md_timeperiod_print(p, &certlife),
                               md_timeperiod_print(p, &renewal));
             }
