@@ -342,7 +342,6 @@ class TestDrivev2:
         # setup: place redirect rules
         conf._add_line('  Redirect /a /name.txt')
         conf._add_line('  Redirect seeother /b /name.txt')
-        conf._add_line('  LogLevel tls:trace8')
         conf.install()
         assert TestEnv.apache_restart() == 0
         # check: redirects on HTTP

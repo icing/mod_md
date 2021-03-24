@@ -811,7 +811,7 @@ class TestConf:
         conf.add_admin("admin@" + domain)
         conf.start_md([domain])
         conf.end_md()
-        conf.add_vhost(domain)
+        conf.add_ssl_vhost(domains=[domain])
         conf.add_line('LogLevel md:trace1')
         conf.install()
         assert TestEnv.apache_restart() == 0

@@ -39,7 +39,7 @@ class CertUtil(object):
             k = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_buffer)
         else:
             k = OpenSSL.crypto.PKey()
-            k.generate_key(OpenSSL.crypto.TYPE_RSA, 1024)
+            k.generate_key(OpenSSL.crypto.TYPE_RSA, 2048)
 
         # create a self-signed cert
         cert = OpenSSL.crypto.X509()

@@ -1,3 +1,6 @@
+ * Extended test suite to run also against mod_tls. Run
+   ```SSL_MODULE=tls pytest``` to load an installed `mod_tls` into the server.
+   Using `mod_ssl` is the default.
  * MDCertificateFile and MDCertificateKeyFile can now be specified several
    times to add multiple, static certificates to a MDomain.
  * pytest runs also from the top level directory.

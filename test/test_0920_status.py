@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 
 from TestEnv import TestEnv
 from TestHttpdConf import HttpdConf
@@ -120,17 +121,19 @@ class TestStatus:
     def test_920_010(self):
         domain = self.test_domain
         domains = [domain]
-        conf = HttpdConf(std_vhosts=False, text="""
-LogLevel md:trace2
-LogLevel ssl:debug
-                
+        conf = HttpdConf(std_vhosts=False, std_ports=False, text="""
 MDBaseServer on
-MDPortMap http:- https:%s
+MDPortMap http:- https:{https_port}
 
-Listen %s
+Listen {https_port} https
 ServerAdmin admin@not-forbidden.org
-ServerName %s
+ServerName {domain}
+<IfModule ssl_module>
 SSLEngine on
+</IfModule>
+<IfModule tls_module>
+TLSStrictSNI off
+</IfModule>
 Protocols h2 http/1.1 acme-tls/1
 
 <Location "/server-status">
@@ -139,11 +142,13 @@ Protocols h2 http/1.1 acme-tls/1
 <Location "/md-status">
     SetHandler md-status
 </Location>
-            """ % (TestEnv.HTTPS_PORT, TestEnv.HTTPS_PORT, domain))
+            """.format(
+            https_port=TestEnv.HTTPS_PORT,
+            domain=domain
+        ))
         conf.add_md(domains)
         conf.install()
-        TestEnv.HTTPD_CHECK_URL = TestEnv.HTTPD_URL_SSL
-        assert TestEnv.apache_restart() == 0
+        assert TestEnv.apache_restart(check_url=TestEnv.HTTPD_URL_SSL) == 0
         assert TestEnv.await_completion([domain], restart=False)
         status = TestEnv.get_md_status("")
         assert "version" in status
@@ -156,11 +161,11 @@ Protocols h2 http/1.1 acme-tls/1
         status = TestEnv.get_server_status(query="?auto")
         m = re.search(r'Managed Certificates: total=(\d+), ok=(\d+) renew=(\d+) errored=(\d+) ready=(\d+)',
                       status, re.MULTILINE)
-        assert 1 == int(m.group(1))
-        assert 0 == int(m.group(2))
-        assert 1 == int(m.group(3))
-        assert 0 == int(m.group(4))
-        assert 1 == int(m.group(5))
+        assert int(m.group(1)) == 1
+        assert int(m.group(2)) == 0
+        assert int(m.group(3)) == 1
+        assert int(m.group(4)) == 0
+        assert int(m.group(5)) == 1
 
     def test_920_011(self):
         # MD with static cert files in base server, see issue #161
@@ -174,27 +179,31 @@ Protocols h2 http/1.1 acme-tls/1
         pkey_file = os.path.join(testpath, 'privkey.pem')
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
-        conf = HttpdConf(std_vhosts=False, text=f"""
-LogLevel md:trace2
-LogLevel ssl:debug
-                
-MDPortMap http:- https:{TestEnv.HTTPS_PORT}
+        conf = HttpdConf(std_vhosts=False, std_ports=False, text="""
+        MDBaseServer on
+        MDPortMap http:- https:{https_port}
 
-Listen {TestEnv.HTTPS_PORT}
-ServerAdmin admin@not-forbidden.org
-ServerName {domain}
-SSLEngine on
-Protocols h2 http/1.1 acme-tls/1
+        Listen {https_port} https
+        ServerAdmin admin@not-forbidden.org
+        ServerName {domain}
+        <IfModule ssl_module>
+        SSLEngine on
+        </IfModule>
+        <IfModule tls_module>
+        TLSStrictSNI off
+        </IfModule>
+        Protocols h2 http/1.1 acme-tls/1
 
-MDBaseServer on
-
-<Location "/server-status">
-    SetHandler server-status
-</Location>
-<Location "/md-status">
-    SetHandler md-status
-</Location>
-            """)
+        <Location "/server-status">
+            SetHandler server-status
+        </Location>
+        <Location "/md-status">
+            SetHandler md-status
+        </Location>
+                    """.format(
+            https_port=TestEnv.HTTPS_PORT,
+            domain=domain
+        ))
         conf.start_md(domains)
         conf.add_line(f"MDCertificateFile {cert_file}")
         conf.add_line(f"MDCertificateKeyFile {pkey_file}")

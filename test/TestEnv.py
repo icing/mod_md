@@ -7,6 +7,9 @@
 import copy
 import inspect
 import json
+import logging
+import ssl
+
 import pytest
 import re
 import os
@@ -17,14 +20,19 @@ import time
 
 from datetime import datetime
 from configparser import ConfigParser
-from http.client import HTTPConnection
+from http.client import HTTPConnection, HTTPSConnection
 from typing import Dict
 from urllib.parse import urlparse
 
 from TestCertUtil import CertUtil
 
+
+log = logging.getLogger(__name__)
+
+
 class Dummy:
     pass
+
 
 class TestEnv:
 
@@ -40,13 +48,23 @@ class TestEnv:
     EMPTY_JOUT = {'status': 0, 'output': []}
 
     DOMAIN_SUFFIX = "%d.org" % time.time()
+    LOG_FMT_TIGHT = '%(levelname)s: %(message)s'
 
     apachectl_stderr = None
+
+    _SSL_MODULE = None
+    @classmethod
+    def get_ssl_module(cls):
+        if cls._SSL_MODULE is None:
+            cls._SSL_MODULE = os.environ['SSL_MODULE'] if 'SSL_MODULE' in os.environ else "ssl"
+        return cls._SSL_MODULE
 
     @classmethod
     def init(cls):
         if cls.INITIALIZED:
             return
+        logging.getLogger('').setLevel(level=logging.DEBUG)
+
         our_dir = os.path.dirname(inspect.getfile(TestEnv))
         config = ConfigParser()
         config.read(os.path.join(our_dir, 'test.ini'))
@@ -68,8 +86,6 @@ class TestEnv:
         cls.APACHE_CONF = os.path.join(cls.APACHE_CONF_DIR, "httpd.conf")
         cls.APACHE_CONF_SRC = "data"
         cls.APACHE_HTDOCS_DIR = os.path.join(cls.WEBROOT, "htdocs")
-
-        cls.SSL_MODULE = os.environ['SSL_MODULE'] if 'SSL_MODULE' in os.environ else "ssl"
 
         cls.HTTP_PORT = config.get('global', 'http_port')
         cls.HTTPS_PORT = config.get('global', 'https_port')
@@ -139,6 +155,7 @@ class TestEnv:
 
     @classmethod
     def run(cls, args, _input=None):
+        log.debug("run: {0}".format(" ".join(args)))
         p = subprocess.run(args, capture_output=True, text=True)
         # noinspection PyBroadException
         try:
@@ -180,22 +197,26 @@ class TestEnv:
     def is_live(cls, url, timeout):
         server = urlparse(url)
         try_until = time.time() + timeout
-        print("checking reachability of %s" % url)
+        log.debug("checking reachability of %s", url)
+        last_err = ""
         while time.time() < try_until:
             # noinspection PyBroadException
             try:
-                c = HTTPConnection(server.hostname, server.port, timeout=timeout)
-                c.request('HEAD', server.path)
-                _resp = c.getresponse()
-                c.close()
-                return True
+                r = TestEnv.curl(["-sk", "--resolve",
+                                  "%s:%s:127.0.0.1" % (server.hostname, server.port),
+                                  "-D", "-", "%s" % url])
+                if r['rv'] == 0:
+                    return True
+                time.sleep(.1)
             except ConnectionRefusedError:
-                print("connection refused")
+                log.debug("connection refused")
                 time.sleep(.1)
             except:
-                print("Unexpected error:", sys.exc_info()[0])
+                if last_err != str(sys.exc_info()[0]):
+                    last_err = str(sys.exc_info()[0])
+                    log.debug("Unexpected error: %s", last_err)
                 time.sleep(.1)
-        print("Unable to contact server after %d sec" % timeout)
+        log.debug("Unable to contact server after %d sec", timeout)
         return False
 
     @classmethod
@@ -441,7 +462,7 @@ class TestEnv:
     # --------- control apache ---------
 
     @classmethod
-    def apachectl(cls, cmd, conf=None, check_live=True):
+    def apachectl(cls, cmd, conf=None, check_live=True, check_url: str = None):
         if conf:
             assert 1 == 0
         args = [cls.APACHECTL, "-d", cls.WEBROOT, "-k", cmd]
@@ -449,18 +470,20 @@ class TestEnv:
         cls.apachectl_stderr = p.stderr
         rv = p.returncode
         if rv == 0:
+            if check_url is None:
+                check_url = cls.HTTPD_CHECK_URL
             if check_live:
-                rv = 0 if cls.is_live(cls.HTTPD_CHECK_URL, 10) else -1
+                rv = 0 if cls.is_live(check_url, 10) else -1
             else:
-                rv = 0 if cls.is_dead(cls.HTTPD_CHECK_URL, 10) else -1
+                rv = 0 if cls.is_dead(check_url, 10) else -1
                 print("waited for a apache.is_dead, rv=%d" % rv)
         else:
             print("exit %d, stderr: %s" % (rv, p.stderr))
         return rv
 
     @classmethod
-    def apache_restart(cls):
-        return cls.apachectl("graceful")
+    def apache_restart(cls, check_url: str = None):
+        return cls.apachectl("graceful", check_url=check_url)
 
     @classmethod
     def apache_start(cls):

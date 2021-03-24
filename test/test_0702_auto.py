@@ -153,7 +153,6 @@ class TestAutov2:
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)
         conf.add_line("Protocols http/1.1 acme-tls/1")
-        conf.add_line("LogLevel tls:trace8")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
         conf.add_md(domains)
@@ -520,12 +519,11 @@ class TestAutov2:
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)
         conf.add_line("LogLevel core:debug")
-        conf.add_line("LogLevel ssl:debug")
         conf.add_line("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["tls-alpn-01"])
         conf.add_md(domains)
-        conf.add_vhost(domains)
+        conf.add_ssl_vhost(domains=domains)
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
@@ -550,7 +548,6 @@ class TestAutov2:
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)
         conf.add_line("LogLevel core:debug")
-        conf.add_line("LogLevel ssl:debug")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["tls-alpn-01"])
         conf.add_md(domains)
@@ -567,13 +564,13 @@ class TestAutov2:
 
     # test case: 2.4.40 mod_ssl stumbles over a SSLCertificateChainFile when installing
     # a fallback certificate
+    @pytest.mark.skipif(TestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
     def test_702_042(self):
         domain = self.test_domain
         dns_list = [domain]
         conf = HttpdConf()
         conf.add_admin("admin@" + domain)
         conf.add_line("LogLevel core:debug")
-        conf.add_line("LogLevel ssl:debug")
         conf.add_line("SSLCertificateChainFile %s" % (self._path_conf_ssl("valid_cert.pem")))
         conf.add_drive_mode("auto")
         conf.add_md(dns_list)
@@ -620,7 +617,9 @@ class TestAutov2:
             Protocols h2 http/1.1 acme-tls/1
             ServerAdmin admin@%s
             ServerName %s
-            SSLEngine on
+            <IfModule ssl_module>
+              SSLEngine on
+            </IfModule>
             """ % (domain, domain))
         conf.add_md([domain])
         conf.install()

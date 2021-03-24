@@ -85,18 +85,20 @@ class TestAutov2:
         domain = self.test_domain
         self.set_get_check_pkeys(domain, [ 
             {'spec': "P-256", 'ciphers': "ECDSA", 'keylen': 256},
-            {'spec': "RSA 3072", 'ciphers': "RSA", 'keylen': 3072},
+            {'spec': "RSA 3072", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 3072},
         ])
 
     # set two key spec, rsa before ec
     def test_810_003b(self):
         domain = self.test_domain
         self.set_get_check_pkeys(domain, [ 
-            {'spec': "RSA 3072", 'ciphers': "RSA", 'keylen': 3072},
+            {'spec': "RSA 3072", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 3072},
             {'spec': "secp384r1", 'ciphers': "ECDSA", 'keylen': 384},
         ])
 
     # use a curve unsupported by LE
+    # only works with mod_ssl as rustls refuses to load such a weak key
+    @pytest.mark.skipif(TestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
     def test_810_004(self):
         domain = self.test_domain
         # generate config with one MD
@@ -116,17 +118,20 @@ class TestAutov2:
     # set three key specs
     def test_810_005(self):
         domain = self.test_domain
+        # behaviour differences, mod_ssl selects the strongest suitable,
+        # mod_tls selects the first suitable
+        ec_key_len = 384 if TestEnv.get_ssl_module() == "ssl" else 256
         self.set_get_check_pkeys(domain, [ 
-            {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 384},  # we will see the cert from 3
-            {'spec': "RSA 4096", 'ciphers': "RSA", 'keylen': 4096},
-            {'spec': "P-384", 'ciphers': "ECDSA", 'keylen': 384},
+            {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': ec_key_len},
+            {'spec': "RSA 4096", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 4096},
+            {'spec': "P-384", 'ciphers': "ECDSA", 'keylen': ec_key_len},
         ])
 
     # set three key specs
     def test_810_006(self):
         domain = self.test_domain
         self.set_get_check_pkeys(domain, [
-            {'spec': "rsa2048", 'ciphers': "RSA", 'keylen': 2048},
+            {'spec': "rsa2048", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 2048},
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256},
         ])
 
