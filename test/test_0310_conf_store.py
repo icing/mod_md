@@ -812,7 +812,6 @@ class TestConf:
         conf.start_md([domain])
         conf.end_md()
         conf.add_ssl_vhost(domains=[domain])
-        conf.add_line('LogLevel md:trace1')
         conf.install()
         assert TestEnv.apache_restart() == 0
         # add a file at top level

@@ -37,6 +37,6 @@ LoadModule proxy_connect_module "@PREFIX@/modules/mod_proxy_connect.so"
 LoadModule mpm_event_module     "@PREFIX@/modules/mod_mpm_event.so"
 
 # Testing the local version
-#LoadModule md_module            "@PREFIX@/modules/mod_md.so"
-LoadModule md_module            "@MODULE_SRC@/.libs/mod_md.so"
+LoadModule md_module            "@PREFIX@/modules/mod_md.so"
+#LoadModule md_module            "@MODULE_SRC@/.libs/mod_md.so"
 
