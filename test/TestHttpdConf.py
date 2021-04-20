@@ -21,7 +21,7 @@ class HttpdConf(object):
         with open(self.path, "a") as fd:
             fd.write("""
 LoadModule {ssl}_module  "{prefix}/modules/mod_{ssl}.so"
-LogLevel {ssl}:trace4
+LogLevel {ssl}:debug
 LogLevel md:trace2    
             """.format(
                 prefix=TestEnv.PREFIX,

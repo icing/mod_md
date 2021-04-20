@@ -496,20 +496,25 @@ static apr_status_t acme_driver_preload_init(md_proto_driver_t *d, md_result_t *
     md_credentials_t *cred;
     int i;
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: preload_init 1", d->md->name);
     md_result_set(result, APR_SUCCESS, NULL);
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: preload_init 1b", d->md->name);
     ad = apr_pcalloc(d->p, sizeof(*ad));
     
     d->baton = ad;
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: preload_init 2", d->md->name);
     ad->driver = d;
     ad->authz_monitor_timeout = apr_time_from_sec(30);
     ad->cert_poll_timeout = apr_time_from_sec(30);
     ad->ca_challenges = apr_array_make(d->p, 3, sizeof(const char*));
     
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: preload_init 3", d->md->name);
     /* We want to obtain credentials (key+certificate) for every key spec in this MD */
     ad->creds = apr_array_make(d->p, md_pkeys_spec_count(d->md->pks), sizeof(md_credentials_t*));
     for (i = 0; i < md_pkeys_spec_count(d->md->pks); ++i) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: preload_init 4 %d", d->md->name, i);
         cred = apr_pcalloc(d->p, sizeof(*cred));
         cred->spec = md_pkeys_spec_get(d->md->pks, i);
         cred->chain = apr_array_make(d->p, 5, sizeof(md_cert_t*));
@@ -527,6 +532,7 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
     int dis_http, dis_https, dis_alpn_acme, dis_dns;
     const char *challenge;
 
+    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, d->p, "%s: preload_init", d->md->name);
     acme_driver_preload_init(d, result);
     md_result_set(result, APR_SUCCESS, NULL);
     if (APR_SUCCESS != result->status) goto leave;
