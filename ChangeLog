@@ -1,3 +1,4 @@
+ * Adjusted test cases to work with mod_tls for OCSP stapling.
  * Implemented the new OCSP provisioning hooks in apache core.
  * Extended test suite to run also against mod_tls. Run
    ```SSL_MODULE=tls pytest``` to load an installed `mod_tls` into the server.

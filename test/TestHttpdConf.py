@@ -122,6 +122,17 @@ include "conf/proxy.conf"
     def add_dns01_cmd(self, cmd):
         self._add_line("  MDChallengeDns01 %s\n" % cmd)
 
+    def add_certificate(self, cert_file, key_file):
+        if TestEnv.get_ssl_module() == "ssl":
+            self._add_line(f"""
+                SSLCertificateFile {cert_file}
+                SSLCertificateKeyFile {key_file}
+                """)
+        elif TestEnv.get_ssl_module() == "tls":
+            self._add_line(f"""
+                TLSCertificate {cert_file} {key_file}
+            """)
+
     def add_vhost(self, domains, port=None, doc_root="htdocs"):
         self.start_vhost(domains, port=port, doc_root=doc_root)
         self.end_vhost()

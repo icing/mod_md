@@ -121,17 +121,18 @@ class TestStatus:
     def test_920_010(self):
         domain = self.test_domain
         domains = [domain]
-        conf = HttpdConf(std_vhosts=False, std_ports=False, text="""
+        conf = HttpdConf(std_vhosts=False, std_ports=False, text=f"""
 MDBaseServer on
-MDPortMap http:- https:{https_port}
+MDPortMap http:- https:{TestEnv.HTTPS_PORT}
 
-Listen {https_port} https
+Listen {TestEnv.HTTPS_PORT} https
 ServerAdmin admin@not-forbidden.org
 ServerName {domain}
 <IfModule ssl_module>
 SSLEngine on
 </IfModule>
 <IfModule tls_module>
+TLSListen {TestEnv.HTTPS_PORT}
 TLSStrictSNI off
 </IfModule>
 Protocols h2 http/1.1 acme-tls/1
@@ -142,10 +143,7 @@ Protocols h2 http/1.1 acme-tls/1
 <Location "/md-status">
     SetHandler md-status
 </Location>
-            """.format(
-            https_port=TestEnv.HTTPS_PORT,
-            domain=domain
-        ))
+            """)
         conf.add_md(domains)
         conf.install()
         assert TestEnv.apache_restart(check_url=TestEnv.HTTPD_URL_SSL) == 0
@@ -179,17 +177,19 @@ Protocols h2 http/1.1 acme-tls/1
         pkey_file = os.path.join(testpath, 'privkey.pem')
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
-        conf = HttpdConf(std_vhosts=False, std_ports=False, text="""
+        conf = HttpdConf(std_vhosts=False, std_ports=False, text=f"""
         MDBaseServer on
-        MDPortMap http:- https:{https_port}
+        MDPortMap http:- https:{TestEnv.HTTPS_PORT}
 
-        Listen {https_port} https
+        Listen {TestEnv.HTTP_PORT}
+        Listen {TestEnv.HTTPS_PORT} https
         ServerAdmin admin@not-forbidden.org
         ServerName {domain}
         <IfModule ssl_module>
         SSLEngine on
         </IfModule>
         <IfModule tls_module>
+        TLSListen {TestEnv.HTTPS_PORT}
         TLSStrictSNI off
         </IfModule>
         Protocols h2 http/1.1 acme-tls/1
@@ -200,10 +200,7 @@ Protocols h2 http/1.1 acme-tls/1
         <Location "/md-status">
             SetHandler md-status
         </Location>
-                    """.format(
-            https_port=TestEnv.HTTPS_PORT,
-            domain=domain
-        ))
+            """)
         conf.start_md(domains)
         conf.add_line(f"MDCertificateFile {cert_file}")
         conf.add_line(f"MDCertificateKeyFile {pkey_file}")

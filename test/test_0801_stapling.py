@@ -42,9 +42,11 @@ class TestStapling:
         conf.add_admin("admin@" + cls.domain)
         if ssl_stapling:
             conf.add_line("""
+            <IfModule ssl_module>
                 LogLevel ssl:trace2
                 SSLUseStapling On
                 SSLStaplingCache \"shmcb:logs/ssl_stapling(32768)\"
+            </IfModule>
                 """)
         conf.add_line(add_lines)
         for domain in domains:
@@ -94,7 +96,8 @@ class TestStapling:
         assert TestEnv.apache_stop() == 0
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_ocsp_status(md)
-        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['ocsp'] == "successful (0x0)" if \
+            TestEnv.get_ssl_module() == "ssl" else "no response sent"
         stat = TestEnv.get_md_status(md)
         assert not stat["stapling"]
         #
@@ -114,7 +117,8 @@ class TestStapling:
         TestStapling.configure_httpd(md, "MDStapling off", ssl_stapling=True).install()
         assert TestEnv.apache_restart() == 0
         stat = TestEnv.get_ocsp_status(md)
-        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['ocsp'] == "successful (0x0)" if \
+            TestEnv.get_ssl_module() == "ssl" else "no response sent"
         stat = TestEnv.get_md_status(md)
         assert not stat["stapling"]
         
@@ -169,7 +173,7 @@ class TestStapling:
         assert TestEnv.apache_restart() == 0
         # mdA has stapling
         stat = TestEnv.await_ocsp_status(md_a)
-        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['ocsp'] == "successful (0x0)"
         assert stat['verify'] == "0 (ok)"
         stat = TestEnv.get_md_status(md_a)
         assert stat["stapling"]
@@ -178,7 +182,8 @@ class TestStapling:
         assert stat["cert"][pkey]["ocsp"]["valid"]
         # mdB has no md stapling, but mod_ssl kicks in
         stat = TestEnv.get_ocsp_status(md_b)
-        assert stat['ocsp'] == "successful (0x0)" 
+        assert stat['ocsp'] == "successful (0x0)" if \
+            TestEnv.get_ssl_module() == "ssl" else "no response sent"
         stat = TestEnv.get_md_status(md_b)
         assert not stat["stapling"]
 
@@ -298,7 +303,7 @@ class TestStapling:
                 ocsp_file = os.path.join(dirpath, name)
         assert ocsp_file
 
-    # Use certificate files in old skool mod_ssl set, check that stapling works
+    # Use certificate files in direct config, check that stapling works
     def test_801_008(self):
         assert TestEnv.apache_stop() == 0
         # turn stapling on, wait for it to appear in connections
@@ -306,11 +311,8 @@ class TestStapling:
         conf = TestStapling.configure_httpd()
         conf.add_line("MDStapling on")
         conf.start_vhost(md)
-        conf.add_line("""
-            SSLCertificateKeyFile %s
-            SSLCertificateFile %s
-            """ % (TestEnv.store_domain_file(md, 'privkey.pem'),
-                   TestEnv.store_domain_file(md, 'pubcert.pem')))
+        conf.add_certificate(TestEnv.store_domain_file(md, 'pubcert.pem'),
+                             TestEnv.store_domain_file(md, 'privkey.pem'))
         conf.end_vhost()
         conf.install()
         assert TestEnv.apache_restart() == 0
