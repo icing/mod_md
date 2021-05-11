@@ -784,15 +784,16 @@ class TestEnv:
         return stat
 
     @classmethod
-    def await_ocsp_status(cls, domain, timeout=60):
+    def await_ocsp_status(cls, domain, timeout=5):
         try_until = time.time() + timeout
         while True:
             if time.time() >= try_until:
-                return False
+                break
             stat = cls.get_ocsp_status(domain)
             if 'ocsp' in stat and stat['ocsp'] != "no response sent":
                 return stat
             time.sleep(0.1)
+        raise TimeoutError(f"ocsp respopnse not available: {domain}")
 
     @classmethod
     def create_self_signed_cert(cls, name_list, valid_days, serial=1000, path=None):

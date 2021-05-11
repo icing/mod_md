@@ -39,11 +39,18 @@ class TestStapling:
         if not isinstance(domains, list):
             domains = [domains] if domains else []
         conf = HttpdConf()
+        conf.add_line("""
+        <IfModule tls_module>
+            LogLevel tls:trace4
+        </IfModule>
+        <IfModule ssl_module>
+            LogLevel ssl:trace4
+        </IfModule>
+            """)
         conf.add_admin("admin@" + cls.domain)
         if ssl_stapling:
             conf.add_line("""
             <IfModule ssl_module>
-                LogLevel ssl:trace2
                 SSLUseStapling On
                 SSLStaplingCache \"shmcb:logs/ssl_stapling(32768)\"
             </IfModule>
