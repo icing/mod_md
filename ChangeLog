@@ -1,3 +1,7 @@
+v2.4.2
+----------------------------------------------------------------------------------------------------
+ * This release needs at least Apache httpd 2.4.48 or later.
+ * Fixed missing definitions when compiling against libressl. [Giovanni Bechis <giovanni@paclan.it>]
  * Making sure mod_md initializes after mod_watchdog, as otherwise jobs are not registered.
  * Adjusted test cases to work with mod_tls for OCSP stapling.
  * Implemented the new OCSP provisioning hooks in apache core.
