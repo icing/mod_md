@@ -1,3 +1,4 @@
+ * Making sure mod_md initializes after mod_watchdog, as otherwise jobs are not registered.
  * Adjusted test cases to work with mod_tls for OCSP stapling.
  * Implemented the new OCSP provisioning hooks in apache core.
  * Extended test suite to run also against mod_tls. Run

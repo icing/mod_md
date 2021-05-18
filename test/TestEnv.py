@@ -784,7 +784,7 @@ class TestEnv:
         return stat
 
     @classmethod
-    def await_ocsp_status(cls, domain, timeout=5):
+    def await_ocsp_status(cls, domain, timeout=10):
         try_until = time.time() + timeout
         while True:
             if time.time() >= try_until:

@@ -60,7 +60,7 @@ class TestStapling:
             conf.add_md([domain])
             conf.add_vhost(domain)
         return conf
-    
+
     # MD with stapling on/off and mod_ssl stapling off
     # expect to only see stapling response when MD stapling is on
     def test_801_001(self):
