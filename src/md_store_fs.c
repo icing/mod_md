@@ -110,8 +110,7 @@ static apr_status_t init_store_file(md_store_fs_t *s_fs, const char *fname,
     
     md_json_setn(MD_STORE_VERSION, json, MD_KEY_STORE, MD_KEY_VERSION, NULL);
 
-    s_fs->key.len = FS_STORE_KLEN;
-    s_fs->key.data = apr_pcalloc(p, FS_STORE_KLEN);
+    md_data_pinit(&s_fs->key, FS_STORE_KLEN, p);
     if (APR_SUCCESS != (rv = md_rand_bytes((unsigned char*)s_fs->key.data, s_fs->key.len, p))) {
         return rv;
     }

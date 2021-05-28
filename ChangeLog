@@ -1,3 +1,6 @@
+ * Removed the old mod_ssl interworking code. The module now requires a
+   Apache httpd 2.4.48 or newer.
+
 v2.4.2
 ----------------------------------------------------------------------------------------------------
  * This release needs at least Apache httpd 2.4.48 or later.
