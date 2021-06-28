@@ -300,18 +300,29 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->group_perms[MD_SG_CHALLENGES].file = MD_FPROT_F_UALL_WREAD;
 
     s_fs->base = apr_pstrdup(p, path);
-    
-    if (APR_STATUS_IS_ENOENT(rv = md_util_is_dir(s_fs->base, p))
-        && MD_OK(apr_dir_make_recursive(s_fs->base, s_fs->def_perms.dir, p))) {
+
+    rv = md_util_is_dir(s_fs->base, p);
+    if (APR_STATUS_IS_ENOENT(rv)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, rv, p,
+            "store directory does not exist, creating %s", s_fs->base);
+        rv = apr_dir_make_recursive(s_fs->base, s_fs->def_perms.dir, p);
+        if (APR_SUCCESS != rv) goto cleanup;
         rv = apr_file_perms_set(s_fs->base, MD_FPROT_D_UALL_WREAD);
         if (APR_STATUS_IS_ENOTIMPL(rv)) {
             rv = APR_SUCCESS;
         }
+        if (APR_SUCCESS != rv) goto cleanup;
     }
-    
-    if ((APR_SUCCESS != rv) || !MD_OK(md_util_pool_vdo(setup_store_file, s_fs, p, NULL))) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "init fs store at %s", path);
+    else if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
+            "not a plain directory, maybe a symlink? %s", s_fs->base);
     }
+
+    rv = md_util_pool_vdo(setup_store_file, s_fs, p, NULL);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "init fs store at %s", s_fs->base);
+    }
+cleanup:
     *pstore = (rv == APR_SUCCESS)? &(s_fs->s) : NULL;
     return rv;
 }
