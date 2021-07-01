@@ -43,6 +43,7 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Live with `http:`](#how-to-live-with-http)
     * [Live without `http:`](#how-to-live-without-http)
     * [Analyze and fix problems](#how-to-fix-problems)
+    * [Platorm Specifics](#platform-specifics)
   - Advanced:
     * [Have one cert for several Hosts](#how-to-have-one-cert-for-several-hosts)
     * [Have an Extra Name in a Certificate](#how-to-have-an-extra-name-in-a-cert)
@@ -409,6 +410,25 @@ The most common cause is that you request a wildcard certificate, e.g. `*.mydoma
 Another cause: if your server is not reachable on port 80 and you have not configured `acme-tls/1` (see [TLS ALPN Challenges](#tls-alpn-challenges) for details). Again, mod_md is not able to select a challenge for Let's Encrypt to perform.
 
 Read the [chapter about ports](#ports-ports-ports) for more information about what is going on and what you can do.
+
+## Platform Specifics
+
+The module is used on various platforms. Some require special attention:
+
+### CentOS 8 advice by @marcstern 
+
+The chrooted `md` directory [where are certficiates are stored] must be have the following properties:
+
+```
+owner: root -> rwx
+group: apache (or www-data or equivalent) -> rwx
+```
+
+Under Redhat (tested on 8), the normal & chrooted "md" directories must be have the following SELinux context:
+
+`system_u:object_r:httpd_var_lib_t:s0`
+
+For a discussion of the problems @marcstern encountered, see also issue #253.
 
 
 # Advanced HowTos
