@@ -1,5 +1,9 @@
+v2.4.3
+----------------------------------------------------------------------------------------------------
  * Removed the old mod_ssl interworking code. The module now requires a
    Apache httpd 2.4.48 or newer.
+ * Fixed a potential null pointer dereference if ACME/OCSP server returned
+   2xx responses without content type. Reported by chuangwen.
 
 v2.4.2
 ----------------------------------------------------------------------------------------------------
