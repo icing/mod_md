@@ -1,3 +1,9 @@
+ * Fixed a failure in ACME challenge selection that aborted further searches
+   when the tls-alpn-01 method did not seem to be suitable. See #255
+ * Changed the tls-alpn-01 setup to only become unsuitable when none of the
+   dns names showed support for a configured 'Protocols ... acme-tls/1'. This
+   allows use of tls-alpn-01 for dns names that are not mapped to a VirtualHost.
+
 v2.4.3
 ----------------------------------------------------------------------------------------------------
  * Removed the old mod_ssl interworking code. The module now requires a

@@ -578,6 +578,64 @@ class TestAutov2:
         conf.install()
         assert TestEnv.apache_restart() == 0
         
+    # test case: test "tls-alpn-01" without enabling 'acme-tls/1' challenge protocol
+    # and fallback "http-01" configured, see https://github.com/icing/mod_md/issues/255
+    def test_702_043(self):
+        domain = self.test_domain
+        domains = [domain, "www." + domain]
+        #
+        # generate 1 MD and 1 vhost
+        conf = HttpdConf()
+        conf.add_admin("admin@" + domain)
+        conf.add_line("LogLevel core:debug")
+        conf.add_drive_mode("auto")
+        conf._add_line("MDPortMap 80:%s" % TestEnv.HTTP_PORT)
+        conf.add_ca_challenges(["tls-alpn-01", "http-01"])
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        #
+        # restart (-> drive), check that MD job shows errors
+        # and that missing proto is detected
+        assert TestEnv.apache_restart() == 0
+        TestEnv.check_md(domains)
+        # check that acme-tls/1 is available for none of the domains
+        stat = TestEnv.get_md_status(domain)
+        assert stat["proto"]["acme-tls/1"] == []
+        # but make sure it completes nevertheless
+        assert TestEnv.await_completion([domain])
+
+    # test case: drive with using single challenge type explicitly
+    # and make sure that dns names not mapped to a VirtualHost also work
+    @pytest.mark.parametrize("challenge_type", [
+        "tls-alpn-01"  #, "http-01",
+    ])
+    def test_702_044(self, challenge_type):
+        domain = self.test_domain
+        md_domains = [domain, "mail." + domain]
+        domains = [domain]
+        #
+        # generate 1 MD and 1 vhost
+        conf = HttpdConf()
+        conf.add_admin("admin@" + domain)
+        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add_drive_mode("auto")
+        conf.add_ca_challenges([challenge_type])
+        conf.add_md(md_domains)
+        conf.add_vhost(domains)
+        conf.install()
+        #
+        # restart (-> drive), check that MD was synched and completes
+        assert TestEnv.apache_restart() == 0
+        TestEnv.check_md(md_domains)
+        assert TestEnv.await_completion([domain])
+        TestEnv.check_md_complete(domain)
+        #
+        # check SSL running OK
+        cert = TestEnv.get_cert(domain)
+        assert md_domains[0] in cert.get_san_list()
+        assert md_domains[1] in cert.get_san_list()
+
     # Make a setup using the base server. It will use http-01 challenge.
     def test_702_050(self):
         domain = self.test_domain

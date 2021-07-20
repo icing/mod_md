@@ -155,7 +155,7 @@ class TestEnv:
 
     @classmethod
     def run(cls, args, _input=None):
-        log.debug("run: {0}".format(" ".join(args)))
+        # log.debug("run: {0}".format(" ".join(args)))
         p = subprocess.run(args, capture_output=True, text=True)
         # noinspection PyBroadException
         try:
