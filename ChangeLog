@@ -1,3 +1,4 @@
+ * Domain names in `<MDomain ...>` can now appear in quoted form. Fixes #257
  * Fixed a failure in ACME challenge selection that aborted further searches
    when the tls-alpn-01 method did not seem to be suitable. See #255
  * Changed the tls-alpn-01 setup to only become unsuitable when none of the

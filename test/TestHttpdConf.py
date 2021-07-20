@@ -87,7 +87,7 @@ include "conf/proxy.conf"
         self._add_line("  ServerAdmin mailto:%s\n" % email)
 
     def add_md(self, domains):
-        dlist = " ".join([domains])    # without quotes
+        dlist = " ".join(domains)    # without quotes
         self._add_line(f"  MDomain {dlist}\n")
 
     def start_md(self, domains):
