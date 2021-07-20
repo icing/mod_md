@@ -75,7 +75,7 @@ include "conf/proxy.conf"
         self._add_line(line)
 
     def add_drive_mode(self, mode):
-        self._add_line("  MDRenewMode %s\n" % mode)
+        self._add_line("  MDRenewMode \"%s\"\n" % mode)
 
     def add_renew_window(self, window):
         self._add_line("  MDRenewWindow %s\n" % window)
@@ -84,13 +84,15 @@ include "conf/proxy.conf"
         self._add_line("  MDPrivateKeys %s %s\n" % (key_type, " ".join(map(lambda p: str(p), key_params))))
 
     def add_admin(self, email):
-        self._add_line("  ServerAdmin mailto:%s\n\n" % email)
+        self._add_line("  ServerAdmin mailto:%s\n" % email)
 
     def add_md(self, domains):
-        self._add_line("  MDomain %s\n\n" % " ".join(domains))
+        dlist = " ".join([domains])    # without quotes
+        self._add_line(f"  MDomain {dlist}\n")
 
     def start_md(self, domains):
-        self._add_line("  <MDomain %s>\n" % " ".join(domains))
+        dlist = " ".join([f"\"{d}\"" for d in domains])  # with quotes, #257
+        self._add_line(f"  <MDomain {dlist}>\n")
         
     def start_md2(self, domains):
         self._add_line("  <MDomainSet %s>\n" % " ".join(domains))
@@ -111,7 +113,7 @@ include "conf/proxy.conf"
         self._add_line("  MDHttpProxy %s\n" % url)
 
     def add_require_ssl(self, mode):
-        self._add_line("  MDRequireHttps %s\n" % mode)
+        self._add_line("  MDRequireHttps \"%s\"\n" % mode)
 
     def add_notify_cmd(self, cmd):
         self._add_line("  MDNotifyCmd %s\n" % cmd)
@@ -120,7 +122,7 @@ include "conf/proxy.conf"
         self._add_line("  MDMessageCmd %s\n" % cmd)
 
     def add_dns01_cmd(self, cmd):
-        self._add_line("  MDChallengeDns01 %s\n" % cmd)
+        self._add_line("  MDChallengeDns01 \"%s\"\n" % cmd)
 
     def add_certificate(self, cert_file, key_file):
         if TestEnv.get_ssl_module() == "ssl":
