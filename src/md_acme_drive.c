@@ -767,6 +767,27 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                     }
                     
                     if (!md_array_is_empty(ad->cred->chain)) {
+
+                        if (!ad->cred->pkey) {
+                            rv = md_pkey_load(d->store, MD_SG_STAGING, d->md->name, ad->cred->spec, &ad->cred->pkey, d->p);
+                            if (APR_SUCCESS != rv) {
+                                md_result_printf(result, rv, "Loading the private key.");
+                                goto out;
+                            }
+                        }
+
+                        if (ad->cred->pkey) {
+                            rv = md_check_cert_and_pkey(ad->cred->chain, ad->cred->pkey);
+                            if (APR_SUCCESS != rv) {
+                                md_result_printf(result, rv, "Certificate and private key do not match.");
+
+                                /* Delete the order */
+                                md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
+
+                                goto out;
+                            }
+                        }
+
                         rv = md_pubcert_save(d->store, d->p, MD_SG_STAGING, d->md->name, 
                                              ad->cred->spec, ad->cred->chain, 0);
                         if (APR_SUCCESS != rv) {
