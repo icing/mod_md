@@ -922,6 +922,10 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
             md_result_printf(result, rv, "no certificate in staged credentials #%d", i);
             goto leave;
         }
+        if (APR_SUCCESS != (rv = md_check_cert_and_pkey(creds->chain, creds->pkey))) {
+            md_result_printf(result, rv, "certificate and private key do not match in staged credentials #%d", i);
+            goto leave;
+        }
         APR_ARRAY_PUSH(all_creds, md_credentials_t*) = creds;
     }
     
