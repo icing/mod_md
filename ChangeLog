@@ -1,3 +1,8 @@
+ * Certificate/keys pairs are verified as matching before a renewal is accepted
+   as successful or a staged renewal is replacing the existing certificates.
+   This avoid potential mess ups in the md store file system to render the active
+   certificates non-working. [@mkauf]
+
 v2.4.4
 ----------------------------------------------------------------------------------------------------
  * Domain names in `<MDomain ...>` can now appear in quoted form. Fixes #257
