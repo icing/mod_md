@@ -1,51 +1,43 @@
 # test ACME error responses and their processing
+import pytest
 
-from TestEnv import TestEnv
-from TestHttpdConf import HttpdConf
-
-
-def setup_module(module):
-    print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
-    TestEnv.APACHE_CONF_SRC = "data/test_auto"
-    TestEnv.check_acme()
-    TestEnv.clear_store()
-    HttpdConf().install()
-    assert TestEnv.apache_start() == 0
-    
-
-def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
+from md_conf import HttpdConf
 
 
 class TestAcmeErrors:
 
-    def setup_method(self, method):
-        print("setup_method: %s" % method.__name__)
-        self.test_domain = TestEnv.get_method_domain(method)
+    @pytest.fixture(autouse=True, scope='class')
+    def _class_scope(self, env):
+        env.APACHE_CONF_SRC = "data/test_auto"
+        env.check_acme()
+        env.clear_store()
+        HttpdConf(env).install()
+        assert env.apache_restart() == 0
 
-    def teardown_method(self, method):
-        print("teardown_method: %s" % method.__name__)
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env, request):
+        env.clear_store()
+        self.test_domain = env.get_request_domain(request)
 
     # -----------------------------------------------------------------------------------------------
     # test case: MD with 2 names, one invalid
     #
-    def test_740_000(self):
+    def test_740_000(self, env):
         domain = self.test_domain
         domains = [domain, "invalid!." + domain]
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert TestEnv.apache_restart() == 0
-        md = TestEnv.await_error(domain)
+        assert env.apache_restart() == 0
+        md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
-        if TestEnv.ACME_SERVER == 'pebble':
+        if env.ACME_SERVER == 'pebble':
             assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
-            assert md['renewal']['last']['detail'] == "Order included DNS identifier with a value containing an illegal character: '!'"
+            assert md['renewal']['last']['detail'] == \
+                   "Order included DNS identifier with a value containing an illegal character: '!'"
         else:
             assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:rejectedIdentifier'
             assert md['renewal']['last']['detail'] == (
@@ -54,19 +46,19 @@ class TestAcmeErrors:
 
     # test case: MD with 3 names, 2 invalid
     #
-    def test_740_001(self):
+    def test_740_001(self, env):
         domain = self.test_domain
         domains = [domain, "invalid1!." + domain, "invalid2!." + domain]
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert TestEnv.apache_restart() == 0
-        md = TestEnv.await_error(domain)
+        assert env.apache_restart() == 0
+        md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
-        if TestEnv.ACME_SERVER == 'pebble':
+        if env.ACME_SERVER == 'pebble':
             assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
             assert md['renewal']['last']['detail'].startswith(
                 "Order included DNS identifier with a value containing an illegal character")

@@ -1,39 +1,35 @@
 # test mod_md cleanups and sanitation
 
 import os
-from TestEnv import TestEnv
-from TestHttpdConf import HttpdConf
 
+import pytest
 
-def setup_module(module):
-    print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
-    TestEnv.APACHE_CONF_SRC = "data/test_auto"
-    TestEnv.check_acme()
-    TestEnv.clear_store()
-    HttpdConf().install()
-
-
-def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
+from md_conf import HttpdConf
 
 
 class TestCleanups:
 
-    def setup_method(self, method):
-        print("setup_method: %s" % method.__name__)
-        TestEnv.clear_store()
-        self.test_domain = TestEnv.get_method_domain(method)
+    @pytest.fixture(autouse=True, scope='class')
+    def _class_scope(self, env):
+        env.APACHE_CONF_SRC = "data/test_auto"
+        env.check_acme()
+        env.clear_store()
+        HttpdConf(env).install()
+        assert env.apache_restart() == 0
+
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env, request):
+        env.clear_store()
+        self.test_domain = env.get_request_domain(request)
 
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    def test_910_01(self):
+    def test_910_01(self, env):
         # generate a simple MD
         domain = self.test_domain
         domains = [domain]
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_drive_mode("manual")
         conf.add_md(domains)
@@ -41,12 +37,12 @@ class TestCleanups:
         conf.install()
 
         # create valid/invalid challenges subdirs
-        challenges_dir = TestEnv.store_challenges()
+        challenges_dir = env.store_challenges()
         dirs_before = ["aaa", "bbb", domain, "zzz"]
         for name in dirs_before:
             os.makedirs(os.path.join(challenges_dir, name))
 
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
         # the one we use is still there
         assert os.path.isdir(os.path.join(challenges_dir, domain))
         # and the others are gone

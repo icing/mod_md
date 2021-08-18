@@ -2,47 +2,39 @@
 
 import os
 
-from TestEnv import TestEnv
-from TestHttpdConf import HttpdConf
+import pytest
 
-
-def setup_module(module):
-    print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
-    TestEnv.APACHE_CONF_SRC = "data/test_auto"
-    TestEnv.check_acme()
-    TestEnv.clear_store()
-    HttpdConf().install()
-    
-
-def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
+from md_conf import HttpdConf
 
 
 class TestStatus:
 
-    def setup_method(self, method):
-        print("setup_method: %s" % method.__name__)
-        TestEnv.clear_store()
-        self.test_domain = TestEnv.get_method_domain(method)
+    @pytest.fixture(autouse=True, scope='class')
+    def _class_scope(self, env):
+        env.APACHE_CONF_SRC = "data/test_auto"
+        env.check_acme()
+        env.clear_store()
+        HttpdConf(env).install()
+        assert env.apache_restart() == 0
 
-    def teardown_method(self, method):
-        print("teardown_method: %s" % method.__name__)
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env, request):
+        env.clear_store()
+        self.test_domain = env.get_request_domain(request)
 
-    def test_730_001(self):
+    def test_730_001(self, env):
         # MD with static cert files, will not be driven
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
+        testpath = os.path.join(env.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        TestEnv.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
-                                        serial=730001, path=testpath)
+        env.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
+                                    serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % cert_file)
@@ -50,30 +42,30 @@ class TestStatus:
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
         
         # check if the domain uses it, it appears in our stats and renewal is off
-        cert = TestEnv.get_cert(domain)
+        cert = env.get_cert(domain)
         assert cert.same_serial_as(730001)
-        stat = TestEnv.get_md_status(domain)
+        stat = env.get_md_status(domain)
         assert stat
         assert 'cert' in stat
         assert stat['renew'] is True
         assert 'renewal' not in stat
 
-    def test_730_002(self):
+    def test_730_002(self, env):
         # MD with static cert files, force driving
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
+        testpath = os.path.join(env.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        TestEnv.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
-                                        serial=730001, path=testpath)
+        env.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
+                                    serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % cert_file)
@@ -82,44 +74,44 @@ class TestStatus:
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
         
         # check if the domain uses it, it appears in our stats and renewal is off
-        cert = TestEnv.get_cert(domain)
+        cert = env.get_cert(domain)
         assert cert.same_serial_as(730001)
-        stat = TestEnv.get_md_status(domain)
+        stat = env.get_md_status(domain)
         assert stat
         assert 'cert' in stat
         assert stat['renew'] is True
-        assert TestEnv.await_renewal(domains)
+        assert env.await_renewal(domains)
 
-    def test_730_003(self):
+    def test_730_003(self, env):
         # just configuring one file will not work
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(TestEnv.GEN_DIR, 'test_920_001')
+        testpath = os.path.join(env.GEN_DIR, 'test_920_001')
         # cert that is only 10 more days valid
-        TestEnv.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
-                                        serial=730001, path=testpath)
+        env.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
+                                    serial=730001, path=testpath)
         cert_file = os.path.join(testpath, 'pubcert.pem')
         pkey_file = os.path.join(testpath, 'privkey.pem')
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add_line("MDCertificateFile %s" % cert_file)
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
-        assert TestEnv.apache_fail() == 0
+        assert env.apache_fail() == 0
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add_line("MDCertificateKeyFile %s" % pkey_file)
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
-        assert TestEnv.apache_fail() == 0
+        assert env.apache_fail() == 0

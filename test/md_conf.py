@@ -1,21 +1,16 @@
-###################################################################################################
-# httpd test configuration generator
-#
-# (c) 2019 greenbytes GmbH
-###################################################################################################
-
 import os
 from shutil import copyfile
 
-from TestEnv import TestEnv
+from md_env import MDTestEnv
 
 
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, name="test.conf", local_ca=True, text=None, std_ports=True,
+    def __init__(self, env: MDTestEnv, name="test.conf", local_ca=True, text=None, std_ports=True,
                  std_vhosts=True, proxy=False):
-        self.path = os.path.join(TestEnv.GEN_DIR, name)
+        self.env = env
+        self.path = os.path.join(env.GEN_DIR, name)
         if os.path.isfile(self.path):
             os.remove(self.path)
         with open(self.path, "a") as fd:
@@ -24,8 +19,8 @@ LoadModule {ssl}_module  "{prefix}/modules/mod_{ssl}.so"
 LogLevel {ssl}:debug
 LogLevel md:trace2    
             """.format(
-                prefix=TestEnv.PREFIX,
-                ssl=TestEnv.get_ssl_module(),
+                prefix=env.PREFIX,
+                ssl=env.get_ssl_module(),
             ))
             if std_ports:
                 fd.write("""
@@ -34,24 +29,22 @@ Listen {https_port}
 
 MDPortMap 80:{http_port} 443:{https_port}
                 """.format(
-                    http_port = TestEnv.HTTP_PORT,
-                    https_port = TestEnv.HTTPS_PORT,
+                    http_port=env.HTTP_PORT,
+                    https_port=env.HTTPS_PORT,
                 ))
-                if TestEnv.get_ssl_module() == "tls":
+                if env.get_ssl_module() == "tls":
                     fd.write("""
     TLSListen {https_port}
                     """.format(
-                        https_port=TestEnv.HTTPS_PORT,
+                        https_port=env.HTTPS_PORT,
                     ))
             if local_ca:
                 fd.write("""
 MDCertificateAuthority {acme_url}
 MDCertificateAgreement accepted
 MDCACertificateFile {webroot}/test-ca.pem
-                """.format(
-                acme_url=TestEnv.ACME_URL,
-                webroot=TestEnv.WEBROOT
-            ))
+                """.format(acme_url=env.ACME_URL, webroot=env.WEBROOT)
+                         )
             if std_vhosts:
                 fd.write("""
 include "conf/std_vhosts.conf"
@@ -62,7 +55,6 @@ include "conf/proxy.conf"
     """)
             if text is not None:
                 fd.write(text)
-
 
     def clear(self):
         if os.path.isfile(self.path):
@@ -125,12 +117,12 @@ include "conf/proxy.conf"
         self._add_line("  MDChallengeDns01 \"%s\"\n" % cmd)
 
     def add_certificate(self, cert_file, key_file):
-        if TestEnv.get_ssl_module() == "ssl":
+        if self.env.get_ssl_module() == "ssl":
             self._add_line(f"""
                 SSLCertificateFile {cert_file}
                 SSLCertificateKeyFile {key_file}
                 """)
-        elif TestEnv.get_ssl_module() == "tls":
+        elif self.env.get_ssl_module() == "tls":
             self._add_line(f"""
                 TLSCertificate {cert_file} {key_file}
             """)
@@ -142,32 +134,32 @@ include "conf/proxy.conf"
     def add_ssl_vhost(self, domains, port=None, doc_root="htdocs", text=None):
         self.start_vhost(domains, port=port, doc_root=doc_root)
         if not port:
-            port = TestEnv.HTTPS_PORT
+            port = self.env.HTTPS_PORT
         if text is not None:
             self.add_line(text)
-        if TestEnv.get_ssl_module() == "ssl":
+        if self.env.get_ssl_module() == "ssl":
             self.add_line("    SSLEngine on\n")
         self.end_vhost()
-        if TestEnv.get_ssl_module() == "tls":
+        if self.env.get_ssl_module() == "tls":
             self.add_line("TLSListen {port}".format(port=port))
 
     def start_vhost(self, domains, port=None, doc_root="htdocs"):
         if not isinstance(domains, list):
             domains = [domains]
         if not port:
-            port = TestEnv.HTTPS_PORT 
+            port = self.env.HTTPS_PORT
         f = open(self.path, "a") 
         f.write("<VirtualHost *:%s>\n" % port)
         f.write("    ServerName %s\n" % domains[0])
         for alias in domains[1:]:
             f.write("    ServerAlias %s\n" % alias)
         f.write("    DocumentRoot %s\n\n" % doc_root)
-        if TestEnv.HTTPS_PORT == port:
-            if TestEnv.get_ssl_module() == "ssl":
+        if self.env.HTTPS_PORT == port:
+            if self.env.get_ssl_module() == "ssl":
                 f.write("    SSLEngine on\n")
                   
     def end_vhost(self):
         self._add_line("</VirtualHost>\n\n")
 
     def install(self):
-        copyfile(self.path, TestEnv.APACHE_TEST_CONF)
+        copyfile(self.path, self.env.APACHE_TEST_CONF)

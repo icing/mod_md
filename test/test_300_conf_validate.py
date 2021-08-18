@@ -3,88 +3,76 @@
 import re
 import pytest
 
-from configparser import ConfigParser
-from TestEnv import TestEnv
-from TestHttpdConf import HttpdConf
-
-
-def setup_module(module):
-    print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
-    TestEnv.clear_store()
-    
-
-def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
-    TestEnv.apache_stop()
+from md_conf import HttpdConf
 
 
 class TestConf:
 
-    def setup_method(self, method):
-        print("setup_method: %s" % method.__name__)
-        TestEnv.httpd_error_log_clear()
+    @pytest.fixture(autouse=True, scope='class')
+    def _class_scope(self, env):
+        env.clear_store()
 
-    def teardown_method(self, method):
-        print("teardown_method: %s" % method.__name__)
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env):
+        env.apache_error_log_clear()
 
     # test case: just one MDomain definition
-    def test_300_001(self):
-        HttpdConf(text="""
+    def test_300_001(self, env):
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org
             """).install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
 
     # test case: two MDomain definitions, non-overlapping
-    def test_300_002(self):
-        HttpdConf(text="""
+    def test_300_002(self, env):
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org
             MDomain example2.org www.example2.org mail.example2.org
             """).install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
 
     # test case: two MDomain definitions, exactly the same
-    def test_300_003(self):
-        assert TestEnv.apache_stop() == 0
-        HttpdConf(text="""
+    def test_300_003(self, env):
+        assert env.apache_stop() == 0
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             """).install()
-        assert TestEnv.apache_fail() == 0
+        assert env.apache_fail() == 0
         
     # test case: two MDomain definitions, overlapping
-    def test_300_004(self):
-        assert TestEnv.apache_stop() == 0
-        HttpdConf(text="""
+    def test_300_004(self, env):
+        assert env.apache_stop() == 0
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             MDomain example2.org test3.not-forbidden.org www.example2.org mail.example2.org
             """).install()
-        assert TestEnv.apache_fail() == 0
+        assert env.apache_fail() == 0
 
     # test case: two MDomains, one inside a virtual host
-    def test_300_005(self):
-        HttpdConf(text="""
+    def test_300_005(self, env):
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             <VirtualHost *:12346>
                 MDomain example2.org www.example2.org www.example3.org
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
 
     # test case: two MDomains, one correct vhost name
-    def test_300_006(self):
-        HttpdConf(text="""
+    def test_300_006(self, env):
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             <VirtualHost *:12346>
                 ServerName example2.org
                 MDomain example2.org www.example2.org www.example3.org
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
 
     # test case: two MDomains, two correct vhost names
-    def test_300_007(self):
-        HttpdConf(text="""
+    def test_300_007(self, env):
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             <VirtualHost *:12346>
                 ServerName example2.org
@@ -94,11 +82,11 @@ class TestConf:
                 ServerName www.example2.org
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
 
     # test case: two MDomains, overlapping vhosts
-    def test_300_008(self):
-        HttpdConf(text="""
+    def test_300_008(self, env):
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             <VirtualHost *:12346>
                 ServerName example2.org
@@ -111,12 +99,12 @@ class TestConf:
                 ServerAlias example2.org
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_restart() == 0
+        assert env.apache_restart() == 0
 
     # test case: vhosts with overlapping MDs
-    def test_300_009(self):
-        assert TestEnv.apache_stop() == 0
-        conf = HttpdConf(text="""
+    def test_300_009(self, env):
+        assert env.apache_stop() == 0
+        conf = HttpdConf(env, text="""
             ServerAdmin admin@not-forbidden.org
             MDMembers manual
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
@@ -126,11 +114,11 @@ class TestConf:
         conf.add_ssl_vhost(port=12346, domains=["www.example2.org", "example2.org"])
         conf.add_ssl_vhost(port=12346, domains=["not-forbidden.org", "example2.org"])
         conf.install()
-        assert TestEnv.apache_fail() == 0
+        assert env.apache_fail() == 0
 
     # test case: MDomain, vhost with matching ServerAlias
-    def test_300_010(self):
-        HttpdConf(text="""
+    def test_300_010(self, env):
+        HttpdConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
 
             <VirtualHost *:12346>
@@ -138,25 +126,25 @@ class TestConf:
                 ServerAlias test3.not-forbidden.org
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_restart() == 0
-        assert (0, 0) == TestEnv.httpd_error_log_count()
+        assert env.apache_restart() == 0
+        assert (0, 0) == env.httpd_error_log_count()
 
     # test case: MDomain, misses one ServerAlias
-    def test_300_011a(self):
-        conf = HttpdConf(text="""
+    def test_300_011a(self, env):
+        conf = HttpdConf(env, text="""
             MDomain not-forbidden.org manual www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
         """)
-        conf.add_ssl_vhost(port=TestEnv.HTTPS_PORT, domains=[
+        conf.add_ssl_vhost(port=env.HTTPS_PORT, domains=[
             "not-forbidden.org", "test3.not-forbidden.org", "test4.not-forbidden.org"
         ])
         conf.install()
-        assert TestEnv.apache_fail() == 0
-        assert (1, 0) == TestEnv.httpd_error_log_count()
+        assert env.apache_fail() == 0
+        assert (1, 0) == env.httpd_error_log_count()
 
     # test case: MDomain, misses one ServerAlias, but auto add enabled
-    def test_300_011b(self):
-        assert TestEnv.apache_stop() == 0
-        HttpdConf(text="""
+    def test_300_011b(self, env):
+        assert env.apache_stop() == 0
+        HttpdConf(env, text="""
             MDomain not-forbidden.org auto mail.not-forbidden.org
 
             <VirtualHost *:%s>
@@ -164,25 +152,25 @@ class TestConf:
                 ServerAlias test3.not-forbidden.org
                 ServerAlias test4.not-forbidden.org
             </VirtualHost>
-            """ % TestEnv.HTTPS_PORT).install()
-        assert TestEnv.apache_restart() == 0
-        assert (0, 0) == TestEnv.httpd_error_log_count()
+            """ % env.HTTPS_PORT).install()
+        assert env.apache_restart() == 0
+        assert (0, 0) == env.httpd_error_log_count()
 
     # test case: MDomain does not match any vhost
-    def test_300_012(self):
-        HttpdConf(text="""
+    def test_300_012(self, env):
+        HttpdConf(env, text="""
             MDomain example012.org www.example012.org
             <VirtualHost *:12346>
                 ServerName not-forbidden.org
                 ServerAlias test3.not-forbidden.org
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_restart() == 0
-        assert (0, 1) == TestEnv.httpd_error_log_count()
+        assert env.apache_restart() == 0
+        assert (0, 1) == env.httpd_error_log_count()
 
     # test case: one md covers two vhosts
-    def test_300_013(self):
-        HttpdConf(text="""
+    def test_300_013(self, env):
+        HttpdConf(env, text="""
             MDomain example2.org test-a.example2.org test-b.example2.org
             <VirtualHost *:12346>
                 ServerName test-a.example2.org
@@ -191,32 +179,32 @@ class TestConf:
                 ServerName test-b.example2.org
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_restart() == 0
-        assert (0, 0) == TestEnv.httpd_error_log_count()
+        assert env.apache_restart() == 0
+        assert (0, 0) == env.httpd_error_log_count()
 
     # test case: global server name as managed domain name
-    def test_300_014(self):
-        HttpdConf(text="""
+    def test_300_014(self, env):
+        HttpdConf(env, text="""
             MDomain %s www.example2.org
 
             <VirtualHost *:12346>
                 ServerName www.example2.org
             </VirtualHost>
-            """ % TestEnv.HOSTNAME).install()
-        assert TestEnv.apache_restart() == 0
-        assert (0, 0) == TestEnv.httpd_error_log_count()
+            """ % env.HOSTNAME).install()
+        assert env.apache_restart() == 0
+        assert (0, 0) == env.httpd_error_log_count()
 
     # test case: valid pkey specification
-    def test_300_015(self):
-        HttpdConf(text="""
+    def test_300_015(self, env):
+        HttpdConf(env, text="""
             MDPrivateKeys Default
             MDPrivateKeys RSA
             MDPrivateKeys RSA 2048
             MDPrivateKeys RSA 3072
             MDPrivateKeys RSA 4096
             """).install()
-        assert TestEnv.apache_restart() == 0
-        assert (0, 0) == TestEnv.httpd_error_log_count()
+        assert env.apache_restart() == 0
+        assert (0, 0) == env.httpd_error_log_count()
 
     # test case: invalid pkey specification
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -227,10 +215,10 @@ class TestConf:
         ("MDPrivateKeys rsa 2048 rsa 4096", "two keys of type 'RSA' are not possible"),
         ("MDPrivateKeys p-256 secp384r1 P-256", "two keys of type 'P-256' are not possible"),
         ])
-    def test_300_016(self, line, exp_err_msg):
-        HttpdConf(text=line).install()
-        assert TestEnv.apache_restart() == 1
-        assert exp_err_msg in TestEnv.apachectl_stderr
+    def test_300_016(self, env, line, exp_err_msg):
+        HttpdConf(env, text=line).install()
+        assert env.apache_restart() == 1
+        assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid renew window directive
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -238,10 +226,10 @@ class TestConf:
         ("MDRenewWindow 1y", "has unrecognized format"), 
         ("MDRenewWindow 10 d", "takes one argument"), 
         ("MDRenewWindow 102%", "a length of 100% or more is not allowed.")])
-    def test_300_017(self, line, exp_err_msg):
-        HttpdConf(text=line).install()
-        assert TestEnv.apache_restart() == 1
-        assert exp_err_msg in TestEnv.apachectl_stderr
+    def test_300_017(self, env, line, exp_err_msg):
+        HttpdConf(env, text=line).install()
+        assert env.apache_restart() == 1
+        assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid uri for MDProxyPass
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -249,33 +237,33 @@ class TestConf:
         ("MDHttpProxy localhost:8080", "scheme must be http or https"),
         ("MDHttpProxy https://127.0.0.1:-443", "invalid port"),
         ("MDHttpProxy HTTP localhost 8080", "takes one argument")])
-    def test_300_018(self, line, exp_err_msg):
-        HttpdConf(text=line).install()
-        assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(line)
-        assert exp_err_msg in TestEnv.apachectl_stderr
+    def test_300_018(self, env, line, exp_err_msg):
+        HttpdConf(env, text=line).install()
+        assert env.apache_restart() == 1, "Server accepted test config {}".format(line)
+        assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid parameter for MDRequireHttps
     @pytest.mark.parametrize("line,exp_err_msg", [
         ("MDRequireHTTPS yes", "supported parameter values are 'temporary' and 'permanent'"),
         ("MDRequireHTTPS", "takes one argument")])
-    def test_300_019(self, line, exp_err_msg):
-        HttpdConf(text=line).install()
-        assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(line)
-        assert exp_err_msg in TestEnv.apachectl_stderr
+    def test_300_019(self, env, line, exp_err_msg):
+        HttpdConf(env, text=line).install()
+        assert env.apache_restart() == 1, "Server accepted test config {}".format(line)
+        assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid parameter for MDMustStaple
     @pytest.mark.parametrize("line,exp_err_msg", [
         ("MDMustStaple", "takes one argument"), 
         ("MDMustStaple yes", "supported parameter values are 'on' and 'off'"),
         ("MDMustStaple true", "supported parameter values are 'on' and 'off'")])
-    def test_300_020(self, line, exp_err_msg):
-        HttpdConf(text=line).install()
-        assert TestEnv.apache_restart() == 1, "Server accepted test config {}".format(line)
-        assert exp_err_msg in TestEnv.apachectl_stderr
+    def test_300_020(self, env, line, exp_err_msg):
+        HttpdConf(env, text=line).install()
+        assert env.apache_restart() == 1, "Server accepted test config {}".format(line)
+        assert exp_err_msg in env.apachectl_stderr
 
     # test case: alt-names incomplete detection, github isse #68
-    def test_300_021(self):
-        conf = HttpdConf(text="""
+    def test_300_021(self, env):
+        conf = HttpdConf(env, text="""
             MDMembers manual
             MDomain secret.com
             """)
@@ -283,16 +271,16 @@ class TestConf:
             "not.secret.com", "secret.com"
         ])
         conf.install()
-        assert TestEnv.apache_fail() == 0
-        assert (1, 0) == TestEnv.httpd_error_log_count()
-        assert TestEnv.httpd_error_log_scan(
+        assert env.apache_fail() == 0
+        assert (1, 0) == env.httpd_error_log_count()
+        assert env.httpd_error_log_scan(
             re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', "
                        "but the name/alias not.secret.com itself is not managed. A requested "
                        "MD certificate will not match ServerName.*"))
 
     # test case: use MDRequireHttps in an <if> construct, but not in <Directory
-    def test_300_022(self):
-        HttpdConf(text="""
+    def test_300_022(self, env):
+        HttpdConf(env, text="""
             MDomain secret.com
             <If "1 == 1">
               MDRequireHttps temporary
@@ -301,8 +289,8 @@ class TestConf:
                 ServerName secret.com
             </VirtualHost>
             """).install()
-        assert TestEnv.apache_start() == 0
-        conf = HttpdConf(text="""
+        assert env.apache_start() == 0
+        conf = HttpdConf(env, text="""
             MDomain secret.com
             <Directory /tmp>
               MDRequireHttps temporary
@@ -310,4 +298,4 @@ class TestConf:
             """)
         conf.add_ssl_vhost(port=12344, domains=["secret.com"])
         conf.install()
-        assert TestEnv.apache_restart() == 1
+        assert env.apache_restart() == 1

@@ -1,9 +1,4 @@
-###################################################################################################
-# x.509 certificate utilities
-#
-# (c) 2019 greenbytes GmbH
-###################################################################################################
-
+import logging
 import re
 import os
 import socket
@@ -21,7 +16,10 @@ from urllib.parse import urlparse
 SEC_PER_DAY = 24 * 60 * 60
 
 
-class CertUtil(object):
+log = logging.getLogger(__name__)
+
+
+class MDCertUtil(object):
     # Utility class for inspecting certificates in test cases
     # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
 
@@ -84,12 +82,12 @@ class CertUtil(object):
         connection.set_tlsext_host_name(host_name.encode('utf-8'))
         connection.do_handshake()
         peer_cert = connection.get_peer_certificate()
-        return CertUtil(None, cert=peer_cert)
+        return MDCertUtil(None, cert=peer_cert)
 
     @classmethod
     def parse_pem_cert(cls, text):
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, text.encode('utf-8'))
-        return CertUtil(None, cert=cert)
+        return MDCertUtil(None, cert=cert)
 
     @classmethod
     def get_plain(cls, url, timeout):
@@ -105,11 +103,11 @@ class CertUtil(object):
                 c.close()
                 return data
             except IOError:
-                print("connect error:", sys.exc_info()[0])
+                log.debug("connect error:", sys.exc_info()[0])
                 time.sleep(.1)
             except:
-                print("Unexpected error:", sys.exc_info()[0])
-        print("Unable to contact server after %d sec" % timeout)
+                log.error("Unexpected error:", sys.exc_info()[0])
+        log.error("Unable to contact server after %d sec" % timeout)
         return None
 
     def __init__(self, cert_path, cert=None):
@@ -119,7 +117,7 @@ class CertUtil(object):
             if cert_path.startswith("http"):
                 cert_data = self.get_plain(cert_path, 1)
             else:
-                cert_data = CertUtil._load_binary_file(cert_path)
+                cert_data = MDCertUtil._load_binary_file(cert_path)
 
             for file_type in (OpenSSL.crypto.FILETYPE_PEM, OpenSSL.crypto.FILETYPE_ASN1):
                 try:
@@ -141,7 +139,7 @@ class CertUtil(object):
         return ("%lx" % (self.cert.get_serial_number())).upper()
 
     def same_serial_as(self, other):
-        if isinstance(other, CertUtil):
+        if isinstance(other, MDCertUtil):
             return self.cert.get_serial_number() == other.cert.get_serial_number()
         elif isinstance(other, OpenSSL.crypto.X509):
             return self.cert.get_serial_number() == other.get_serial_number()
@@ -196,7 +194,7 @@ class CertUtil(object):
 
     def validate_cert_matches_priv_key(self, privkey_path):
         # Verifies that the private key and cert match.
-        privkey_data = CertUtil._load_binary_file(privkey_path)
+        privkey_data = MDCertUtil._load_binary_file(privkey_path)
         privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
         context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
         context.use_privatekey(privkey)

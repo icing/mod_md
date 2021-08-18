@@ -1,0 +1,118 @@
+# test mod_md ACMEv2 registrations
+
+import re
+import json
+import pytest
+
+
+class TestAcmeAcc:
+
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env):
+        env.check_acme()
+        env.clear_store()
+
+    # test case: register a new account, vary length to check base64 encoding
+    @pytest.mark.parametrize("contact", [
+        "x@not-forbidden.org", "xx@not-forbidden.org", "xxx@not-forbidden.org"
+    ])
+    def test_202_000(self, env, contact):
+        run = env.a2md(["-t", "accepted", "acme", "newreg", contact], raw=True)
+        assert run['rv'] == 0
+        m = re.match("registered: (.*)$", run["stdout"])
+        assert m, "did not match: {0}".format(run["stdout"])
+        acct = m.group(1)
+        print("newreg: %s" % m.group(1))
+        self._check_account(env, acct, ["mailto:" + contact])
+
+    # test case: register a new account without accepting ToS, must fail
+    def test_202_000b(self, env):
+        run = env.a2md(["acme", "newreg", "x@not-forbidden.org"], raw=True)
+        assert run['rv'] == 1
+        m = re.match(".*must agree to terms of service.*", run["stderr"])
+        if m is None:
+            # the pebble variant
+            m = re.match(".*account did not agree to the terms of service.*", run["stderr"])
+        assert m, "did not match: {0}".format(run["stderr"])
+
+    # test case: respect 'mailto:' prefix in contact url
+    def test_202_001(self, env):
+        contact = "mailto:xx@not-forbidden.org"
+        run = env.a2md(["-t", "accepted", "acme", "newreg", contact], raw=True)
+        assert run['rv'] == 0
+        m = re.match("registered: (.*)$", run["stdout"])
+        assert m
+        acct = m.group(1)
+        self._check_account(env, acct, [contact])
+
+    # test case: fail on invalid contact url
+    @pytest.mark.parametrize("invalid_contact", [
+        "mehlto:xxx@not-forbidden.org", "no.at.char", "with blank@test.com",
+        "missing.host@", "@missing.localpart.de",
+        "double..dot@test.com", "double@at@test.com"
+    ])
+    def test_202_002(self, env, invalid_contact):
+        assert env.a2md(["acme", "newreg", invalid_contact])['rv'] == 1
+
+    # test case: use contact list
+    def test_202_003(self, env):
+        contact = ["xx@not-forbidden.org", "aa@not-forbidden.org"]
+        run = env.a2md(["-t", "accepted", "acme", "newreg"] + contact, raw=True)
+        assert run['rv'] == 0
+        m = re.match("registered: (.*)$", run["stdout"])
+        assert m
+        acct = m.group(1)
+        self._check_account(env, acct, ["mailto:" + contact[0], "mailto:" + contact[1]])
+
+    # test case: validate new account
+    def test_202_100(self, env):
+        acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
+        assert env.a2md(["acme", "validate", acct])['rv'] == 0
+
+    # test case: fail on non-existing account
+    def test_202_101(self, env):
+        assert env.a2md(["acme", "validate", "ACME-localhost-1000"])['rv'] == 1
+
+    # test case: report fail on request signing problem
+    def test_202_102(self, env):
+        acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
+        with open(env.path_account(acct)) as f:
+            acctj = json.load(f)
+        acctj['url'] = acctj['url'] + "0"
+        open(env.path_account(acct), "w").write(json.dumps(acctj))
+        assert env.a2md(["acme", "validate", acct])['rv'] == 1
+
+    # test case: register and try delete an account, will fail without persistence
+    def test_202_200(self, env):
+        acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
+        assert env.a2md(["delreg", acct])['rv'] == 1
+
+    # test case: register and try delete an account with persistence
+    def test_202_201(self, env):
+        acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
+        assert env.a2md(["acme", "delreg", acct])['rv'] == 0
+        # check that store is clean
+        run = env.run(["find", env.STORE_DIR])
+        assert re.match(env.STORE_DIR, run['stdout'])
+
+    # test case: delete a persisted account without specifying url
+    def test_202_202(self, env):
+        acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
+        assert env.run([env.A2MD, "-d", env.STORE_DIR, "acme", "delreg", acct])['rv'] == 0
+
+    # test case: delete, then validate an account
+    def test_202_203(self, env):
+        acct = self._prepare_account(env, ["test014@not-forbidden.org"])
+        assert env.a2md(["acme", "delreg", acct])['rv'] == 0
+        # validate on deleted account fails
+        assert env.a2md(["acme", "validate", acct])['rv'] == 1
+
+    def _check_account(self, env, acct, contact):
+        with open(env.path_account(acct)) as f:
+            acctj = json.load(f)
+        assert acctj['registration']['contact'] == contact
+
+    def _prepare_account(self, env, contact):
+        run = env.a2md(["-t", "accepted", "acme", "newreg"] + contact, raw=True)
+        assert run['rv'] == 0
+        return re.match("registered: (.*)$", run['stdout']).group(1)

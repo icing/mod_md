@@ -2,144 +2,125 @@
 
 import pytest
 
-from TestEnv import TestEnv
-from TestHttpdConf import HttpdConf
-
-
-def setup_module(module):
-    print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
-    TestEnv.APACHE_CONF_SRC = "data/test_auto"
-    TestEnv.check_acme()
-    TestEnv.clear_store()
-    HttpdConf().install()
-    assert TestEnv.apache_start() == 0
-
-
-def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
+from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
 class TestAutov2:
 
-    def setup_method(self, method):
-        print("setup_method: %s" % method.__name__)
-        TestEnv.httpd_error_log_clear()
-        TestEnv.clear_store()
-        self.test_domain = TestEnv.get_method_domain(method)
+    @pytest.fixture(autouse=True, scope='class')
+    def _class_scope(self, env):
+        env.APACHE_CONF_SRC = "data/test_auto"
+        env.check_acme()
+        env.clear_store()
+        HttpdConf(env).install()
+        assert env.apache_restart() == 0
 
-    def teardown_method(self, method):
-        print("teardown_method: %s" % method.__name__)
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env, request):
+        env.apache_error_log_clear()
+        env.clear_store()
+        self.test_domain = env.get_request_domain(request)
 
-    def set_get_pkeys(self, domain, pkeys, conf=None):
+    def set_get_pkeys(self, env, domain, pkeys, conf=None):
         domains = [domain]
         if conf is None:
-            conf = HttpdConf()
+            conf = HttpdConf(env)
             conf.add_admin("admin@" + domain)
             conf.add_line("MDPrivateKeys {0}".format(" ".join([p['spec'] for p in pkeys])))
             conf.add_md(domains)
             conf.add_vhost(domains)
         conf.install()
-        assert TestEnv.apache_restart() == 0
-        assert TestEnv.await_completion([domain])
+        assert env.apache_restart() == 0
+        assert env.await_completion([domain])
 
-    def check_pkeys(self, domain, pkeys):
+    def check_pkeys(self, env, domain, pkeys):
         # check that files for all types have been created
         for p in [p for p in pkeys if len(p['spec'])]:
-            TestEnv.check_md_complete(domain, p['spec'])
+            env.check_md_complete(domain, p['spec'])
         # check that openssl client sees the cert with given keylength for cipher
-        TestEnv.verify_cert_key_lenghts(domain, pkeys)
+        env.verify_cert_key_lenghts(domain, pkeys)
     
-    def set_get_check_pkeys(self, domain, pkeys, conf=None):
-        self.set_get_pkeys(domain, pkeys, conf=conf)
-        self.check_pkeys(domain, pkeys)
+    def set_get_check_pkeys(self, env, domain, pkeys, conf=None):
+        self.set_get_pkeys(env, domain, pkeys, conf=conf)
+        self.check_pkeys(env, domain, pkeys)
         
     # one EC key, no RSA
-    def test_810_001(self):
+    def test_810_001(self, env):
         domain = self.test_domain
-        self.set_get_check_pkeys(domain, [
+        self.set_get_check_pkeys(env, domain, [
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256},
             {'spec': "", 'ciphers': "RSA", 'keylen': 0},
         ])
 
     # set EC key type override on MD and get certificate
-    def test_810_002(self):
+    def test_810_002(self, env):
         domain = self.test_domain
         # generate config with one MD
         domains = [domain]
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
         conf.add_line("MDPrivateKeys secp256r1")
         conf.start_md(domains)
         conf.add_line("    MDPrivateKeys secp384r1")
         conf.end_md()
         conf.add_vhost(domains)
-        self.set_get_check_pkeys(domain, [ 
+        self.set_get_check_pkeys(env, domain, [
             {'spec': "secp384r1", 'ciphers': "ECDSA", 'keylen': 384},
             {'spec': "", 'ciphers': "RSA", 'keylen': 0},
         ])
 
     # set two key spec, ec before rsa
-    def test_810_003a(self):
+    def test_810_003a(self, env):
         domain = self.test_domain
-        self.set_get_check_pkeys(domain, [ 
+        self.set_get_check_pkeys(env, domain, [
             {'spec': "P-256", 'ciphers': "ECDSA", 'keylen': 256},
             {'spec': "RSA 3072", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 3072},
         ])
 
     # set two key spec, rsa before ec
-    def test_810_003b(self):
+    def test_810_003b(self, env):
         domain = self.test_domain
-        self.set_get_check_pkeys(domain, [ 
+        self.set_get_check_pkeys(env, domain, [
             {'spec': "RSA 3072", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 3072},
             {'spec': "secp384r1", 'ciphers': "ECDSA", 'keylen': 384},
         ])
 
     # use a curve unsupported by LE
     # only works with mod_ssl as rustls refuses to load such a weak key
-    @pytest.mark.skipif(TestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
-    def test_810_004(self):
+    @pytest.mark.skipif(MDTestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
+    def test_810_004(self, env):
         domain = self.test_domain
         # generate config with one MD
         domains = [domain]
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
         conf.add_line("MDPrivateKeys secp192r1")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert TestEnv.apache_restart() == 0
-        md = TestEnv.await_error(domain)
+        assert env.apache_restart() == 0
+        md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
 
     # set three key specs
-    def test_810_005(self):
+    def test_810_005(self, env):
         domain = self.test_domain
         # behaviour differences, mod_ssl selects the strongest suitable,
         # mod_tls selects the first suitable
-        ec_key_len = 384 if TestEnv.get_ssl_module() == "ssl" else 256
-        self.set_get_check_pkeys(domain, [ 
+        ec_key_len = 384 if env.get_ssl_module() == "ssl" else 256
+        self.set_get_check_pkeys(env, domain, [
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': ec_key_len},
             {'spec': "RSA 4096", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 4096},
             {'spec': "P-384", 'ciphers': "ECDSA", 'keylen': ec_key_len},
         ])
 
     # set three key specs
-    def test_810_006(self):
+    def test_810_006(self, env):
         domain = self.test_domain
-        self.set_get_check_pkeys(domain, [
+        self.set_get_check_pkeys(env, domain, [
             {'spec': "rsa2048", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 2048},
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256},
         ])
-
-    # disabled completely, since LE does not support that key type
-    # X25529 key type which has some special quirks
-    #@pytest.mark.skip(reason="this is not working yet.")
-    #def test_810_010(self):
-    #    domain = self.test_domain
-    #    self.set_get_check_pkeys(domain, [
-    #        {'spec': "x25519", 'ciphers': "ECDSA", 'keylen': 384},
-    #    ])

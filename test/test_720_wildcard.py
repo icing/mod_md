@@ -1,53 +1,43 @@
 # test wildcard certifcates
+import pytest
 
-from TestEnv import TestEnv
-from TestHttpdConf import HttpdConf
-
-
-def setup_module(module):
-    print("setup_module    module:%s" % module.__name__)
-    TestEnv.init()
-    TestEnv.APACHE_CONF_SRC = "data/test_auto"
-    TestEnv.check_acme()
-    TestEnv.clear_store()
-    HttpdConf().install()
-    assert TestEnv.apache_start() == 0
-    
-
-def teardown_module(module):
-    print("teardown_module module:%s" % module.__name__)
-    assert TestEnv.apache_stop() == 0
+from md_conf import HttpdConf
 
 
 class TestWildcard:
 
-    def setup_method(self, method):
-        print("setup_method: %s" % method.__name__)
-        TestEnv.clear_store()
-        self.test_domain = TestEnv.get_method_domain(method)
+    @pytest.fixture(autouse=True, scope='class')
+    def _class_scope(self, env):
+        env.APACHE_CONF_SRC = "data/test_auto"
+        env.check_acme()
+        env.clear_store()
+        HttpdConf(env).install()
+        assert env.apache_restart() == 0
 
-    def teardown_method(self, method):
-        print("teardown_method: %s" % method.__name__)
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env, request):
+        env.clear_store()
+        self.test_domain = env.get_request_domain(request)
 
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, no dns-01 supported
     #
-    def test_720_001(self):
+    def test_720_001(self, env):
         domain = self.test_domain
         
         # generate config with DNS wildcard
         domains = [domain, "*." + domain]
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        md = TestEnv.await_error(domain)
+        md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-mismatch'
@@ -55,13 +45,13 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command path 
     #
-    def test_720_002(self):
-        dns01cmd = ("%s/dns01-not-found.py" % TestEnv.TESTROOT)
+    def test_720_002(self, env):
+        dns01cmd = ("%s/dns01-not-found.py" % env.TESTROOT)
 
         domain = self.test_domain
         domains = [domain, "*." + domain]
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
@@ -70,22 +60,22 @@ class TestWildcard:
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        md = TestEnv.await_error(domain)
+        md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-setup-failure'
 
     # variation, invalid cmd path, other challenges still get certificate for non-wildcard
-    def test_720_002b(self):
-        dns01cmd = ("%s/dns01-not-found.py" % TestEnv.TESTROOT)
+    def test_720_002b(self, env):
+        dns01cmd = ("%s/dns01-not-found.py" % env.TESTROOT)
 
         domain = self.test_domain
         domains = [domain, "xxx." + domain]
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)
@@ -93,13 +83,13 @@ class TestWildcard:
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        assert TestEnv.await_completion([domain])
-        TestEnv.check_md_complete(domain)
+        assert env.await_completion([domain])
+        env.check_md_complete(domain)
         # check: SSL is running OK
-        cert_a = TestEnv.get_cert(domain)
+        cert_a = env.get_cert(domain)
         altnames = cert_a.get_san_list()
         for domain in domains:
             assert domain in altnames
@@ -107,13 +97,13 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command option 
     #
-    def test_720_003(self):
-        dns01cmd = ("%s/dns01.py fail" % TestEnv.TESTROOT)
+    def test_720_003(self, env):
+        dns01cmd = ("%s/dns01.py fail" % env.TESTROOT)
 
         domain = self.test_domain
         domains = [domain, "*." + domain]
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
@@ -122,10 +112,10 @@ class TestWildcard:
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        md = TestEnv.await_error(domain)
+        md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-setup-failure'
@@ -133,13 +123,13 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name certificate with ACMEv2, only dns-01 configured 
     #
-    def test_720_004(self):
-        dns01cmd = ("%s/dns01.py" % TestEnv.TESTROOT)
+    def test_720_004(self, env):
+        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
 
         domain = self.test_domain
         domains = [domain, "*." + domain]
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
@@ -148,13 +138,13 @@ class TestWildcard:
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        assert TestEnv.await_completion([domain])
-        TestEnv.check_md_complete(domain)
+        assert env.await_completion([domain])
+        env.check_md_complete(domain)
         # check: SSL is running OK
-        cert_a = TestEnv.get_cert(domain)
+        cert_a = env.get_cert(domain)
         altnames = cert_a.get_san_list()
         for domain in domains:
             assert domain in altnames
@@ -162,14 +152,14 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name and 2nd normal vhost, not overlapping
     #
-    def test_720_005(self):
-        dns01cmd = ("%s/dns01.py" % TestEnv.TESTROOT)
+    def test_720_005(self, env):
+        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
 
         domain = self.test_domain
         domain2 = "www.x" + domain
         domains = [domain, "*." + domain, domain2]
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
@@ -179,28 +169,28 @@ class TestWildcard:
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        assert TestEnv.await_completion([domain])
-        TestEnv.check_md_complete(domain)
+        assert env.await_completion([domain])
+        env.check_md_complete(domain)
         # check: SSL is running OK
-        cert_a = TestEnv.get_cert(domain)
+        cert_a = env.get_cert(domain)
         altnames = cert_a.get_san_list()
         for domain in domains:
             assert domain in altnames
 
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name and 2nd normal vhost, overlapping
-    def test_720_006(self):
-        dns01cmd = ("%s/dns01.py" % TestEnv.TESTROOT)
+    def test_720_006(self, env):
+        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
 
         domain = self.test_domain
         dwild = "*." + domain
         domain2 = "www." + domain
         domains = [domain, dwild, domain2]
         
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
@@ -210,28 +200,28 @@ class TestWildcard:
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        assert TestEnv.await_completion([domain])
-        TestEnv.check_md_complete(domain)
+        assert env.await_completion([domain])
+        env.check_md_complete(domain)
         # check: SSL is running OK
-        cert_a = TestEnv.get_cert(domain)
+        cert_a = env.get_cert(domain)
         altnames = cert_a.get_san_list()
         for domain in [domain, dwild]:
             assert domain in altnames
 
     # -----------------------------------------------------------------------------------------------
     # test case: a MDomain with just a wildcard, see #239
-    def test_720_007(self):
-        dns01cmd = ("%s/dns01.py" % TestEnv.TESTROOT)
+    def test_720_007(self, env):
+        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
 
         domain = self.test_domain
         dwild = "*." + domain
         wwwdomain = "www." + domain
         domains = [dwild]
 
-        conf = HttpdConf()
+        conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
@@ -240,12 +230,12 @@ class TestWildcard:
         conf.install()
 
         # restart, check that md is in store
-        assert TestEnv.apache_restart() == 0
-        TestEnv.check_md(domains)
+        assert env.apache_restart() == 0
+        env.check_md(domains)
         # await drive completion
-        assert TestEnv.await_completion([wwwdomain])
-        TestEnv.check_md_complete(dwild)
+        assert env.await_completion([wwwdomain])
+        env.check_md_complete(dwild)
         # check: SSL is running OK
-        cert_a = TestEnv.get_cert(wwwdomain)
+        cert_a = env.get_cert(wwwdomain)
         altnames = cert_a.get_san_list()
         assert domains == altnames
