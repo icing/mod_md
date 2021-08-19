@@ -74,7 +74,7 @@ class TestMustStaple:
         self.configure_httpd(env, self.domain, """
             LogLevel ssl:trace2
             SSLUseStapling On
-            SSLStaplingCache dbm:ocsp-stapling
+            SSLStaplingCache shmcb:stapling_cache(128000)
             """)
         assert env.apache_restart() == 0
         stat = env.get_ocsp_status(self.domain)

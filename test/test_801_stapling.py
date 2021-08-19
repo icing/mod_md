@@ -19,6 +19,7 @@ class TestStapling:
         mdA = "a-" + domain
         mdB = "b-" + domain
         self.configure_httpd(env, [mdA, mdB]).install()
+        env.apache_stop()
         assert env.apache_restart() == 0
         assert env.await_completion([mdA, mdB])
         env.check_md_complete(mdA)
@@ -29,6 +30,8 @@ class TestStapling:
         self.domain = env.get_class_domain(self.__class__)
         self.mdA = "a-" + self.domain
         self.mdB = "b-" + self.domain
+        yield
+        env.apache_stop()
 
     def configure_httpd(self, env, domains=None, add_lines="", ssl_stapling=False):
         if not isinstance(domains, list):
@@ -47,7 +50,7 @@ class TestStapling:
             conf.add_line("""
             <IfModule ssl_module>
                 SSLUseStapling On
-                SSLStaplingCache dbm:ocsp-stapling
+                SSLStaplingCache shmcb:stapling_cache(128000)
             </IfModule>
                 """)
         conf.add_line(add_lines)
