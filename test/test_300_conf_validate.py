@@ -1,6 +1,8 @@
 # test mod_md basic configurations
 
 import re
+import time
+
 import pytest
 
 from md_conf import HttpdConf
@@ -139,7 +141,9 @@ class TestConf:
         ])
         conf.install()
         assert env.apache_fail() == 0
+        time.sleep(1)  # give error_log some time to be complete
         assert (1, 0) == env.httpd_error_log_count()
+        env.apache_error_log_clear()
 
     # test case: MDomain, misses one ServerAlias, but auto add enabled
     def test_300_011b(self, env):
@@ -217,7 +221,7 @@ class TestConf:
         ])
     def test_300_016(self, env, line, exp_err_msg):
         HttpdConf(env, text=line).install()
-        assert env.apache_restart() == 1
+        assert env.apache_fail() == 0
         assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid renew window directive
@@ -228,7 +232,7 @@ class TestConf:
         ("MDRenewWindow 102%", "a length of 100% or more is not allowed.")])
     def test_300_017(self, env, line, exp_err_msg):
         HttpdConf(env, text=line).install()
-        assert env.apache_restart() == 1
+        assert env.apache_fail() == 0
         assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid uri for MDProxyPass
@@ -239,7 +243,7 @@ class TestConf:
         ("MDHttpProxy HTTP localhost 8080", "takes one argument")])
     def test_300_018(self, env, line, exp_err_msg):
         HttpdConf(env, text=line).install()
-        assert env.apache_restart() == 1, "Server accepted test config {}".format(line)
+        assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
         assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid parameter for MDRequireHttps
@@ -248,7 +252,7 @@ class TestConf:
         ("MDRequireHTTPS", "takes one argument")])
     def test_300_019(self, env, line, exp_err_msg):
         HttpdConf(env, text=line).install()
-        assert env.apache_restart() == 1, "Server accepted test config {}".format(line)
+        assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
         assert exp_err_msg in env.apachectl_stderr
 
     # test case: invalid parameter for MDMustStaple
@@ -258,7 +262,7 @@ class TestConf:
         ("MDMustStaple true", "supported parameter values are 'on' and 'off'")])
     def test_300_020(self, env, line, exp_err_msg):
         HttpdConf(env, text=line).install()
-        assert env.apache_restart() == 1, "Server accepted test config {}".format(line)
+        assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
         assert exp_err_msg in env.apachectl_stderr
 
     # test case: alt-names incomplete detection, github isse #68
@@ -272,11 +276,13 @@ class TestConf:
         ])
         conf.install()
         assert env.apache_fail() == 0
+        time.sleep(1)  # give error_log some time to be complete
         assert (1, 0) == env.httpd_error_log_count()
         assert env.httpd_error_log_scan(
             re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', "
                        "but the name/alias not.secret.com itself is not managed. A requested "
                        "MD certificate will not match ServerName.*"))
+        env.apache_error_log_clear()
 
     # test case: use MDRequireHttps in an <if> construct, but not in <Directory
     def test_300_022(self, env):
@@ -289,7 +295,10 @@ class TestConf:
                 ServerName secret.com
             </VirtualHost>
             """).install()
-        assert env.apache_start() == 0
+        assert env.apache_restart() == 0
+
+    # test case: use MDRequireHttps not in <Directory
+    def test_300_023(self, env):
         conf = HttpdConf(env, text="""
             MDomain secret.com
             <Directory /tmp>
@@ -298,4 +307,5 @@ class TestConf:
             """)
         conf.add_ssl_vhost(port=12344, domains=["secret.com"])
         conf.install()
-        assert env.apache_restart() == 1
+        assert env.apache_fail() == 0
+        env.apache_error_log_clear()

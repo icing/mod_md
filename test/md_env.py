@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from configparser import ConfigParser
 from http.client import HTTPConnection
 from typing import Dict
@@ -194,12 +194,16 @@ class MDTestEnv:
 
     # --------- HTTP ---------
 
-    def is_live(self, url, timeout):
+    def is_live(self, url: str = None, timeout: timedelta = None):
+        if url is None:
+            url = self.HTTPD_CHECK_URL
         server = urlparse(url)
-        try_until = time.time() + timeout
+        if timeout is None:
+            timeout = timedelta(seconds=5)
+        try_until = datetime.now() + timeout
         log.debug("checking reachability of %s", url)
         last_err = ""
-        while time.time() < try_until:
+        while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
                 r = self.curl(["-sk", "--resolve",
@@ -216,26 +220,35 @@ class MDTestEnv:
                     last_err = str(sys.exc_info()[0])
                     log.debug("Unexpected error: %s", last_err)
                 time.sleep(.1)
-        log.debug("Unable to contact server after %d sec", timeout)
+        log.debug(f"Unable to contact server after {timeout}")
         return False
 
-    def is_dead(self, url, timeout):
+    def is_dead(self, url: str = None, timeout: timedelta = None):
+        if url is None:
+            url = self.HTTPD_CHECK_URL
         server = urlparse(url)
-        try_until = time.time() + timeout
+        if timeout is None:
+            timeout = timedelta(seconds=5)
+        try_until = datetime.now() + timeout
         log.debug("checking reachability of %s" % url)
-        while time.time() < try_until:
+        while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
-                c = HTTPConnection(server.hostname, server.port, timeout=timeout)
-                c.request('HEAD', server.path)
-                _resp = c.getresponse()
-                c.close()
+                r = self.curl(["-sk", "--resolve",
+                               "%s:%s:127.0.0.1" % (server.hostname, server.port),
+                               "-D", "-", "%s" % url])
+                if r['rv'] != 0:
+                    return True
                 time.sleep(.1)
-            except IOError:
+            except ConnectionRefusedError:
+                log.debug("connection refused")
                 return True
             except:
-                return True
-        log.debug("Server still responding after %d sec" % timeout)
+                if last_err != str(sys.exc_info()[0]):
+                    last_err = str(sys.exc_info()[0])
+                    log.debug("Unexpected error: %s", last_err)
+                time.sleep(.1)
+        log.debug(f"Server still responding after {timeout}")
         return False
 
     def get_json(self, url, timeout):
@@ -270,7 +283,7 @@ class MDTestEnv:
         if self.ACME_SERVER_DOWN:
             pytest.skip(msg="ACME server not running")
             return False
-        if self.is_live(self.ACME_URL, 0.5):
+        if self.is_live(self.ACME_URL, timeout=timedelta(seconds=0.5)):
             self.ACME_SERVER_OK = True
             return True
         else:
@@ -430,39 +443,41 @@ class MDTestEnv:
 
     # --------- control apache ---------
 
-    def apachectl(self, cmd, conf=None, check_live=True, check_url: str = None):
+    def _run_apachectl(self, cmd, conf=None):
         if conf:
             assert 1 == 0
         args = [self.APACHECTL, "-d", self.WEBROOT, "-k", cmd]
         p = subprocess.run(args, capture_output=True, text=True)
         self.apachectl_stderr = p.stderr
         rv = p.returncode
-        if rv == 0:
-            if check_url is None:
-                check_url = self.HTTPD_CHECK_URL
-            if check_live:
-                rv = 0 if self.is_live(check_url, 10) else -1
-            else:
-                rv = 0 if self.is_dead(check_url, 10) else -1
-                log.debug("waited for a apache.is_dead, rv=%d" % rv)
-        else:
-            log.debug("exit %d, stderr: %s" % (rv, p.stderr))
+        if rv != 0:
+            log.warning(f"exit {rv}, stdout: {p.stdout}, stderr: {p.stderr}")
         return rv
 
     def apache_restart(self, check_url: str = None):
-        return self.apachectl("graceful", check_url=check_url)
+        log.debug("restart apache")
+        rv = self.apache_stop()
+        rv = self._run_apachectl("start")
+        if rv == 0:
+            rv = 0 if self.is_live(url=check_url) else -1
+        return rv
 
     def apache_start(self):
-        return self.apachectl("start")
+        return self.apache_restart()
 
     def apache_stop(self):
-        return self.apachectl("stop", check_live=False)
+        log.debug("stop apache")
+        self._run_apachectl("stop")
+        return 0 if self.is_dead() else -1
 
     def apache_fail(self):
-        rv = self.apachectl("graceful", check_live=False)
-        if rv != 0:
-            log.debug("check, if dead: " + self.HTTPD_CHECK_URL)
-            return 0 if self.is_dead(self.HTTPD_CHECK_URL, 5) else -1
+        log.debug("expect apache fail")
+        self._run_apachectl("stop")
+        rv = self._run_apachectl("start")
+        if rv == 0:
+            rv = 0 if self.is_dead() else -1
+        else:
+            rv = 0
         return rv
 
     def apache_error_log_clear(self):
@@ -537,6 +552,12 @@ class MDTestEnv:
                     warnings.append(line)
                     continue
         return errors, warnings
+
+    def apache_errors_check(self):
+        errors, warnings = self.apache_errors_and_warnings()
+        assert (len(errors), len(warnings)) == (0, 0), \
+            f"apache logged {len(errors)} errors and {len(warnings)} warnings: \n" \
+            "{0}\n{1}\n".format("\n".join(errors), "\n".join(warnings))
 
     # --------- check utilities ---------
 

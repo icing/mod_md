@@ -2,6 +2,7 @@ import logging
 
 import pytest
 
+from md_conf import HttpdConf
 from md_env import MDTestEnv
 
 
@@ -29,9 +30,7 @@ def env(pytestconfig) -> MDTestEnv:
 @pytest.fixture(autouse=True, scope="session")
 def _session_scope(env):
     yield
+    HttpdConf(env).install()
     assert env.apache_stop() == 0
-    errors, warnings = env.apache_errors_and_warnings()
-    assert (len(errors), len(warnings)) == (0, 0),\
-            f"apache logged {len(errors)} errors and {len(warnings)} warnings: \n"\
-            "{0}\n{1}\n".format("\n".join(errors), "\n".join(warnings))
+    env.apache_errors_check()
 
