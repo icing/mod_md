@@ -102,7 +102,7 @@ class TestAcmeAcc:
     # test case: delete a persisted account without specifying url
     def test_202_202(self, env):
         acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
-        assert env.run([env.A2MD, "-d", env.store_dir, "acme", "delreg", acct]).exit_code == 0
+        assert env.run([env.a2md_bin, "-d", env.store_dir, "acme", "delreg", acct]).exit_code == 0
 
     # test case: delete, then validate an account
     def test_202_203(self, env):

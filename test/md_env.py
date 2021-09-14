@@ -72,7 +72,6 @@ class MDTestSetup:
         self._make_conf()
         self._make_htdocs()
         self._make_modules_conf()
-        self._install_acme_ca_bundle()
 
     def _make_dirs(self):
         if os.path.exists(self.env.gen_dir):
@@ -120,22 +119,6 @@ class MDTestSetup:
                     fd.write(f"LoadModule {m}_module   \"{mod_path}\"\n")
             for m in ["md"]:
                 fd.write(f"LoadModule {m}_module   \"{self.env.libexec_dir}/mod_{m}.so\"\n")
-
-    def _install_acme_ca_bundle(self):
-        dest = os.path.join(self.env.server_dir, 'test-ca.pem')
-        if self.env.acme_server == 'boulder':
-            r = self.env.run([
-                'docker', 'exec', 'boulder_boulder_1', 'bash', '-c', "cat /tmp/root*.pem"
-            ])
-            assert r.exit_code == 0
-            with open(dest, 'w') as fd:
-                fd.write(r.stdout)
-        elif self.env.acme_server == 'pebble':
-            src = os.path.join(self.env.acme_server_dir, 'test/certs/pebble.minica.pem')
-            shutil.copyfile(src, dest)
-            r = self.env.curl_get('https://localhost:15000/roots/0', insecure=True)
-            with open(dest, 'a') as fd:
-                fd.write(r.stdout)
 
 
 class ExecResult:
@@ -288,10 +271,9 @@ class MDTestEnv:
         self._acme_server_down = False
         self._acme_server_ok = False
 
-        self.TEST_CA_PEM = os.path.join(our_dir, "gen/apache/test-ca.pem")
-
-        self.A2MD = self.config.get('global', 'a2md_bin')
-        self.A2MD_VERSION = self.config.get('global', 'a2md_version')
+        self._acme_ca_pemfile = os.path.join(our_dir, "gen/apache/test-ca.pem")
+        self._a2md_bin = self.config.get('global', 'a2md_bin')
+        self._md_version = self.config.get('md', 'version')
 
         self._default_domain = f"www.{self._http_tld}"
         self._domains = [
@@ -361,8 +343,8 @@ class MDTestEnv:
     def set_store_dir(self, dirpath):
         self._store_dir = os.path.join(self.server_dir, dirpath)
         if self.acme_url:
-            self.a2md_stdargs([self.A2MD, "-a", self.acme_url, "-d", self._store_dir,  "-C", self.TEST_CA_PEM, "-j"])
-            self.a2md_rawargs([self.A2MD, "-a", self.acme_url, "-d", self._store_dir,  "-C", self.TEST_CA_PEM])
+            self.a2md_stdargs([self.a2md_bin, "-a", self.acme_url, "-d", self._store_dir,  "-C", self.acme_ca_pemfile, "-j"])
+            self.a2md_rawargs([self.a2md_bin, "-a", self.acme_url, "-d", self._store_dir,  "-C", self.acme_ca_pemfile])
 
     def get_apxs_var(self, name: str) -> str:
         p = subprocess.run([self._apxs, "-q", name], capture_output=True, text=True)
@@ -447,6 +429,14 @@ class MDTestEnv:
         return self._ssl_type
 
     @property
+    def a2md_bin(self):
+        return self._a2md_bin
+
+    @property
+    def md_version(self):
+        return self._md_version
+
+    @property
     def acme_server(self):
         return self._acme_server
 
@@ -461,6 +451,10 @@ class MDTestEnv:
     @property
     def acme_url_default(self):
         return self._acme_url_default
+
+    @property
+    def acme_ca_pemfile(self):
+        return self._acme_ca_pemfile
 
     @property
     def acme_tos(self):
@@ -497,7 +491,7 @@ class MDTestEnv:
     _a2md_args_raw = []
 
     def run(self, args, _input=None):
-        log.debug("run: {0}".format(" ".join(args)))
+        log.debug(f"run: {args}")
         start = datetime.now()
         p = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         return ExecResult(exit_code=p.returncode, stdout=p.stdout, stderr=p.stderr,
@@ -982,7 +976,7 @@ class MDTestEnv:
         args = [
             self._openssl, "s_client", "-status",
             "-connect", "%s:%s" % (self._httpd_addr, self.https_port),
-            "-CAfile", self.TEST_CA_PEM,
+            "-CAfile", self.acme_ca_pemfile,
             "-servername", domain,
             "-showcerts"
         ]
@@ -1142,7 +1136,7 @@ class MDTestEnv:
         args = [
             self._openssl, "s_client", "-status",
             "-connect", "%s:%s" % (self._httpd_addr, self.https_port),
-            "-CAfile", self.TEST_CA_PEM,
+            "-CAfile", self.acme_ca_pemfile,
             "-servername", domain,
             "-showcerts"
         ]

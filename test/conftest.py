@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import timedelta
 
 import pytest
@@ -7,12 +8,13 @@ import pytest
 from md_certs import CertificateSpec, MDTestCA
 from md_conf import HttpdConf
 from md_env import MDTestEnv
+from md_acme import MDPebbleRunner, MDBoulderRunner
 
 
 def pytest_report_header(config, startdir):
     env = MDTestEnv()
     return "mod_md: {version} [apache: {aversion}({prefix}), mod_{ssl}, ACME server: {acme}]".format(
-        version=env.A2MD_VERSION,
+        version=env.md_version,
         prefix=env.prefix,
         aversion=env.get_httpd_version(),
         ssl=env.get_ssl_type(),
@@ -45,7 +47,18 @@ def env(pytestconfig) -> MDTestEnv:
 
 @pytest.fixture(autouse=True, scope="session")
 def _session_scope(env):
+    acme_server = None
+    if env.acme_server == 'pebble':
+        acme_server = MDPebbleRunner(env)
+    elif env.acme_server == 'boulder':
+        acme_server = MDBoulderRunner(env)
+    if acme_server is not None:
+        acme_server.start()
+        acme_ca = os.path.join(env.server_dir, 'test-ca.pem')
+        acme_server.install_ca_bundle(acme_ca)
     yield
+    if acme_server is not None:
+        acme_server.stop()
     HttpdConf(env).install()
     assert env.apache_stop() == 0
     #env.apache_errors_check()

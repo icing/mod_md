@@ -220,7 +220,7 @@ class TestDrivev2:
         # setup: prepare config
         domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf(env, )
+        conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md([name])

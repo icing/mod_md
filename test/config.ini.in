@@ -11,9 +11,10 @@ libexecdir = @libexecdir@
 
 apxs = @bindir@/apxs
 apachectl = @sbindir@/apachectl
-
 a2md_bin = @bindir@/a2md
-a2md_version = @PACKAGE_VERSION@
+
+[md]
+version = @PACKAGE_VERSION@
 
 [httpd]
 version = @HTTPD_VERSION@

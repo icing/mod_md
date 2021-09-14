@@ -75,7 +75,7 @@ class TestRegAdd:
     # test case: add without CA URL
     def test_100_004(self, env):
         dns = "greenbytes.de"
-        jout1 = env.run([env.A2MD, "-d", env.store_dir, "-j", "add", dns]).json
+        jout1 = env.run([env.a2md_bin, "-d", env.store_dir, "-j", "add", dns]).json
         assert len(jout1['output']) == 1
         env.check_json_contains(jout1['output'][0], {
             "name": dns,
@@ -100,7 +100,7 @@ class TestRegAdd:
     @pytest.mark.parametrize("invalid_url", [
         "no.schema/path", "http://white space/path", "http://bad.port:-1/path"])
     def test_100_006(self, env, invalid_url):
-        args = [env.A2MD, "-a", invalid_url, "-d", env.store_dir, "-j"]
+        args = [env.a2md_bin, "-a", invalid_url, "-d", env.store_dir, "-j"]
         dns = "greenbytes.de"
         args.extend(["add", dns])
         assert env.run(args).exit_code == 1

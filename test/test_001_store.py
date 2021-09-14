@@ -19,9 +19,9 @@ class TestStore:
  
     # verify expected binary version
     def test_001_001(self, env: MDTestEnv):
-        r = env.run([env.A2MD, "-V"])
-        m = re.match("version: %s(-git)?$" % env.A2MD_VERSION, r.stdout)
-        assert m
+        r = env.run([env.a2md_bin, "-V"])
+        m = re.match("version: %s(-git)?$" % env.md_version, r.stdout)
+        assert m, f"expected version {env.md_version}, but {env.a2md_bin} reports: {r.stdout}"
 
     # verify that store is clean
     def test_001_002(self, env: MDTestEnv):
@@ -91,7 +91,7 @@ class TestStore:
     # test case: add without CA URL
     def test_001_104(self, env: MDTestEnv):
         dns = "greenbytes.de"
-        args = [env.A2MD, "-d", env.store_dir, "-j", "store", "add", dns]
+        args = [env.a2md_bin, "-d", env.store_dir, "-j", "store", "add", dns]
         jout = env.run(args).json
         assert len(jout['output']) == 1
         env.check_json_contains(jout['output'][0], {
@@ -187,7 +187,7 @@ class TestStore:
         args = ["store", "add", dns]
         assert env.a2md(args).json['output'][0]['ca']['url'] == env.acme_url
         nurl = "https://foo.com/"
-        args = [env.A2MD, "-a", nurl, "-d", env.store_dir, "-j", "store", "update", dns]
+        args = [env.a2md_bin, "-a", nurl, "-d", env.store_dir, "-j", "store", "update", dns]
         assert env.run(args).json['output'][0]['ca']['url'] == nurl
 
     # test case: update nonexisting managed domain
