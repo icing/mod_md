@@ -61,11 +61,7 @@ AC_ARG_WITH([apxs], [AS_HELP_STRING([--with-apxs],
 AC_ARG_WITH([curl], [AS_HELP_STRING([--with-curl], [Use curl from this prefix])],
     [request_curl=$withval], [request_curl=check])
 
-AC_ARG_WITH([serverdir], [AS_HELP_STRING([--with-serverdir],
-    [Use serverdir directory for setup [default=gen/apache]])],
-    [request_serverdir=$withval], [request_serverdir=$PWD/test/gen/apache])
-
-AC_ARG_WITH([pebble], [AS_HELP_STRING([--with-pebble], [Use given url for pebble])],
+AC_ARG_WITH([pebble], [AS_HELP_STRING([--with-pebble], [Use given path for pebble])],
     [request_pebble=$withval], [request_pebble=def])
 
 AC_ARG_WITH([boulder], [AS_HELP_STRING([--with-boulder], [Use given url for boulder])],
@@ -78,113 +74,9 @@ AC_ARG_WITH([openssl], [AS_HELP_STRING([--with-openssl], [Use openssl from this 
     [request_openssl=$withval], [request_openssl=check])
 
 
-SERVER_NAME=$(hostname -f)
-AC_SUBST(SERVER_NAME)
-GEN_DIR="$PWD/test/gen"
-AC_SUBST(GEN_DIR)
-SERVER_DIR="$request_serverdir"
-AC_SUBST(SERVER_DIR)
-HTTP_PORT=5002
-AC_SUBST(HTTP_PORT)
-HTTPS_PORT=5001
-AC_SUBST(HTTPS_PORT)
-HTTP_PROXY_PORT=5052
-AC_SUBST(HTTP_PROXY_PORT)
-
-HTTPD_USER="$USER"
-AC_SUBST(HTTPD_USER)
-
-MODULE_SRC="$PWD/src"
-AC_SUBST(MODULE_SRC)
-
-
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CC_STDC
-
-WERROR_CFLAGS=""
-if test "x$werror" != "xno"; then
-    AX_CHECK_COMPILE_FLAG([-Wall], [WERROR_CFLAGS="$WERROR_CFLAGS -Wall"])
-    AX_CHECK_COMPILE_FLAG([-Wconversion], [WERROR_CFLAGS="$WERROR_CFLAGS -Wconversion"])
-    AX_CHECK_COMPILE_FLAG([-Wextra], [WERROR_CFLAGS="$WERROR_CFLAGS -Wextra"])
-    AX_CHECK_COMPILE_FLAG([-Werror], [WERROR_CFLAGS="$WERROR_CFLAGS -Werror"])
-    AX_CHECK_COMPILE_FLAG([-Wmissing-prototypes], [WERROR_CFLAGS="$WERROR_CFLAGS -Wmissing-prototypes"])
-    AX_CHECK_COMPILE_FLAG([-Wstrict-prototypes], [WERROR_CFLAGS="$WERROR_CFLAGS -Wstrict-prototypes"])
-    AX_CHECK_COMPILE_FLAG([-Wmissing-declarations], [WERROR_CFLAGS="$WERROR_CFLAGS -Wmissing-declarations"])
-    AX_CHECK_COMPILE_FLAG([-Wpointer-arith], [WERROR_CFLAGS="$WERROR_CFLAGS -Wpointer-arith"])
-    # we like to use such things...
-    #AX_CHECK_COMPILE_FLAG([-Wdeclaration-after-statement], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdeclaration-after-statement"])
-    AX_CHECK_COMPILE_FLAG([-Wformat-security], [WERROR_CFLAGS="$WERROR_CFLAGS -Wformat-security"])
-    AX_CHECK_COMPILE_FLAG([-Wwrite-strings], [WERROR_CFLAGS="$WERROR_CFLAGS -Wwrite-strings"])
-    AX_CHECK_COMPILE_FLAG([-Wshadow], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshadow"])
-    AX_CHECK_COMPILE_FLAG([-Winline], [WERROR_CFLAGS="$WERROR_CFLAGS -Winline"])
-    AX_CHECK_COMPILE_FLAG([-Wnested-externs], [WERROR_CFLAGS="$WERROR_CFLAGS -Wnested-externs"])
-    AX_CHECK_COMPILE_FLAG([-Wfloat-equal], [WERROR_CFLAGS="$WERROR_CFLAGS -Wfloat-equal"])
-    AX_CHECK_COMPILE_FLAG([-Wundef], [WERROR_CFLAGS="$WERROR_CFLAGS -Wundef"])
-    AX_CHECK_COMPILE_FLAG([-Wendif-labels], [WERROR_CFLAGS="$WERROR_CFLAGS -Wendif-labels"])
-    AX_CHECK_COMPILE_FLAG([-Wempty-body], [WERROR_CFLAGS="$WERROR_CFLAGS -Wempty-body"])
-# does not make sense with APR as it prefers char* to void*
-#    AX_CHECK_COMPILE_FLAG([-Wcast-align], [WERROR_CFLAGS="$WERROR_CFLAGS -Wcast-align"])
-    AX_CHECK_COMPILE_FLAG([-Wvla], [WERROR_CFLAGS="$WERROR_CFLAGS -Wvla"])
-    AX_CHECK_COMPILE_FLAG([-Wunreachable-code], [WERROR_CFLAGS="$WERROR_CFLAGS -Wunreachable-code"])
-    AX_CHECK_COMPILE_FLAG([-Waddress], [WERROR_CFLAGS="$WERROR_CFLAGS -Waddress"])
-    AX_CHECK_COMPILE_FLAG([-Wattributes], [WERROR_CFLAGS="$WERROR_CFLAGS -Wattributes"])
-    AX_CHECK_COMPILE_FLAG([-Wdiv-by-zero], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdiv-by-zero"])
-    AX_CHECK_COMPILE_FLAG([-Wshorten-64-to-32], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshorten-64-to-32"])
-    #AX_CHECK_COMPILE_FLAG([-Wno-sign-compare], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-sign-compare"])
-    #AX_CHECK_COMPILE_FLAG([-Wno-unused-parameter], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-unused-parameter"])
-    #AX_CHECK_COMPILE_FLAG([-Wno-shadow], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-shadow"])
-    #AX_CHECK_COMPILE_FLAG([-Wno-undef], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-undef"])
-
-    AX_CHECK_COMPILE_FLAG(["-std=c89"], [WERROR_CFLAGS="$WERROR_CFLAGS -std=c89"])
-    AX_CHECK_COMPILE_FLAG([-Wdeclaration-after-statement], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdeclaration-after-statement"])
-
-# gcc warnings, considered useful as in https://kristerw.blogspot.de/2017/09/useful-gcc-warning-options-not-enabled.html
-#
-    #AX_CHECK_COMPILE_FLAG(["-Wduplicated-cond"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wduplicated-cond"])
-    #AX_CHECK_COMPILE_FLAG(["-Wduplicated-branches"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wduplicated-branches"])
-    #AX_CHECK_COMPILE_FLAG(["-Wlogical-op"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wlogical-op"])
-    #AX_CHECK_COMPILE_FLAG(["-Wrestrict"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wrestrict"])
-    AX_CHECK_COMPILE_FLAG(["-Wnull-dereference"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wnull-dereference"])
-    #AX_CHECK_COMPILE_FLAG(["-Wuseless-cast"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wuseless-cast"])
-    #AX_CHECK_COMPILE_FLAG(["-Wjump-misses-init"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wjump-misses-init"])
-    AX_CHECK_COMPILE_FLAG(["-Wdouble-promotion"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdouble-promotion"])
-    AX_CHECK_COMPILE_FLAG(["-Wshadow"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshadow"])
-    AX_CHECK_COMPILE_FLAG(["-Wformat=2"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wformat=2"])
-fi
-AC_SUBST(WERROR_CFLAGS)
-
-# Do we have a pkg-config?
-AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
-AC_PATH_PROG([PKGCONFIG], [pkg-config])
-
-ACME_DEF_URL=https://acme-v02.api.letsencrypt.org/directory
-AC_SUBST(ACME_DEF_URL)
-
-if test "x$request_pebble" != "xdef"; then
-    if test "$request_pebble" = "yes"; then
-        ACME_TEST_URL="https://localhost:14000/dir"  # default location
-    else
-        ACME_TEST_URL="$request_pebble"
-    fi
-    ACME_TEST_TYPE=pebble
-    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/pebble
-elif test "x$request_boulder" = "xdef" -o "x$request_boulder" = "xyes"; then
-    ACME_TEST_URL=http://localhost:4001/directory
-    ACME_TEST_TYPE=boulder
-    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/boulder
-elif test "x${request_boulder##http}" = "x${request_boulder}"; then
-    ACME_TEST_URL="http://${request_boulder}/directory"
-    ACME_TEST_TYPE=boulder
-    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/boulder
-else
-    ACME_TEST_URL="$request_boulder"
-    ACME_TEST_TYPE=boulder
-    ACME_TEST_DIR=${GOPATH}/src/github.com/letsencrypt/boulder
-fi
-AC_SUBST(ACME_TEST_TYPE)
-AC_SUBST(ACME_TEST_URL)
-AC_SUBST(ACME_TEST_DIR)
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.
@@ -199,17 +91,39 @@ else
     AC_MSG_NOTICE("using APXS=$APXS as configured")
 fi
 
-export BUILD_SUBDIRS="src test"
+AC_SUBST(APR)
 
 prefix="$($APXS -q prefix)"
 prefix="${prefix:-/usr}"
-export PREFIX="${prefix}"
-LDFLAGS="$LDFLAGS -L$($APXS -q libdir)"
-CPPFLAGS="$CPPFLAGS -I$($APXS -q includedir) -I$($APXS -q APR_INCLUDEDIR)"
-export SYSCONF_DIR="$($APXS -q sysconfdir)"
-export LIBEXEC_DIR="$($APXS -q LIBEXECDIR)"
+AC_SUBST(prefix)
+
+exec_prefix="$($APXS -q exec_prefix)"
+AC_SUBST(exec_prefix)
+APR_BINDIR="$($APXS -q APR_BINDIR)"
+AC_SUBST(APR_BINDIR)
+sbindir="$($APXS -q sbindir)"
+AC_SUBST(sbindir)
+progname="$($APXS -q progname)"
+AC_SUBST(progname)
+libdir="$($APXS -q libdir)"
+AC_SUBST(libdir)
+SYSCONF_DIR="$($APXS -q sysconfdir)"
+AC_SUBST(SYSCONF_DIR)
+LIBEXEC_DIR="$($APXS -q LIBEXECDIR)"
+AC_SUBST(LIBEXEC_DIR)
+
+LDFLAGS="-L$libdir $LDFLAGS"
+CPPFLAGS="-I$($APXS -q includedir) -I$($APXS -q APR_INCLUDEDIR) $($APXS -q EXTRA_CPPFLAGS) $CPPFLAGS"
 
 HTTPD_VERSION="$($APXS -q HTTPD_VERSION)"
+AC_SUBST(HTTPD_VERSION)
+
+APACHECTL="$sbindir/apachectl"
+if test ! -x "$APACHECTL"; then
+    # rogue distros rename things! =)
+    APACHECTL="$sbindir/apache2ctl"
+fi
+AC_SUBST(APACHECTL)
 
 # We need crypto to be in our link path, check for it.
 #
@@ -217,14 +131,13 @@ AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found"
 
 # We need a JSON lib, like jansson
 #
-
 if test x"$request_jansson" = "xcheck"; then
     AC_CHECK_LIB([jansson], [json_loads], , [AC_MSG_ERROR("library jansson not found")])
 
     AC_CHECK_HEADER([jansson.h], [],  [AC_MSG_WARN("header jansson.h not found")], [
     #include <jansson_config.h>
     #undef   JSON_INLINE
-    #define JSON_INLINE 
+    #define JSON_INLINE
     #include <jansson.h>
     ])
     JANSSON_PREFIX=""
@@ -243,7 +156,6 @@ AC_SUBST(LIB_APRUTIL)
 
 # We need a HTTP client which can talk https: and, optionally even HTTP/2
 #
-
 if test x"$request_curl" = "xcheck"; then
     AC_CHECK_LIB([curl], [curl_global_init], , [AC_MSG_ERROR("libcurl not found")])
     curl_config="curl-config"
@@ -316,6 +228,135 @@ AM_CONDITIONAL([FOUND_OPENSSL_BIN], [test "x$FOUND_OPENSSL_BIN" != xno])
 AM_COND_IF([FOUND_OPENSSL_BIN],,[AC_MSG_ERROR([required program 'openssl' not found.])])
 AC_SUBST(OPENSSL_BIN)
 
+
+GEN_DIR="$PWD/test/gen"
+AC_SUBST(GEN_DIR)
+
+HTTP_PORT=5002
+AC_SUBST(HTTP_PORT)
+
+HTTPS_PORT=5001
+AC_SUBST(HTTPS_PORT)
+
+HTTP_PROXY_PORT=5052
+AC_SUBST(HTTP_PROXY_PORT)
+
+HTTPD_USER="$USER"
+AC_SUBST(HTTPD_USER)
+
+MODULE_SRC="$PWD/src"
+AC_SUBST(MODULE_SRC)
+
+ACME_DEF_URL=https://acme-v02.api.letsencrypt.org/directory
+AC_SUBST(ACME_DEF_URL)
+
+# it must be configurable without an ACME test server installed
+ACME_TEST_TYPE="none"
+ACME_TEST_DIR="none"
+ACME_TEST_URL="none"
+
+if test "x$request_pebble" != "xdef"; then
+    ACME_TEST_TYPE=pebble
+    ACME_TEST_URL="https://localhost:14000/dir"
+    if test "$request_pebble" = "yes"; then
+        ACME_TEST_DIR="${GOPATH}/src/github.com/letsencrypt/pebble"
+    else
+        ACME_TEST_DIR="$request_pebble"
+    fi
+    if ! type "pebble" >/dev/null 2>&1; then
+        AC_MSG_ERROR("'pebble' is not in your PATH")
+    fi
+    if ! type "pebble-challtestsrv" >/dev/null 2>&1; then
+        AC_MSG_ERROR("'pebble-challtestsrv' is not in your PATH")
+    fi
+elif test "x$request_boulder" != "xdef"; then
+    ACME_TEST_TYPE=boulder
+    ACME_TEST_DIR="${GOPATH}/src/github.com/letsencrypt/boulder"
+    if test "x$request_boulder" = "xyes"; then
+        ACME_TEST_URL=http://localhost:4001/directory
+    else
+        ACME_TEST_URL="$request_boulder"
+    fi
+fi
+# if a test server is defined, will it work?
+if test "${ACME_TEST_TYPE}" != "none"; then
+    if ! test -d "${ACME_TEST_DIR}"; then
+        AC_MSG_ERROR("ACME test server directory not found: ${ACME_TEST_DIR}")
+    fi
+fi
+
+AC_SUBST(ACME_TEST_TYPE)
+AC_SUBST(ACME_TEST_URL)
+AC_SUBST(ACME_TEST_DIR)
+
+
+WERROR_CFLAGS=""
+if test "x$werror" != "xno"; then
+    AX_CHECK_COMPILE_FLAG([-Wall], [WERROR_CFLAGS="$WERROR_CFLAGS -Wall"])
+    AX_CHECK_COMPILE_FLAG([-Wconversion], [WERROR_CFLAGS="$WERROR_CFLAGS -Wconversion"])
+    AX_CHECK_COMPILE_FLAG([-Wextra], [WERROR_CFLAGS="$WERROR_CFLAGS -Wextra"])
+    AX_CHECK_COMPILE_FLAG([-Werror], [WERROR_CFLAGS="$WERROR_CFLAGS -Werror"])
+    AX_CHECK_COMPILE_FLAG([-Wmissing-prototypes], [WERROR_CFLAGS="$WERROR_CFLAGS -Wmissing-prototypes"])
+    AX_CHECK_COMPILE_FLAG([-Wstrict-prototypes], [WERROR_CFLAGS="$WERROR_CFLAGS -Wstrict-prototypes"])
+    AX_CHECK_COMPILE_FLAG([-Wmissing-declarations], [WERROR_CFLAGS="$WERROR_CFLAGS -Wmissing-declarations"])
+    AX_CHECK_COMPILE_FLAG([-Wpointer-arith], [WERROR_CFLAGS="$WERROR_CFLAGS -Wpointer-arith"])
+    # we like to use such things...
+    #AX_CHECK_COMPILE_FLAG([-Wdeclaration-after-statement], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdeclaration-after-statement"])
+    AX_CHECK_COMPILE_FLAG([-Wformat-security], [WERROR_CFLAGS="$WERROR_CFLAGS -Wformat-security"])
+    AX_CHECK_COMPILE_FLAG([-Wwrite-strings], [WERROR_CFLAGS="$WERROR_CFLAGS -Wwrite-strings"])
+    AX_CHECK_COMPILE_FLAG([-Wshadow], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshadow"])
+    AX_CHECK_COMPILE_FLAG([-Winline], [WERROR_CFLAGS="$WERROR_CFLAGS -Winline"])
+    AX_CHECK_COMPILE_FLAG([-Wnested-externs], [WERROR_CFLAGS="$WERROR_CFLAGS -Wnested-externs"])
+    AX_CHECK_COMPILE_FLAG([-Wfloat-equal], [WERROR_CFLAGS="$WERROR_CFLAGS -Wfloat-equal"])
+    AX_CHECK_COMPILE_FLAG([-Wundef], [WERROR_CFLAGS="$WERROR_CFLAGS -Wundef"])
+    AX_CHECK_COMPILE_FLAG([-Wendif-labels], [WERROR_CFLAGS="$WERROR_CFLAGS -Wendif-labels"])
+    AX_CHECK_COMPILE_FLAG([-Wempty-body], [WERROR_CFLAGS="$WERROR_CFLAGS -Wempty-body"])
+# does not make sense with APR as it prefers char* to void*
+#    AX_CHECK_COMPILE_FLAG([-Wcast-align], [WERROR_CFLAGS="$WERROR_CFLAGS -Wcast-align"])
+    AX_CHECK_COMPILE_FLAG([-Wvla], [WERROR_CFLAGS="$WERROR_CFLAGS -Wvla"])
+    AX_CHECK_COMPILE_FLAG([-Wunreachable-code], [WERROR_CFLAGS="$WERROR_CFLAGS -Wunreachable-code"])
+    AX_CHECK_COMPILE_FLAG([-Waddress], [WERROR_CFLAGS="$WERROR_CFLAGS -Waddress"])
+    AX_CHECK_COMPILE_FLAG([-Wattributes], [WERROR_CFLAGS="$WERROR_CFLAGS -Wattributes"])
+    AX_CHECK_COMPILE_FLAG([-Wdiv-by-zero], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdiv-by-zero"])
+    AX_CHECK_COMPILE_FLAG([-Wshorten-64-to-32], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshorten-64-to-32"])
+    #AX_CHECK_COMPILE_FLAG([-Wno-sign-compare], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-sign-compare"])
+    #AX_CHECK_COMPILE_FLAG([-Wno-unused-parameter], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-unused-parameter"])
+    #AX_CHECK_COMPILE_FLAG([-Wno-shadow], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-shadow"])
+    #AX_CHECK_COMPILE_FLAG([-Wno-undef], [WERROR_CFLAGS="$WERROR_CFLAGS -Wno-undef"])
+
+    AX_CHECK_COMPILE_FLAG(["-std=c89"], [WERROR_CFLAGS="$WERROR_CFLAGS -std=c89"])
+    AX_CHECK_COMPILE_FLAG([-Wdeclaration-after-statement], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdeclaration-after-statement"])
+
+# gcc warnings, considered useful as in https://kristerw.blogspot.de/2017/09/useful-gcc-warning-options-not-enabled.html
+#
+    #AX_CHECK_COMPILE_FLAG(["-Wduplicated-cond"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wduplicated-cond"])
+    #AX_CHECK_COMPILE_FLAG(["-Wduplicated-branches"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wduplicated-branches"])
+    #AX_CHECK_COMPILE_FLAG(["-Wlogical-op"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wlogical-op"])
+    #AX_CHECK_COMPILE_FLAG(["-Wrestrict"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wrestrict"])
+    AX_CHECK_COMPILE_FLAG(["-Wnull-dereference"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wnull-dereference"])
+    #AX_CHECK_COMPILE_FLAG(["-Wuseless-cast"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wuseless-cast"])
+    #AX_CHECK_COMPILE_FLAG(["-Wjump-misses-init"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wjump-misses-init"])
+    AX_CHECK_COMPILE_FLAG(["-Wdouble-promotion"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wdouble-promotion"])
+    AX_CHECK_COMPILE_FLAG(["-Wshadow"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wshadow"])
+    AX_CHECK_COMPILE_FLAG(["-Wformat=2"], [WERROR_CFLAGS="$WERROR_CFLAGS -Wformat=2"])
+fi
+AC_SUBST(WERROR_CFLAGS)
+
+# Do we have a pkg-config?
+AC_ARG_VAR([PKGCONFIG], [pkg-config executable])
+AC_PATH_PROG([PKGCONFIG], [pkg-config])
+
+export BUILD_SUBDIRS="src test"
+AC_SUBST(BUILD_SUBDIRS)
+
+prefix="$($APXS -q prefix)"
+prefix="${prefix:-/usr}"
+export PREFIX="${prefix}"
+LDFLAGS="$LDFLAGS -L$($APXS -q libdir)"
+CPPFLAGS="$CPPFLAGS -I$($APXS -q includedir) -I$($APXS -q APR_INCLUDEDIR)"
+export SYSCONF_DIR="$($APXS -q sysconfdir)"
+export LIBEXEC_DIR="$($APXS -q LIBEXECDIR)"
+
 # Should we build unit tests?
 have_check=false
 
@@ -367,7 +408,6 @@ AC_CHECK_PROG([A2ENMOD],[a2enmod])
 
 # substitution in generated files
 AC_SUBST(PREFIX)
-AC_SUBST(BUILD_SUBDIRS)
 AC_SUBST(SYSCONF_DIR)
 AC_SUBST(LIBEXEC_DIR)
 
@@ -376,11 +416,7 @@ AC_CONFIG_FILES([
     src/md_version.h
     src/Makefile
     test/Makefile
-    test/conf/proxy.conf
-    test/conf/httpd.conf
-    test/conf/modules.conf
-    test/conf/std_vhosts.conf
-    test/test.ini
+    test/config.ini
 ])
 
 AC_OUTPUT
@@ -421,4 +457,5 @@ AC_MSG_NOTICE([summary of build options:
     jansson         ${JANSSON_PREFIX:--}
     openssl         ${OPENSSL_BIN:--}
     test-server     ${ACME_TEST_URL} (${ACME_TEST_TYPE})
+    test-server-dir ${ACME_TEST_DIR}
 ])

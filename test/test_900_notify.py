@@ -5,8 +5,11 @@ import os
 import pytest
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestNotify:
     notify_cmd = None
     notify_log = None
@@ -20,15 +23,15 @@ class TestNotify:
     @pytest.fixture(autouse=True, scope='function')
     def _method_scope(self, env, request):
         self.domain = env.get_request_domain(request)
-        self.notify_cmd = ("%s/notify.py" % env.TESTROOT)
-        self.notify_log = ("%s/notify.log" % env.GEN_DIR)
+        self.notify_cmd = ("%s/notify.py" % env.test_dir)
+        self.notify_log = ("%s/notify.log" % env.gen_dir)
         if os.path.isfile(self.notify_log):
             os.remove(self.notify_log)
 
     def configure_httpd(self, env, domain, add_lines=""):
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line(add_lines)
+        conf.add(add_lines)
         conf.add_md([domain])
         conf.add_vhost(domain)
         conf.install()
@@ -48,7 +51,7 @@ class TestNotify:
 
     # test: valid notify cmd that fails, check error
     def test_900_002(self, env):
-        command = "%s/notifail.py" % env.TESTROOT
+        command = "%s/notifail.py" % env.test_dir
         args = ""
         self.configure_httpd(env, self.domain, """
             MDNotifyCmd %s %s

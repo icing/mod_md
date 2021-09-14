@@ -16,14 +16,14 @@ class TestStoreMigrate:
     # install old store, start a2md list, check files afterwards
     def test_010_000(self, env):
         domain = "7007-1502285564.org"
-        env.replace_store(os.path.join(env.TESTROOT, "data/store_migrate/1.0/sample1"))
+        env.replace_store(os.path.join(env.test_dir, "data/store_migrate/1.0/sample1"))
         #
         # use 1.0 file name for private key
-        fpkey_1_0 = os.path.join(env.STORE_DIR, 'domains', domain, 'pkey.pem')
-        fpkey_1_1 = os.path.join(env.STORE_DIR, 'domains', domain, 'privkey.pem')
-        cert_1_0 = os.path.join(env.STORE_DIR, 'domains', domain, 'cert.pem')
-        cert_1_1 = os.path.join(env.STORE_DIR, 'domains', domain, 'pubcert.pem')
-        chain_1_0 = os.path.join(env.STORE_DIR, 'domains', domain, 'chain.pem')
+        fpkey_1_0 = os.path.join(env.store_dir, 'domains', domain, 'pkey.pem')
+        fpkey_1_1 = os.path.join(env.store_dir, 'domains', domain, 'privkey.pem')
+        cert_1_0 = os.path.join(env.store_dir, 'domains', domain, 'cert.pem')
+        cert_1_1 = os.path.join(env.store_dir, 'domains', domain, 'pubcert.pem')
+        chain_1_0 = os.path.join(env.store_dir, 'domains', domain, 'chain.pem')
         #
         assert os.path.exists(fpkey_1_0)
         assert os.path.exists(cert_1_0)
@@ -31,7 +31,7 @@ class TestStoreMigrate:
         assert not os.path.exists(fpkey_1_1)
         assert not os.path.exists(cert_1_1)
         #
-        md = env.a2md(["-vvv", "list", domain])['jout']['output'][0]
+        md = env.a2md(["-vvv", "list", domain]).json['output'][0]
         assert domain == md["name"]
         #
         assert not os.path.exists(fpkey_1_0)

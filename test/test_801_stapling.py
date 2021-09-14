@@ -8,6 +8,8 @@ from md_conf import HttpdConf
 from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
 class TestStapling:
 
@@ -37,7 +39,7 @@ class TestStapling:
         if not isinstance(domains, list):
             domains = [domains] if domains else []
         conf = HttpdConf(env)
-        conf.add_line("""
+        conf.add("""
         <IfModule tls_module>
             LogLevel tls:trace4
         </IfModule>
@@ -47,13 +49,13 @@ class TestStapling:
             """)
         conf.add_admin("admin@" + env.get_class_domain(self.__class__))
         if ssl_stapling:
-            conf.add_line("""
+            conf.add("""
             <IfModule ssl_module>
                 SSLUseStapling On
                 SSLStaplingCache shmcb:stapling_cache(128000)
             </IfModule>
                 """)
-        conf.add_line(add_lines)
+        conf.add(add_lines)
         for domain in domains:
             conf.add_md([domain])
             conf.add_vhost(domain)
@@ -101,7 +103,7 @@ class TestStapling:
         assert env.apache_restart() == 0
         stat = env.get_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" if \
-            env.get_ssl_module() == "ssl" else "no response sent"
+            env.get_ssl_type() == "ssl" else "no response sent"
         stat = env.get_md_status(md)
         assert not stat["stapling"]
         #
@@ -122,7 +124,7 @@ class TestStapling:
         assert env.apache_restart() == 0
         stat = env.get_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" if \
-            env.get_ssl_module() == "ssl" else "no response sent"
+            env.get_ssl_type() == "ssl" else "no response sent"
         stat = env.get_md_status(md)
         assert not stat["stapling"]
         
@@ -131,7 +133,7 @@ class TestStapling:
         md_a = self.mdA
         md_b = self.mdB
         conf = self.configure_httpd(env)
-        conf.add_line("""
+        conf.add("""
             <MDomain %s>
                 MDStapling on
             </MDomain>
@@ -162,7 +164,7 @@ class TestStapling:
         md_a = self.mdA
         md_b = self.mdB
         conf = self.configure_httpd(env, ssl_stapling=True)
-        conf.add_line("""
+        conf.add("""
             <MDomain %s>
                 MDStapling on
             </MDomain>
@@ -185,7 +187,7 @@ class TestStapling:
         # mdB has no md stapling, but mod_ssl kicks in
         stat = env.get_ocsp_status(md_b)
         assert stat['ocsp'] == "successful (0x0)" if \
-            env.get_ssl_module() == "ssl" else "no response sent"
+            env.get_ssl_type() == "ssl" else "no response sent"
         stat = env.get_md_status(md_b)
         assert not stat["stapling"]
 
@@ -201,7 +203,7 @@ class TestStapling:
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
         # fine the file where the ocsp response is stored
-        dirpath = os.path.join(env.STORE_DIR, 'ocsp', md)
+        dirpath = os.path.join(env.store_dir, 'ocsp', md)
         files = os.listdir(dirpath)
         ocsp_file = None
         for name in files:
@@ -245,7 +247,7 @@ class TestStapling:
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
         # fine the file where the ocsp response is stored
-        dirpath = os.path.join(env.STORE_DIR, 'ocsp', md)
+        dirpath = os.path.join(env.store_dir, 'ocsp', md)
         files = os.listdir(dirpath)
         ocsp_file = None
         for name in files:
@@ -278,7 +280,7 @@ class TestStapling:
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
         conf = self.configure_httpd(env)
-        conf.add_line("""
+        conf.add("""
             <MDomain %s>
                 MDCertificateKeyFile %s
                 MDCertificateFile %s
@@ -293,7 +295,7 @@ class TestStapling:
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
         # fine the file where the ocsp response is stored
-        dirpath = os.path.join(env.STORE_DIR, 'ocsp', md)
+        dirpath = os.path.join(env.store_dir, 'ocsp', md)
         files = os.listdir(dirpath)
         ocsp_file = None
         for name in files:
@@ -306,7 +308,7 @@ class TestStapling:
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
         conf = self.configure_httpd(env)
-        conf.add_line("MDStapling on")
+        conf.add("MDStapling on")
         conf.start_vhost(md)
         conf.add_certificate(env.store_domain_file(md, 'pubcert.pem'),
                              env.store_domain_file(md, 'privkey.pem'))
@@ -317,7 +319,7 @@ class TestStapling:
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
         # fine the file where the ocsp response is stored
-        dirpath = os.path.join(env.STORE_DIR, 'ocsp', 'other')
+        dirpath = os.path.join(env.store_dir, 'ocsp', 'other')
         files = os.listdir(dirpath)
         ocsp_file = None
         for name in files:
@@ -330,7 +332,7 @@ class TestStapling:
     def test_801_009(self, env):
         md = self.mdA
         domains = [md]
-        testpath = os.path.join(env.GEN_DIR, 'test_801_009')
+        testpath = os.path.join(env.gen_dir, 'test_801_009')
         # cert that is 30 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -60, "notAfter": 30},
                                         serial=801009, path=testpath)
@@ -341,9 +343,9 @@ class TestStapling:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add_line("MDCertificateFile %s" % cert_file)
-        conf.add_line("MDCertificateKeyFile %s" % pkey_file)
-        conf.add_line("MDStapling on")
+        conf.add("MDCertificateFile %s" % cert_file)
+        conf.add("MDCertificateKeyFile %s" % pkey_file)
+        conf.add("MDStapling on")
         conf.end_md()
         conf.add_vhost(md)
         conf.install()
@@ -361,7 +363,7 @@ class TestStapling:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add_line("MDStapling on")
+        conf.add("MDStapling on")
         conf.end_md()
         conf.install()
         assert env.apache_restart() == 0

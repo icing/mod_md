@@ -1,15 +1,19 @@
 # test mod_md basic configurations
+import time
 
 import pytest
 import os
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 SEC_PER_DAY = 24 * 60 * 60
 MS_PER_DAY = SEC_PER_DAY * 1000
 NS_PER_DAY = MS_PER_DAY * 1000
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestConf:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -25,8 +29,8 @@ class TestConf:
     def test_310_001(self, env):
         HttpdConf(env, text="").install()
         assert env.apache_restart() == 0
-        jout = env.a2md(["list"])['jout']
-        assert 0 == len(jout["output"])
+        r = env.a2md(["list"])
+        assert 0 == len(r.json["output"])
 
     # test case: add md definitions on empty store
     @pytest.mark.parametrize("confline,dns_lists,md_count", [
@@ -60,7 +64,7 @@ class TestConf:
 
     # test case: add dns to existing md
     def test_310_102(self, env):
-        assert env.a2md(["add", "testdomain.org", "www.testdomain.org"])['rv'] == 0
+        assert env.a2md(["add", "testdomain.org", "www.testdomain.org"]).exit_code == 0
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
@@ -90,7 +94,7 @@ class TestConf:
             """).install()
         assert env.apache_restart() == 0
         env.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
-                     ca=env.ACME_URL_DEFAULT, protocol="ACME")
+                     ca=env.acme_url_default, protocol="ACME")
         HttpdConf(env, local_ca=False, text="""
             MDCertificateAuthority http://acme.test.org:4000/directory
             MDCertificateProtocol ACME
@@ -117,7 +121,7 @@ class TestConf:
     # test case: add to existing md: server admin
     def test_310_106(self, env):
         name = "testdomain.org"
-        assert env.a2md(["add", name, "www.testdomain.org", "mail.testdomain.org"])['rv'] == 0
+        assert env.a2md(["add", name, "www.testdomain.org", "mail.testdomain.org"]).exit_code == 0
         HttpdConf(env, text="""
             ServerAdmin mailto:admin@testdomain.org
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -164,7 +168,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 1
 
     # test case: drive mode manual
     def test_310_110(self, env):
@@ -173,7 +177,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 0
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 0
 
     # test case: drive mode auto
     def test_310_111(self, env):
@@ -182,7 +186,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 1
 
     # test case: drive mode always
     def test_310_112(self, env):
@@ -191,7 +195,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 2
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 2
 
     # test case: renew window - 14 days
     def test_310_113a(self, env):
@@ -200,7 +204,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
+        assert env.a2md(["list"]).json['output'][0]['renew-window'] == '14d'
 
     # test case: renew window - 10 percent
     def test_310_113b(self, env):
@@ -209,7 +213,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-window'] == '10%'
+        assert env.a2md(["list"]).json['output'][0]['renew-window'] == '10%'
         
     # test case: ca challenge type - http-01
     def test_310_114(self, env):
@@ -218,7 +222,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == ['http-01']
+        assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01']
 
     # test case: ca challenge type - http-01
     def test_310_115(self, env):
@@ -227,7 +231,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == ['tls-alpn-01']
+        assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['tls-alpn-01']
 
     # test case: ca challenge type - all
     def test_310_116(self, env):
@@ -236,7 +240,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == ['http-01', 'tls-alpn-01']
+        assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01', 'tls-alpn-01']
 
     # test case: automatically collect md names from vhost config
     def test_310_117(self, env):
@@ -249,7 +253,7 @@ class TestConf:
         ])
         conf.install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['domains'] == \
+        assert env.a2md(["list"]).json['output'][0]['domains'] == \
                ['testdomain.org', 'test.testdomain.org', 'mail.testdomain.org']
 
     # add renew window to existing md
@@ -273,7 +277,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['privkey'] == {
+        assert env.a2md(["list"]).json['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 2048
         }
@@ -285,7 +289,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['privkey'] == {
+        assert env.a2md(["list"]).json['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 4096
         }
@@ -297,7 +301,7 @@ class TestConf:
             MDRequireHttps temporary
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
+        assert env.a2md(["list"]).json['output'][0]['require-https'] == "temporary"
 
     # test case: require OCSP stapling
     def test_310_122(self, env):
@@ -306,7 +310,7 @@ class TestConf:
             MDMustStaple on
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['must-staple'] is True
+        assert env.a2md(["list"]).json['output'][0]['must-staple'] is True
 
     # test case: remove managed domain from config
     def test_310_200(self, env):
@@ -377,7 +381,7 @@ class TestConf:
             """).install()
         assert env.apache_restart() == 0
         env.check_md([name, "www.testdomain.org", "mail.testdomain.org"], state=1,
-                     ca=env.ACME_URL_DEFAULT, protocol="ACME")
+                     ca=env.acme_url_default, protocol="ACME")
 
     # test case: remove server admin from md
     def test_310_205(self, env):
@@ -403,13 +407,13 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-window'] == '14d'
+        assert env.a2md(["list"]).json['output'][0]['renew-window'] == '14d'
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
         # check: renew window not set
-        assert env.a2md(["list"])['jout']['output'][0]['renew-window'] == '33%'
+        assert env.a2md(["list"]).json['output'][0]['renew-window'] == '33%'
 
     # test case: remove drive mode from conf -> fallback to default (auto)
     @pytest.mark.parametrize("renew_mode,exp_code", [
@@ -423,13 +427,13 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """ % renew_mode).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == exp_code
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == exp_code
         #
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 1
 
     # test case: remove challenges from conf -> fallback to default (not set)
     def test_310_208(self, env):
@@ -438,13 +442,13 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == ['http-01']
+        assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01']
         #
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert 'challenges' not in env.a2md(["list"])['jout']['output'][0]['ca']
+        assert 'challenges' not in env.a2md(["list"]).json['output'][0]['ca']
 
     # test case: specify RSA key
     @pytest.mark.parametrize("key_size", ["2048", "4096"])
@@ -454,13 +458,13 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """ % key_size).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['privkey']['type'] == "RSA"
+        assert env.a2md(["list"]).json['output'][0]['privkey']['type'] == "RSA"
         #
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert "privkey" not in env.a2md(["list"])['jout']['output'][0]
+        assert "privkey" not in env.a2md(["list"]).json['output'][0]
 
     # test case: require HTTPS
     @pytest.mark.parametrize("mode", ["temporary", "permanent"])
@@ -472,14 +476,14 @@ class TestConf:
             </MDomainSet>
             """ % mode).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['require-https'] == mode, \
+        assert env.a2md(["list"]).json['output'][0]['require-https'] == mode, \
             "Unexpected HTTPS require mode in store. config: {}".format(mode)
         #
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert "require-https" not in env.a2md(["list"])['jout']['output'][0], \
+        assert "require-https" not in env.a2md(["list"]).json['output'][0], \
             "HTTPS require still persisted in store. config: {}".format(mode)
 
     # test case: require OCSP stapling
@@ -489,13 +493,13 @@ class TestConf:
             MDMustStaple on
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['must-staple'] is True
+        assert env.a2md(["list"]).json['output'][0]['must-staple'] is True
         #
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['must-staple'] is False
+        assert env.a2md(["list"]).json['output'][0]['must-staple'] is False
 
     # test case: reorder DNS names in md definition
     def test_310_300(self, env):
@@ -581,21 +585,21 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 0
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 0
         # test case: drive mode auto
         HttpdConf(env, text="""
             MDRenewMode auto
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 1
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 1
         # test case: drive mode always
         HttpdConf(env, text="""
             MDRenewMode always
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['renew-mode'] == 2
+        assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 2
 
     # test case: change config value for renew window, use various syntax alternatives
     def test_310_305(self, env):
@@ -604,21 +608,21 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        md = env.a2md(["list"])['jout']['output'][0]
+        md = env.a2md(["list"]).json['output'][0]
         assert md['renew-window'] == '14d'
         HttpdConf(env, text="""
             MDRenewWindow 10
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        md = env.a2md(["list"])['jout']['output'][0]
+        md = env.a2md(["list"]).json['output'][0]
         assert md['renew-window'] == '10d'
         HttpdConf(env, text="""
             MDRenewWindow 10%
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        md = env.a2md(["list"])['jout']['output'][0]
+        md = env.a2md(["list"]).json['output'][0]
         assert md['renew-window'] == '10%'
 
     # test case: change challenge types - http -> tls-sni -> all
@@ -628,21 +632,21 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == ['http-01']
+        assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01']
         # test case: drive mode auto
         HttpdConf(env, text="""
             MDCAChallenges tls-alpn-01
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == ['tls-alpn-01']
+        assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['tls-alpn-01']
         # test case: drive mode always
         HttpdConf(env, text="""
             MDCAChallenges http-01 tls-alpn-01
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['ca']['challenges'] == ['http-01', 'tls-alpn-01']
+        assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01', 'tls-alpn-01']
 
     # test case:  RSA key length: 4096 -> 2048 -> 4096
     def test_310_307(self, env):
@@ -651,7 +655,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['privkey'] == {
+        assert env.a2md(["list"]).json['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 4096
         }
@@ -660,7 +664,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['privkey'] == {
+        assert env.a2md(["list"]).json['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 2048
         }
@@ -669,7 +673,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['privkey'] == {
+        assert env.a2md(["list"]).json['output'][0]['privkey'] == {
             "type": "RSA",
             "bits": 4096
         }
@@ -681,14 +685,14 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert "require-https" not in env.a2md(["list"])['jout']['output'][0]
+        assert "require-https" not in env.a2md(["list"]).json['output'][0]
         # test case: temporary redirect
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDRequireHttps temporary
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['require-https'] == "temporary"
+        assert env.a2md(["list"]).json['output'][0]['require-https'] == "temporary"
         # test case: permanent redirect
         HttpdConf(env, text="""
             <MDomainSet testdomain.org>
@@ -697,7 +701,7 @@ class TestConf:
             </MDomainSet>
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['require-https'] == "permanent"
+        assert env.a2md(["list"]).json['output'][0]['require-https'] == "permanent"
 
     # test case: change OCSP stapling settings on existing md
     def test_310_309(self, env):
@@ -706,21 +710,21 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['must-staple'] is False
+        assert env.a2md(["list"]).json['output'][0]['must-staple'] is False
         # test case: OCSP stapling on
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDMustStaple on
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['must-staple'] is True
+        assert env.a2md(["list"]).json['output'][0]['must-staple'] is True
         # test case: OCSP stapling off
         HttpdConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDMustStaple off
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'][0]['must-staple'] is False
+        assert env.a2md(["list"]).json['output'][0]['must-staple'] is False
 
     # test case: change renew window parameter
     @pytest.mark.parametrize("window", [
@@ -729,7 +733,7 @@ class TestConf:
     def test_310_310(self, env, window):
         # non-default renewal setting
         domain = self.test_domain
-        conf = HttpdConf(env,)
+        conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
         conf.start_md([domain])
         conf.add_drive_mode("manual")
@@ -746,39 +750,41 @@ class TestConf:
         # setup: create complete md in store
         domain = self.test_domain
         name = "www." + domain
-        assert env.a2md(["add", name, "test1." + domain])['rv'] == 0
-        assert env.a2md(["update", name, "contacts", "admin@" + name])['rv'] == 0
-        assert env.a2md(["update", name, "agreement", env.ACME_TOS])['rv'] == 0
-        assert env.apache_start() == 0
+        assert env.a2md(["add", name, "test1." + domain]).exit_code == 0
+        assert env.a2md(["update", name, "contacts", "admin@" + name]).exit_code == 0
+        assert env.a2md(["update", name, "agreement", env.acme_tos]).exit_code == 0
+        HttpdConf(env).install()
+        assert env.apache_restart() == 0
+
         # setup: drive it
         r = env.a2md(["-v", "drive", name])
-        assert r['rv'] == 0, "drive not successfull: {0}".format(r['stderr'])
-        assert env.a2md(["list", name])['jout']['output'][0]['state'] == env.MD_S_COMPLETE
+        assert r.exit_code == 0, "drive not successfull: {0}".format(r.stderr)
+        assert env.a2md(["list", name]).json['output'][0]['state'] == env.MD_S_COMPLETE
 
         # remove one domain -> status stays COMPLETE
-        assert env.a2md(["update", name, "domains", name])['rv'] == 0
-        assert env.a2md(["list", name])['jout']['output'][0]['state'] == env.MD_S_COMPLETE
+        assert env.a2md(["update", name, "domains", name]).exit_code == 0
+        assert env.a2md(["list", name]).json['output'][0]['state'] == env.MD_S_COMPLETE
         
         # add other domain -> status INCOMPLETE
-        assert env.a2md(["update", name, "domains", name, "test2." + domain])['rv'] == 0
-        assert env.a2md(["list", name])['jout']['output'][0]['state'] == env.MD_S_INCOMPLETE
+        assert env.a2md(["update", name, "domains", name, "test2." + domain]).exit_code == 0
+        assert env.a2md(["list", name]).json['output'][0]['state'] == env.MD_S_INCOMPLETE
 
     # test case: change ca info
     def test_310_401(self, env):
         # setup: create complete md in store
         domain = self.test_domain
         name = "www." + domain
-        assert env.a2md(["add", name])['rv'] == 0
-        assert env.a2md(["update", name, "contacts", "admin@" + name])['rv'] == 0
-        assert env.a2md(["update", name, "agreement", env.ACME_TOS])['rv'] == 0
+        assert env.a2md(["add", name]).exit_code == 0
+        assert env.a2md(["update", name, "contacts", "admin@" + name]).exit_code == 0
+        assert env.a2md(["update", name, "agreement", env.acme_tos]).exit_code == 0
         assert env.apache_start() == 0
         # setup: drive it
-        assert env.a2md(["drive", name])['rv'] == 0
-        assert env.a2md(["list", name])['jout']['output'][0]['state'] == env.MD_S_COMPLETE
+        assert env.a2md(["drive", name]).exit_code == 0
+        assert env.a2md(["list", name]).json['output'][0]['state'] == env.MD_S_COMPLETE
         # setup: change CA URL
-        assert env.a2md(["update", name, "ca", env.ACME_URL_DEFAULT])['rv'] == 0
+        assert env.a2md(["update", name, "ca", env.acme_url]).exit_code == 0
         # check: state stays COMPLETE
-        assert env.a2md(["list", name])['jout']['output'][0]['state'] == env.MD_S_COMPLETE
+        assert env.a2md(["list", name]).json['output'][0]['state'] == env.MD_S_COMPLETE
 
     # test case: change the store dir
     def test_310_500(self, env):
@@ -787,7 +793,7 @@ class TestConf:
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
-        assert env.a2md(["list"])['jout']['output'] == []
+        assert env.a2md(["list"]).json['output'] == []
         env.set_store_dir("md-other")
         env.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
         env.clear_store()
@@ -810,3 +816,4 @@ class TestConf:
         with open(fpath, 'w') as fd:
             fd.write("this does not belong here\n")
         assert env.apache_restart() == 0
+

@@ -9,6 +9,8 @@ from md_conf import HttpdConf
 from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestMessage:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -23,9 +25,9 @@ class TestMessage:
     def _method_scope(self, env, request):
         env.clear_store()
         self.test_domain = env.get_request_domain(request)
-        self.mcmd = ("%s/message.py" % env.TESTROOT)
-        self.mcmdfail = ("%s/notifail.py" % env.TESTROOT)
-        self.mlog = ("%s/message.log" % env.GEN_DIR)
+        self.mcmd = ("%s/message.py" % env.test_dir)
+        self.mcmdfail = ("%s/notifail.py" % env.test_dir)
+        self.mlog = ("%s/message.log" % env.gen_dir)
         if os.path.isfile(self.mlog):
             os.remove(self.mlog)
 
@@ -51,7 +53,7 @@ class TestMessage:
 
     # test: signup with configured message cmd that is valid but returns != 0
     def test_901_002(self, env):
-        self.mcmd = ("%s/notifail.py" % env.TESTROOT)
+        self.mcmd = ("%s/notifail.py" % env.test_dir)
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
@@ -125,8 +127,8 @@ class TestMessage:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
-        conf.add_line("MDRenewWindow 120d")
-        conf.add_line("MDActivationDelay -7d")
+        conf.add("MDRenewWindow 120d")
+        conf.add("MDActivationDelay -7d")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -142,7 +144,7 @@ class TestMessage:
         # MD with static cert files, lifetime in renewal window, no message about renewal
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(env.GEN_DIR, 'test_901_010')
+        testpath = os.path.join(env.gen_dir, 'test_901_010')
         # cert that is only 10 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -70, "notAfter": 20},
                                     serial=901010, path=testpath)
@@ -154,8 +156,8 @@ class TestMessage:
         conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
         conf.start_md(domains)
-        conf.add_line("MDCertificateFile %s" % cert_file)
-        conf.add_line("MDCertificateKeyFile %s" % pkey_file)
+        conf.add("MDCertificateFile %s" % cert_file)
+        conf.add("MDCertificateKeyFile %s" % pkey_file)
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -166,7 +168,7 @@ class TestMessage:
         # MD with static cert files, lifetime in warn window, check message
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(env.GEN_DIR, 'test_901_011')
+        testpath = os.path.join(env.gen_dir, 'test_901_011')
         # cert that is only 10 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -85, "notAfter": 5},
                                     serial=901011, path=testpath)
@@ -178,8 +180,8 @@ class TestMessage:
         conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
         conf.start_md(domains)
-        conf.add_line("MDCertificateFile %s" % cert_file)
-        conf.add_line("MDCertificateKeyFile %s" % pkey_file)
+        conf.add("MDCertificateFile %s" % cert_file)
+        conf.add("MDCertificateKeyFile %s" % pkey_file)
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -205,7 +207,7 @@ class TestMessage:
         conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
         conf.add_drive_mode("auto")
         conf.add_md(domains)
-        conf.add_line("MDStapling on")
+        conf.add("MDStapling on")
         conf.add_vhost(domains)
         conf.install()
         assert env.apache_restart() == 0
@@ -239,7 +241,7 @@ class TestMessage:
         conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd("%s %s" % (self.mcmdfail, self.mlog))
         conf.add_md(domains)
-        conf.add_line("""
+        conf.add("""
             MDWarnWindow 100d
             """)
         conf.add_vhost(domains)
@@ -263,7 +265,7 @@ class TestMessage:
         conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
         conf.add_md(domains)
-        conf.add_line("""
+        conf.add("""
             MDWarnWindow 100d
             """)
         conf.add_vhost(domains)

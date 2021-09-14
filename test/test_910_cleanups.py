@@ -5,8 +5,11 @@ import os
 import pytest
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestCleanups:
 
     @pytest.fixture(autouse=True, scope='class')

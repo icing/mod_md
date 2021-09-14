@@ -1,6 +1,8 @@
 # test auto runs against ACMEv2
 
 import os
+import time
+
 import pytest
 
 from md_conf import HttpdConf
@@ -8,6 +10,8 @@ from md_cert_util import MDCertUtil
 from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestAutov2:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -112,8 +116,8 @@ class TestAutov2:
         conf.install()
         #
         # create docRoot folder
-        self._write_res_file(os.path.join(env.APACHE_HTDOCS_DIR, "a"), "name.txt", name_a)
-        self._write_res_file(os.path.join(env.APACHE_HTDOCS_DIR, "b"), "name.txt", name_b)
+        self._write_res_file(os.path.join(env.server_docs_dir, "a"), "name.txt", name_a)
+        self._write_res_file(os.path.join(env.server_docs_dir, "b"), "name.txt", name_b)
         #
         # restart (-> drive), check that MD was synched and completes
         assert env.apache_restart() == 0
@@ -142,7 +146,7 @@ class TestAutov2:
         # generate 1 MD and 1 vhost
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
         conf.add_md(domains)
@@ -174,7 +178,7 @@ class TestAutov2:
         conf.install()
         #
         # create docRoot folder
-        self._write_res_file(os.path.join(env.APACHE_HTDOCS_DIR, "a"), "name.txt", name_a)
+        self._write_res_file(os.path.join(env.server_docs_dir, "a"), "name.txt", name_a)
         #
         # restart, check that md is in store
         assert env.apache_restart() == 0
@@ -183,7 +187,7 @@ class TestAutov2:
         # check: that request to domains give 503 Service Unavailable
         cert1 = env.get_cert(name_a)
         assert name_a in cert1.get_san_list()
-        assert env.getStatus(name_a, "/name.txt") == 503
+        assert env.get_http_status(name_a, "/name.txt") == 503
         #
         # check temporary cert from server
         cert2 = MDCertUtil(env.path_fallback_cert(domain))
@@ -206,7 +210,7 @@ class TestAutov2:
         conf.install()
         #
         # create docRoot folder
-        self._write_res_file(os.path.join(env.APACHE_HTDOCS_DIR, "a"), "name.txt", name_a)
+        self._write_res_file(os.path.join(env.server_docs_dir, "a"), "name.txt", name_a)
         #
         # restart, check that md is in store
         assert env.apache_restart() == 0
@@ -221,7 +225,7 @@ class TestAutov2:
         # check: that request to domains give 503 Service Unavailable
         cert = env.get_cert(name_a)
         assert name_a in cert.get_san_list()
-        assert env.getStatus(name_a, "/name.txt") == 503
+        assert env.get_http_status(name_a, "/name.txt") == 503
 
     # Specify a non-working http proxy
     def test_702_008(self, env):
@@ -252,7 +256,7 @@ class TestAutov2:
         conf = HttpdConf(env, proxy=True)
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("always")
-        conf.add_http_proxy("http://localhost:%s" % env.HTTP_PROXY_PORT)
+        conf.add_http_proxy("http://localhost:%s" % env.proxy_port)
         conf.add_md(domains)
         conf.install()
         #
@@ -308,7 +312,7 @@ class TestAutov2:
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("auto")
-        conf._add_line("MDPortMap 80:99")        
+        conf.add("MDPortMap 80:99")        
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -321,7 +325,7 @@ class TestAutov2:
         conf.add_admin("admin@" + domain)
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["http-01"])
-        conf._add_line("MDPortMap 80:%s" % env.HTTP_PORT)
+        conf.add("MDPortMap 80:%s" % env.http_port)
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -336,9 +340,9 @@ class TestAutov2:
         # generate 1 MD and 1 vhost, map port 443 to where the server does not listen
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
-        conf._add_line("MDPortMap https:99 http:99")        
+        conf.add("MDPortMap https:99 http:99")        
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -349,10 +353,10 @@ class TestAutov2:
         # now the same with a 443 mapped to a supported port 
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["tls-alpn-01"])
-        conf._add_line("MDPortMap https:%s" % env.HTTPS_PORT)
+        conf.add("MDPortMap https:%s" % env.https_port)
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -464,7 +468,7 @@ class TestAutov2:
         # generate 2 MDs and 2 vhosts
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf._add_line("MDMembers auto")
+        conf.add("MDMembers auto")
         conf.add_md([name1])
         conf.add_md([name2])
         conf.add_vhost(name1)
@@ -487,7 +491,7 @@ class TestAutov2:
         # remove second md and vhost, add name2 to vhost1
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf._add_line("MDMembers auto")
+        conf.add("MDMembers auto")
         conf.add_md([name1])
         conf.add_vhost([name1, name2])
         conf.install()
@@ -508,8 +512,8 @@ class TestAutov2:
         # generate 1 MD and 1 vhost
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("LogLevel core:debug")
-        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add("LogLevel core:debug")
+        conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["tls-alpn-01"])
         conf.add_md(domains)
@@ -537,7 +541,7 @@ class TestAutov2:
         # generate 1 MD and 1 vhost
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("LogLevel core:debug")
+        conf.add("LogLevel core:debug")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["tls-alpn-01"])
         conf.add_md(domains)
@@ -554,17 +558,18 @@ class TestAutov2:
 
     # test case: 2.4.40 mod_ssl stumbles over a SSLCertificateChainFile when installing
     # a fallback certificate
-    @pytest.mark.skipif(MDTestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
+    @pytest.mark.skipif(MDTestEnv.get_ssl_type() != "ssl", reason="only for mod_ssl")
     def test_702_042(self, env):
         domain = self.test_domain
         dns_list = [domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("LogLevel core:debug")
-        conf.add_line("SSLCertificateChainFile %s" % (self._path_conf_ssl(env, "valid_cert.pem")))
+        conf.add("LogLevel core:debug")
+        cred = env.get_credentials_for_name(env.domains[0])[0]
+        conf.add(f"SSLCertificateChainFile {cred.cert_file}")
         conf.add_drive_mode("auto")
         conf.add_md(dns_list)
-        conf.add_vhost(env.HTTPS_PORT, dns_list)
+        conf.add_vhost(env.https_port, dns_list)
         conf.install()
         assert env.apache_restart() == 0
         
@@ -577,9 +582,9 @@ class TestAutov2:
         # generate 1 MD and 1 vhost
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("LogLevel core:debug")
+        conf.add("LogLevel core:debug")
         conf.add_drive_mode("auto")
-        conf._add_line("MDPortMap 80:%s" % env.HTTP_PORT)
+        conf.add("MDPortMap 80:%s" % env.http_port)
         conf.add_ca_challenges(["tls-alpn-01", "http-01"])
         conf.add_md(domains)
         conf.add_vhost(domains)
@@ -608,7 +613,7 @@ class TestAutov2:
         # generate 1 MD and 1 vhost
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
         conf.add_md(md_domains)
@@ -630,7 +635,7 @@ class TestAutov2:
     def test_702_050(self, env):
         domain = self.test_domain
         conf = HttpdConf(env)
-        conf.add_line("""
+        conf.add("""
             MDBaseServer on
             ServerAdmin admin@%s
             ServerName %s
@@ -644,7 +649,7 @@ class TestAutov2:
     def test_702_051(self, env):
         domain = self.test_domain
         conf = HttpdConf(env)
-        conf.add_line("""
+        conf.add("""
             MDBaseServer on
             MDPortMap http:-
             ServerAdmin admin@%s
@@ -658,8 +663,8 @@ class TestAutov2:
     # Make a setup using the base server without http:, but with acme-tls/1, should work.
     def test_702_052(self, env):
         domain = self.test_domain
-        conf = HttpdConf(env)
-        conf.add_line("""
+        conf = HttpdConf(env, std_vhosts=False)
+        conf.add("""
             MDBaseServer on
             MDPortMap http:-
             Protocols h2 http/1.1 acme-tls/1
@@ -670,11 +675,14 @@ class TestAutov2:
             </IfModule>
             """ % (domain, domain))
         conf.add_md([domain])
+        conf.start_vhost([env.http_addr], port=env.http_port)
+        conf.add("SSLEngine off")
+        conf.end_vhost()
         conf.install()
         assert env.apache_restart() == 0
-        stat = env.get_md_status(domain)
+        stat = env.get_md_status(domain, via_domain=env.http_addr, use_https=False)
         assert stat["proto"]["acme-tls/1"] == [domain]
-        assert env.await_completion([domain])
+        assert env.await_completion([domain], via_domain=env.http_addr, use_https=False)
 
     # Test a domain name longer than 64 chars, but components < 64, see #227
     # Background: DNS has an official limit of 253 ASCII chars and components must be
@@ -693,7 +701,7 @@ class TestAutov2:
         domains = [long_domain, "www." + long_domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
         conf.add_md(domains)
@@ -708,7 +716,7 @@ class TestAutov2:
         domains = [long_domain, "www." + long_domain, "xxx." + domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("Protocols http/1.1 acme-tls/1")
+        conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
         conf.add_md(domains)
@@ -728,6 +736,3 @@ class TestAutov2:
         if not os.path.exists(doc_root):
             os.makedirs(doc_root)
         open(os.path.join(doc_root, name), "w").write(content)
-
-    def _path_conf_ssl(self, env, name):
-        return os.path.join(env.APACHE_SSL_DIR, name) 

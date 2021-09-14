@@ -6,6 +6,8 @@ from md_conf import HttpdConf
 from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestAutov2:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -27,7 +29,7 @@ class TestAutov2:
         if conf is None:
             conf = HttpdConf(env)
             conf.add_admin("admin@" + domain)
-            conf.add_line("MDPrivateKeys {0}".format(" ".join([p['spec'] for p in pkeys])))
+            conf.add("MDPrivateKeys {0}".format(" ".join([p['spec'] for p in pkeys])))
             conf.add_md(domains)
             conf.add_vhost(domains)
         conf.install()
@@ -60,9 +62,9 @@ class TestAutov2:
         domains = [domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("MDPrivateKeys secp256r1")
+        conf.add("MDPrivateKeys secp256r1")
         conf.start_md(domains)
-        conf.add_line("    MDPrivateKeys secp384r1")
+        conf.add("    MDPrivateKeys secp384r1")
         conf.end_md()
         conf.add_vhost(domains)
         self.set_get_check_pkeys(env, domain, [
@@ -88,14 +90,14 @@ class TestAutov2:
 
     # use a curve unsupported by LE
     # only works with mod_ssl as rustls refuses to load such a weak key
-    @pytest.mark.skipif(MDTestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
+    @pytest.mark.skipif(MDTestEnv.get_ssl_type() != "ssl", reason="only for mod_ssl")
     def test_810_004(self, env):
         domain = self.test_domain
         # generate config with one MD
         domains = [domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line("MDPrivateKeys secp192r1")
+        conf.add("MDPrivateKeys secp192r1")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -110,7 +112,7 @@ class TestAutov2:
         domain = self.test_domain
         # behaviour differences, mod_ssl selects the strongest suitable,
         # mod_tls selects the first suitable
-        ec_key_len = 384 if env.get_ssl_module() == "ssl" else 256
+        ec_key_len = 384 if env.get_ssl_type() == "ssl" else 256
         self.set_get_check_pkeys(env, domain, [
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': ec_key_len},
             {'spec': "RSA 4096", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 4096},

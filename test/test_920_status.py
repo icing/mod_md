@@ -8,7 +8,11 @@ import pytest
 from md_conf import HttpdConf
 from shutil import copyfile
 
+from md_env import MDTestEnv
 
+
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestStatus:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -65,8 +69,8 @@ class TestStatus:
         assert env.apache_restart() == 0
         assert env.await_completion([domain], restart=False)
         # copy a real certificate from LE over to staging
-        staged_cert = os.path.join(env.STORE_DIR, 'staging', domain, 'pubcert.pem') 
-        real_cert = os.path.join(env.TEST_SRC, 'data', 'test_920', '002.pubcert')
+        staged_cert = os.path.join(env.store_dir, 'staging', domain, 'pubcert.pem')
+        real_cert = os.path.join(env.test_dir, 'data', 'test_920', '002.pubcert')
         assert copyfile(real_cert, staged_cert)
         status = env.get_certificate_status(domain)
         # status shows the copied cert's properties as staged
@@ -83,7 +87,7 @@ class TestStatus:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
-        conf.add_line("MDCertificateStatus off")
+        conf.add("MDCertificateStatus off")
         conf.add_vhost(domain)
         conf.install()
         assert env.apache_restart() == 0
@@ -91,14 +95,13 @@ class TestStatus:
         status = env.get_certificate_status(domain)
         assert not status
 
-    # get the complete md-status JSON, check that it
     def test_920_004(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
-        conf.add_line("MDCertificateStatus off")
+        conf.add("MDCertificateStatus off")
         conf.add_vhost(domain)
         conf.install()
         assert env.apache_restart() == 0
@@ -113,17 +116,19 @@ class TestStatus:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env, std_vhosts=False, std_ports=False, text=f"""
-MDBaseServer on
-MDPortMap http:- https:{env.HTTPS_PORT}
+Listen {env.http_port} https
+Listen {env.https_port} https
 
-Listen {env.HTTPS_PORT} https
+MDBaseServer on
+MDPortMap http:- https:{env.https_port}
+
 ServerAdmin admin@not-forbidden.org
 ServerName {domain}
 <IfModule ssl_module>
 SSLEngine on
 </IfModule>
 <IfModule tls_module>
-TLSListen {env.HTTPS_PORT}
+TLSListen {env.https_port}
 TLSStrictSNI off
 </IfModule>
 Protocols h2 http/1.1 acme-tls/1
@@ -134,20 +139,24 @@ Protocols h2 http/1.1 acme-tls/1
 <Location "/md-status">
     SetHandler md-status
 </Location>
+<VirtualHost *:{env.http_port}>
+  SSLEngine off
+</VirtualHost>
             """)
         conf.add_md(domains)
         conf.install()
-        assert env.apache_restart(check_url=env.HTTPD_URL_SSL) == 0
-        assert env.await_completion([domain], restart=False)
-        status = env.get_md_status("")
+        assert env.apache_restart(check_url=env.http_base_url) == 0
+        assert env.await_completion([domain], restart=False,
+                                    via_domain=env.http_addr, use_https=False)
+        status = env.get_md_status("", via_domain=env.http_addr, use_https=False)
         assert "version" in status
         assert "managed-domains" in status
         assert 1 == len(status["managed-domains"])
         # get the html page
-        status = env.get_server_status()
+        status = env.get_server_status(via_domain=env.http_addr, use_https=False)
         assert re.search(r'<h3>Managed Certificates</h3>', status, re.MULTILINE)
         # get the ascii summary
-        status = env.get_server_status(query="?auto")
+        status = env.get_server_status(query="?auto", via_domain=env.http_addr, use_https=False)
         m = re.search(r'Managed Certificates: total=(\d+), ok=(\d+) renew=(\d+) errored=(\d+) ready=(\d+)',
                       status, re.MULTILINE)
         assert int(m.group(1)) == 1
@@ -160,7 +169,7 @@ Protocols h2 http/1.1 acme-tls/1
         # MD with static cert files in base server, see issue #161
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(env.GEN_DIR, 'test_920_011')
+        testpath = os.path.join(env.gen_dir, 'test_920_011')
         # cert that is only 10 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -70, "notAfter": 20},
                                     serial=920011, path=testpath)
@@ -170,17 +179,17 @@ Protocols h2 http/1.1 acme-tls/1
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env, std_vhosts=False, std_ports=False, text=f"""
         MDBaseServer on
-        MDPortMap http:- https:{env.HTTPS_PORT}
+        MDPortMap http:- https:{env.https_port}
 
-        Listen {env.HTTP_PORT}
-        Listen {env.HTTPS_PORT} https
+        Listen {env.http_port}
+        Listen {env.https_port} https
         ServerAdmin admin@not-forbidden.org
         ServerName {domain}
         <IfModule ssl_module>
         SSLEngine on
         </IfModule>
         <IfModule tls_module>
-        TLSListen {env.HTTPS_PORT}
+        TLSListen {env.https_port}
         TLSStrictSNI off
         </IfModule>
         Protocols h2 http/1.1 acme-tls/1
@@ -193,13 +202,15 @@ Protocols h2 http/1.1 acme-tls/1
         </Location>
             """)
         conf.start_md(domains)
-        conf.add_line(f"MDCertificateFile {cert_file}")
-        conf.add_line(f"MDCertificateKeyFile {pkey_file}")
+        conf.add(f"MDCertificateFile {cert_file}")
+        conf.add(f"MDCertificateKeyFile {pkey_file}")
         conf.end_md()
+        conf.start_vhost([env.http_addr], port=env.http_port)
+        conf.add("SSLEngine off")
+        conf.end_vhost()
         conf.install()
-        env.HTTPD_CHECK_URL = env.HTTPD_URL_SSL
         assert env.apache_restart() == 0
-        status = env.get_md_status(domain)
+        status = env.get_md_status(domain, via_domain=env.http_addr, use_https=False)
         assert status
         assert 'renewal' not in status
         print(status)
@@ -212,8 +223,8 @@ Protocols h2 http/1.1 acme-tls/1
         domains = [domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_line("MDStapling on")
-        conf.add_line("MDPrivateKeys secp256r1 RSA")
+        conf.add("MDStapling on")
+        conf.add("MDPrivateKeys secp256r1 RSA")
         conf.add_md(domains)
         conf.add_vhost(domain)
         conf.install()
@@ -241,6 +252,6 @@ Protocols h2 http/1.1 acme-tls/1
         assert 'valid' in stat['cert']
         for ktype in ['rsa', 'secp256r1']:
             assert ktype in stat['cert']
-            if not env.ACME_LACKS_OCSP:
+            if env.acme_server == 'boulder':
                 assert 'ocsp' in stat['cert'][ktype]
         env.apache_error_log_clear()

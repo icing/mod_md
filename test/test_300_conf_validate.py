@@ -6,8 +6,11 @@ import time
 import pytest
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestConf:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -136,7 +139,7 @@ class TestConf:
         conf = HttpdConf(env, text="""
             MDomain not-forbidden.org manual www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
         """)
-        conf.add_ssl_vhost(port=env.HTTPS_PORT, domains=[
+        conf.add_ssl_vhost(port=env.https_port, domains=[
             "not-forbidden.org", "test3.not-forbidden.org", "test4.not-forbidden.org"
         ])
         conf.install()
@@ -156,7 +159,7 @@ class TestConf:
                 ServerAlias test3.not-forbidden.org
                 ServerAlias test4.not-forbidden.org
             </VirtualHost>
-            """ % env.HTTPS_PORT).install()
+            """ % env.https_port).install()
         assert env.apache_restart() == 0
         assert (0, 0) == env.httpd_error_log_count()
 
@@ -194,7 +197,7 @@ class TestConf:
             <VirtualHost *:12346>
                 ServerName www.example2.org
             </VirtualHost>
-            """ % env.HOSTNAME).install()
+            """ % env.domains[0]).install()
         assert env.apache_restart() == 0
         assert (0, 0) == env.httpd_error_log_count()
 

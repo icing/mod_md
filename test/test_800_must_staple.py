@@ -6,6 +6,8 @@ from md_cert_util import MDCertUtil
 from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestMustStaple:
     domain = None
 
@@ -23,7 +25,7 @@ class TestMustStaple:
     def configure_httpd(self, env, domain, add_lines=""):
         conf = HttpdConf(env)
         conf.add_admin("admin@" + domain)
-        conf.add_line(add_lines)
+        conf.add(add_lines)
         conf.add_md([domain])
         conf.add_vhost(domain)
         conf.install()
@@ -65,7 +67,7 @@ class TestMustStaple:
 
     # MD that must staple
     @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
-    @pytest.mark.skipif(MDTestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
+    @pytest.mark.skipif(MDTestEnv.get_ssl_type() != "ssl", reason="only for mod_ssl")
     def test_800_004(self, env):
         # mod_ssl stapling is off, expect no stapling
         stat = env.get_ocsp_status(self.domain)

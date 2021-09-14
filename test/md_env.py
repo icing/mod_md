@@ -2,6 +2,7 @@ import copy
 import inspect
 import json
 import logging
+from string import Template
 
 import pytest
 import re
@@ -12,19 +13,197 @@ import sys
 import time
 
 from datetime import datetime, timedelta
-from configparser import ConfigParser
+from configparser import ConfigParser, ExtendedInterpolation
 from http.client import HTTPConnection
-from typing import Dict
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from md_cert_util import MDCertUtil
-
+from md_certs import Credentials
 
 log = logging.getLogger(__name__)
 
 
-class Dummy:
-    pass
+class MDTestSetup:
+
+    # the modules we want to load
+    MODULES = [
+        "log_config",
+        "logio",
+        "unixd",
+        "version",
+        "watchdog",
+        "authn_core",
+        "authz_host",
+        "authz_groupfile",
+        "authz_user",
+        "authz_core",
+        "access_compat",
+        "auth_basic",
+        "cache",
+        "cache_disk",
+        "cache_socache",
+        "socache_shmcb",
+        "dumpio",
+        "reqtimeout",
+        "filter",
+        "mime",
+        "env",
+        "headers",
+        "setenvif",
+        "slotmem_shm",
+        "status",
+        "autoindex",
+        "cgid",
+        "dir",
+        "alias",
+        "rewrite",
+        "deflate",
+        "proxy",
+        "proxy_http",
+        "proxy_connect",
+    ]
+
+    def __init__(self, env: 'MDTestEnv'):
+        self.env = env
+
+    def make(self):
+        self._make_dirs()
+        self._make_conf()
+        self._make_htdocs()
+        self._make_modules_conf()
+        self._install_acme_ca_bundle()
+
+    def _make_dirs(self):
+        if os.path.exists(self.env.gen_dir):
+            shutil.rmtree(self.env.gen_dir)
+        os.makedirs(self.env.gen_dir)
+        if not os.path.exists(self.env.server_logs_dir):
+            os.makedirs(self.env.server_logs_dir)
+
+    def _make_conf(self):
+        conf_src_dir = os.path.join(self.env.test_dir, 'conf')
+        conf_dest_dir = os.path.join(self.env.server_dir, 'conf')
+        if not os.path.exists(conf_dest_dir):
+            os.makedirs(conf_dest_dir)
+        for name in os.listdir(conf_src_dir):
+            src_path = os.path.join(conf_src_dir, name)
+            m = re.match(r'(.+).template', name)
+            if m:
+                self._make_template(src_path, os.path.join(conf_dest_dir, m.group(1)))
+            elif os.path.isfile(src_path):
+                shutil.copy(src_path, os.path.join(conf_dest_dir, name))
+
+    def _make_template(self, src, dest):
+        var_map = dict()
+        for name, value in self.env.__class__.__dict__.items():
+            if isinstance(value, property):
+                var_map[name] = value.fget(self.env)
+        t = Template(''.join(open(src).readlines()))
+        with open(dest, 'w') as fd:
+            fd.write(t.substitute(var_map))
+
+    def _make_htdocs(self):
+        if not os.path.exists(self.env.server_docs_dir):
+            os.makedirs(self.env.server_docs_dir)
+        shutil.copytree(os.path.join(self.env.test_dir, 'htdocs'),
+                        os.path.join(self.env.server_dir, 'htdocs'),
+                        dirs_exist_ok=True)
+
+    def _make_modules_conf(self):
+        modules_conf = os.path.join(self.env.server_dir, 'conf/modules.conf')
+        with open(modules_conf, 'w') as fd:
+            # issue load directives for all modules we want that are shared
+            for m in self.MODULES:
+                mod_path = os.path.join(self.env.libexec_dir, f"mod_{m}.so")
+                if os.path.isfile(mod_path):
+                    fd.write(f"LoadModule {m}_module   \"{mod_path}\"\n")
+            for m in ["md"]:
+                fd.write(f"LoadModule {m}_module   \"{self.env.libexec_dir}/mod_{m}.so\"\n")
+
+    def _install_acme_ca_bundle(self):
+        dest = os.path.join(self.env.server_dir, 'test-ca.pem')
+        if self.env.acme_server == 'boulder':
+            r = self.env.run([
+                'docker', 'exec', 'boulder_boulder_1', 'bash', '-c', "cat /tmp/root*.pem"
+            ])
+            assert r.exit_code == 0
+            with open(dest, 'w') as fd:
+                fd.write(r.stdout)
+        elif self.env.acme_server == 'pebble':
+            src = os.path.join(self.env.acme_server_dir, 'test/certs/pebble.minica.pem')
+            shutil.copyfile(src, dest)
+            r = self.env.curl_get('https://localhost:15000/roots/0', insecure=True)
+            with open(dest, 'a') as fd:
+                fd.write(r.stdout)
+
+
+class ExecResult:
+
+    def __init__(self, exit_code: int, stdout: bytes, stderr: bytes = None, duration: timedelta = None):
+        self._exit_code = exit_code
+        self._raw = stdout if stdout else b''
+        self._stdout = stdout.decode() if stdout is not None else ""
+        self._stderr = stderr.decode() if stderr is not None else ""
+        self._duration = duration if duration is not None else timedelta()
+        self._response = None
+        self._results = {}
+        self._assets = []
+        # noinspection PyBroadException
+        try:
+            self._json_out = json.loads(self._stdout)
+        except:
+            self._json_out = None
+
+    @property
+    def exit_code(self) -> int:
+        return self._exit_code
+
+    @property
+    def outraw(self) -> bytes:
+        return self._raw
+
+    @property
+    def stdout(self) -> str:
+        return self._stdout
+
+    @property
+    def json(self) -> Optional[Dict]:
+        """Output as JSON dictionary or None if not parseable."""
+        return self._json_out
+
+    @property
+    def stderr(self) -> str:
+        return self._stderr
+
+    @property
+    def duration(self) -> timedelta:
+        return self._duration
+
+    @property
+    def response(self) -> Optional[Dict]:
+        return self._response
+
+    @property
+    def results(self) -> Dict:
+        return self._results
+
+    @property
+    def assets(self) -> List:
+        return self._assets
+
+    def add_response(self, resp: Dict):
+        if self._response:
+            resp['previous'] = self._response
+        self._response = resp
+
+    def add_results(self, results: Dict):
+        self._results.update(results)
+        if 'response' in results:
+            self.add_response(results['response'])
+
+    def add_assets(self, assets: List):
+        self._assets.extend(assets)
 
 
 class MDTestEnv:
@@ -45,92 +224,133 @@ class MDTestEnv:
     _SSL_MODULE = None
 
     @classmethod
-    def get_ssl_module(cls):
+    def get_ssl_type(cls):
         if cls._SSL_MODULE is None:
             cls._SSL_MODULE = os.environ['SSL_MODULE'] if 'SSL_MODULE' in os.environ else "ssl"
         return cls._SSL_MODULE
+
+    @classmethod
+    def get_acme_server(cls):
+        our_dir = os.path.dirname(inspect.getfile(MDTestEnv))
+        config = ConfigParser(interpolation=ExtendedInterpolation())
+        config.read(os.path.join(our_dir, 'config.ini'))
+        return config.get('acme', 'server').strip()
+
+    @classmethod
+    def has_acme_server(cls):
+        return cls.get_acme_server() != 'none'
+
+    @classmethod
+    def is_pebble(cls) -> bool:
+        return cls.get_acme_server() == 'pebble'
+
+    @classmethod
+    def lacks_ocsp(cls):
+        return cls.is_pebble()
 
     def __init__(self, pytestconfig=None):
         logging.getLogger('').setLevel(level=logging.DEBUG)
 
         our_dir = os.path.dirname(inspect.getfile(MDTestEnv))
-        config = ConfigParser()
-        config.read(os.path.join(our_dir, 'test.ini'))
-        self.TEST_SRC = our_dir
-        self.PREFIX = config.get('global', 'prefix')
+        self.config = ConfigParser(interpolation=ExtendedInterpolation())
+        self.config.read(os.path.join(our_dir, 'config.ini'))
 
-        self.GEN_DIR = config.get('global', 'gen_dir')
+        self._apxs = self.config.get('global', 'apxs')
+        self._prefix = self.config.get('global', 'prefix')
+        self._apachectl = self.config.get('global', 'apachectl')
+        self._libexec_dir = self.get_apxs_var('LIBEXECDIR')
 
-        self.WEBROOT = config.get('global', 'server_dir')
-        self.HOSTNAME = config.get('global', 'server_name')
-        self.TESTROOT = os.path.join(self.WEBROOT, '..', '..')
+        self._curl = self.config.get('global', 'curl_bin')
+        self._openssl = self.config.get('global', 'openssl_bin')
+        self._ca = None
 
-        self.APACHECTL = os.path.join(self.PREFIX, 'bin', 'apachectl')
-        self.APXS = os.path.join(self.PREFIX, 'bin', 'apxs')
-        self.ERROR_LOG = os.path.join(self.WEBROOT, "logs", "error_log")
-        self.APACHE_CONF_DIR = os.path.join(self.WEBROOT, "conf")
-        self.APACHE_TEST_CONF = os.path.join(self.APACHE_CONF_DIR, "test.conf")
-        self.APACHE_SSL_DIR = os.path.join(self.APACHE_CONF_DIR, "ssl")
-        self.APACHE_CONF = os.path.join(self.APACHE_CONF_DIR, "httpd.conf")
-        self.APACHE_CONF_SRC = "data"
-        self.APACHE_HTDOCS_DIR = os.path.join(self.WEBROOT, "htdocs")
+        self._http_port = int(self.config.get('test', 'http_port'))
+        self._https_port = int(self.config.get('test', 'https_port'))
+        self._proxy_port = int(self.config.get('test', 'proxy_port'))
+        self._http_tld = self.config.get('test', 'http_tld')
+        self._test_dir = self.config.get('test', 'test_dir')
+        self._test_src_dir = self.config.get('test', 'test_src_dir')
+        self._gen_dir = self.config.get('test', 'gen_dir')
+        self._server_dir = os.path.join(self._gen_dir, 'apache')
+        self._server_conf_dir = os.path.join(self._server_dir, "conf")
+        self._server_docs_dir = os.path.join(self._server_dir, "htdocs")
+        self._server_logs_dir = os.path.join(self.server_dir, "logs")
+        self._server_error_log = os.path.join(self._server_logs_dir, "error_log")
+        self._apxs = self.config.get('global', 'apxs')
 
-        self.HTTP_PORT = config.get('global', 'http_port')
-        self.HTTPS_PORT = config.get('global', 'https_port')
-        self.HTTP_PROXY_PORT = config.get('global', 'http_proxy_port')
-        self.HTTPD_HOST = "localhost"
-        self.HTTPD_URL = "http://" + self.HTTPD_HOST + ":" + self.HTTP_PORT
-        self.HTTPD_URL_SSL = "https://" + self.HTTPD_HOST + ":" + self.HTTPS_PORT
-        self.HTTPD_PROXY_URL = "http://" + self.HTTPD_HOST + ":" + self.HTTP_PROXY_PORT
-        self.HTTPD_CHECK_URL = self.HTTPD_URL
+        self._server_user = self.config.get('httpd', 'user')
 
-        self.ACME_URL_DEFAULT = config.get('acme', 'url_default')
-        self.ACME_URL = config.get('acme', 'url')
-        self.ACME_TOS = config.get('acme', 'tos')
-        self.ACME_SERVER = config.get('acme', 'server').strip()
-        self.ACME_LACKS_OCSP = (self.ACME_SERVER == 'pebble')
-        self.ACME_SERVER_DOWN = False
-        self.ACME_SERVER_OK = False
+        self._acme_server = self.config.get('acme', 'server').strip()
+        self._acme_url_default = self.config.get('acme', 'url_default')
+        self._acme_url = self.config.get('acme', 'url')
+        self._acme_tos = self.config.get('acme', 'tos')
+        self._acme_server_dir = self.config.get('acme', 'server_dir')
+        self._acme_server_down = False
+        self._acme_server_ok = False
 
         self.TEST_CA_PEM = os.path.join(our_dir, "gen/apache/test-ca.pem")
 
-        self.A2MD = os.path.join(our_dir, config.get('global', 'a2md_bin'))
-        self.A2MD_VERSION = config.get('global', 'a2md_version')
+        self.A2MD = self.config.get('global', 'a2md_bin')
+        self.A2MD_VERSION = self.config.get('global', 'a2md_version')
 
-        self.CURL = config.get('global', 'curl_bin')
-        self.OPENSSL = config.get('global', 'openssl_bin')
+        self._default_domain = f"www.{self._http_tld}"
+        self._domains = [
+            self._default_domain,
+        ]
+        self._expired_domains = [
+            f"expired.{self._http_tld}",
+        ]
+        self._mpm_type = os.environ['MPM'] if 'MPM' in os.environ else 'event'
+        self._ssl_type = self.get_ssl_type()
 
-        self.STORE_DIR = "./md"
+        self._httpd_addr = "127.0.0.1"
+        self._http_base = f"http://{self._httpd_addr}:{self.http_port}"
+        self._https_base = f"https://{self._httpd_addr}:{self.https_port}"
+        self._proxy_base = f"http://{self._httpd_addr}:{self.proxy_port}"
+
+        self._store_dir = "./md"
         self.set_store_dir_default()
         self.clear_store()
 
-        self._httpd_base_conf = f"""
-        H2MinWorkers 1
-        H2MaxWorkers 64
-        SSLSessionCache "shmcb:ssl_gcache_data(32000)"
-        """
+        self._test_conf = os.path.join(self._server_conf_dir, "test.conf")
+        self._httpd_base_conf = [
+            f"LoadModule mpm_{self.mpm_type}_module  \"{self.libexec_dir}/mod_mpm_{self.mpm_type}.so\"",
+            f"LoadModule {self._ssl_type}_module  \"{self.prefix}/modules/mod_{self._ssl_type}.so\"",
+            f"LogLevel {self._ssl_type}:debug",
+            f"SSLSessionCache \"shmcb:ssl_gcache_data(32000)\"",
+            "",
+        ]
+
         self._verbosity = pytestconfig.option.verbose if pytestconfig is not None else 0
         if self._verbosity >= 2:
-            self._httpd_base_conf += f"""
-                LogLevel http2:trace2 h2test:trace2 proxy_http2:trace2 
-                LogLevel core:trace5 
-                """
+            self._httpd_base_conf.append("LogLevel md:trace2 core:trace5")
         elif self._verbosity >= 2:
-            self._httpd_base_conf += "LogLevel http2:debug h2test:trace2 proxy_http2:trace2"
+            self._httpd_base_conf.append("LogLevel md:debug")
         else:
-            self._httpd_base_conf += "LogLevel http2:info h2test:trace2 proxy_http2:info"
+            self._httpd_base_conf.append("LogLevel md:info")
+        self._httpd_base_conf.append("")
+        self._setup = MDTestSetup(env=self)
+        self._setup.make()
 
-    @classmethod
-    def is_pebble(self) -> bool:
-        our_dir = os.path.dirname(inspect.getfile(MDTestEnv))
-        config = ConfigParser()
-        config.read(os.path.join(our_dir, 'test.ini'))
-        ACME_SERVER = config.get('acme', 'server').strip()
-        return ACME_SERVER == 'pebble'
+    @property
+    def gen_dir(self):
+        return self._gen_dir
 
-    @classmethod
-    def lacks_ocsp(cls):
-        return cls.is_pebble()
+    @property
+    def server_dir(self):
+        return self._server_dir
+
+    @property
+    def test_dir(self):
+        return self._test_dir
+
+    @property
+    def server_logs_dir(self):
+        return self._server_logs_dir
+
+    @property
+    def server_user(self):
+        return self._server_user
 
     def set_store_dir_default(self):
         dirpath = "md"
@@ -139,10 +359,125 @@ class MDTestEnv:
         self.set_store_dir(dirpath)
 
     def set_store_dir(self, dirpath):
-        self.STORE_DIR = os.path.join(self.WEBROOT, dirpath)
-        if self.ACME_URL:
-            self.a2md_stdargs([self.A2MD, "-a", self.ACME_URL, "-d", self.STORE_DIR,  "-C", self.TEST_CA_PEM, "-j"])
-            self.a2md_rawargs([self.A2MD, "-a", self.ACME_URL, "-d", self.STORE_DIR,  "-C", self.TEST_CA_PEM])
+        self._store_dir = os.path.join(self.server_dir, dirpath)
+        if self.acme_url:
+            self.a2md_stdargs([self.A2MD, "-a", self.acme_url, "-d", self._store_dir,  "-C", self.TEST_CA_PEM, "-j"])
+            self.a2md_rawargs([self.A2MD, "-a", self.acme_url, "-d", self._store_dir,  "-C", self.TEST_CA_PEM])
+
+    def get_apxs_var(self, name: str) -> str:
+        p = subprocess.run([self._apxs, "-q", name], capture_output=True, text=True)
+        if p.returncode != 0:
+            return ""
+        return p.stdout.strip()
+
+    @property
+    def apxs(self) -> str:
+        return self._apxs
+
+    @property
+    def prefix(self) -> str:
+        return self._prefix
+
+    @property
+    def mpm_type(self) -> str:
+        return self._mpm_type
+
+    @property
+    def http_addr(self) -> str:
+        return self._httpd_addr
+
+    @property
+    def http_port(self) -> int:
+        return self._http_port
+
+    @property
+    def https_port(self) -> int:
+        return self._https_port
+
+    @property
+    def proxy_port(self) -> int:
+        return self._proxy_port
+
+    @property
+    def http_tld(self) -> str:
+        return self._http_tld
+
+    @property
+    def domains(self) -> List[str]:
+        return self._domains
+
+    @property
+    def expired_domains(self) -> List[str]:
+        return self._expired_domains
+
+    @property
+    def http_base_url(self) -> str:
+        return self._http_base
+
+    @property
+    def https_base_url(self) -> str:
+        return self._https_base
+
+    @property
+    def test_src_dir(self) -> str:
+        return self._test_src_dir
+
+    @property
+    def libexec_dir(self) -> str:
+        return self._libexec_dir
+
+    @property
+    def server_conf_dir(self) -> str:
+        return self._server_conf_dir
+
+    @property
+    def server_docs_dir(self) -> str:
+        return self._server_docs_dir
+
+    @property
+    def store_dir(self) -> str:
+        return self._store_dir
+
+    @property
+    def httpd_base_conf(self) -> List[str]:
+        return self._httpd_base_conf
+
+    @property
+    def ssl_type(self) -> str:
+        return self._ssl_type
+
+    @property
+    def acme_server(self):
+        return self._acme_server
+
+    @property
+    def acme_server_dir(self):
+        return self._acme_server_dir
+
+    @property
+    def acme_url(self):
+        return self._acme_url
+
+    @property
+    def acme_url_default(self):
+        return self._acme_url_default
+
+    @property
+    def acme_tos(self):
+        return self._acme_tos
+
+    @property
+    def ca(self) -> Credentials:
+        return self._ca
+
+    def set_ca(self, ca: Credentials):
+        self._ca = ca
+
+    def get_credentials_for_name(self, dns_name) -> List['Credentials']:
+        for domains in [self._domains, self._expired_domains]:
+            if dns_name in domains:
+                return self.ca.get_credentials_for_name(domains[0])
+        return []
 
     def get_request_domain(self, request):
         return "%s-%s" % (re.sub(r'[_]', '-', request.node.originalname), MDTestEnv.DOMAIN_SUFFIX)
@@ -162,19 +497,11 @@ class MDTestEnv:
     _a2md_args_raw = []
 
     def run(self, args, _input=None):
-        # log.debug("run: {0}".format(" ".join(args)))
-        p = subprocess.run(args, capture_output=True, text=True)
-        # noinspection PyBroadException
-        try:
-            jout = json.loads(p.stdout)
-        except:
-            jout = None
-        return {
-            "rv": p.returncode,
-            "stdout": p.stdout,
-            "stderr": p.stderr,
-            "jout": jout
-        }
+        log.debug("run: {0}".format(" ".join(args)))
+        start = datetime.now()
+        p = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        return ExecResult(exit_code=p.returncode, stdout=p.stdout, stderr=p.stderr,
+                          duration=datetime.now() - start)
 
     def a2md_stdargs(self, args):
         self._a2md_args = [] + args
@@ -182,21 +509,92 @@ class MDTestEnv:
     def a2md_rawargs(self, args):
         self._a2md_args_raw = [] + args
 
-    def a2md(self, args, raw=False) -> Dict:
+    def a2md(self, args, raw=False) -> ExecResult:
         preargs = self._a2md_args
         if raw:
             preargs = self._a2md_args_raw
         log.debug("running: {0} {1}".format(preargs, args))
         return self.run(preargs + args)
 
-    def curl(self, args):
-        return self.run([self.CURL] + args)
+    def curl_complete_args(self, urls, timeout=None, options=None, insecure=False):
+        if not isinstance(urls, list):
+            urls = [urls]
+        u = urlparse(urls[0])
+        assert u.hostname, f"hostname not in url: {urls[0]}"
+        assert u.port, f"port not in url: {urls[0]}"
+        headerfile = f"{self.gen_dir}/curl.headers"
+        if os.path.isfile(headerfile):
+            os.remove(headerfile)
+        args = [
+            self._curl,
+            "-s", "-D", headerfile,
+        ]
+        if u.scheme == 'http':
+            pass
+        elif insecure:
+            args.append('--insecure')
+        elif u.hostname == self._default_domain:
+            args.extend(["--cacert", f"{self.ca.cert_file}"])
+        else:
+            args.extend(["--cacert", f"{self.server_dir}/test-ca.pem"])
+
+        if u.hostname != 'localhost' and u.hostname != self._httpd_addr \
+                and not re.match(r'^(\d+|\[|:).*', u.hostname):
+            args.extend(["--resolve", f"{u.hostname}:{u.port}:{self._httpd_addr}"])
+        if timeout is not None and int(timeout) > 0:
+            args.extend(["--connect-timeout", str(int(timeout))])
+        if options:
+            args.extend(options)
+        args += urls
+        return args, headerfile
+
+    def curl_raw(self, urls, timeout=10, options=None, insecure=False):
+        args, headerfile = self.curl_complete_args(
+            urls=urls, timeout=timeout, options=options, insecure=insecure)
+        r = self.run(args)
+        if r.exit_code == 0:
+            lines = open(headerfile).readlines()
+            exp_stat = True
+            header = {}
+            for line in lines:
+                if exp_stat:
+                    log.debug("reading 1st response line: %s", line)
+                    m = re.match(r'^(\S+) (\d+) (.*)$', line)
+                    assert m
+                    r.add_response({
+                        "protocol": m.group(1),
+                        "status": int(m.group(2)),
+                        "description": m.group(3),
+                        "body": r.outraw
+                    })
+                    exp_stat = False
+                    header = {}
+                elif re.match(r'^$', line):
+                    exp_stat = True
+                else:
+                    m = re.match(r'^([^:]+):\s*(.*)$', line)
+                    assert m
+                    header[m.group(1).lower()] = m.group(2)
+            r.response["header"] = header
+            if r.json:
+                r.response["json"] = r.json
+        return r
+
+    def curl_get(self, url, insecure=False):
+        return self.curl_raw(urls=[url], insecure=insecure)
 
     # --------- HTTP ---------
 
+    def install_test_conf(self, conf: List[str]):
+        with open(self._test_conf, 'w') as fd:
+            for line in self.httpd_base_conf:
+                fd.write(f"{line}\n")
+            for line in conf:
+                fd.write(f"{line}\n")
+
     def is_live(self, url: str = None, timeout: timedelta = None):
         if url is None:
-            url = self.HTTPD_CHECK_URL
+            url = self._http_base
         server = urlparse(url)
         if timeout is None:
             timeout = timedelta(seconds=5)
@@ -206,10 +604,8 @@ class MDTestEnv:
         while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
-                r = self.curl(["-sk", "--resolve",
-                               "%s:%s:127.0.0.1" % (server.hostname, server.port),
-                               "-D", "-", "%s" % url])
-                if r['rv'] == 0:
+                r = self.curl_get(url, insecure=True)
+                if r.exit_code == 0:
                     return True
                 time.sleep(.1)
             except ConnectionRefusedError:
@@ -225,19 +621,18 @@ class MDTestEnv:
 
     def is_dead(self, url: str = None, timeout: timedelta = None):
         if url is None:
-            url = self.HTTPD_CHECK_URL
+            url = self._http_base
         server = urlparse(url)
         if timeout is None:
             timeout = timedelta(seconds=5)
         try_until = datetime.now() + timeout
         log.debug("checking reachability of %s" % url)
+        last_err = None
         while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
-                r = self.curl(["-sk", "--resolve",
-                               "%s:%s:127.0.0.1" % (server.hostname, server.port),
-                               "-D", "-", "%s" % url])
-                if r['rv'] != 0:
+                r = self.curl_get(url)
+                if r.exit_code != 0:
                     return True
                 time.sleep(.1)
             except ConnectionRefusedError:
@@ -278,21 +673,21 @@ class MDTestEnv:
         return None
 
     def check_acme(self):
-        if self.ACME_SERVER_OK:
+        if self._acme_server_ok:
             return True
-        if self.ACME_SERVER_DOWN:
+        if self._acme_server_down:
             pytest.skip(msg="ACME server not running")
             return False
-        if self.is_live(self.ACME_URL, timeout=timedelta(seconds=0.5)):
-            self.ACME_SERVER_OK = True
+        if self.is_live(self.acme_url, timeout=timedelta(seconds=0.5)):
+            self._acme_server_ok = True
             return True
         else:
-            self.ACME_SERVER_DOWN = True
+            self._acme_server_down = True
             pytest.fail(msg="ACME server not running", pytrace=False)
             return False
 
     def get_httpd_version(self):
-        p = subprocess.run([self.APXS, "-q", "HTTPD_VERSION"], capture_output=True, text=True)
+        p = subprocess.run([self.apxs, "-q", "HTTPD_VERSION"], capture_output=True, text=True)
         if p.returncode != 0:
             return "unknown"
         return p.stdout.strip()
@@ -307,52 +702,52 @@ class MDTestEnv:
     # --------- access local store ---------
 
     def purge_store(self):
-        log.debug("purge store dir: %s" % self.STORE_DIR)
-        assert len(self.STORE_DIR) > 1
-        if os.path.exists(self.STORE_DIR):
-            shutil.rmtree(self.STORE_DIR, ignore_errors=False)
-        os.makedirs(self.STORE_DIR)
+        log.debug("purge store dir: %s" % self._store_dir)
+        assert len(self._store_dir) > 1
+        if os.path.exists(self._store_dir):
+            shutil.rmtree(self._store_dir, ignore_errors=False)
+        os.makedirs(self._store_dir)
 
     def clear_store(self):
-        log.debug("clear store dir: %s" % self.STORE_DIR)
-        assert len(self.STORE_DIR) > 1
-        if not os.path.exists(self.STORE_DIR):
-            os.makedirs(self.STORE_DIR)
+        log.debug("clear store dir: %s" % self._store_dir)
+        assert len(self._store_dir) > 1
+        if not os.path.exists(self._store_dir):
+            os.makedirs(self._store_dir)
         for dirpath in ["challenges", "tmp", "archive", "domains", "accounts", "staging", "ocsp"]:
-            shutil.rmtree(os.path.join(self.STORE_DIR, dirpath), ignore_errors=True)
+            shutil.rmtree(os.path.join(self._store_dir, dirpath), ignore_errors=True)
 
     def clear_ocsp_store(self):
-        assert len(self.STORE_DIR) > 1
-        dirpath = os.path.join(self.STORE_DIR, "ocsp")
+        assert len(self._store_dir) > 1
+        dirpath = os.path.join(self._store_dir, "ocsp")
         log.debug("clear ocsp store dir: %s" % dir)
         if os.path.exists(dirpath):
             shutil.rmtree(dirpath, ignore_errors=True)
 
     def authz_save(self, name, content):
-        dirpath = os.path.join(self.STORE_DIR, 'staging', name)
+        dirpath = os.path.join(self._store_dir, 'staging', name)
         os.makedirs(dirpath)
         open(os.path.join(dirpath, 'authz.json'), "w").write(content)
 
     def path_store_json(self):
-        return os.path.join(self.STORE_DIR, 'md_store.json')
+        return os.path.join(self._store_dir, 'md_store.json')
 
     def path_account(self, acct):
-        return os.path.join(self.STORE_DIR, 'accounts', acct, 'account.json')
+        return os.path.join(self._store_dir, 'accounts', acct, 'account.json')
 
     def path_account_key(self, acct):
-        return os.path.join(self.STORE_DIR, 'accounts', acct, 'account.pem')
+        return os.path.join(self._store_dir, 'accounts', acct, 'account.pem')
 
     def store_domains(self):
-        return os.path.join(self.STORE_DIR, 'domains')
+        return os.path.join(self._store_dir, 'domains')
 
     def store_archives(self):
-        return os.path.join(self.STORE_DIR, 'archive')
+        return os.path.join(self._store_dir, 'archive')
 
     def store_stagings(self):
-        return os.path.join(self.STORE_DIR, 'staging')
+        return os.path.join(self._store_dir, 'staging')
 
     def store_challenges(self):
-        return os.path.join(self.STORE_DIR, 'challenges')
+        return os.path.join(self._store_dir, 'challenges')
 
     def store_domain_file(self, domain, filename):
         return os.path.join(self.store_domains(), domain, filename)
@@ -364,17 +759,17 @@ class MDTestEnv:
         return os.path.join(self.store_stagings(), domain, filename)
 
     def path_fallback_cert(self, domain):
-        return os.path.join(self.STORE_DIR, 'domains', domain, 'fallback-pubcert.pem')
+        return os.path.join(self._store_dir, 'domains', domain, 'fallback-pubcert.pem')
 
     def path_job(self, domain):
-        return os.path.join(self.STORE_DIR, 'staging', domain, 'job.json')
+        return os.path.join(self._store_dir, 'staging', domain, 'job.json')
 
     def replace_store(self, src):
-        shutil.rmtree(self.STORE_DIR, ignore_errors=False)
-        shutil.copytree(src, self.STORE_DIR)
+        shutil.rmtree(self._store_dir, ignore_errors=False)
+        shutil.copytree(src, self._store_dir)
 
     def list_accounts(self):
-        return os.listdir(os.path.join(self.STORE_DIR, 'accounts'))
+        return os.listdir(os.path.join(self._store_dir, 'accounts'))
 
     def check_md(self, domain, md=None, state=-1, ca=None, protocol=None, agreement=None, contacts=None):
         domains = None
@@ -446,7 +841,7 @@ class MDTestEnv:
     def _run_apachectl(self, cmd, conf=None):
         if conf:
             assert 1 == 0
-        args = [self.APACHECTL, "-d", self.WEBROOT, "-k", cmd]
+        args = [self._apachectl, "-d", self.server_dir, "-k", cmd]
         p = subprocess.run(args, capture_output=True, text=True)
         self.apachectl_stderr = p.stderr
         rv = p.returncode
@@ -482,8 +877,8 @@ class MDTestEnv:
 
     def apache_error_log_clear(self):
         self.apachectl_stderr = ""
-        if os.path.isfile(self.ERROR_LOG):
-            os.remove(self.ERROR_LOG)
+        if os.path.isfile(self._server_error_log):
+            os.remove(self._server_error_log)
 
     RE_MD_RESET = re.compile(r'.*\[md:info].*initializing\.\.\.')
     RE_MD_ERROR = re.compile(r'.*\[md:error].*')
@@ -493,8 +888,8 @@ class MDTestEnv:
         ecount = 0
         wcount = 0
 
-        if os.path.isfile(self.ERROR_LOG):
-            fin = open(self.ERROR_LOG)
+        if os.path.isfile(self._server_error_log):
+            fin = open(self._server_error_log)
             for line in fin:
                 m = self.RE_MD_ERROR.match(line)
                 if m:
@@ -511,9 +906,9 @@ class MDTestEnv:
         return ecount, wcount
 
     def httpd_error_log_scan(self, regex):
-        if not os.path.isfile(self.ERROR_LOG):
+        if not os.path.isfile(self._server_error_log):
             return False
-        fin = open(self.ERROR_LOG)
+        fin = open(self._server_error_log)
         for line in fin:
             if regex.match(line):
                 return True
@@ -528,8 +923,8 @@ class MDTestEnv:
         errors = []
         warnings = []
 
-        if os.path.isfile(self.ERROR_LOG):
-            for line in open(self.ERROR_LOG):
+        if os.path.isfile(self._server_error_log):
+            for line in open(self._server_error_log):
                 m = self.RE_APLOGNO.match(line)
                 if m and m.group('aplogno') in [
                     'AH01873',  # ssl session cache not configured
@@ -575,18 +970,18 @@ class MDTestEnv:
     def check_dir_empty(self, path):
         assert os.listdir(path) == []
 
-    def getStatus(self, domain, path, use_https=True):
-        result = self.get_meta(domain, path, use_https)
-        return result['http_status']
+    def get_http_status(self, domain, path, use_https=True):
+        r = self.get_meta(domain, path, use_https, insecure=True)
+        return r.response['status']
 
     def get_cert(self, domain, tls=None, ciphers=None):
-        return MDCertUtil.load_server_cert(self.HTTPD_HOST,
-                                           self.HTTPS_PORT, domain, tls=tls, ciphers=ciphers)
+        return MDCertUtil.load_server_cert(self._httpd_addr, self.https_port,
+                                           domain, tls=tls, ciphers=ciphers)
 
     def get_server_cert(self, domain, proto=None, ciphers=None):
         args = [
-            self.OPENSSL, "s_client", "-status",
-            "-connect", "%s:%s" % (self.HTTPD_HOST, self.HTTPS_PORT),
+            self._openssl, "s_client", "-status",
+            "-connect", "%s:%s" % (self._httpd_addr, self.https_port),
             "-CAfile", self.TEST_CA_PEM,
             "-servername", domain,
             "-showcerts"
@@ -598,7 +993,7 @@ class MDTestEnv:
         r = self.run(args)
         # noinspection PyBroadException
         try:
-            return MDCertUtil.parse_pem_cert(r['stdout'])
+            return MDCertUtil.parse_pem_cert(r.stdout)
         except:
             return None
 
@@ -613,56 +1008,51 @@ class MDTestEnv:
                     p['keylen'], cert.get_key_length()
                 )
 
-    def get_meta(self, domain, path, use_https=True):
+    def get_meta(self, domain, path, use_https=True, insecure=False):
         schema = "https" if use_https else "http"
-        port = self.HTTPS_PORT if use_https else self.HTTP_PORT
-        result = self.curl(["-D", "-", "-k", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)),
-                            ("%s://%s:%s%s" % (schema, domain, port, path))])
-        assert result['rv'] == 0
-        # read status
-        m = re.match("HTTP/\\d(\\.\\d)? +(\\d\\d\\d) .*", result['stdout'])
-        assert m
-        result['http_status'] = int(m.group(2))
-        # collect response headers
-        h = {}
-        for m in re.findall(r'^(\S+): (.*)\n', result['stdout'], re.M):
-            h[m[0]] = m[1]
-        result['http_headers'] = h
-        return result
+        port = self.https_port if use_https else self.http_port
+        r = self.curl_get(f"{schema}://{domain}:{port}{path}", insecure=insecure)
+        assert r.exit_code == 0
+        assert r.response
+        assert r.response['header']
+        return r
 
     def get_content(self, domain, path, use_https=True):
         schema = "https" if use_https else "http"
-        port = self.HTTPS_PORT if use_https else self.HTTP_PORT
-        result = self.curl(["-sk", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)),
-                            ("%s://%s:%s%s" % (schema, domain, port, path))])
-        assert result['rv'] == 0
-        return result['stdout']
+        port = self.https_port if use_https else self.http_port
+        r = self.curl_get(f"{schema}://{domain}:{port}{path}")
+        assert r.exit_code == 0
+        return r.stdout
 
-    def get_json_content(self, domain, path, use_https=True):
+    def get_json_content(self, domain, path, use_https=True, insecure=False):
         schema = "https" if use_https else "http"
-        port = self.HTTPS_PORT if use_https else self.HTTP_PORT
-        result = self.curl(["-k", "--resolve", ("%s:%s:127.0.0.1" % (domain, port)),
-                            ("%s://%s:%s%s" % (schema, domain, port, path))])
-        assert result['rv'] == 0, result['stderr']
-        return result['jout'] if 'jout' in result else None
+        port = self.https_port if use_https else self.http_port
+        r = self.curl_get(f"{schema}://{domain}:{port}{path}", insecure=insecure)
+        assert r.exit_code == 0, r.stderr
+        return r.json
 
     def get_certificate_status(self, domain) -> Dict:
-        return self.get_json_content(domain, "/.httpd/certificate-status")
+        return self.get_json_content(domain, "/.httpd/certificate-status", insecure=True)
 
-    def get_md_status(self, domain) -> Dict:
-        return self.get_json_content("not-forbidden.org", "/md-status/%s" % domain)
+    def get_md_status(self, domain, via_domain=None, use_https=True) -> Dict:
+        if via_domain is None:
+            via_domain = self._default_domain
+        return self.get_json_content(via_domain, f"/md-status/{domain}", use_https=use_https)
 
-    def get_server_status(self, query="/"):
-        return self.get_content("not-forbidden.org", "/server-status%s" % query)
+    def get_server_status(self, query="/", via_domain=None, use_https=True):
+        if via_domain is None:
+            via_domain = self._default_domain
+        return self.get_content(via_domain, "/server-status%s" % query, use_https=use_https)
 
-    def await_completion(self, names, must_renew=False, restart=True, timeout=60):
+    def await_completion(self, names, must_renew=False, restart=True, timeout=60,
+                         via_domain=None, use_https=True):
         try_until = time.time() + timeout
         renewals = {}
         while len(names) > 0:
             if time.time() >= try_until:
                 return False
             for name in names:
-                mds = self.get_md_status(name)
+                mds = self.get_md_status(name, via_domain=via_domain, use_https=use_https)
                 if mds is None:
                     log.debug("not managed by md: %s" % name)
                     return False
@@ -726,7 +1116,7 @@ class MDTestEnv:
             time.sleep(0.1)
 
     def check_file_permissions(self, domain):
-        md = self.a2md(["list", domain])['jout']['output'][0]
+        md = self.a2md(["list", domain]).json['output'][0]
         assert md
         acct = md['ca']['account']
         assert acct
@@ -740,8 +1130,8 @@ class MDTestEnv:
         # archive
         self.check_file_access(self.store_archived_file(domain, 1, 'md.json'), 0o600)
         # accounts
-        self.check_file_access(os.path.join(self.STORE_DIR, 'accounts'), 0o755)
-        self.check_file_access(os.path.join(self.STORE_DIR, 'accounts', acct), 0o755)
+        self.check_file_access(os.path.join(self._store_dir, 'accounts'), 0o755)
+        self.check_file_access(os.path.join(self._store_dir, 'accounts', acct), 0o755)
         self.check_file_access(self.path_account(acct), 0o644)
         self.check_file_access(self.path_account_key(acct), 0o644)
         # staging
@@ -750,8 +1140,8 @@ class MDTestEnv:
     def get_ocsp_status(self, domain, proto=None, cipher=None):
         stat = {}
         args = [
-            self.OPENSSL, "s_client", "-status",
-            "-connect", "%s:%s" % (self.HTTPD_HOST, self.HTTPS_PORT),
+            self._openssl, "s_client", "-status",
+            "-connect", "%s:%s" % (self._httpd_addr, self.https_port),
             "-CAfile", self.TEST_CA_PEM,
             "-servername", domain,
             "-showcerts"
@@ -762,18 +1152,18 @@ class MDTestEnv:
             args.extend(["-cipher", cipher])
         r = self.run(args)
         ocsp_regex = re.compile(r'OCSP response: +([^=\n]+)\n')
-        matches = ocsp_regex.finditer(r["stdout"])
+        matches = ocsp_regex.finditer(r.stdout)
         for m in matches:
             if m.group(1) != "":
                 stat['ocsp'] = m.group(1)
         if 'ocsp' not in stat:
             ocsp_regex = re.compile(r'OCSP Response Status:\s*(.+)')
-            matches = ocsp_regex.finditer(r["stdout"])
+            matches = ocsp_regex.finditer(r.stdout)
             for m in matches:
                 if m.group(1) != "":
                     stat['ocsp'] = m.group(1)
         verify_regex = re.compile(r'Verify return code:\s*(.+)')
-        matches = verify_regex.finditer(r["stdout"])
+        matches = verify_regex.finditer(r.stdout)
         for m in matches:
             if m.group(1) != "":
                 stat['verify'] = m.group(1)

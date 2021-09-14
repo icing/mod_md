@@ -1,8 +1,8 @@
 # forward proxy config
 
-Listen 5052
+Listen ${proxy_port}
 
-<VirtualHost *:5052>
+<VirtualHost *:${proxy_port}>
     ProxyRequests On
     ProxyVia On
     # be totally open

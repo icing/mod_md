@@ -2,8 +2,11 @@
 import pytest
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestAcmeErrors:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -34,7 +37,7 @@ class TestAcmeErrors:
         md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
-        if env.ACME_SERVER == 'pebble':
+        if env.acme_server == 'pebble':
             assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
             assert md['renewal']['last']['detail'] == \
                    "Order included DNS identifier with a value containing an illegal character: '!'"
@@ -58,7 +61,7 @@ class TestAcmeErrors:
         md = env.await_error(domain)
         assert md
         assert md['renewal']['errors'] > 0
-        if env.ACME_SERVER == 'pebble':
+        if env.acme_server == 'pebble':
             assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
             assert md['renewal']['last']['detail'].startswith(
                 "Order included DNS identifier with a value containing an illegal character")

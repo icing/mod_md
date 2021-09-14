@@ -1,4 +1,4 @@
-User @HTTPD_USER@
+User ${server_user}
 
 Include "conf/modules.conf"
 
@@ -8,6 +8,17 @@ Include "conf/modules.conf"
     CustomLog "logs/access_log" combined
     
 </IfModule>
+
+ServerName localhost
+ServerRoot "${server_dir}"
+DocumentRoot "${server_dir}/htdocs"
+
+<Location "/server-status">
+    SetHandler server-status
+</Location>
+<Location "/md-status">
+    SetHandler md-status
+</Location>
 
 Include "conf/test.conf"
 

@@ -1,7 +1,7 @@
 Makefile.in
 Makefile
 __pycache__
-test.ini
+.test_dir
 gen
 conf/global.conf
 conf/httpd_http.conf
@@ -10,3 +10,4 @@ conf/modules.conf
 data/test_conf_validate/test_014.conf
 *.pyc
 data/test_roundtrip/temp.conf
+config.ini

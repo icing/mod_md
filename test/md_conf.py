@@ -1,129 +1,117 @@
-import os
-from shutil import copyfile
-
 from md_env import MDTestEnv
 
 
 class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
-    def __init__(self, env: MDTestEnv, name="test.conf", local_ca=True, text=None, std_ports=True,
-                 std_vhosts=True, proxy=False):
+    def __init__(self, env: MDTestEnv, text=None, std_ports=True,
+                 local_ca=True, std_vhosts=True, proxy=False):
         self.env = env
-        self.path = os.path.join(env.GEN_DIR, name)
-        if os.path.isfile(self.path):
-            os.remove(self.path)
-        with open(self.path, "a") as fd:
-            fd.write("""
-LoadModule {ssl}_module  "{prefix}/modules/mod_{ssl}.so"
-LogLevel {ssl}:debug
-LogLevel md:trace2    
-            """.format(
-                prefix=env.PREFIX,
-                ssl=env.get_ssl_module(),
-            ))
-            if std_ports:
-                fd.write("""
-Listen {http_port}
-Listen {https_port}
+        self._indents = 0
+        self._lines = []
 
-MDPortMap 80:{http_port} 443:{https_port}
-                """.format(
-                    http_port=env.HTTP_PORT,
-                    https_port=env.HTTPS_PORT,
-                ))
-                if env.get_ssl_module() == "tls":
-                    fd.write("""
-    TLSListen {https_port}
-                    """.format(
-                        https_port=env.HTTPS_PORT,
-                    ))
-            if local_ca:
-                fd.write("""
-MDCertificateAuthority {acme_url}
-MDCertificateAgreement accepted
-MDCACertificateFile {webroot}/test-ca.pem
-                """.format(acme_url=env.ACME_URL, webroot=env.WEBROOT)
-                         )
-            if std_vhosts:
-                fd.write("""
-include "conf/std_vhosts.conf"
-                """)
-            if proxy:
-                fd.write("""
-include "conf/proxy.conf"
-    """)
-            if text is not None:
-                fd.write(text)
+        if local_ca:
+            self.add([
+                f"MDCertificateAuthority {env.acme_url}",
+                f"MDCertificateAgreement accepted",
+                f"MDCACertificateFile {env.server_dir}/test-ca.pem",
+                "",
+                ])
+
+        if std_ports:
+            self.add([
+                f"Listen {env.http_port}",
+                f"Listen {env.https_port}",
+                f"MDPortMap 80:{env.http_port} 443:{env.https_port}",
+                "",
+            ])
+            if env.ssl_type == "tls":
+                self.add([
+                    f"TLSListen {env.https_port}",
+                ])
+        if std_vhosts:
+            self.add_vhost(domains=env.domains, port=env.http_port)
+            self.start_vhost(domains=env.domains, port=env.https_port)
+            for cred in self.env.get_credentials_for_name(env.domains[0]):
+                self.add_certificate(cred.cert_file, cred.pkey_file)
+            self.end_vhost()
+        if proxy:
+            self.add("include conf/proxy.conf")
+        if text is not None:
+            self.add(text)
 
     def clear(self):
-        if os.path.isfile(self.path):
-            os.remove(self.path)
+        self._lines = []
 
-    def _add_line(self, line):
-        open(self.path, "a").write(line + "\n")
-
-    def add_line(self, line):
-        self._add_line(line)
+    def add(self, line):
+        if isinstance(line, list):
+            if self._indents > 0:
+                line = [f"{'  ' * self._indents}{l}" for l in line]
+            self._lines.extend(line)
+        else:
+            if self._indents > 0:
+                line = f"{'  ' * self._indents}{line}"
+            self._lines.append(line)
+        return self
 
     def add_drive_mode(self, mode):
-        self._add_line("  MDRenewMode \"%s\"\n" % mode)
+        self.add("MDRenewMode \"%s\"\n" % mode)
 
     def add_renew_window(self, window):
-        self._add_line("  MDRenewWindow %s\n" % window)
+        self.add("MDRenewWindow %s\n" % window)
 
     def add_private_key(self, key_type, key_params):
-        self._add_line("  MDPrivateKeys %s %s\n" % (key_type, " ".join(map(lambda p: str(p), key_params))))
+        self.add("MDPrivateKeys %s %s\n" % (key_type, " ".join(map(lambda p: str(p), key_params))))
 
     def add_admin(self, email):
-        self._add_line("  ServerAdmin mailto:%s\n" % email)
+        self.add("ServerAdmin mailto:%s\n" % email)
 
     def add_md(self, domains):
         dlist = " ".join(domains)    # without quotes
-        self._add_line(f"  MDomain {dlist}\n")
+        self.add(f"MDomain {dlist}\n")
 
     def start_md(self, domains):
         dlist = " ".join([f"\"{d}\"" for d in domains])  # with quotes, #257
-        self._add_line(f"  <MDomain {dlist}>\n")
+        self.add(f"<MDomain {dlist}>\n")
         
     def start_md2(self, domains):
-        self._add_line("  <MDomainSet %s>\n" % " ".join(domains))
+        self.add("<MDomainSet %s>\n" % " ".join(domains))
 
     def end_md(self):
-        self._add_line("  </MDomain>\n")
+        self.add("</MDomain>\n")
 
     def end_md2(self):
-        self._add_line("  </MDomainSet>\n")
+        self.add("</MDomainSet>\n")
 
     def add_must_staple(self, mode):
-        self._add_line("  MDMustStaple %s\n" % mode)
+        self.add("MDMustStaple %s\n" % mode)
 
     def add_ca_challenges(self, type_list):
-        self._add_line("  MDCAChallenges %s\n" % " ".join(type_list))
+        self.add("MDCAChallenges %s\n" % " ".join(type_list))
 
     def add_http_proxy(self, url):
-        self._add_line("  MDHttpProxy %s\n" % url)
+        self.add("MDHttpProxy %s\n" % url)
 
     def add_require_ssl(self, mode):
-        self._add_line("  MDRequireHttps \"%s\"\n" % mode)
+        self.add("MDRequireHttps \"%s\"\n" % mode)
 
     def add_notify_cmd(self, cmd):
-        self._add_line("  MDNotifyCmd %s\n" % cmd)
+        self.add("MDNotifyCmd %s\n" % cmd)
 
     def add_message_cmd(self, cmd):
-        self._add_line("  MDMessageCmd %s\n" % cmd)
+        self.add("MDMessageCmd %s\n" % cmd)
 
     def add_dns01_cmd(self, cmd):
-        self._add_line("  MDChallengeDns01 \"%s\"\n" % cmd)
+        self.add("MDChallengeDns01 \"%s\"\n" % cmd)
 
     def add_certificate(self, cert_file, key_file):
-        if self.env.get_ssl_module() == "ssl":
-            self._add_line(f"""
-                SSLCertificateFile {cert_file}
-                SSLCertificateKeyFile {key_file}
-                """)
-        elif self.env.get_ssl_module() == "tls":
-            self._add_line(f"""
+        if self.env.ssl_type == "ssl":
+            self.add([
+                f"SSLCertificateFile {cert_file}",
+                f"SSLCertificateKeyFile {key_file}",
+            ])
+        elif self.env.ssl_type == "tls":
+            self.add(f"""
                 TLSCertificate {cert_file} {key_file}
             """)
 
@@ -134,32 +122,35 @@ include "conf/proxy.conf"
     def add_ssl_vhost(self, domains, port=None, doc_root="htdocs", text=None):
         self.start_vhost(domains, port=port, doc_root=doc_root)
         if not port:
-            port = self.env.HTTPS_PORT
+            port = self.env.https_port
         if text is not None:
-            self.add_line(text)
-        if self.env.get_ssl_module() == "ssl":
-            self.add_line("    SSLEngine on\n")
+            self.add(text)
+        if self.env.ssl_type == "ssl":
+            self.add("SSLEngine on")
         self.end_vhost()
-        if self.env.get_ssl_module() == "tls":
-            self.add_line("TLSListen {port}".format(port=port))
+        if self.env.ssl_type == "tls":
+            self.add("TLSListen {port}".format(port=port))
 
     def start_vhost(self, domains, port=None, doc_root="htdocs"):
         if not isinstance(domains, list):
             domains = [domains]
         if not port:
-            port = self.env.HTTPS_PORT
-        f = open(self.path, "a") 
-        f.write("<VirtualHost *:%s>\n" % port)
-        f.write("    ServerName %s\n" % domains[0])
+            port = self.env.https_port
+        self.add(f"<VirtualHost *:{port}>")
+        self._indents += 1
+        self.add(f"ServerName {domains[0]}")
         for alias in domains[1:]:
-            f.write("    ServerAlias %s\n" % alias)
-        f.write("    DocumentRoot %s\n\n" % doc_root)
-        if self.env.HTTPS_PORT == port:
-            if self.env.get_ssl_module() == "ssl":
-                f.write("    SSLEngine on\n")
+            self.add(f"ServerAlias {alias}")
+        self.add(f"DocumentRoot {doc_root}")
+        if self.env.https_port == port and self.env.ssl_type == "ssl":
+            self.add("SSLEngine on")
                   
     def end_vhost(self):
-        self._add_line("</VirtualHost>\n\n")
+        self._indents -= 1
+        self.add([
+            "</VirtualHost>",
+            "",
+        ])
 
     def install(self):
-        copyfile(self.path, self.env.APACHE_TEST_CONF)
+        self.env.install_test_conf(self._lines)

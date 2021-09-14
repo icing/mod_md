@@ -2,8 +2,11 @@
 import pytest
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestWildcard:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -46,7 +49,7 @@ class TestWildcard:
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command path 
     #
     def test_720_002(self, env):
-        dns01cmd = ("%s/dns01-not-found.py" % env.TESTROOT)
+        dns01cmd = ("%s/dns01-not-found.py" % env.test_dir)
 
         domain = self.test_domain
         domains = [domain, "*." + domain]
@@ -70,7 +73,7 @@ class TestWildcard:
 
     # variation, invalid cmd path, other challenges still get certificate for non-wildcard
     def test_720_002b(self, env):
-        dns01cmd = ("%s/dns01-not-found.py" % env.TESTROOT)
+        dns01cmd = ("%s/dns01-not-found.py" % env.test_dir)
 
         domain = self.test_domain
         domains = [domain, "xxx." + domain]
@@ -98,7 +101,7 @@ class TestWildcard:
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command option 
     #
     def test_720_003(self, env):
-        dns01cmd = ("%s/dns01.py fail" % env.TESTROOT)
+        dns01cmd = ("%s/dns01.py fail" % env.test_dir)
 
         domain = self.test_domain
         domains = [domain, "*." + domain]
@@ -124,7 +127,7 @@ class TestWildcard:
     # test case: a wildcard name certificate with ACMEv2, only dns-01 configured 
     #
     def test_720_004(self, env):
-        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
+        dns01cmd = ("%s/dns01.py" % env.test_dir)
 
         domain = self.test_domain
         domains = [domain, "*." + domain]
@@ -153,7 +156,7 @@ class TestWildcard:
     # test case: a wildcard name and 2nd normal vhost, not overlapping
     #
     def test_720_005(self, env):
-        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
+        dns01cmd = ("%s/dns01.py" % env.test_dir)
 
         domain = self.test_domain
         domain2 = "www.x" + domain
@@ -183,7 +186,7 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name and 2nd normal vhost, overlapping
     def test_720_006(self, env):
-        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
+        dns01cmd = ("%s/dns01.py" % env.test_dir)
 
         domain = self.test_domain
         dwild = "*." + domain
@@ -214,7 +217,7 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a MDomain with just a wildcard, see #239
     def test_720_007(self, env):
-        dns01cmd = ("%s/dns01.py" % env.TESTROOT)
+        dns01cmd = ("%s/dns01.py" % env.test_dir)
 
         domain = self.test_domain
         dwild = "*." + domain

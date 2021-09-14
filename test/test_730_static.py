@@ -5,9 +5,12 @@ import os
 import pytest
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
-class TestStatus:
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
+class TestStatic:
 
     @pytest.fixture(autouse=True, scope='class')
     def _class_scope(self, env):
@@ -26,7 +29,7 @@ class TestStatus:
         # MD with static cert files, will not be driven
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(env.GEN_DIR, 'test_920_001')
+        testpath = os.path.join(env.gen_dir, 'test_920_001')
         # cert that is only 10 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
                                     serial=730001, path=testpath)
@@ -37,8 +40,8 @@ class TestStatus:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add_line("MDCertificateFile %s" % cert_file)
-        conf.add_line("MDCertificateKeyFile %s" % pkey_file)
+        conf.add("MDCertificateFile %s" % cert_file)
+        conf.add("MDCertificateKeyFile %s" % pkey_file)
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -57,7 +60,7 @@ class TestStatus:
         # MD with static cert files, force driving
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(env.GEN_DIR, 'test_920_001')
+        testpath = os.path.join(env.gen_dir, 'test_920_001')
         # cert that is only 10 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
                                     serial=730001, path=testpath)
@@ -68,9 +71,9 @@ class TestStatus:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add_line("MDCertificateFile %s" % cert_file)
-        conf.add_line("MDCertificateKeyFile %s" % pkey_file)
-        conf.add_line("MDRenewMode always")
+        conf.add("MDCertificateFile %s" % cert_file)
+        conf.add("MDCertificateKeyFile %s" % pkey_file)
+        conf.add("MDRenewMode always")
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -89,7 +92,7 @@ class TestStatus:
         # just configuring one file will not work
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
-        testpath = os.path.join(env.GEN_DIR, 'test_920_001')
+        testpath = os.path.join(env.gen_dir, 'test_920_001')
         # cert that is only 10 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -80, "notAfter": 10},
                                     serial=730001, path=testpath)
@@ -101,7 +104,7 @@ class TestStatus:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add_line("MDCertificateFile %s" % cert_file)
+        conf.add("MDCertificateFile %s" % cert_file)
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -110,7 +113,7 @@ class TestStatus:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add_line("MDCertificateKeyFile %s" % pkey_file)
+        conf.add("MDCertificateKeyFile %s" % pkey_file)
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()

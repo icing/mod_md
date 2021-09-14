@@ -5,8 +5,11 @@ import os
 import pytest
 
 from md_conf import HttpdConf
+from md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
+                    reason="no ACME test server configured")
 class TestRoundtripv2:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -38,7 +41,7 @@ class TestRoundtripv2:
         assert env.apache_restart() == 0
         env.check_md(domains)
         # - drive
-        assert env.a2md(["-v", "drive", domain])['rv'] == 0
+        assert env.a2md(["-v", "drive", domain]).exit_code == 0
         assert env.apache_restart() == 0
         env.check_md_complete(domain)
         # - append vhost to config
@@ -73,8 +76,8 @@ class TestRoundtripv2:
         env.check_md(domains_b)
 
         # - drive
-        assert env.a2md(["drive", domain_a])['rv'] == 0
-        assert env.a2md(["drive", domain_b])['rv'] == 0
+        assert env.a2md(["drive", domain_a]).exit_code == 0
+        assert env.a2md(["drive", domain_b]).exit_code == 0
         assert env.apache_restart() == 0
         env.check_md_complete(domain_a)
         env.check_md_complete(domain_b)
@@ -110,7 +113,7 @@ class TestRoundtripv2:
         env.check_md(domains)
 
         # - drive
-        assert env.a2md(["drive", domain])['rv'] == 0
+        assert env.a2md(["drive", domain]).exit_code == 0
         assert env.apache_restart() == 0
         env.check_md_complete(domain)
 
@@ -120,8 +123,8 @@ class TestRoundtripv2:
         conf.install()
         
         # - create docRoot folder
-        self._write_res_file(os.path.join(env.APACHE_HTDOCS_DIR, "a"), "name.txt", name_a)
-        self._write_res_file(os.path.join(env.APACHE_HTDOCS_DIR, "b"), "name.txt", name_b)
+        self._write_res_file(os.path.join(env.server_docs_dir, "a"), "name.txt", name_a)
+        self._write_res_file(os.path.join(env.server_docs_dir, "b"), "name.txt", name_b)
 
         # check: SSL is running OK
         assert env.apache_restart() == 0

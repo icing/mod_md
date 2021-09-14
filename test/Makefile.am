@@ -54,64 +54,8 @@ unit_tests: $(TESTS)
         
 endif
 
-
-$(SERVER_DIR)/conf/ssl/valid_pkey.pem:
-	@mkdir -p $(SERVER_DIR)/conf/ssl
-	openssl genrsa -out $(SERVER_DIR)/conf/ssl/valid_pkey.pem 4096
-
-$(SERVER_DIR)/conf/ssl/valid_cert.req: \
-		$(SERVER_DIR)/conf/ssl/valid_pkey.pem \
-		data/ssl/req_template.conf
-	openssl req -new -key $(SERVER_DIR)/conf/ssl/valid_pkey.pem \
-		-out $(SERVER_DIR)/conf/ssl/valid_cert.req \
-		-config data/ssl/req_template.conf
-
-$(SERVER_DIR)/conf/ssl/valid_cert.pem: \
-		$(SERVER_DIR)/conf/ssl/valid_pkey.pem \
-		$(SERVER_DIR)/conf/ssl/valid_cert.req
-	openssl x509 -req -sha256 -days 1095 \
-		-signkey $(SERVER_DIR)/conf/ssl/valid_pkey.pem \
-		-in $(SERVER_DIR)/conf/ssl/valid_cert.req \
-		-out $(SERVER_DIR)/conf/ssl/valid_cert.pem \
-		-extfile data/ssl/req_exts.conf -extensions v3_req_ext
-
-test: $(SERVER_DIR)/.test-setup unit_tests
-	python3 -m pytest
-
-# The certificates we need to verify the cert chain we retrieved from ACME
-$(SERVER_DIR)/test-ca.pem:
-	@if test @ACME_TEST_TYPE@ = boulder; then \
-		echo "copying issuer certitificates from boulder docker image"; \
-		docker exec boulder_boulder_1 bash -c "cat /tmp/root*.pem" >$@; \
-	elif test @ACME_TEST_TYPE@ = pebble; then \
-		echo "copying pebble test CA from running server"; \
-		cp $(ACME_TEST_DIR)/test/certs/pebble.minica.pem $@; \
-		curl --insecure https://localhost:15000/roots/0 >>$@; \
-	else \
-	    touch $@; \
-	fi
-
-$(SERVER_DIR)/.test-setup: conf/* \
-		$(SERVER_DIR)/htdocs/index.html \
-		$(SERVER_DIR)/conf/ssl/valid_cert.pem \
-		$(SERVER_DIR)/conf/ssl/expired_cert.pem \
-		$(SERVER_DIR)/conf/ssl/expired_pkey.pem \
-	 	$(wildcard conf/*.conf) \
-		$(SERVER_DIR)/test-ca.pem
-	@mkdir -p $(SERVER_DIR)/conf/ssl
-	@mkdir -p $(SERVER_DIR)/logs
-	rsync -a --exclude="*.in" conf/*.* $(SERVER_DIR)/conf
-	@touch $(SERVER_DIR)/.test-setup
-
-$(SERVER_DIR)/conf/ssl/expired_cert.pem: data/ssl/expired_cert.pem
-	@cp $<  $@
-
-$(SERVER_DIR)/conf/ssl/expired_pkey.pem: data/ssl/expired_pkey.pem
-	@cp $<  $@
-
-$(SERVER_DIR)/htdocs/index.html: htdocs/index.html
-	@mkdir -p $(SERVER_DIR)/htdocs
-	@cp htdocs/*.* $(SERVER_DIR)/htdocs 
+test: unit_tests
+	pytest
 
 clean-local:
 	rm -f $(SERVER_DIR)/conf/ssl/*
