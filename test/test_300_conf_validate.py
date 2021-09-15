@@ -2,6 +2,7 @@
 
 import re
 import time
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -144,8 +145,7 @@ class TestConf:
         ])
         conf.install()
         assert env.apache_fail() == 0
-        time.sleep(1)  # give error_log some time to be complete
-        assert (1, 0) == env.httpd_error_log_count()
+        assert (1, 0) == env.httpd_error_log_count(expect_errors=True)
         env.apache_error_log_clear()
 
     # test case: MDomain, misses one ServerAlias, but auto add enabled
@@ -173,7 +173,7 @@ class TestConf:
             </VirtualHost>
             """).install()
         assert env.apache_restart() == 0
-        assert (0, 1) == env.httpd_error_log_count()
+        assert (0, 1) == env.httpd_error_log_count(expect_errors=True)
 
     # test case: one md covers two vhosts
     def test_300_013(self, env):
@@ -279,8 +279,7 @@ class TestConf:
         ])
         conf.install()
         assert env.apache_fail() == 0
-        time.sleep(1)  # give error_log some time to be complete
-        assert (1, 0) == env.httpd_error_log_count()
+        assert (1, 0) == env.httpd_error_log_count(expect_errors=True)
         assert env.httpd_error_log_scan(
             re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', "
                        "but the name/alias not.secret.com itself is not managed. A requested "

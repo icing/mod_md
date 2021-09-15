@@ -878,26 +878,30 @@ class MDTestEnv:
     RE_MD_ERROR = re.compile(r'.*\[md:error].*')
     RE_MD_WARN = re.compile(r'.*\[md:warn].*')
 
-    def httpd_error_log_count(self):
+    def httpd_error_log_count(self, expect_errors=False, timeout_sec=5):
         ecount = 0
         wcount = 0
-
-        if os.path.isfile(self._server_error_log):
-            fin = open(self._server_error_log)
-            for line in fin:
-                m = self.RE_MD_ERROR.match(line)
-                if m:
-                    ecount += 1
-                    continue
-                m = self.RE_MD_WARN.match(line)
-                if m:
-                    wcount += 1
-                    continue
-                m = self.RE_MD_RESET.match(line)
-                if m:
-                    ecount = 0
-                    wcount = 0
-        return ecount, wcount
+        end = datetime.now() + timedelta(seconds=timeout_sec)
+        while datetime.now() < end:
+            if os.path.isfile(self._server_error_log):
+                fin = open(self._server_error_log)
+                for line in fin:
+                    m = self.RE_MD_ERROR.match(line)
+                    if m:
+                        ecount += 1
+                        continue
+                    m = self.RE_MD_WARN.match(line)
+                    if m:
+                        wcount += 1
+                        continue
+                    m = self.RE_MD_RESET.match(line)
+                    if m:
+                        ecount = 0
+                        wcount = 0
+            if not expect_errors or ecount + wcount > 0:
+                return ecount, wcount
+            time.sleep(.1)
+        raise TimeoutError(f"waited {timeout_sec} sec for error/warnings to show up in log")
 
     def httpd_error_log_scan(self, regex):
         if not os.path.isfile(self._server_error_log):
