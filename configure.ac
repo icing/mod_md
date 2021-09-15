@@ -255,21 +255,7 @@ ACME_TEST_TYPE="none"
 ACME_TEST_DIR="none"
 ACME_TEST_URL="none"
 
-if test "x$request_pebble" != "xdef"; then
-    ACME_TEST_TYPE=pebble
-    ACME_TEST_URL="https://localhost:14000/dir"
-    if test "$request_pebble" = "yes"; then
-        ACME_TEST_DIR="${GOPATH}/src/github.com/letsencrypt/pebble"
-    else
-        ACME_TEST_DIR="$request_pebble"
-    fi
-    if ! type "pebble" >/dev/null 2>&1; then
-        AC_MSG_ERROR("'pebble' is not in your PATH")
-    fi
-    if ! type "pebble-challtestsrv" >/dev/null 2>&1; then
-        AC_MSG_ERROR("'pebble-challtestsrv' is not in your PATH")
-    fi
-elif test "x$request_boulder" != "xdef"; then
+if test "x$request_boulder" != "xdef"; then
     ACME_TEST_TYPE=boulder
     ACME_TEST_DIR="${GOPATH}/src/github.com/letsencrypt/boulder"
     if test "x$request_boulder" = "xyes"; then
@@ -277,7 +263,30 @@ elif test "x$request_boulder" != "xdef"; then
     else
         ACME_TEST_URL="$request_boulder"
     fi
+else
+    if test "x$request_pebble" = "xdef"; then
+        if type "pebble" >/dev/null 2>&1; then
+            # pebble seems installed, used it
+            request_pebble=yes
+        fi
+    fi
+    if test "x$request_pebble" != "xdef"; then
+        ACME_TEST_TYPE=pebble
+        ACME_TEST_URL="https://localhost:14000/dir"
+        if test "$request_pebble" = "yes"; then
+            ACME_TEST_DIR="${GOPATH}/src/github.com/letsencrypt/pebble"
+        else
+            ACME_TEST_DIR="$request_pebble"
+        fi
+        if ! type "pebble" >/dev/null 2>&1; then
+            AC_MSG_ERROR("'pebble' is not in your PATH")
+        fi
+        if ! type "pebble-challtestsrv" >/dev/null 2>&1; then
+            AC_MSG_ERROR("'pebble-challtestsrv' is not in your PATH")
+        fi
+    fi
 fi
+
 # if a test server is defined, will it work?
 if test "${ACME_TEST_TYPE}" != "none"; then
     if ! test -d "${ACME_TEST_DIR}"; then

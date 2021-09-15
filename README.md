@@ -2009,6 +2009,63 @@ For the `pytest`, this is nowadays using `python3`. Please read up on your opera
 > pip3 install pyopenssl
 ```
 
+For various reasons, the test suite tests the *installed* `mod_md`:
+
+```
+> make
+> make install
+> make test
+...
+pytest
+============================================================================
+platform darwin -- Python 3.9.1, pytest-6.2.0, py-1.10.0, pluggy-0.13.1
+mod_md: 2.4.5 [apache: 2.4.49(/opt/apache-2.4.x), mod_ssl, ACME server: pebble]
+rootdir: /Users/sei/projects/mod_md
+collected 304 items
+
+test_0001_store.py ...................
+...
+```
+
+The test suite will itself start the Apache (several times with varying configurations) and terminate it on shutdown.
+
+If you did not give any more arguments to `configure`, it will detect if a `pebble` server is installed. You
+may specify a path with `--with-pebble=path` or use `--with-boulder` if you have a local `boulder` ACME server
+running.
+
+It no ACME test server was detected, most of the tests will be skippped.
+
+# Testing with Pebble
+
+Pebble is the preferred ACME test server now.
+
+Follow the [instructions at the Pebble github repository](https://github.com/letsencrypt/pebble)
+in order to install it. 
+
+Configure mod_md to test with pebble:
+
+```
+> /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble
+> make clean install test
+```
+This will check if the pebble files and commands can be found. If the location is
+guess wrong, you can specify the path with `--with-pebble=path`.
+
+Then you run:
+
+```
+mod_md> pytest
+```
+
+which will start the pebble servers, run the tests and stop them again. The log of its output
+os found at `test/gen/pebble.log` for that run.
+
+# Testing with Boulder
+
+Boulder is the real server run by Let's Encrypt. It runs in 3 docker images and it is a bit heavy
+weight just for testing mod_md. However it offers OCSP support (which pebble does not), so the
+test coverage will be better overall.
+
 Boulder has its main configuration in `docker-compose.yml` and there you will want to change
 
 ```
@@ -2019,54 +2076,6 @@ which answers all DNS requests for boulder with the address of your machine. The
 
 Start up boulder, see `All servers running. Hit ^C to kill.` after a while and start the test suite:
 
-```
-> make
-> make test
-...
-python3 -m pytest
-============================================================================ test session starts ============================================================================
-platform darwin -- Python 3.7.4, pytest-3.7.3, py-1.6.0, pluggy-0.7.1
-rootdir: /Users/sei/projects/mod_md/test, inifile:
-collected 354 items
-
-test_0001_store.py ...................
-...
-```
-
-The test suite will itself start the Apache (several times with varying configurations) and terminate it on shutdown.
-
-# Testing with Pebble
-
-This is work in progress.
-
-Follow the [instructions at the Pebble github repository](https://github.com/letsencrypt/pebble)
-in order to install it. Start pebble directoy (no docker) and also start the challenge test 
-server in another shell. 
-
-```
-> PEBBLE_VA_NOSLEEP=1 pebble -config ./test/config/pebble-config.json -dnsserver :8053
-> pebble-challtestsrv -http01 '' -https01 '' -tlsalpn01 ''
-```
-
-Configure mod_md to test with pebble:
-
-```
-> /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble
-> make clean install test
-```
-
-And the tests should run. There are several which are skipped, notably the ones
-which test OCSP stapling. That is not supported by pebble. Also some validation 
-trigger tests are skipped because pebble certificates are valid for 5 years.
-
-If you leave out the ```PEBBLE_VA_NOSLEEP=1``` the tests should also run, but will
-take longer since pebble adds some waiting times in challenge validations.
-
-If you have pebble configure on a non-standard URL, you can specify:
-
-```
-> /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble=<pebble-url>
-```
 
 # Licensing
 
