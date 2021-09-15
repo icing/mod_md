@@ -1,3 +1,6 @@
+ * fix time-of-use vs time-of-check when ACME server returned an empty response.
+   [kokke <spam@rowdy.dk>]
+
 v2.4.6
 ----------------------------------------------------------------------------------------------------
  * Fixed a bug in handling multiple parallel OCSP requests. These could run into
