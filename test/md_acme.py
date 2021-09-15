@@ -91,7 +91,7 @@ class MDBoulderRunner(ACMEServer):
         pass
 
     def install_ca_bundle(self, dest):
-        r = self.run([
+        r = self.env.run([
             'docker', 'exec', 'boulder_boulder_1', 'bash', '-c', "cat /tmp/root*.pem"
         ])
         assert r.exit_code == 0

@@ -228,7 +228,6 @@ Protocols h2 http/1.1 acme-tls/1
         conf.add_md(domains)
         conf.add_vhost(domain)
         conf.install()
-        env.apache_errors_check()
         env.apache_error_log_clear()
         assert env.apache_restart() == 0
         assert env.await_completion([domain], restart=False)
@@ -254,4 +253,5 @@ Protocols h2 http/1.1 acme-tls/1
             assert ktype in stat['cert']
             if env.acme_server == 'boulder':
                 assert 'ocsp' in stat['cert'][ktype]
+        env.apache_errors_check()
         env.apache_error_log_clear()
