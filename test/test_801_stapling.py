@@ -369,3 +369,25 @@ class TestStapling:
         assert env.apache_restart() == 0
         stat = env.get_server_status()
         assert stat
+
+    # add 7 mdomains that need OCSP stapling, once activated
+    # we use at max 6 connections against the same OCSP responder and
+    # this triggers our use of curl_multi_perform with iterative
+    # scheduling.
+    # This checks the mistaken assert() reported in
+    # <https://bz.apache.org/bugzilla/show_bug.cgi?id=65567>
+    def test_801_011(self, env):
+        domains = [ f'test-801-011-{i}-{env.DOMAIN_SUFFIX}' for i in range(7)]
+        self.configure_httpd(env, domains, """
+            MDStapling on
+            LogLevel md:trace2 ssl:warn
+            """).install()
+        assert env.apache_restart() == 0
+        assert env.await_completion(domains, restart=False, timeout=120)
+        assert env.apache_restart() == 0
+        # now the certs are installed and ocsp will be retrieved
+        time.sleep(1)
+        for domain in domains:
+            stat = env.await_ocsp_status(domain)
+            assert stat['ocsp'] == "successful (0x0)"
+            assert stat['verify'] == "0 (ok)"

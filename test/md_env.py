@@ -490,8 +490,9 @@ class MDTestEnv:
     _a2md_args = []
     _a2md_args_raw = []
 
-    def run(self, args, _input=None):
-        log.debug(f"run: {args}")
+    def run(self, args, _input=None, debug_log=True):
+        if debug_log:
+            log.debug(f"run: {args}")
         start = datetime.now()
         p = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         return ExecResult(exit_code=p.returncode, stdout=p.stdout, stderr=p.stderr,
@@ -542,17 +543,19 @@ class MDTestEnv:
         args += urls
         return args, headerfile
 
-    def curl_raw(self, urls, timeout=10, options=None, insecure=False):
+    def curl_raw(self, urls, timeout=10, options=None, insecure=False,
+                 debug_log=True):
         args, headerfile = self.curl_complete_args(
             urls=urls, timeout=timeout, options=options, insecure=insecure)
-        r = self.run(args)
+        r = self.run(args, debug_log=debug_log)
         if r.exit_code == 0:
             lines = open(headerfile).readlines()
             exp_stat = True
             header = {}
             for line in lines:
                 if exp_stat:
-                    log.debug("reading 1st response line: %s", line)
+                    if debug_log:
+                        log.debug("reading 1st response line: %s", line)
                     m = re.match(r'^(\S+) (\d+) (.*)$', line)
                     assert m
                     r.add_response({
@@ -574,8 +577,8 @@ class MDTestEnv:
                 r.response["json"] = r.json
         return r
 
-    def curl_get(self, url, insecure=False):
-        return self.curl_raw(urls=[url], insecure=insecure)
+    def curl_get(self, url, insecure=False, debug_log=True):
+        return self.curl_raw(urls=[url], insecure=insecure, debug_log=debug_log)
 
     # --------- HTTP ---------
 
@@ -593,12 +596,11 @@ class MDTestEnv:
         if timeout is None:
             timeout = timedelta(seconds=5)
         try_until = datetime.now() + timeout
-        log.debug("checking reachability of %s", url)
         last_err = ""
         while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
-                r = self.curl_get(url, insecure=True)
+                r = self.curl_get(url, insecure=True, debug_log=False)
                 if r.exit_code == 0:
                     return True
                 time.sleep(.1)
@@ -620,12 +622,11 @@ class MDTestEnv:
         if timeout is None:
             timeout = timedelta(seconds=5)
         try_until = datetime.now() + timeout
-        log.debug("checking reachability of %s" % url)
         last_err = None
         while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
-                r = self.curl_get(url)
+                r = self.curl_get(url, debug_log=False)
                 if r.exit_code != 0:
                     return True
                 time.sleep(.1)
@@ -859,6 +860,11 @@ class MDTestEnv:
         self._run_apachectl("stop")
         return 0 if self.is_dead() else -1
 
+    def apache_graceful_stop(self):
+        log.debug("stop apache")
+        self._run_apachectl("graceful-stop")
+        return 0 if self.is_dead() else -1
+
     def apache_fail(self):
         log.debug("expect apache fail")
         self._run_apachectl("stop")
@@ -1022,10 +1028,12 @@ class MDTestEnv:
         assert r.exit_code == 0
         return r.stdout
 
-    def get_json_content(self, domain, path, use_https=True, insecure=False):
+    def get_json_content(self, domain, path, use_https=True, insecure=False,
+                         debug_log=True):
         schema = "https" if use_https else "http"
         port = self.https_port if use_https else self.http_port
-        r = self.curl_get(f"{schema}://{domain}:{port}{path}", insecure=insecure)
+        r = self.curl_get(f"{schema}://{domain}:{port}{path}",
+                          insecure=insecure, debug_log=debug_log)
         assert r.exit_code == 0, r.stderr
         return r.json
 
@@ -1035,7 +1043,8 @@ class MDTestEnv:
     def get_md_status(self, domain, via_domain=None, use_https=True) -> Dict:
         if via_domain is None:
             via_domain = self._default_domain
-        return self.get_json_content(via_domain, f"/md-status/{domain}", use_https=use_https)
+        return self.get_json_content(via_domain, f"/md-status/{domain}",
+                                     use_https=use_https, debug_log=False)
 
     def get_server_status(self, query="/", via_domain=None, use_https=True):
         if via_domain is None:
@@ -1060,6 +1069,7 @@ class MDTestEnv:
                     renewals[name] = True
                     if 'finished' in renewal and renewal['finished'] is True:
                         if (not must_renew) or (name in renewals):
+                            log.debug(f"domain cert was renewed: {name}")
                             names.remove(name)
 
             if len(names) != 0:
@@ -1148,7 +1158,7 @@ class MDTestEnv:
             args.extend(["-{0}".format(proto)])
         if cipher is not None:
             args.extend(["-cipher", cipher])
-        r = self.run(args)
+        r = self.run(args, debug_log=False)
         ocsp_regex = re.compile(r'OCSP response: +([^=\n]+)\n')
         matches = ocsp_regex.finditer(r.stdout)
         for m in matches:
