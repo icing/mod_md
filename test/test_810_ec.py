@@ -1,4 +1,5 @@
 # tests with elliptic curve keys and certificates
+import logging
 
 import pytest
 
@@ -126,3 +127,31 @@ class TestAutov2:
             {'spec': "rsa2048", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 2048},
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256},
         ])
+
+    # start with one pkey and add another one
+    def test_810_007(self, env):
+        domain = self.test_domain
+        domains = [domain]
+        conf = HttpdConf(env)
+        conf.add_admin("admin@" + domain)
+        conf.add("MDPrivateKeys rsa3072")
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        assert env.apache_restart() == 0
+        assert env.await_completion(domains)
+        conf = HttpdConf(env)
+        conf.add_admin("admin@" + domain)
+        conf.add("MDPrivateKeys rsa3072 secp384r1")
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        assert env.apache_restart() == 0
+        mds = env.get_md_status(domain, via_domain=domain, use_https=True)
+        assert 'renew' in mds and mds['renew'] is True, f"{mds}"
+        assert env.await_completion(domains)
+        self.check_pkeys(env, domain, [
+            {'spec': "rsa3072", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 3072},
+            {'spec': "secp384r1", 'ciphers': "ECDSA", 'keylen': 384},
+        ])
+

@@ -1055,6 +1055,7 @@ class MDTestEnv:
                          via_domain=None, use_https=True):
         try_until = time.time() + timeout
         renewals = {}
+        names = names.copy()
         while len(names) > 0:
             if time.time() >= try_until:
                 return False

@@ -1,3 +1,4 @@
+ * Fixed a bug when adding private key specs to an already working MDomain, see #260.
  * fix time-of-use vs time-of-check when ACME server returned an empty response.
    [kokke <spam@rowdy.dk>]
 
