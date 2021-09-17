@@ -1,6 +1,7 @@
 # test mod_md notify support
 
 import os
+import time
 
 import pytest
 
@@ -41,11 +42,11 @@ class TestNotify:
     def test_900_001(self, env):
         command = "blablabla"
         args = ""
-        self.configure_httpd(env, self.domain, """
-            MDNotifyCmd %s %s
-            """ % (command, args))
+        self.configure_httpd(env, self.domain, f"""
+            MDNotifyCmd {command} {args}
+            """)
         assert env.apache_restart() == 0
-        assert env.await_completion([self.domain], restart=False)
+        assert env.await_error(self.domain)
         stat = env.get_md_status(self.domain)
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10108:"
 
@@ -53,11 +54,11 @@ class TestNotify:
     def test_900_002(self, env):
         command = "%s/notifail.py" % env.test_dir
         args = ""
-        self.configure_httpd(env, self.domain, """
-            MDNotifyCmd %s %s
-            """ % (command, args))
+        self.configure_httpd(env, self.domain, f"""
+            MDNotifyCmd {command} {args}
+            """)
         assert env.apache_restart() == 0
-        assert env.await_completion([self.domain], restart=False)
+        assert env.await_error(self.domain)
         stat = env.get_md_status(self.domain)
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10108:"
 
@@ -65,9 +66,9 @@ class TestNotify:
     def test_900_010(self, env):
         command = self.notify_cmd
         args = self.notify_log
-        self.configure_httpd(env, self.domain, """
-            MDNotifyCmd %s %s
-            """ % (command, args))
+        self.configure_httpd(env, self.domain, f"""
+            MDNotifyCmd {command} {args}
+            """)
         assert env.apache_restart() == 0
         assert env.await_completion([self.domain], restart=False)
         stat = env.get_md_status(self.domain)
@@ -82,11 +83,12 @@ class TestNotify:
         command = self.notify_cmd
         args = self.notify_log
         extra_arg = "test_900_011_extra"
-        self.configure_httpd(env, self.domain, """
-            MDNotifyCmd %s %s %s
-            """ % (command, args, extra_arg))
+        self.configure_httpd(env, self.domain, f"""
+            MDNotifyCmd {command} {args} {extra_arg}
+            """)
         assert env.apache_restart() == 0
         assert env.await_completion([self.domain], restart=False)
+        time.sleep(1)
         stat = env.get_md_status(self.domain)
         assert stat["renewal"]["last"]["status"] == 0
         nlines = open(self.notify_log).readlines()
