@@ -254,4 +254,3 @@ Protocols h2 http/1.1 acme-tls/1
             if env.acme_server == 'boulder':
                 assert 'ocsp' in stat['cert'][ktype]
         env.apache_errors_check()
-        env.apache_error_log_clear()

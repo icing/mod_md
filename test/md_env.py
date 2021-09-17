@@ -922,6 +922,7 @@ class MDTestEnv:
     RE_ERRLOG_ERROR = re.compile(r'.*\[(?P<module>[^:]+):error].*')
     RE_ERRLOG_WARN = re.compile(r'.*\[(?P<module>[^:]+):warn].*')
     RE_NOTIFY_ERR = re.compile(r'.*\[urn:org:apache:httpd:log:AH10108:.+')
+    RE_NO_RESPONDER = re.compile(r'.*has no OCSP responder URL.*')
 
     def apache_errors_and_warnings(self):
         errors = []
@@ -941,6 +942,10 @@ class MDTestEnv:
                     continue
                 m = self.RE_NOTIFY_ERR.match(line)
                 if m:
+                    continue
+                m = self.RE_NO_RESPONDER.match(line)
+                if m:
+                    # happens during testing
                     continue
                 m = self.RE_ERRLOG_ERROR.match(line)
                 if m and m.group('module') not in ['cgid']:
