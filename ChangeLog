@@ -1,3 +1,5 @@
+v2.4.7
+----------------------------------------------------------------------------------------------------
  * When MDMessageCmd for a 'challenge-setup:<type>:<dnsname>' fails (!= 0 exit),
    the renewal process is aborted and an error is reported for the MDomain.
    As discussed in #237, this provides scripts that distribute information
