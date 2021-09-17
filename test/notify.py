@@ -1,17 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 
 
 def main(argv):
     if len(argv) > 2:
-        f1 = open(argv[1], 'a+')
-        f1.write('%s\n' % argv)
-        f1.close()
+        with open(argv[1], 'a+') as f1:
+            f1.write(f"{argv}\n")
         sys.stderr.write("done, all fine.\n")
         sys.exit(0)
     else:
-        sys.stderr.write("%s without arguments" % (argv[0]))
+        sys.stderr.write(f"{argv[0]} without arguments")
         sys.exit(7)
     
 

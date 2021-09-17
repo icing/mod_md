@@ -1037,19 +1037,23 @@ class MDTestEnv:
                          debug_log=True):
         schema = "https" if use_https else "http"
         port = self.https_port if use_https else self.http_port
-        r = self.curl_get(f"{schema}://{domain}:{port}{path}",
-                          insecure=insecure, debug_log=debug_log)
+        url = f"{schema}://{domain}:{port}{path}"
+        r = self.curl_get(url, insecure=insecure, debug_log=debug_log)
+        if r.exit_code != 0:
+            log.error(f"curl get on {url} returned {r.exit_code}"
+                      f"\nstdout: {r.stdout}"
+                      f"\nstderr: {r.stderr}")
         assert r.exit_code == 0, r.stderr
         return r.json
 
     def get_certificate_status(self, domain) -> Dict:
         return self.get_json_content(domain, "/.httpd/certificate-status", insecure=True)
 
-    def get_md_status(self, domain, via_domain=None, use_https=True) -> Dict:
+    def get_md_status(self, domain, via_domain=None, use_https=True, debug_log=False) -> Dict:
         if via_domain is None:
             via_domain = self._default_domain
         return self.get_json_content(via_domain, f"/md-status/{domain}",
-                                     use_https=use_https, debug_log=False)
+                                     use_https=use_https, debug_log=debug_log)
 
     def get_server_status(self, query="/", via_domain=None, use_https=True):
         if via_domain is None:
@@ -1107,12 +1111,12 @@ class MDTestEnv:
                 time.sleep(0.1)
         return True
 
-    def await_error(self, domain, timeout=60):
+    def await_error(self, domain, timeout=60, via_domain=None, use_https=True):
         try_until = time.time() + timeout
         while True:
             if time.time() >= try_until:
                 return False
-            md = self.get_md_status(domain)
+            md = self.get_md_status(domain, via_domain=via_domain, use_https=use_https)
             if md:
                 if 'state' in md and md['state'] == MDTestEnv.MD_S_ERROR:
                     return md

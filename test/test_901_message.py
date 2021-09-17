@@ -25,9 +25,8 @@ class TestMessage:
     def _method_scope(self, env, request):
         env.clear_store()
         self.test_domain = env.get_request_domain(request)
-        self.mcmd = ("%s/message.py" % env.test_dir)
-        self.mcmdfail = ("%s/notifail.py" % env.test_dir)
-        self.mlog = ("%s/message.log" % env.gen_dir)
+        self.mcmd = f"{env.test_dir}/message.py"
+        self.mlog = f"{env.gen_dir}/message.log"
         if os.path.isfile(self.mlog):
             os.remove(self.mlog)
 
@@ -53,12 +52,12 @@ class TestMessage:
 
     # test: signup with configured message cmd that is valid but returns != 0
     def test_901_002(self, env):
-        self.mcmd = ("%s/notifail.py" % env.test_dir)
+        mcmd = f"{env.test_dir}/notifail.py"
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
+        conf.add_message_cmd(f"{mcmd} {self.mlog}")
         conf.add_drive_mode("auto")
         conf.add_md(domains)
         conf.add_vhost(domains)
@@ -66,7 +65,7 @@ class TestMessage:
         env.apache_errors_check()
         env.apache_error_log_clear()
         assert env.apache_restart() == 0
-        assert env.await_completion([domain], restart=False)
+        assert env.await_error(domain)
         stat = env.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
@@ -78,13 +77,14 @@ class TestMessage:
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
+        conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add_drive_mode("auto")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
         assert env.apache_restart() == 0
         assert env.await_completion([domain], restart=False)
+        time.sleep(1)
         stat = env.get_md_status(domain)
         # this command did not fail and logged itself the correct information
         assert stat["renewal"]["last"]["status"] == 0
@@ -126,7 +126,7 @@ class TestMessage:
         # force renew
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
+        conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add("MDRenewWindow 120d")
         conf.add("MDActivationDelay -7d")
         conf.add_md(domains)
@@ -137,11 +137,11 @@ class TestMessage:
         env.get_md_status(domain)
         assert env.await_file(self.mlog)
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
-        assert ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert len(nlines) == 1
+        assert nlines[0].strip() == f"['{self.mcmd}', '{self.mlog}', 'renewed', '{domain}']"
     
     def test_901_010(self, env):
-        # MD with static cert files, lifetime in renewal window, no message about renewal
+        #  MD with static cert files, lifetime in renewal window, no message about renewal
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
         testpath = os.path.join(env.gen_dir, 'test_901_010')
@@ -154,10 +154,10 @@ class TestMessage:
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
+        conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.start_md(domains)
-        conf.add("MDCertificateFile %s" % cert_file)
-        conf.add("MDCertificateKeyFile %s" % pkey_file)
+        conf.add(f"MDCertificateFile {cert_file}")
+        conf.add(f"MDCertificateKeyFile {pkey_file}")
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -167,7 +167,7 @@ class TestMessage:
     def test_901_011(self, env):
         # MD with static cert files, lifetime in warn window, check message
         domain = self.test_domain
-        domains = [domain, 'www.%s' % domain]
+        domains = [domain, f'www.{domain}']
         testpath = os.path.join(env.gen_dir, 'test_901_011')
         # cert that is only 10 more days valid
         env.create_self_signed_cert(domains, {"notBefore": -85, "notAfter": 5},
@@ -178,24 +178,24 @@ class TestMessage:
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
+        conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.start_md(domains)
-        conf.add("MDCertificateFile %s" % cert_file)
-        conf.add("MDCertificateKeyFile %s" % pkey_file)
+        conf.add(f"MDCertificateFile {cert_file}")
+        conf.add(f"MDCertificateKeyFile {pkey_file}")
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
         assert env.apache_restart() == 0
         assert env.await_file(self.mlog)
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
-        assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert len(nlines) == 1
+        assert nlines[0].strip() == f"['{self.mcmd}', '{self.mlog}', 'expiring', '{domain}']"
         # check that we do not get it resend right away again
         assert env.apache_restart() == 0
         time.sleep(1)
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
-        assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert len(nlines) == 1
+        assert nlines[0].strip() == f"['{self.mcmd}', '{self.mlog}', 'expiring', '{domain}']"
 
     # MD, check messages from stapling
     @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
@@ -204,7 +204,7 @@ class TestMessage:
         domains = [domain]
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
+        conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add_drive_mode("auto")
         conf.add_md(domains)
         conf.add("MDStapling on")
@@ -216,12 +216,15 @@ class TestMessage:
         assert env.await_file(self.mlog)
         time.sleep(1)
         nlines = open(self.mlog).readlines()
-        assert 4 == len(nlines)
-        assert nlines[0].strip() == ("['%s', '%s', 'challenge-setup:http-01:%s', '%s']"
-                                     % (self.mcmd, self.mlog, domain, domain))
-        assert nlines[1].strip() == ("['%s', '%s', 'renewed', '%s']" % (self.mcmd, self.mlog, domain))
-        assert nlines[2].strip() == ("['%s', '%s', 'installed', '%s']" % (self.mcmd, self.mlog, domain))
-        assert nlines[3].strip() == ("['%s', '%s', 'ocsp-renewed', '%s']" % (self.mcmd, self.mlog, domain))
+        assert len(nlines) == 4
+        assert nlines[0].strip() == \
+               f"['{self.mcmd}', '{self.mlog}', 'challenge-setup:http-01:{domain}', '{domain}']"
+        assert nlines[1].strip() == \
+               f"['{self.mcmd}', '{self.mlog}', 'renewed', '{domain}']"
+        assert nlines[2].strip() == \
+               f"['{self.mcmd}', '{self.mlog}', 'installed', '{domain}']"
+        assert nlines[3].strip() == \
+               f"['{self.mcmd}', '{self.mlog}', 'ocsp-renewed', '{domain}']"
 
     # test: while testing gh issue #146, it was noted that a failed renew notification never
     # resets the MD activity.
@@ -239,7 +242,7 @@ class TestMessage:
         # set the warn window that triggers right away and a failing message command
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmdfail, self.mlog))
+        conf.add_message_cmd(f"{env.test_dir}/notifail.py {self.mlog}")
         conf.add_md(domains)
         conf.add("""
             MDWarnWindow 100d
@@ -263,7 +266,7 @@ class TestMessage:
         # reconfigure to a working notification command and restart
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
-        conf.add_message_cmd("%s %s" % (self.mcmd, self.mlog))
+        conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add_md(domains)
         conf.add("""
             MDWarnWindow 100d
@@ -274,10 +277,37 @@ class TestMessage:
         assert env.await_file(self.mlog)
         # we see the notification logged by the command
         nlines = open(self.mlog).readlines()
-        assert 1 == len(nlines)
-        assert ("['%s', '%s', 'expiring', '%s']" % (self.mcmd, self.mlog, domain)) == nlines[0].strip()
+        assert len(nlines) == 1
+        assert nlines[0].strip() == f"['{self.mcmd}', '{self.mlog}', 'expiring', '{domain}']"
         # the error needs to be gone
         assert env.await_file(env.store_staged_file(domain, 'job.json'))
         with open(env.store_staged_file(domain, 'job.json')) as f:
             job = json.load(f)
             assert job["errors"] == 0
+
+    # MD, check a failed challenge setup
+    def test_901_040(self, env):
+        domain = self.test_domain
+        domains = [domain]
+        conf = HttpdConf(env)
+        conf.add_admin("admin@not-forbidden.org")
+        mcmd = f"{env.test_dir}/msg_fail_on.py"
+        conf.add_message_cmd(f"{mcmd} {self.mlog} challenge-setup")
+        conf.add_drive_mode("auto")
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        assert env.apache_restart() == 0
+        assert env.await_error(domain)
+        assert env.await_file(self.mlog)
+        time.sleep(1)
+        nlines = open(self.mlog).readlines()
+        assert len(nlines) == 2
+        assert nlines[0].strip() == \
+               f"['{mcmd}', '{self.mlog}', 'challenge-setup:http-01:{domain}', '{domain}']"
+        assert nlines[1].strip() == \
+               f"['{mcmd}', '{self.mlog}', 'errored', '{domain}']"
+        stat = env.get_md_status(domain)
+        # this command should have failed and logged an error
+        assert stat["renewal"]["last"]["problem"] == "challenge-setup-failure"
+

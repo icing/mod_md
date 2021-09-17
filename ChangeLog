@@ -1,3 +1,9 @@
+ * When MDMessageCmd for a 'challenge-setup:<type>:<dnsname>' fails (!= 0 exit),
+   the renewal process is aborted and an error is reported for the MDomain.
+   As discussed in #237, this provides scripts that distribute information
+   in a cluster to abort early with bothering an ACME server to validate
+   a dns name that will not work. The common retry logic will make another
+   attempt in the future, as with other failures.
  * Fixed a bug when adding private key specs to an already working MDomain, see #260.
  * fix time-of-use vs time-of-check when ACME server returned an empty response.
    [kokke <spam@rowdy.dk>]
