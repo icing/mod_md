@@ -182,7 +182,7 @@ static apr_status_t status_get_md_json(md_json_t **pjson, const md_t *md,
     apr_time_t renew_at;
     int i;
 
-    mdj = md_to_json(md, p);
+    mdj = md_to_public_json(md, p);
     certs = apr_array_make(p, 5, sizeof(md_cert_t*));
     for (i = 0; i < md_cert_count(md); ++i) {
         cert = NULL;

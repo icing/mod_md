@@ -122,6 +122,7 @@ struct md_acme_t {
     } api;
     const char *ca_agreement;
     const char *acct_name;
+    int eab_required;
     
     md_acme_new_nonce_fn *new_nonce_fn;
     md_acme_req_init_fn *req_init_fn;

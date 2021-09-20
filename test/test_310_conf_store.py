@@ -817,3 +817,44 @@ class TestConf:
             fd.write("this does not belong here\n")
         assert env.apache_restart() == 0
 
+    # test case: add external account binding
+    def test_310_601(self, env):
+        domain = self.test_domain
+        # directly set
+        conf = HttpdConf(env)
+        conf.add_admin("admin@" + domain)
+        conf.start_md([domain])
+        conf.add_drive_mode("manual")
+        conf.add("MDCAExternalAccountBinding k123 hash123")
+        conf.end_md()
+        conf.add_ssl_vhost(domain)
+        conf.install()
+        assert env.apache_restart() == 0
+        stat = env.get_md_status(domain)
+        assert stat["eab"] == {'kid': 'k123', 'hmac': '***'}
+        # eab inherited
+        conf = HttpdConf(env)
+        conf.add_admin("admin@" + domain)
+        conf.add("MDCAExternalAccountBinding k456 hash456")
+        conf.start_md([domain])
+        conf.add_drive_mode("manual")
+        conf.end_md()
+        conf.add_ssl_vhost(domain)
+        conf.install()
+        assert env.apache_restart() == 0
+        stat = env.get_md_status(domain)
+        assert stat["eab"] == {'kid': 'k456', 'hmac': '***'}
+        # override eab inherited
+        conf = HttpdConf(env)
+        conf.add_admin("admin@" + domain)
+        conf.add("MDCAExternalAccountBinding k456 hash456")
+        conf.start_md([domain])
+        conf.add_drive_mode("manual")
+        conf.add("MDCAExternalAccountBinding none")
+        conf.end_md()
+        conf.add_ssl_vhost(domain)
+        conf.install()
+        assert env.apache_restart() == 0
+        stat = env.get_md_status(domain)
+        assert "eab" not in stat
+

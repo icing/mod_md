@@ -701,7 +701,8 @@ static apr_status_t update_directory(const md_http_response_t *res, void *data)
             && acme->api.v2.new_nonce) {
             acme->version = MD_ACME_VERSION_2;
         }
-        acme->ca_agreement = md_json_dups(acme->p, json, "meta", "termsOfService", NULL);
+        acme->ca_agreement = md_json_dups(acme->p, json, "meta", MD_KEY_TOS, NULL);
+        acme->eab_required = md_json_getb(json, "meta", MD_KEY_EAB_REQUIRED, NULL);
         acme->new_nonce_fn = acmev2_new_nonce;
         acme->req_init_fn = acmev2_req_init;
         acme->post_new_account_fn = acmev2_POST_new_account;

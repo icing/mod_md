@@ -302,6 +302,10 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         if (md->cert_files) md_json_setsa(md->cert_files, json, MD_KEY_CERT_FILES, NULL);
         if (md->pkey_files) md_json_setsa(md->pkey_files, json, MD_KEY_PKEY_FILES, NULL);
         md_json_setb(md->stapling > 0, json, MD_KEY_STAPLING, NULL);
+        if (md->ca_eab_kid && strcmp("none", md->ca_eab_kid)) {
+            md_json_sets(md->ca_eab_kid, json, MD_KEY_EAB, MD_KEY_KID, NULL);
+            if (md->ca_eab_hmac) md_json_sets(md->ca_eab_hmac, json, MD_KEY_EAB, MD_KEY_HMAC, NULL);
+        }
         return json;
     }
     return NULL;
@@ -354,8 +358,21 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
         }
         md->stapling = (int)md_json_getb(json, MD_KEY_STAPLING, NULL);
         
+        if (md_json_has_key(json, MD_KEY_EAB, NULL)) {
+            md->ca_eab_kid = md_json_dups(p, json, MD_KEY_EAB, MD_KEY_KID, NULL);
+            md->ca_eab_hmac = md_json_dups(p, json, MD_KEY_EAB, MD_KEY_HMAC, NULL);
+        }
         return md;
     }
     return NULL;
+}
+
+md_json_t *md_to_public_json(const md_t *md, apr_pool_t *p)
+{
+    md_json_t *json = md_to_json(md, p);
+    if (md_json_has_key(json, MD_KEY_EAB, MD_KEY_HMAC, NULL)) {
+        md_json_sets("***", json, MD_KEY_EAB, MD_KEY_HMAC, NULL);
+    }
+    return json;
 }
 
