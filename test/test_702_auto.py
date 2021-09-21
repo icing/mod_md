@@ -569,10 +569,11 @@ class TestAutov2:
         conf.add(f"SSLCertificateChainFile {cred.cert_file}")
         conf.add_drive_mode("auto")
         conf.add_md(dns_list)
-        conf.add_vhost(env.https_port, dns_list)
+        conf.add_vhost(dns_list)
         conf.install()
         assert env.apache_restart() == 0
-        
+        assert env.await_completion([domain])
+
     # test case: test "tls-alpn-01" without enabling 'acme-tls/1' challenge protocol
     # and fallback "http-01" configured, see https://github.com/icing/mod_md/issues/255
     def test_702_043(self, env):

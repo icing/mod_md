@@ -35,4 +35,3 @@ url_default=@ACME_DEF_URL@
 url = @ACME_TEST_URL@
 tos = accepted
 server= @ACME_TEST_TYPE@
-server_dir= @ACME_TEST_DIR@

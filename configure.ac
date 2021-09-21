@@ -61,7 +61,7 @@ AC_ARG_WITH([apxs], [AS_HELP_STRING([--with-apxs],
 AC_ARG_WITH([curl], [AS_HELP_STRING([--with-curl], [Use curl from this prefix])],
     [request_curl=$withval], [request_curl=check])
 
-AC_ARG_WITH([pebble], [AS_HELP_STRING([--with-pebble], [Use given path for pebble])],
+AC_ARG_WITH([pebble], [AS_HELP_STRING([--with-pebble], [Use ACME server pebble for tests])],
     [request_pebble=$withval], [request_pebble=def])
 
 AC_ARG_WITH([boulder], [AS_HELP_STRING([--with-boulder], [Use given url for boulder])],
@@ -252,12 +252,10 @@ AC_SUBST(ACME_DEF_URL)
 
 # it must be configurable without an ACME test server installed
 ACME_TEST_TYPE="none"
-ACME_TEST_DIR="none"
 ACME_TEST_URL="none"
 
 if test "x$request_boulder" != "xdef"; then
     ACME_TEST_TYPE=boulder
-    ACME_TEST_DIR="${GOPATH}/src/github.com/letsencrypt/boulder"
     if test "x$request_boulder" = "xyes"; then
         ACME_TEST_URL=http://localhost:4001/directory
     else
@@ -273,11 +271,6 @@ else
     if test "x$request_pebble" != "xdef"; then
         ACME_TEST_TYPE=pebble
         ACME_TEST_URL="https://localhost:14000/dir"
-        if test "$request_pebble" = "yes"; then
-            ACME_TEST_DIR="${GOPATH}/src/github.com/letsencrypt/pebble"
-        else
-            ACME_TEST_DIR="$request_pebble"
-        fi
         if ! type "pebble" >/dev/null 2>&1; then
             AC_MSG_ERROR("'pebble' is not in your PATH")
         fi
@@ -287,16 +280,8 @@ else
     fi
 fi
 
-# if a test server is defined, will it work?
-if test "${ACME_TEST_TYPE}" != "none"; then
-    if ! test -d "${ACME_TEST_DIR}"; then
-        AC_MSG_ERROR("ACME test server directory not found: ${ACME_TEST_DIR}")
-    fi
-fi
-
 AC_SUBST(ACME_TEST_TYPE)
 AC_SUBST(ACME_TEST_URL)
-AC_SUBST(ACME_TEST_DIR)
 
 
 WERROR_CFLAGS=""
@@ -466,5 +451,4 @@ AC_MSG_NOTICE([summary of build options:
     jansson         ${JANSSON_PREFIX:--}
     openssl         ${OPENSSL_BIN:--}
     test-server     ${ACME_TEST_URL} (${ACME_TEST_TYPE})
-    test-server-dir ${ACME_TEST_DIR}
 ])

@@ -2046,11 +2046,10 @@ Configure mod_md to test with pebble:
 
 ```
 > /configure --with-apxs=<your path to axps>/apxs --enable-werror --with-pebble
-> make clean install test
+> make clean install
 ```
-This will check if the pebble files and commands can be found. If the location is
-guess wrong, you can specify the path with `--with-pebble=path`.
 
+This will check if the commands `pebble` and `pebble-challtestsrv` can be found in your PATH.
 Then you run:
 
 ```

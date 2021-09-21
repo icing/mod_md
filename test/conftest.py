@@ -33,6 +33,7 @@ def env(pytestconfig) -> MDTestEnv:
     env = MDTestEnv(pytestconfig=pytestconfig)
     env.apache_error_log_clear()
     cert_specs = [
+        CertificateSpec(domains=['localhost'], key_type='rsa2048'),
         CertificateSpec(domains=env.domains, key_type='rsa4096'),
         CertificateSpec(domains=env.expired_domains, key_type='rsa2048',
                         valid_from=timedelta(days=-91),
@@ -49,13 +50,12 @@ def env(pytestconfig) -> MDTestEnv:
 def _session_scope(env):
     acme_server = None
     if env.acme_server == 'pebble':
-        acme_server = MDPebbleRunner(env)
+        pebble_conf = os.path.join(env.server_dir, 'conf/pebble.json')
+        acme_server = MDPebbleRunner(env, config_file=pebble_conf)
     elif env.acme_server == 'boulder':
         acme_server = MDBoulderRunner(env)
     if acme_server is not None:
         acme_server.start()
-        acme_ca = os.path.join(env.server_dir, 'test-ca.pem')
-        acme_server.install_ca_bundle(acme_ca)
     yield
     if acme_server is not None:
         acme_server.stop()

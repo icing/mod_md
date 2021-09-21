@@ -267,11 +267,10 @@ class MDTestEnv:
         self._acme_url_default = self.config.get('acme', 'url_default')
         self._acme_url = self.config.get('acme', 'url')
         self._acme_tos = self.config.get('acme', 'tos')
-        self._acme_server_dir = self.config.get('acme', 'server_dir')
         self._acme_server_down = False
         self._acme_server_ok = False
 
-        self._acme_ca_pemfile = os.path.join(our_dir, "gen/apache/test-ca.pem")
+        self._acme_ca_pemfile = os.path.join(our_dir, "gen/apache/acme-ca.pem")
         self._a2md_bin = self.config.get('global', 'a2md_bin')
         self._md_version = self.config.get('md', 'version')
 
@@ -441,10 +440,6 @@ class MDTestEnv:
         return self._acme_server
 
     @property
-    def acme_server_dir(self):
-        return self._acme_server_dir
-
-    @property
     def acme_url(self):
         return self._acme_url
 
@@ -531,7 +526,7 @@ class MDTestEnv:
         elif u.hostname == self._default_domain:
             args.extend(["--cacert", f"{self.ca.cert_file}"])
         else:
-            args.extend(["--cacert", f"{self.server_dir}/test-ca.pem"])
+            args.extend(["--cacert", self.acme_ca_pemfile])
 
         if u.hostname != 'localhost' and u.hostname != self._httpd_addr \
                 and not re.match(r'^(\d+|\[|:).*', u.hostname):

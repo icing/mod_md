@@ -1116,8 +1116,8 @@ const command_rec md_cmds[] = {
                   "How long to delay activation of new certificates"),
     AP_INIT_TAKE1("MDCACertificateFile", md_config_set_ca_certs, NULL, RSRC_CONF,
                   "Set the CA file to use for connections"),
-    AP_INIT_TAKE12("MDCAExternalAccountBinding", md_config_set_eab, NULL, RSRC_CONF,
-                  "Set the CA external account binding keyid and hmac values"),
+    AP_INIT_TAKE12("MDExternalAccountBinding", md_config_set_eab, NULL, RSRC_CONF,
+                  "Set the external account binding keyid and hmac values to use at CA"),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

@@ -112,6 +112,7 @@ class TestNotify:
         conf.install()
         assert env.apache_restart() == 0
         assert env.await_completion([md1, md2], restart=False)
+        time.sleep(1)
         stat = env.get_md_status(md1)
         assert stat["renewal"]["last"]["status"] == 0
         stat = env.get_md_status(md2)

@@ -14,7 +14,7 @@ class HttpdConf(object):
             self.add([
                 f"MDCertificateAuthority {env.acme_url}",
                 f"MDCertificateAgreement accepted",
-                f"MDCACertificateFile {env.server_dir}/test-ca.pem",
+                f"MDCACertificateFile {env.server_dir}/acme-ca.pem",
                 "",
                 ])
 
