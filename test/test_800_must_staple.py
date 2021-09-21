@@ -12,7 +12,8 @@ class TestMustStaple:
     domain = None
 
     @pytest.fixture(autouse=True, scope='class')
-    def _class_scope(self, env):
+    def _class_scope(self, env, acme):
+        acme.start(config='default')
         env.check_acme()
         env.clear_store()
         HttpdConf(env).install()

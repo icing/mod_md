@@ -4,12 +4,22 @@ import re
 import json
 import pytest
 
+from md_conf import HttpdConf
 from md_env import MDTestEnv
 
 
 @pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
                     reason="no ACME test server configured")
 class TestAcmeAcc:
+
+    @pytest.fixture(autouse=True, scope='class')
+    def _class_scope(self, env, acme):
+        acme.start(config='default')
+        env.check_acme()
+        env.apache_error_log_clear()
+        env.APACHE_CONF_SRC = "data/test_drive"
+        HttpdConf(env).install()
+        assert env.apache_restart() == 0
 
     @pytest.fixture(autouse=True, scope='function')
     def _method_scope(self, env):

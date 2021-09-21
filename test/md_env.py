@@ -224,6 +224,10 @@ class MDTestEnv:
         return cls.get_acme_server() != 'none'
 
     @classmethod
+    def has_acme_eab(cls):
+        return cls.get_acme_server() == 'pebble'
+
+    @classmethod
     def is_pebble(cls) -> bool:
         return cls.get_acme_server() == 'pebble'
 

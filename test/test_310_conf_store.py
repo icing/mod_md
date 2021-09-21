@@ -17,7 +17,8 @@ NS_PER_DAY = MS_PER_DAY * 1000
 class TestConf:
 
     @pytest.fixture(autouse=True, scope='class')
-    def _class_scope(self, env):
+    def _class_scope(self, env, acme):
+        acme.start(config='default')
         env.check_acme()
 
     @pytest.fixture(autouse=True, scope='function')

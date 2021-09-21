@@ -14,7 +14,8 @@ from md_env import MDTestEnv
 class TestStapling:
 
     @pytest.fixture(autouse=True, scope='class')
-    def _class_scope(self, env):
+    def _class_scope(self, env, acme):
+        acme.start(config='default')
         env.check_acme()
         env.clear_store()
         domain = env.get_class_domain(self.__class__)

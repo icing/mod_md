@@ -13,7 +13,8 @@ from md_env import MDTestEnv
 class TestRoundtripv2:
 
     @pytest.fixture(autouse=True, scope='class')
-    def _class_scope(self, env):
+    def _class_scope(self, env, acme):
+        acme.start(config='default')
         env.APACHE_CONF_SRC = "data/test_roundtrip"
         env.clear_store()
         HttpdConf(env).install()

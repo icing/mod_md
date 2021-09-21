@@ -5,6 +5,7 @@ import subprocess
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
 from threading import Thread
+from typing import Dict
 
 from md_env import MDTestEnv
 
@@ -33,15 +34,24 @@ class ACMEServer:
 
 class MDPebbleRunner(ACMEServer):
 
-    def __init__(self, env: MDTestEnv, config_file: str):
+    def __init__(self, env: MDTestEnv, configs: Dict[str, str]):
         self.env = env
-        self.config_file = config_file
+        self.configs = configs
+        self._current = 'default'
         self._pebble = None
         self._challtestsrv = None
         self._log = None
 
-    def start(self):
-        args = ['pebble', '-config', self.config_file, '-dnsserver', ':8053']
+    def start(self, config: str = None):
+        if config is not None and config != self._current:
+            # change, tear down and start again
+            assert config in self.configs
+            self.stop()
+            self._current = config
+        elif self._pebble is not None:
+            # already running
+            return
+        args = ['pebble', '-config', self.configs[self._current], '-dnsserver', ':8053']
         env = {}
         env.update(os.environ)
         env['PEBBLE_VA_NOSLEEP'] = '1'
@@ -85,7 +95,7 @@ class MDBoulderRunner(ACMEServer):
         self.env = env
         self.install_ca_bundle(self.env.acme_ca_pemfile)
 
-    def start(self):
+    def start(self, configs=None):
         pass
 
     def stop(self):

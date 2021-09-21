@@ -17,7 +17,8 @@ class TestNotify:
     domain = None
 
     @pytest.fixture(autouse=True, scope='class')
-    def _class_scope(self, env):
+    def _class_scope(self, env, acme):
+        acme.start(config='default')
         env.check_acme()
         env.clear_store()
 
@@ -71,6 +72,7 @@ class TestNotify:
             """)
         assert env.apache_restart() == 0
         assert env.await_completion([self.domain], restart=False)
+        time.sleep(1)
         stat = env.get_md_status(self.domain)
         assert stat["renewal"]["last"]["status"] == 0
         nlines = open(self.notify_log).readlines()

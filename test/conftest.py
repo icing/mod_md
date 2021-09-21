@@ -43,22 +43,23 @@ def env(pytestconfig) -> MDTestEnv:
                               store_dir=os.path.join(env.server_dir, 'ca'), key_type="rsa4096")
     ca.issue_certs(cert_specs)
     env.set_ca(ca)
-    return env
-
-
-@pytest.fixture(autouse=True, scope="session")
-def _session_scope(env):
-    acme_server = None
-    if env.acme_server == 'pebble':
-        pebble_conf = os.path.join(env.server_dir, 'conf/pebble.json')
-        acme_server = MDPebbleRunner(env, config_file=pebble_conf)
-    elif env.acme_server == 'boulder':
-        acme_server = MDBoulderRunner(env)
-    if acme_server is not None:
-        acme_server.start()
-    yield
-    if acme_server is not None:
-        acme_server.stop()
+    yield env
     HttpdConf(env).install()
     assert env.apache_stop() == 0
     #env.apache_errors_check()
+
+
+@pytest.fixture(scope="session")
+def acme(env):
+    acme_server = None
+    if env.acme_server == 'pebble':
+        acme_server = MDPebbleRunner(env, configs={
+            'default': os.path.join(env.server_dir, 'conf/pebble.json'),
+            'eab': os.path.join(env.server_dir, 'conf/pebble-eab.json'),
+        })
+    elif env.acme_server == 'boulder':
+        acme_server = MDBoulderRunner(env)
+    yield acme_server
+    if acme_server is not None:
+        acme_server.stop()
+

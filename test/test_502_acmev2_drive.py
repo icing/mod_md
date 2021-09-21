@@ -18,7 +18,8 @@ from md_env import MDTestEnv
 class TestDrivev2:
 
     @pytest.fixture(autouse=True, scope='class')
-    def _class_scope(self, env):
+    def _class_scope(self, env, acme):
+        acme.start(config='default')
         env.check_acme()
         env.apache_error_log_clear()
         env.APACHE_CONF_SRC = "data/test_drive"

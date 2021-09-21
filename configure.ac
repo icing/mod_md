@@ -253,6 +253,7 @@ AC_SUBST(ACME_DEF_URL)
 # it must be configurable without an ACME test server installed
 ACME_TEST_TYPE="none"
 ACME_TEST_URL="none"
+ACME_TEST_EAB_URL="none"
 
 if test "x$request_boulder" != "xdef"; then
     ACME_TEST_TYPE=boulder
@@ -271,6 +272,7 @@ else
     if test "x$request_pebble" != "xdef"; then
         ACME_TEST_TYPE=pebble
         ACME_TEST_URL="https://localhost:14000/dir"
+        ACME_TEST_EAB_URL="https://localhost:14001/dir"
         if ! type "pebble" >/dev/null 2>&1; then
             AC_MSG_ERROR("'pebble' is not in your PATH")
         fi
