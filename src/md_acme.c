@@ -52,6 +52,7 @@ static acme_problem_status_t Problems[] = {
     { "acme:error:badCSR",                       APR_EINVAL,   1 },
     { "acme:error:badNonce",                     APR_EAGAIN,   0 },
     { "acme:error:badSignatureAlgorithm",        APR_EINVAL,   1 },
+    { "acme:error:externalAccountRequired",      APR_EINVAL,   1 },
     { "acme:error:invalidContact",               APR_BADARG,   1 },
     { "acme:error:unsupportedContact",           APR_EGENERAL, 1 },
     { "acme:error:malformed",                    APR_EINVAL,   1 },
