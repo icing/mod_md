@@ -1,3 +1,6 @@
+ * Fixed a mixup in md-status handler when static certificate files and
+   renewal was configured at the same time.
+
 v2.4.7
 ----------------------------------------------------------------------------------------------------
  * When MDMessageCmd for a 'challenge-setup:<type>:<dnsname>' fails (!= 0 exit),

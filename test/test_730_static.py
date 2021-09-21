@@ -1,5 +1,5 @@
 # test MDs with static certificates
-
+import json
 import os
 
 import pytest
@@ -40,8 +40,8 @@ class TestStatic:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add("MDCertificateFile %s" % cert_file)
-        conf.add("MDCertificateKeyFile %s" % pkey_file)
+        conf.add(f"MDCertificateFile {cert_file}")
+        conf.add(f"MDCertificateKeyFile {pkey_file}")
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -71,15 +71,16 @@ class TestStatic:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add("MDCertificateFile %s" % cert_file)
-        conf.add("MDCertificateKeyFile %s" % pkey_file)
+        conf.add(f"MDPrivateKeys secp384r1 rsa3072")
+        conf.add(f"MDCertificateFile {cert_file}")
+        conf.add(f"MDCertificateKeyFile {pkey_file}")
         conf.add("MDRenewMode always")
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
         assert env.apache_restart() == 0
         
-        # check if the domain uses it, it appears in our stats and renewal is off
+        # check if the domain uses it, it appears in our stats and renewal is on
         cert = env.get_cert(domain)
         assert cert.same_serial_as(730001)
         stat = env.get_md_status(domain)
@@ -87,6 +88,11 @@ class TestStatic:
         assert 'cert' in stat
         assert stat['renew'] is True
         assert env.await_renewal(domains)
+        stat = env.get_md_status(domain)
+        assert 'renewal' in stat
+        assert 'cert' in stat['renewal']
+        assert 'rsa' in stat['renewal']['cert']
+        assert 'secp384r1' in stat['renewal']['cert']
 
     def test_730_003(self, env):
         # just configuring one file will not work
@@ -104,7 +110,7 @@ class TestStatic:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add("MDCertificateFile %s" % cert_file)
+        conf.add(f"MDCertificateFile {cert_file}")
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
@@ -113,7 +119,7 @@ class TestStatic:
         conf = HttpdConf(env)
         conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
-        conf.add("MDCertificateKeyFile %s" % pkey_file)
+        conf.add(f"MDCertificateKeyFile {pkey_file}")
         conf.end_md()
         conf.add_vhost(domain)
         conf.install()
