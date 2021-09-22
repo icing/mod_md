@@ -165,7 +165,9 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
             md_result_log(result, MD_LOG_INFO);
         }
 
-        rv = md_acme_acct_register(ad->acme, d->store, d->p, md->contacts, md->ca_agreement);
+        rv = md_acme_acct_register(ad->acme, d->store, d->p,
+                                   md->contacts, md->ca_agreement,
+                                   md->ca_eab_kid, md->ca_eab_hmac);
         if (APR_SUCCESS != rv) {
             if (APR_SUCCESS != ad->acme->last->status) {
                 md_result_dup(result, ad->acme->last);

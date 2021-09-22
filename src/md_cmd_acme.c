@@ -53,7 +53,8 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
-    rv = md_acme_acct_register(ctx->acme, ctx->store, ctx->p, contacts, ctx->tos);
+    rv = md_acme_acct_register(ctx->acme, ctx->store, ctx->p, contacts, ctx->tos,
+                               NULL, NULL);
     if (APR_SUCCESS != rv) goto leave;
     /* check if we can read it back, only then it "exsists" */
     rv = md_acme_acct_update(ctx->acme);

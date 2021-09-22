@@ -27,6 +27,7 @@
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
@@ -987,8 +988,6 @@ static apr_status_t sha256_digest(md_data_t **pdigest, apr_pool_t *p, const md_d
     unsigned int dlen;
 
     digest = md_data_pmake(EVP_MAX_MD_SIZE, p);
-    if (!digest) goto leave;
-
     ctx = EVP_MD_CTX_create();
     if (ctx) {
         rv = APR_ENOTIMPL;
@@ -1035,6 +1034,32 @@ apr_status_t md_crypt_sha256_digest_hex(const char **pdigesthex, apr_pool_t *p,
         return md_data_to_hex(pdigesthex, 0, p, digest);
     }
     *pdigesthex = NULL;
+    return rv;
+}
+
+apr_status_t md_crypt_hmac64(const char **pmac64, const md_data_t *hmac_key,
+                             apr_pool_t *p, const char *d, size_t dlen)
+{
+    const char *mac64 = NULL;
+    unsigned char *s;
+    unsigned int digest_len = 0;
+    md_data_t *digest;
+    apr_status_t rv = APR_SUCCESS;
+    unsigned char data[EVP_MAX_MD_SIZE];
+
+    digest = md_data_pmake(EVP_MAX_MD_SIZE, p);
+    s = HMAC(EVP_sha256(), (const unsigned char*)hmac_key->data, (int)hmac_key->len,
+             (const unsigned char*)d, (int)dlen,
+             (unsigned char*)digest->data, &digest_len);
+    if (!s) {
+        rv = APR_EINVAL;
+        goto cleanup;
+    }
+    digest->len = digest_len;
+    mac64 = md_util_base64url_encode(digest, p);
+
+cleanup:
+    *pmac64 = (APR_SUCCESS == rv)? mac64 : NULL;
     return rv;
 }
 
@@ -1329,8 +1354,6 @@ apr_status_t md_cert_to_sha256_digest(md_data_t **pdigest, const md_cert_t *cert
     apr_status_t rv = APR_ENOMEM;
 
     digest = md_data_pmake(EVP_MAX_MD_SIZE, p);
-    if (!digest) goto leave;
-
     X509_digest(cert->x509, EVP_sha256(), (unsigned char*)digest->data, &dlen);
     digest->len = dlen;
     rv = APR_SUCCESS;

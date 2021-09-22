@@ -30,6 +30,7 @@
 #include "md_json.h"
 #include "md_jws.h"
 #include "md_log.h"
+#include "md_result.h"
 #include "md_store.h"
 #include "md_util.h"
 #include "md_version.h"
@@ -399,6 +400,8 @@ typedef struct {
     md_acme_t *acme;
     apr_pool_t *p;
     const char *agreement;
+    const char *eab_kid;
+    const char *eab_hmac;
 } acct_ctx_t;
 
 /**************************************************************************************************/
@@ -479,21 +482,74 @@ apr_status_t md_acme_acct_validate(md_acme_t *acme, md_store_t *store, apr_pool_
 /**************************************************************************************************/
 /* Register a new account */
 
+static apr_status_t get_eab(md_json_t **peab, md_acme_req_t *req, const char *kid,
+                            const char *hmac64, md_pkey_t *account_key,
+                            const char *url)
+{
+    md_json_t *eab, *prot_fields, *jwk;
+    md_data_t payload, hmac_key;
+    apr_status_t rv;
+
+    prot_fields = md_json_create(req->p);
+    md_json_sets(url, prot_fields, "url", NULL);
+    md_json_sets(kid, prot_fields, "kid", NULL);
+
+    rv = md_jws_get_jwk(&jwk, req->p, account_key);
+    if (APR_SUCCESS != rv) goto cleanup;
+
+    md_data_null(&payload);
+    payload.data = md_json_writep(jwk, req->p, MD_JSON_FMT_COMPACT);
+    if (!payload.data) {
+        rv = APR_EINVAL;
+        goto cleanup;
+    }
+    payload.len = strlen(payload.data);
+
+    md_util_base64url_decode(&hmac_key, hmac64, req->p);
+    if (!hmac_key.len) {
+        rv = APR_EINVAL;
+        md_result_problem_set(req->result, rv, "apache:eab-hmac-invalid",
+                              "external account binding HMAC value is not valid base64", NULL);
+        goto cleanup;
+    }
+
+    rv = md_jws_hmac(&eab, req->p, &payload, prot_fields, &hmac_key);
+    if (APR_SUCCESS != rv) {
+        md_result_problem_set(req->result, rv, "apache:eab-hmac-fail",
+                              "external account binding MAC could not be computed", NULL);
+    }
+
+cleanup:
+    *peab = (APR_SUCCESS == rv)? eab : NULL;
+    return rv;
+}
+
 static apr_status_t on_init_acct_new(md_acme_req_t *req, void *baton)
 {
     acct_ctx_t *ctx = baton;
-    md_json_t *jpayload;
+    md_json_t *jpayload, *jeab;
+    apr_status_t rv;
 
     jpayload = md_json_create(req->p);
     md_json_setsa(ctx->acme->acct->contacts, jpayload, MD_KEY_CONTACT, NULL);
     if (ctx->agreement) {
         md_json_setb(1, jpayload, "termsOfServiceAgreed", NULL);
     }
-    return md_acme_req_body_init(req, jpayload);
+    if (ctx->eab_kid && ctx->eab_hmac) {
+        rv = get_eab(&jeab, req, ctx->eab_kid, ctx->eab_hmac,
+                     req->acme->acct_key, req->url);
+        if (APR_SUCCESS != rv) goto cleanup;
+        md_json_setj(jeab, jpayload, "externalAccountBinding", NULL);
+    }
+    rv = md_acme_req_body_init(req, jpayload);
+
+cleanup:
+    return rv;
 } 
 
 apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_t *p, 
-                                   apr_array_header_t *contacts, const char *agreement)
+                                   apr_array_header_t *contacts, const char *agreement,
+                                   const char *eab_kid, const char *eab_hmac)
 {
     apr_status_t rv;
     md_pkey_t *pkey;
@@ -521,6 +577,8 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_
             goto out;
         }
     }
+    ctx.eab_kid = eab_kid;
+    ctx.eab_hmac = eab_hmac;
     
     for (i = 0; i < contacts->nelts; ++i) {
         uri = APR_ARRAY_IDX(contacts, i, const char *);

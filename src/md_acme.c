@@ -148,11 +148,7 @@ static md_acme_req_t *md_acme_req_create(md_acme_t *acme, const char *method, co
     req->p = pool;
     req->method = method;
     req->url = url;
-    req->prot_hdrs = apr_table_make(pool, 5);
-    if (!req->prot_hdrs) {
-        apr_pool_destroy(pool);
-        return NULL;
-    }
+    req->prot_fields = md_json_create(pool);
     req->max_retries = acme->max_retries;
     req->result = md_result_make(req->p, APR_SUCCESS);
     return req;
@@ -247,7 +243,7 @@ static apr_status_t acmev2_req_init(md_acme_req_t *req, md_json_t *jpayload)
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, req->p, 
                   "acme payload(len=%" APR_SIZE_T_FMT "): %s", payload.len, payload.data);
     return md_jws_sign(&req->req_json, req->p, &payload,
-                       req->prot_hdrs, req->acme->acct_key, req->acme->acct->url);
+                       req->prot_fields, req->acme->acct_key, req->acme->acct->url);
 }
 
 apr_status_t md_acme_req_body_init(md_acme_req_t *req, md_json_t *payload)
@@ -378,9 +374,9 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
                           "error retrieving new nonce from ACME server");
             goto leave;
         }
-        
-        apr_table_set(req->prot_hdrs, "nonce", acme->nonce);
-        apr_table_set(req->prot_hdrs, "url", req->url);
+
+        md_json_sets(acme->nonce, req->prot_fields, "nonce", NULL);
+        md_json_sets(req->url, req->prot_fields, "url", NULL);
         acme->nonce = NULL;
     }
     
@@ -392,8 +388,12 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
         if (!body) {
             rv = APR_EINVAL; goto leave;
         }
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->p,
+                      "error retrieving new nonce from ACME server");
         body->data = md_json_writep(req->req_json, req->p, MD_JSON_FMT_INDENT);
         body->len = strlen(body->data);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p,
+                      "sending JSON body: %s", body->data);
     }
 
     if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {

@@ -118,7 +118,8 @@ apr_status_t md_acme_acct_id_for_url(const char **pid, md_store_t *store,
  */
 apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, 
                                    apr_pool_t *p, apr_array_header_t *contacts, 
-                                   const char *agreement);
+                                   const char *agreement, const char *eab_kid,
+                                   const char *eab_hmac);
 
 apr_status_t md_acme_acct_save(md_store_t *store, apr_pool_t *p, md_acme_t *acme,  
                                const char **pid, struct md_acme_acct_t *acct, 

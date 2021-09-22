@@ -233,7 +233,7 @@ struct md_acme_req_t {
     
     const char *url;               /* url to POST the request to */
     const char *method;            /* HTTP method to use */
-    apr_table_t *prot_hdrs;        /* JWS headers needing protection (nonce) */
+    struct md_json_t *prot_fields; /* JWS protected fields */
     struct md_json_t *req_json;    /* JSON to be POSTed in request body */
 
     apr_table_t *resp_hdrs;        /* HTTP response headers */
