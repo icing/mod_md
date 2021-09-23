@@ -5,10 +5,16 @@ class HttpdConf(object):
     # Utility class for creating Apache httpd test configurations
 
     def __init__(self, env: MDTestEnv, text=None, std_ports=True,
-                 local_ca=True, std_vhosts=True, proxy=False):
+                 local_ca=True, std_vhosts=True, proxy=False,
+                 admin=None):
         self.env = env
         self._indents = 0
         self._lines = []
+
+        if admin is None:
+            admin = "admin@not-forbidden.org"
+        if len(admin.strip()):
+            self.add_admin(admin)
 
         if local_ca:
             self.add([

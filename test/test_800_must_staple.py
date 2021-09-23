@@ -24,8 +24,7 @@ class TestMustStaple:
         self.domain = env.get_class_domain(self.__class__)
 
     def configure_httpd(self, env, domain, add_lines=""):
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add(add_lines)
         conf.add_md([domain])
         conf.add_vhost(domain)

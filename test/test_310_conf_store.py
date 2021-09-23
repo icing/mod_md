@@ -110,8 +110,7 @@ class TestConf:
 
     # test case: add new md definition with server admin
     def test_310_105(self, env):
-        HttpdConf(env, text="""
-            ServerAdmin mailto:admin@testdomain.org
+        HttpdConf(env, admin="admin@testdomain.org", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
@@ -123,8 +122,7 @@ class TestConf:
     def test_310_106(self, env):
         name = "testdomain.org"
         assert env.a2md(["add", name, "www.testdomain.org", "mail.testdomain.org"]).exit_code == 0
-        HttpdConf(env, text="""
-            ServerAdmin mailto:admin@testdomain.org
+        HttpdConf(env, admin="admin@testdomain.org", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
@@ -133,7 +131,7 @@ class TestConf:
 
     # test case: assign separate contact info based on VirtualHost
     def test_310_107(self, env):
-        HttpdConf(env, text="""
+        HttpdConf(env, admin="", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDomain testdomain2.org www.testdomain2.org mail.testdomain2.org
 
@@ -387,13 +385,12 @@ class TestConf:
     # test case: remove server admin from md
     def test_310_205(self, env):
         name = "testdomain.org"
-        HttpdConf(env, text="""
-            ServerAdmin mailto:admin@testdomain.org
+        HttpdConf(env, admin="admin@testdomain.org", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
         # setup: sync with admin info removed
-        HttpdConf(env, text="""
+        HttpdConf(env, admin="", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
@@ -541,9 +538,8 @@ class TestConf:
             """).install()
         assert env.apache_restart() == 0
         # setup: sync with changed ca info
-        HttpdConf(env, local_ca=False, text="""
-            ServerAdmin mailto:webmaster@testdomain.org
-
+        HttpdConf(env, local_ca=False, admin="webmaster@testdomain.org",
+                  text="""
             MDCertificateAuthority http://somewhere.com:6666/directory
             MDCertificateProtocol ACME
             MDCertificateAgreement http://somewhere.com:6666/terms/v1
@@ -559,15 +555,12 @@ class TestConf:
     # test case: change server admin
     def test_310_303(self, env):
         name = "testdomain.org"
-        HttpdConf(env, text="""
-            ServerAdmin mailto:admin@testdomain.org
+        HttpdConf(env, admin="admin@testdomain.org", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
         assert env.apache_restart() == 0
         # setup: sync with changed admin info
-        HttpdConf(env, local_ca=False, text="""
-            ServerAdmin mailto:webmaster@testdomain.org
-
+        HttpdConf(env, local_ca=False, admin="webmaster@testdomain.org", text="""
             MDCertificateAuthority http://somewhere.com:6666/directory
             MDCertificateProtocol ACME
             MDCertificateAgreement http://somewhere.com:6666/terms/v1
@@ -734,8 +727,7 @@ class TestConf:
     def test_310_310(self, env, window):
         # non-default renewal setting
         domain = self.test_domain
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.start_md([domain])
         conf.add_drive_mode("manual")
         conf.add_renew_window(window)
@@ -804,8 +796,7 @@ class TestConf:
     def test_310_501(self, env):
         # setup: create complete md in store
         domain = self.test_domain
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.start_md([domain])
         conf.end_md()
         conf.add_ssl_vhost(domains=[domain])
@@ -822,8 +813,7 @@ class TestConf:
     def test_310_601(self, env):
         domain = self.test_domain
         # directly set
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.start_md([domain])
         conf.add_drive_mode("manual")
         conf.add("MDExternalAccountBinding k123 hash123")
@@ -834,8 +824,7 @@ class TestConf:
         stat = env.get_md_status(domain)
         assert stat["eab"] == {'kid': 'k123', 'hmac': '***'}
         # eab inherited
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("MDExternalAccountBinding k456 hash456")
         conf.start_md([domain])
         conf.add_drive_mode("manual")
@@ -846,8 +835,7 @@ class TestConf:
         stat = env.get_md_status(domain)
         assert stat["eab"] == {'kid': 'k456', 'hmac': '***'}
         # override eab inherited
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("MDExternalAccountBinding k456 hash456")
         conf.start_md([domain])
         conf.add_drive_mode("manual")

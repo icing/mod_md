@@ -34,7 +34,6 @@ class TestCleanups:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_drive_mode("manual")
         conf.add_md(domains)
         conf.add_vhost(domain)

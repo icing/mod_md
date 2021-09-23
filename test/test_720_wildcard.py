@@ -32,7 +32,6 @@ class TestWildcard:
         # generate config with DNS wildcard
         domains = [domain, "*." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -56,7 +55,6 @@ class TestWildcard:
         domains = [domain, "*." + domain]
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)
@@ -80,7 +78,6 @@ class TestWildcard:
         domains = [domain, "xxx." + domain]
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)
         conf.add_vhost(domains)
@@ -108,7 +105,6 @@ class TestWildcard:
         domains = [domain, "*." + domain]
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)
@@ -134,7 +130,6 @@ class TestWildcard:
         domains = [domain, "*." + domain]
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)
@@ -164,7 +159,6 @@ class TestWildcard:
         domains = [domain, "*." + domain, domain2]
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)
@@ -195,7 +189,6 @@ class TestWildcard:
         domains = [domain, dwild, domain2]
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)
@@ -226,7 +219,6 @@ class TestWildcard:
         domains = [dwild]
 
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_ca_challenges(["dns-01"])
         conf.add_dns01_cmd(dns01cmd)
         conf.add_md(domains)

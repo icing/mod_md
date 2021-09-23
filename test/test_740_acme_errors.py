@@ -30,7 +30,6 @@ class TestAcmeErrors:
         domain = self.test_domain
         domains = [domain, "invalid!." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -54,7 +53,6 @@ class TestAcmeErrors:
         domain = self.test_domain
         domains = [domain, "invalid1!." + domain, "invalid2!." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()

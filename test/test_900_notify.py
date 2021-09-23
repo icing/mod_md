@@ -32,7 +32,6 @@ class TestNotify:
 
     def configure_httpd(self, env, domain, add_lines=""):
         conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
         conf.add(add_lines)
         conf.add_md([domain])
         conf.add_vhost(domain)
@@ -105,7 +104,6 @@ class TestNotify:
         command = self.notify_cmd
         args = self.notify_log
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_notify_cmd("%s %s" % (command, args))
         conf.add_md(domains1)
         conf.add_md(domains2)

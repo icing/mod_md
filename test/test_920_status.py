@@ -34,7 +34,6 @@ class TestStatus:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domain)
         conf.install()
@@ -63,7 +62,6 @@ class TestStatus:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domain)
         conf.install()
@@ -86,7 +84,6 @@ class TestStatus:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add("MDCertificateStatus off")
         conf.add_vhost(domain)
@@ -100,7 +97,6 @@ class TestStatus:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add("MDCertificateStatus off")
         conf.add_vhost(domain)
@@ -123,7 +119,6 @@ Listen {env.https_port} https
 MDBaseServer on
 MDPortMap http:- https:{env.https_port}
 
-ServerAdmin admin@not-forbidden.org
 ServerName {domain}
 <IfModule ssl_module>
 SSLEngine on
@@ -184,7 +179,6 @@ Protocols h2 http/1.1 acme-tls/1
 
         Listen {env.http_port}
         Listen {env.https_port} https
-        ServerAdmin admin@not-forbidden.org
         ServerName {domain}
         <IfModule ssl_module>
         SSLEngine on
@@ -223,7 +217,6 @@ Protocols h2 http/1.1 acme-tls/1
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add("MDStapling on")
         conf.add("MDPrivateKeys secp256r1 RSA")
         conf.add_md(domains)

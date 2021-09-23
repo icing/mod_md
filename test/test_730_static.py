@@ -37,7 +37,6 @@ class TestStatic:
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add(f"MDCertificateFile {cert_file}")
         conf.add(f"MDCertificateKeyFile {pkey_file}")
@@ -68,7 +67,6 @@ class TestStatic:
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add(f"MDPrivateKeys secp384r1 rsa3072")
         conf.add(f"MDCertificateFile {cert_file}")
@@ -107,7 +105,6 @@ class TestStatic:
         assert os.path.exists(pkey_file)
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add(f"MDCertificateFile {cert_file}")
         conf.end_md()
@@ -116,7 +113,6 @@ class TestStatic:
         assert env.apache_fail() == 0
         
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add(f"MDCertificateKeyFile {pkey_file}")
         conf.end_md()

@@ -48,7 +48,6 @@ class TestStapling:
             LogLevel ssl:trace4
         </IfModule>
             """)
-        conf.add_admin("admin@" + env.get_class_domain(self.__class__))
         if ssl_stapling:
             conf.add("""
             <IfModule ssl_module>
@@ -342,7 +341,6 @@ class TestStapling:
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add("MDCertificateFile %s" % cert_file)
         conf.add("MDCertificateKeyFile %s" % pkey_file)
@@ -362,7 +360,6 @@ class TestStapling:
         md = self.mdA
         domains = [md]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.start_md(domains)
         conf.add("MDStapling on")
         conf.end_md()

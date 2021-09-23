@@ -36,7 +36,6 @@ class TestMessage:
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd("blablabla")
         conf.add_drive_mode("auto")
         conf.add_md(domains)
@@ -57,7 +56,6 @@ class TestMessage:
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{mcmd} {self.mlog}")
         conf.add_drive_mode("auto")
         conf.add_md(domains)
@@ -77,7 +75,6 @@ class TestMessage:
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add_drive_mode("auto")
         conf.add_md(domains)
@@ -118,7 +115,6 @@ class TestMessage:
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -126,7 +122,6 @@ class TestMessage:
         assert env.await_completion([domain])
         # force renew
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add("MDRenewWindow 120d")
         conf.add("MDActivationDelay -7d")
@@ -154,7 +149,6 @@ class TestMessage:
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.start_md(domains)
         conf.add(f"MDCertificateFile {cert_file}")
@@ -178,7 +172,6 @@ class TestMessage:
         assert os.path.exists(cert_file)
         assert os.path.exists(pkey_file)
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.start_md(domains)
         conf.add(f"MDCertificateFile {cert_file}")
@@ -204,7 +197,6 @@ class TestMessage:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add_drive_mode("auto")
         conf.add_md(domains)
@@ -234,7 +226,6 @@ class TestMessage:
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
@@ -242,7 +233,6 @@ class TestMessage:
         assert env.await_completion([domain])
         # set the warn window that triggers right away and a failing message command
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{env.test_dir}/notifail.py {self.mlog}")
         conf.add_md(domains)
         conf.add("""
@@ -266,7 +256,6 @@ class TestMessage:
 
         # reconfigure to a working notification command and restart
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_message_cmd(f"{self.mcmd} {self.mlog}")
         conf.add_md(domains)
         conf.add("""
@@ -291,7 +280,6 @@ class TestMessage:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         mcmd = f"{env.test_dir}/msg_fail_on.py"
         conf.add_message_cmd(f"{mcmd} {self.mlog} challenge-setup")
         conf.add_drive_mode("auto")

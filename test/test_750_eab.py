@@ -28,7 +28,6 @@ class TestEab:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)
         conf.install()
@@ -42,7 +41,6 @@ class TestEab:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add("MDExternalAccountBinding kid-1 äöüß")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)
@@ -57,7 +55,6 @@ class TestEab:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add("MDExternalAccountBinding \" \" bm90IGEgdmFsaWQgaG1hYwo=")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)
@@ -72,7 +69,6 @@ class TestEab:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add("MDExternalAccountBinding key-x bm90IGEgdmFsaWQgaG1hYwo=")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)
@@ -87,7 +83,6 @@ class TestEab:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add("MDExternalAccountBinding kid-1 bm90IGEgdmFsaWQgaG1hYwo=")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)
@@ -102,7 +97,6 @@ class TestEab:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add("MDExternalAccountBinding kid-1 zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)

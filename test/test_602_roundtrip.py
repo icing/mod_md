@@ -33,8 +33,7 @@ class TestRoundtripv2:
         domains = [domain, "www." + domain]
 
         # - generate config with one md
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md(domains)
         conf.install()
@@ -65,7 +64,6 @@ class TestRoundtripv2:
         domains_b = [domain_b, "www." + domain_b]
 
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_drive_mode("manual")
         conf.add_md(domains_a)
         conf.add_md(domains_b)
@@ -103,8 +101,7 @@ class TestRoundtripv2:
         domains = [domain, name_a, name_b]
 
         # - generate config with one md
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md(domains)
         conf.install()

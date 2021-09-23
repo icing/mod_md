@@ -30,7 +30,6 @@ class TestAutov2:
         domains = [domain]
         if conf is None:
             conf = HttpdConf(env)
-            conf.add_admin("admin@" + domain)
             conf.add("MDPrivateKeys {0}".format(" ".join([p['spec'] for p in pkeys])))
             conf.add_md(domains)
             conf.add_vhost(domains)
@@ -63,7 +62,6 @@ class TestAutov2:
         # generate config with one MD
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
         conf.add("MDPrivateKeys secp256r1")
         conf.start_md(domains)
         conf.add("    MDPrivateKeys secp384r1")
@@ -98,7 +96,6 @@ class TestAutov2:
         # generate config with one MD
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
         conf.add("MDPrivateKeys secp192r1")
         conf.add_md(domains)
         conf.add_vhost(domains)
@@ -134,7 +131,6 @@ class TestAutov2:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
         conf.add("MDPrivateKeys rsa3072")
         conf.add_md(domains)
         conf.add_vhost(domains)
@@ -142,7 +138,6 @@ class TestAutov2:
         assert env.apache_restart() == 0
         assert env.await_completion(domains)
         conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
         conf.add("MDPrivateKeys rsa3072 secp384r1")
         conf.add_md(domains)
         conf.add_vhost(domains)

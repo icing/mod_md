@@ -34,8 +34,7 @@ class TestAutov2:
         domain = self.test_domain
         # generate config with one MD
         domains = [domain, "www." + domain]
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("auto")
         conf.add_md(domains)
         conf.install()
@@ -72,7 +71,6 @@ class TestAutov2:
         domains_a = [domain_a, "www." + domain_a]
         domains_b = [domain_b, "www." + domain_b]
         conf = HttpdConf(env)
-        conf.add_admin("admin@not-forbidden.org")
         conf.add_drive_mode("auto")
         conf.add_md(domains_a)
         conf.add_md(domains_b)
@@ -109,8 +107,7 @@ class TestAutov2:
         domains = [domain, name_a, name_b]
         #
         # generate 1 MD and 2 vhosts
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_md(domains)
         conf.add_vhost(name_a, doc_root="htdocs/a")
         conf.add_vhost(name_b, doc_root="htdocs/b")
@@ -145,8 +142,7 @@ class TestAutov2:
         domains = [domain, "www." + domain]
         #
         # generate 1 MD and 1 vhost
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
@@ -171,8 +167,7 @@ class TestAutov2:
         domains = [domain, name_a]
         #
         # generate 1 MD and 1 vhost
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md(domains)
         conf.add_vhost(name_a, doc_root="htdocs/a")
@@ -203,8 +198,7 @@ class TestAutov2:
         domains = [domain, name_a]
         #
         # generate 1 MD, 1 vhost
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_ca_challenges(["invalid-01", "invalid-02"])
         conf.add_md(domains)
         conf.add_vhost(name_a, doc_root="htdocs/a")
@@ -233,8 +227,7 @@ class TestAutov2:
         domain = self.test_domain
         domains = [domain]
         #
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("always")
         conf.add_http_proxy("http://localhost:1")
         conf.add_md(domains)
@@ -254,8 +247,7 @@ class TestAutov2:
         domain = self.test_domain
         domains = [domain]
         #
-        conf = HttpdConf(env, proxy=True)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin=f"admin@{domain}", proxy=True)
         conf.add_drive_mode("always")
         conf.add_http_proxy("http://localhost:%s" % env.proxy_port)
         conf.add_md(domains)
@@ -274,8 +266,7 @@ class TestAutov2:
         domains = [domain]
         #
         # prepare md
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("auto")
         conf.add_renew_window("10d")
         conf.add_md(domains)
@@ -310,8 +301,7 @@ class TestAutov2:
         domains = [domain, "www." + domain]
         #
         # generate 1 MD and 1 vhost, map port 80 to where the server does not listen
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("auto")
         conf.add("MDPortMap 80:99")        
         conf.add_md(domains)
@@ -322,8 +312,7 @@ class TestAutov2:
         assert md["renewal"]["errors"] > 0
         #
         # now the same with a 80 mapped to a supported port 
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["http-01"])
         conf.add("MDPortMap 80:%s" % env.http_port)
@@ -339,8 +328,7 @@ class TestAutov2:
         domains = [domain, "www." + domain]
         #
         # generate 1 MD and 1 vhost, map port 443 to where the server does not listen
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add("MDPortMap https:99 http:99")        
@@ -352,8 +340,7 @@ class TestAutov2:
         assert md["renewal"]["errors"] > 0
         #
         # now the same with a 443 mapped to a supported port 
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["tls-alpn-01"])
@@ -376,8 +363,7 @@ class TestAutov2:
         domains = [name_x, name_a, name_b]
         #
         # generate 1 MD and 2 vhosts
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_md(domains)
         conf.add_vhost(name_a)
         conf.add_vhost(name_b)
@@ -398,8 +384,7 @@ class TestAutov2:
         #        
         # change MD by removing 1st name
         new_list = [name_a, name_b]
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_md(new_list)
         conf.add_vhost(name_a)
         conf.add_vhost(name_b)
@@ -422,8 +407,7 @@ class TestAutov2:
         domains = [name_x, name_a, name_b]
         #
         # generate 1 MD and 2 vhosts
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_md(domains)
         conf.add_vhost(name_a)
         conf.add_vhost(name_b)
@@ -444,8 +428,7 @@ class TestAutov2:
         #        
         # change MD by removing 1st name and adding another
         new_list = [name_a, name_b, name_c]
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_md(new_list)
         conf.add_vhost(name_a)
         conf.add_vhost(name_b)
@@ -467,8 +450,7 @@ class TestAutov2:
         name2 = "server2.b" + domain  # need a separate TLD to avoid rate limites
         #
         # generate 2 MDs and 2 vhosts
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("MDMembers auto")
         conf.add_md([name1])
         conf.add_md([name2])
@@ -490,8 +472,7 @@ class TestAutov2:
         assert name2 in cert2.get_san_list()
         #        
         # remove second md and vhost, add name2 to vhost1
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("MDMembers auto")
         conf.add_md([name1])
         conf.add_vhost([name1, name2])
@@ -511,8 +492,7 @@ class TestAutov2:
         domains = [domain, "www." + domain]
         #
         # generate 1 MD and 1 vhost
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("LogLevel core:debug")
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
@@ -540,8 +520,7 @@ class TestAutov2:
         domains = [domain, "www." + domain]
         #
         # generate 1 MD and 1 vhost
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("LogLevel core:debug")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges(["tls-alpn-01"])
@@ -563,8 +542,7 @@ class TestAutov2:
     def test_702_042(self, env):
         domain = self.test_domain
         dns_list = [domain]
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("LogLevel core:debug")
         cred = env.get_credentials_for_name(env.domains[0])[0]
         conf.add(f"SSLCertificateChainFile {cred.cert_file}")
@@ -582,8 +560,7 @@ class TestAutov2:
         domains = [domain, "www." + domain]
         #
         # generate 1 MD and 1 vhost
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("LogLevel core:debug")
         conf.add_drive_mode("auto")
         conf.add("MDPortMap 80:%s" % env.http_port)
@@ -613,8 +590,7 @@ class TestAutov2:
         domains = [domain]
         #
         # generate 1 MD and 1 vhost
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
@@ -636,12 +612,11 @@ class TestAutov2:
     # Make a setup using the base server. It will use http-01 challenge.
     def test_702_050(self, env):
         domain = self.test_domain
-        conf = HttpdConf(env)
-        conf.add("""
+        conf = HttpdConf(env, admin=f"admin@{domain}")
+        conf.add(f"""
             MDBaseServer on
-            ServerAdmin admin@%s
-            ServerName %s
-            """ % (domain, domain))
+            ServerName {domain}
+            """)
         conf.add_md([domain])
         conf.install()
         assert env.apache_restart() == 0
@@ -650,13 +625,12 @@ class TestAutov2:
     # Make a setup using the base server without http:, will fail.
     def test_702_051(self, env):
         domain = self.test_domain
-        conf = HttpdConf(env)
-        conf.add("""
+        conf = HttpdConf(env, admin=f"admin@{domain}")
+        conf.add(f"""
             MDBaseServer on
             MDPortMap http:-
-            ServerAdmin admin@%s
-            ServerName %s
-            """ % (domain, domain))
+            ServerName {domain}
+            """)
         conf.add_md([domain])
         conf.install()
         assert env.apache_restart() == 0
@@ -665,17 +639,16 @@ class TestAutov2:
     # Make a setup using the base server without http:, but with acme-tls/1, should work.
     def test_702_052(self, env):
         domain = self.test_domain
-        conf = HttpdConf(env, std_vhosts=False)
-        conf.add("""
+        conf = HttpdConf(env, std_vhosts=False, admin=f"admin@{domain}")
+        conf.add(f"""
             MDBaseServer on
             MDPortMap http:-
             Protocols h2 http/1.1 acme-tls/1
-            ServerAdmin admin@%s
-            ServerName %s
+            ServerName {domain}
             <IfModule ssl_module>
               SSLEngine on
             </IfModule>
-            """ % (domain, domain))
+            """)
         conf.add_md([domain])
         conf.start_vhost([env.http_addr], port=env.http_port)
         conf.add("SSLEngine off")
@@ -701,8 +674,7 @@ class TestAutov2:
         # see <https://github.com/jetstack/cert-manager/issues/1462>
         long_domain = ("x" * (65 - len(domain))) + domain
         domains = [long_domain, "www." + long_domain]
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])
@@ -716,8 +688,7 @@ class TestAutov2:
         # and issue a cert.
         long_domain = ("y" * (65 - len(domain))) + domain
         domains = [long_domain, "www." + long_domain, "xxx." + domain]
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
         conf.add_ca_challenges([challenge_type])

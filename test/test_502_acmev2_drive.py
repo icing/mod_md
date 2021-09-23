@@ -221,8 +221,7 @@ class TestDrivev2:
         # setup: prepare config
         domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md([name])
         conf.add_vhost(name, port=env.http_port, doc_root="htdocs/test")
@@ -279,8 +278,7 @@ class TestDrivev2:
         # setup: prepare config
         domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_require_ssl("permanent")
         conf.add_md([name])
@@ -322,8 +320,7 @@ class TestDrivev2:
         # setup: prepare config
         domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md([name])
         conf.add("  LogLevel alias:debug")
@@ -362,8 +359,7 @@ class TestDrivev2:
         # test case: NP dereference reported by Daniel Caminada <daniel.caminada@ergon.ch>
         domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf(env)
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_md([name])
         conf.add_vhost(name)
@@ -417,8 +413,7 @@ class TestDrivev2:
         # setup: prepare COMPLETE md
         domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf(env, )
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_renew_window(renew_window)
         conf.add_md([name])
@@ -453,8 +448,7 @@ class TestDrivev2:
         # setup: prepare md
         domain = self.test_domain
         name = "www." + domain
-        conf = HttpdConf(env, )
-        conf.add_admin("admin@" + domain)
+        conf = HttpdConf(env, admin="admin@" + domain)
         conf.add_drive_mode("manual")
         conf.add_private_key(key_type, key_params)
         conf.add_md([name])

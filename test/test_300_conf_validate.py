@@ -111,7 +111,6 @@ class TestConf:
     def test_300_009(self, env):
         assert env.apache_stop() == 0
         conf = HttpdConf(env, text="""
-            ServerAdmin admin@not-forbidden.org
             MDMembers manual
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             MDomain example2.org www.example2.org www.example3.org
