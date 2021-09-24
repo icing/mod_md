@@ -97,6 +97,7 @@ class TestEab:
         domain = self.test_domain
         domains = [domain]
         conf = HttpdConf(env)
+        # this is one of the values in conf/pebble-eab.json
         conf.add("MDExternalAccountBinding kid-1 zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)
