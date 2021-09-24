@@ -115,7 +115,11 @@ md_json_t *md_acme_acct_to_json(md_acme_acct_t *acct, apr_pool_t *p)
     if (acct->registration) md_json_setj(acct->registration, jacct, MD_KEY_REGISTRATION, NULL);
     if (acct->agreement) md_json_sets(acct->agreement, jacct, MD_KEY_AGREEMENT, NULL);
     if (acct->orders) md_json_sets(acct->orders, jacct, MD_KEY_ORDERS, NULL);
-    
+    if (acct->eab_kid && acct->eab_hmac) {
+        md_json_sets(acct->eab_kid, jacct, MD_KEY_EAB, MD_KEY_KID, NULL);
+        md_json_sets(acct->eab_hmac, jacct, MD_KEY_EAB, MD_KEY_HMAC, NULL);
+    }
+
     return jacct;
 }
 
@@ -159,8 +163,17 @@ apr_status_t md_acme_acct_from_json(md_acme_acct_t **pacct, md_json_t *json, apr
     if (APR_SUCCESS == rv) {
         acct->status = status;
         acct->url = url;
-        acct->agreement = md_json_gets(json, "terms-of-service", NULL);
+        acct->agreement = md_json_gets(json, MD_KEY_AGREEMENT, NULL);
+        if (!acct->agreement) {
+            /* backward compatible check */
+            acct->agreement = md_json_gets(json, "terms-of-service", NULL);
+        }
         acct->orders = md_json_gets(json, MD_KEY_ORDERS, NULL);
+        if (md_json_has_key(json, MD_KEY_EAB, MD_KEY_KID, NULL)
+            && md_json_has_key(json, MD_KEY_EAB, MD_KEY_HMAC, NULL)) {
+            acct->eab_kid = md_json_gets(json, MD_KEY_EAB, MD_KEY_KID, NULL);
+            acct->eab_hmac = md_json_gets(json, MD_KEY_EAB, MD_KEY_HMAC, NULL);
+        }
     }
 
 out:
@@ -439,6 +452,10 @@ static apr_status_t acct_upd(md_acme_t *acme, apr_pool_t *p,
     }
     if (md_json_has_key(body, MD_KEY_ORDERS, NULL)) {
         acct->orders = md_json_dups(acme->p, body, MD_KEY_ORDERS, NULL);
+    }
+    if (ctx->eab_kid && ctx->eab_hmac) {
+        acct->eab_kid = ctx->eab_kid;
+        acct->eab_hmac = ctx->eab_hmac;
     }
     acct->registration = md_json_clone(ctx->p, body);
     

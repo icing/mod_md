@@ -44,6 +44,8 @@ struct md_acme_acct_t {
     const char *tos_required;       /* terms of service asked for by CA */
     const char *agreement;          /* terms of service agreed to by user */
     const char *orders;             /* URL where certificate orders are found (ACMEv2) */
+    const char *eab_kid;            /* external account binding keyid used or NULL */
+    const char *eab_hmac;           /* external account binding hmac used or NULL */
     struct md_json_t *registration; /* data from server registration */
 };
 
