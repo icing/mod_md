@@ -99,7 +99,8 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
     /* Get an account for the ACME server for this MD */
     if (!ad->acme->acct && md->ca_account) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-use account '%s'", md->ca_account);
-        rv = md_acme_use_acct(ad->acme, d->store, d->p, md->ca_account);
+        rv = md_acme_use_acct(ad->acme, d->store, d->p, md->ca_account,
+                              md->ca_eab_kid, md->ca_eab_hmac);
         if (APR_STATUS_IS_ENOENT(rv) || APR_STATUS_IS_EINVAL(rv)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "rejected %s", md->ca_account);
             md->ca_account = NULL;

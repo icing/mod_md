@@ -187,9 +187,16 @@ const char *md_acme_acct_url_get(md_acme_t *acme);
 /** 
  * Specify the account to use by name in local store. On success, the account
  * the "current" one used by the acme instance.
+ * @param acme the acme instance to set the account for
+ * @param store the store to load accounts from
+ * @param p pool for allocations
+ * @param acct_id name of the account to load
+ * @param eab_kid NULL or 'kid' value for external account binding
+ * @param eab_hmac NULL or 'hmac' value for external account binding
  */
 apr_status_t md_acme_use_acct(md_acme_t *acme, struct md_store_t *store, 
-                              apr_pool_t *p, const char *acct_id);
+                              apr_pool_t *p, const char *acct_id,
+                              const char *eab_kid, const char *eab_hmac);
 
 /**
  * Get the local name of the account currently used by the acme instance.
