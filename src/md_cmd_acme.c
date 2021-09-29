@@ -43,6 +43,7 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
 {
     apr_status_t rv = APR_SUCCESS;
     apr_array_header_t *contacts;
+    md_t *md;
     int i;
     
     contacts = apr_array_make(ctx->p, 5, sizeof(const char *));
@@ -53,8 +54,11 @@ static apr_status_t cmd_acme_newreg(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return usage(cmd, "newreg needs at least one contact email as argument");
     }
 
-    rv = md_acme_acct_register(ctx->acme, ctx->store, ctx->p, contacts, ctx->tos,
-                               NULL, NULL);
+    md = md_create_empty(ctx->p);
+    md->contacts = contacts;
+    md->ca_agreement = ctx->tos;
+
+    rv = md_acme_acct_register(ctx->acme, ctx->store, md, ctx->p);
     if (APR_SUCCESS != rv) goto leave;
     /* check if we can read it back, only then it "exsists" */
     rv = md_acme_acct_update(ctx->acme);
@@ -84,7 +88,7 @@ static apr_status_t acct_agree_tos(md_cmd_ctx *ctx, const char *name,
 {
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name, NULL, NULL))) {
+    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name))) {
         if (!tos) {
             tos = "accepted";
         }
@@ -133,7 +137,7 @@ static apr_status_t acct_validate(md_cmd_ctx *ctx, const char *name, apr_pool_t 
 {
     apr_status_t rv;
     
-    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name, NULL, NULL))) {
+    if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name))) {
         fprintf(stdout, "account valid: %s\n", name);
     }
     else if (APR_ENOENT == rv) {
@@ -175,7 +179,7 @@ static apr_status_t acme_delreg(md_cmd_ctx *ctx, const char *name, apr_pool_t *p
     apr_status_t rv;
     
     if (ctx->acme) {
-        if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name, NULL, NULL))) {
+        if (APR_SUCCESS == (rv = md_acme_use_acct(ctx->acme, ctx->store, ctx->p, name))) {
             rv = md_acme_acct_deactivate(ctx->acme, ctx->p);
             if (rv == APR_SUCCESS) {
                 fprintf(stdout, "deleted: %s\n", name);

@@ -46,14 +46,14 @@
 /* account setup */
 
 static apr_status_t use_staged_acct(md_acme_t *acme, struct md_store_t *store, 
-                                    const char *md_name, apr_pool_t *p)
+                                    const md_t *md, apr_pool_t *p)
 {
     md_acme_acct_t *acct;
     md_pkey_t *pkey;
     apr_status_t rv;
     
     if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey, store, 
-                                               MD_SG_STAGING, md_name, acme->p))) {
+                                               MD_SG_STAGING, md->name, acme->p))) {
         acme->acct_id = NULL;
         acme->acct = acct;
         acme->acct_key = pkey;
@@ -89,7 +89,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
     md_acme_clear_acct(ad->acme);
     
     /* Do we have a staged (modified) account? */
-    if (APR_SUCCESS == (rv = use_staged_acct(ad->acme, d->store, md->name, d->p))) {
+    if (APR_SUCCESS == (rv = use_staged_acct(ad->acme, d->store, md, d->p))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-using staged account");
     }
     else if (!APR_STATUS_IS_ENOENT(rv)) {
@@ -99,8 +99,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
     /* Get an account for the ACME server for this MD */
     if (!ad->acme->acct && md->ca_account) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "re-use account '%s'", md->ca_account);
-        rv = md_acme_use_acct(ad->acme, d->store, d->p, md->ca_account,
-                              md->ca_eab_kid, md->ca_eab_hmac);
+        rv = md_acme_use_acct_for_md(ad->acme, d->store, d->p, md->ca_account, md);
         if (APR_STATUS_IS_ENOENT(rv) || APR_STATUS_IS_EINVAL(rv)) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "rejected %s", md->ca_account);
             md->ca_account = NULL;
@@ -115,7 +114,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
         /* Find a local account for server, store at MD */ 
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: looking at existing accounts",
                       d->proto->protocol);
-        if (APR_SUCCESS == (rv = md_acme_find_acct(ad->acme, d->store))) {
+        if (APR_SUCCESS == (rv = md_acme_find_acct_for_md(ad->acme, d->store, md))) {
             md->ca_account = md_acme_acct_id_get(ad->acme);
             update_md = 1;
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, d->p, "%s: using account %s (id=%s)",
@@ -166,9 +165,7 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
             md_result_log(result, MD_LOG_INFO);
         }
 
-        rv = md_acme_acct_register(ad->acme, d->store, d->p,
-                                   md->contacts, md->ca_agreement,
-                                   md->ca_eab_kid, md->ca_eab_hmac);
+        rv = md_acme_acct_register(ad->acme, d->store, md, d->p);
         if (APR_SUCCESS != rv) {
             if (APR_SUCCESS != ad->acme->last->status) {
                 md_result_dup(result, ad->acme->last);

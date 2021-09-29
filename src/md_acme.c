@@ -544,32 +544,41 @@ const char *md_acme_acct_url_get(md_acme_t *acme)
     return acme->acct? acme->acct->url : NULL;
 }
 
-static int acct_matches(md_acme_acct_t *acct, const char *url,
-                        const char *eab_kid, const char *eab_hmac)
-{
-    /* The ACME url must match exactly */
-    if (!url || !acct->ca_url || strcmp(acct->ca_url, url)) return 0;
-    /* if eab values are not mentioned, we match an account regardless
-     * if it was registered with eab or not */
-    if (!eab_kid || !eab_hmac) return 1;
-    /* But of eab is there, we need an acct that matches exactly.
-     * Someone might configure a new EAB and then we'd need
-     * to make a new account. */
-    if (!acct->eab_kid || !acct->eab_hmac) return 0;
-    return !strcmp(acct->eab_kid, eab_kid) && !strcmp(acct->eab_hmac, eab_hmac);
-}
-
 apr_status_t md_acme_use_acct(md_acme_t *acme, md_store_t *store,
-                              apr_pool_t *p, const char *acct_id,
-                              const char *eab_kid, const char *eab_hmac)
+                              apr_pool_t *p, const char *acct_id)
 {
     md_acme_acct_t *acct;
     md_pkey_t *pkey;
     apr_status_t rv;
-    
-    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey, 
+
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey,
                                                store, MD_SG_ACCOUNTS, acct_id, acme->p))) {
-        if (acct_matches(acct, acme->url, eab_kid, eab_hmac)) {
+        if (md_acme_acct_matches_url(acct, acme->url)) {
+            acme->acct_id = apr_pstrdup(p, acct_id);
+            acme->acct = acct;
+            acme->acct_key = pkey;
+            rv = md_acme_acct_validate(acme, store, p);
+        }
+        else {
+            /* account is from another server or, more likely, from another
+             * protocol endpoint on the same server */
+            rv = APR_ENOENT;
+        }
+    }
+    return rv;
+}
+
+apr_status_t md_acme_use_acct_for_md(md_acme_t *acme, struct md_store_t *store,
+                                     apr_pool_t *p, const char *acct_id,
+                                     const md_t *md)
+{
+    md_acme_acct_t *acct;
+    md_pkey_t *pkey;
+    apr_status_t rv;
+
+    if (APR_SUCCESS == (rv = md_acme_acct_load(&acct, &pkey,
+                                               store, MD_SG_ACCOUNTS, acct_id, acme->p))) {
+        if (md_acme_acct_matches_md(acct, md)) {
             acme->acct_id = apr_pstrdup(p, acct_id);
             acme->acct = acct;
             acme->acct_key = pkey;

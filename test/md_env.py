@@ -1122,6 +1122,7 @@ class MDTestEnv:
                 if 'renewal' in md and 'errors' in md['renewal'] and md['renewal']['errors'] > 0:
                     return md
             time.sleep(0.1)
+        return None
 
     def await_file(self, fpath, timeout=60):
         try_until = time.time() + timeout

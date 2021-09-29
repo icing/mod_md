@@ -44,7 +44,6 @@ static apr_status_t acct_make(md_acme_acct_t **pacct, apr_pool_t *p,
     md_acme_acct_t *acct;
     
     acct = apr_pcalloc(p, sizeof(*acct));
-
     acct->ca_url = ca_url;
     if (!contacts || apr_is_empty_array(contacts)) {
         acct->contacts = apr_array_make(p, 5, sizeof(const char *));
@@ -115,10 +114,8 @@ md_json_t *md_acme_acct_to_json(md_acme_acct_t *acct, apr_pool_t *p)
     if (acct->registration) md_json_setj(acct->registration, jacct, MD_KEY_REGISTRATION, NULL);
     if (acct->agreement) md_json_sets(acct->agreement, jacct, MD_KEY_AGREEMENT, NULL);
     if (acct->orders) md_json_sets(acct->orders, jacct, MD_KEY_ORDERS, NULL);
-    if (acct->eab_kid && acct->eab_hmac) {
-        md_json_sets(acct->eab_kid, jacct, MD_KEY_EAB, MD_KEY_KID, NULL);
-        md_json_sets(acct->eab_hmac, jacct, MD_KEY_EAB, MD_KEY_HMAC, NULL);
-    }
+    if (acct->eab_kid) md_json_sets(acct->eab_kid, jacct, MD_KEY_EAB, MD_KEY_KID, NULL);
+    if (acct->eab_hmac) md_json_sets(acct->eab_hmac, jacct, MD_KEY_EAB, MD_KEY_HMAC, NULL);
 
     return jacct;
 }
@@ -143,13 +140,13 @@ apr_status_t md_acme_acct_from_json(md_acme_acct_t **pacct, md_json_t *json, apr
     url = md_json_gets(json, MD_KEY_URL, NULL);
     if (!url) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no url");
-        goto out;
+        goto leave;
     }
 
     ca_url = md_json_gets(json, MD_KEY_CA_URL, NULL);
     if (!ca_url) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no CA url: %s", url);
-        goto out;
+        goto leave;
     }
     
     contacts = apr_array_make(p, 5, sizeof(const char *));
@@ -160,23 +157,23 @@ apr_status_t md_acme_acct_from_json(md_acme_acct_t **pacct, md_json_t *json, apr
         md_json_getsa(contacts, json, MD_KEY_REGISTRATION, MD_KEY_CONTACT, NULL);
     }
     rv = acct_make(&acct, p, ca_url, contacts);
-    if (APR_SUCCESS == rv) {
-        acct->status = status;
-        acct->url = url;
-        acct->agreement = md_json_gets(json, MD_KEY_AGREEMENT, NULL);
-        if (!acct->agreement) {
-            /* backward compatible check */
-            acct->agreement = md_json_gets(json, "terms-of-service", NULL);
-        }
-        acct->orders = md_json_gets(json, MD_KEY_ORDERS, NULL);
-        if (md_json_has_key(json, MD_KEY_EAB, MD_KEY_KID, NULL)
-            && md_json_has_key(json, MD_KEY_EAB, MD_KEY_HMAC, NULL)) {
-            acct->eab_kid = md_json_gets(json, MD_KEY_EAB, MD_KEY_KID, NULL);
-            acct->eab_hmac = md_json_gets(json, MD_KEY_EAB, MD_KEY_HMAC, NULL);
-        }
+    if (APR_SUCCESS != rv) goto leave;
+
+    acct->status = status;
+    acct->url = url;
+    acct->agreement = md_json_gets(json, MD_KEY_AGREEMENT, NULL);
+    if (!acct->agreement) {
+        /* backward compatible check */
+        acct->agreement = md_json_gets(json, "terms-of-service", NULL);
+    }
+    acct->orders = md_json_gets(json, MD_KEY_ORDERS, NULL);
+    if (md_json_has_key(json, MD_KEY_EAB, MD_KEY_KID, NULL)
+        && md_json_has_key(json, MD_KEY_EAB, MD_KEY_HMAC, NULL)) {
+        acct->eab_kid = md_json_gets(json, MD_KEY_EAB, MD_KEY_KID, NULL);
+        acct->eab_hmac = md_json_gets(json, MD_KEY_EAB, MD_KEY_HMAC, NULL);
     }
 
-out:
+leave:
     *pacct = (APR_SUCCESS == rv)? acct : NULL;
     return rv;
 }
@@ -242,11 +239,38 @@ out:
 /**************************************************************************************************/
 /* Lookup */
 
+int md_acme_acct_matches_url(md_acme_acct_t *acct, const char *url)
+{
+    /* The ACME url must match exactly */
+    if (!url || !acct->ca_url || strcmp(acct->ca_url, url)) return 0;
+    return 1;
+}
+
+int md_acme_acct_matches_md(md_acme_acct_t *acct, const md_t *md)
+{
+    if (!md_acme_acct_matches_url(acct, md->ca_url)) return 0;
+    /* if eab values are not mentioned, we match an account regardless
+     * if it was registered with eab or not */
+    if (!md->ca_eab_kid || !md->ca_eab_hmac) {
+        /* No eab only acceptable when no eab is asked for.
+         * This prevents someone that has no external account binding
+         * to re-use an account from another MDomain that was created
+         * with a binding. */
+        return !acct->eab_kid || !acct->eab_hmac;
+    }
+    /* But of eab is asked for, we need an acct that matches exactly.
+     * When someone configures a new EAB and we need
+     * to created a new account for it. */
+    if (!acct->eab_kid || !acct->eab_hmac) return 0;
+    return !strcmp(acct->eab_kid, md->ca_eab_kid)
+           && !strcmp(acct->eab_hmac, md->ca_eab_hmac);
+}
+
 typedef struct {
     apr_pool_t *p;
     md_acme_t *acme;
-    int url_match;
-    const char *id;
+    const md_t *md;
+    md_acme_acct_t *acct;
 } find_ctx;
 
 static int find_acct(void *baton, const char *name, const char *aspect,
@@ -255,48 +279,48 @@ static int find_acct(void *baton, const char *name, const char *aspect,
     find_ctx *ctx = baton;
     int disabled;
     const char *ca_url, *status;
-    
+    md_acme_acct_t *acct;
+    apr_status_t rv;
+
     (void)aspect;
     (void)ptemp;
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, "account candidate %s/%s", name, aspect); 
     if (MD_SV_JSON == vtype) {
-        md_json_t *json = value;
-        
-        status = md_json_gets(json, MD_KEY_STATUS, NULL);
-        disabled = md_json_getb(json, MD_KEY_DISABLED, NULL);
-        ca_url = md_json_gets(json, MD_KEY_CA_URL, NULL);
-        
-        if ((!status || !strcmp("valid", status)) && !disabled 
-            && (!ctx->url_match || (ca_url && !strcmp(ctx->acme->url, ca_url)))) {
+        rv = md_acme_acct_from_json(&acct, (md_json_t*)value, ctx->p);
+        if (APR_SUCCESS != rv) goto cleanup;
+
+        if (MD_ACME_ACCT_ST_VALID == acct->status
+            && (!ctx->md || md_acme_acct_matches_md(acct, ctx->md))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
-                          "found account %s for %s: %s, status=%s, disabled=%d, ca-url=%s", 
-                          name, ctx->acme->url, aspect, status, disabled, ca_url);
-            ctx->id = apr_pstrdup(ctx->p, name);
+                          "found account %s for %s: %s, status=%d",
+                          acct->id, ctx->acme->url, aspect, acct->status);
+            ctx->acct = acct;
             return 0;
         }
     }
+cleanup:
     return 1;
 }
 
 static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_t **ppkey, 
                               md_store_t *store, md_store_group_t group,
-                              const char *name_pattern, int url_match, 
-                              md_acme_t *acme, apr_pool_t *p)
+                              const char *name_pattern,
+                              md_acme_t *acme, const md_t *md, apr_pool_t *p)
 {
     apr_status_t rv;
     find_ctx ctx;
     
     ctx.p = p;
     ctx.acme = acme;
-    ctx.id = NULL;
-    ctx.url_match = url_match;
+    ctx.md = md;
+    ctx.acct = NULL;
     *pid = NULL;
     
     rv = md_store_iter(find_acct, &ctx, store, p, group, name_pattern, MD_FN_ACCOUNT, MD_SV_JSON);
-    if (ctx.id) {
-        *pid = ctx.id;
-        rv = md_acme_acct_load(pacct, ppkey, store, group, ctx.id, p);
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "loading account %s", ctx.id);
+    if (ctx.acct) {
+        *pid = ctx.acct->id;
+        *pacct = ctx.acct;
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "acct_find: got account %s", ctx.acct->id);
     }
     else {
         *pacct = NULL;
@@ -307,14 +331,17 @@ static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_
 }
 
 static apr_status_t acct_find_and_verify(md_store_t *store, md_store_group_t group, 
-                                         const char *name_pattern, md_acme_t *acme, apr_pool_t *p)
+                                         const char *name_pattern,
+                                         md_acme_t *acme, const md_t *md,
+                                         apr_pool_t *p)
 {
     md_acme_acct_t *acct;
     md_pkey_t *pkey;
     const char *id;
     apr_status_t rv;
 
-    if (APR_SUCCESS == (rv = acct_find(&id, &acct, &pkey, store, group, name_pattern, 1, acme, p))) {
+    rv = acct_find(&id, &acct, &pkey, store, group, name_pattern, acme, md, p);
+    if (APR_SUCCESS == rv) {
         acme->acct_id = (MD_SG_STAGING == group)? NULL : id;
         acme->acct = acct;
         acme->acct_key = pkey;
@@ -334,13 +361,13 @@ static apr_status_t acct_find_and_verify(md_store_t *store, md_store_group_t gro
     return rv;
 }
 
-apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store)
+apr_status_t md_acme_find_acct_for_md(md_acme_t *acme, md_store_t *store, const md_t *md)
 {
     apr_status_t rv;
     
     while (APR_EAGAIN == (rv = acct_find_and_verify(store, MD_SG_ACCOUNTS, 
                                                     mk_acct_pattern(acme->p, acme), 
-                                                    acme, acme->p))) {
+                                                    acme, md, acme->p))) {
         /* nop */
     }
     
@@ -350,7 +377,7 @@ apr_status_t md_acme_find_acct(md_acme_t *acme, md_store_t *store)
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, 
                       "no account found, looking in STAGING");
         while (APR_EAGAIN == (rv = acct_find_and_verify(store, MD_SG_STAGING, "*", 
-                                                        acme, acme->p))) {
+                                                        acme, md, acme->p))) {
             /* nop */
         }
     }
@@ -471,6 +498,7 @@ apr_status_t md_acme_acct_update(md_acme_t *acme)
     if (!acme->acct) {
         return APR_EINVAL;
     }
+    memset(&ctx, 0, sizeof(ctx));
     ctx.acme = acme;
     ctx.p = acme->p;
     return md_acme_POST(acme, acme->acct->url, on_init_acct_upd, acct_upd, NULL, NULL, &ctx);
@@ -564,9 +592,8 @@ cleanup:
     return rv;
 } 
 
-apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_t *p, 
-                                   apr_array_header_t *contacts, const char *agreement,
-                                   const char *eab_kid, const char *eab_hmac)
+apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store,
+                                   const md_t *md, apr_pool_t *p)
 {
     apr_status_t rv;
     md_pkey_t *pkey;
@@ -576,15 +603,17 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_
     acct_ctx_t ctx;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "create new account");
-    
+
+    memset(&ctx, 0, sizeof(ctx));
     ctx.acme = acme;
     ctx.p = p;
     /* The agreement URL is submitted when the ACME server announces Terms-of-Service
      * in its directory meta data. The magic value "accepted" will always use the
      * advertised URL. */
     ctx.agreement = NULL;
-    if (acme->ca_agreement && agreement) {
-        ctx.agreement = !strcmp("accepted", agreement)? acme->ca_agreement : agreement;
+    if (acme->ca_agreement && md->ca_agreement) {
+        ctx.agreement = !strcmp("accepted", md->ca_agreement)?
+            acme->ca_agreement : md->ca_agreement;
     }
     
     if (ctx.agreement) {
@@ -594,11 +623,11 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_
             goto out;
         }
     }
-    ctx.eab_kid = eab_kid;
-    ctx.eab_hmac = eab_hmac;
+    ctx.eab_kid = md->ca_eab_kid;
+    ctx.eab_hmac = md->ca_eab_hmac;
     
-    for (i = 0; i < contacts->nelts; ++i) {
-        uri = APR_ARRAY_IDX(contacts, i, const char *);
+    for (i = 0; i < md->contacts->nelts; ++i) {
+        uri = APR_ARRAY_IDX(md->contacts, i, const char *);
         if (APR_SUCCESS != (rv = md_util_abs_uri_check(acme->p, uri, &err))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p, 
                           "invalid contact uri (%s): %s", err, uri);
@@ -618,16 +647,17 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_
     
         fctx.p = p;
         fctx.acme = acme;
-        fctx.id = NULL;
-        fctx.url_match = 0;
-        
+        fctx.md = md;
+        fctx.acct = NULL;
+
         md_store_iter(find_acct, &fctx, store, p, MD_SG_ACCOUNTS, 
                       mk_acct_pattern(p, acme), MD_FN_ACCOUNT, MD_SV_JSON);
-        if (fctx.id) {
-            rv = md_store_load(store, MD_SG_ACCOUNTS, fctx.id, MD_FN_ACCT_KEY, MD_SV_PKEY, 
+        if (fctx.acct) {
+            rv = md_store_load(store, MD_SG_ACCOUNTS, fctx.acct->id, MD_FN_ACCT_KEY, MD_SV_PKEY,
                                (void**)&acme->acct_key, p);
             if (APR_SUCCESS == rv) {
-                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "reusing key from account %s", fctx.id);
+                md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p,
+                              "reusing key from account %s", fctx.acct->id);
             }
             else {
                 acme->acct_key = NULL;
@@ -645,7 +675,7 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store, apr_pool_
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "created new account key");
     }
     
-    if (APR_SUCCESS != (rv = acct_make(&acme->acct,  p, acme->url, contacts))) goto out;
+    if (APR_SUCCESS != (rv = acct_make(&acme->acct,  p, acme->url, md->contacts))) goto out;
     rv = md_acme_POST_new_account(acme,  on_init_acct_new, acct_upd, NULL, NULL, &ctx);
     if (APR_SUCCESS == rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p, 
@@ -683,6 +713,7 @@ apr_status_t md_acme_acct_deactivate(md_acme_t *acme, apr_pool_t *p)
     }
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, "delete account %s from %s", 
                   acct->url, acct->ca_url);
+    memset(&ctx, 0, sizeof(ctx));
     ctx.acme = acme;
     ctx.p = p;
     return md_acme_POST(acme, acct->url, on_init_acct_del, acct_upd, NULL, NULL, &ctx);
@@ -712,6 +743,7 @@ apr_status_t md_acme_agree(md_acme_t *acme, apr_pool_t *p, const char *agreement
         acme->acct->agreement = acme->ca_agreement;
     }
     
+    memset(&ctx, 0, sizeof(ctx));
     ctx.acme = acme;
     ctx.p = p;
     return md_acme_POST(acme, acme->acct->url, on_init_agree_tos, acct_upd, NULL, NULL, &ctx);

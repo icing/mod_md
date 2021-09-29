@@ -1,5 +1,6 @@
 import os
 import time
+from typing import List
 
 import pytest
 
@@ -107,8 +108,8 @@ class TestEab:
         assert env.await_completion(domains)
 
     def test_750_011(self, env):
-        # first one md with EAB, then one without, works as account
-        # from domain_a gets re-used for domain_b
+        # first one md with EAB, then one without, works only for the first
+        # as the second is unable to reuse the account
         domain_a = f"a{self.test_domain}"
         domain_b = f"b{self.test_domain}"
         conf = HttpdConf(env)
@@ -121,14 +122,14 @@ class TestEab:
         conf.add_vhost(domains=[domain_b])
         conf.install()
         assert env.apache_restart() == 0
-        assert env.await_completion([domain_a, domain_b])
+        assert env.await_completion([domain_a], restart=False)
+        md = env.await_error(domain_b)
+        assert md['renewal']['errors'] > 0
+        assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
     def test_750_012(self, env):
         # first one md without EAB, then one with
-        # domain_a will not work
-        # domain_b will create an account
-        # on next day, domain_a will find that account and also work.
-        # TODO: this seems a bit...unintuitive?
+        # first one fails, second works
         domain_a = f"a{self.test_domain}"
         domain_b = f"b{self.test_domain}"
         conf = HttpdConf(env)
@@ -145,3 +146,26 @@ class TestEab:
         md = env.await_error(domain_a)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
+
+    @pytest.mark.skip(reason="FIXME: this create 2 accounts instead of 1")
+    def test_750_013(self, env):
+        # 2 mds with the same EAB, how many accounts do they create?
+        domain_a = f"a{self.test_domain}"
+        domain_b = f"b{self.test_domain}"
+        conf = HttpdConf(env)
+        # this is one of the values in conf/pebble-eab.json
+        conf.start_md([domain_a])
+        conf.add("MDExternalAccountBinding kid-1 zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W")
+        conf.end_md()
+        conf.add_vhost(domains=[domain_a])
+        conf.start_md([domain_b])
+        conf.add("MDExternalAccountBinding kid-1 zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W")
+        conf.end_md()
+        conf.add_vhost(domains=[domain_b])
+        conf.install()
+        assert env.apache_restart() == 0
+        assert env.await_completion([domain_a, domain_b])
+        md_a = env.get_md_status(domain_a)
+        md_b = env.get_md_status(domain_b)
+        assert md_a['ca'] == md_b['ca']
+
