@@ -268,9 +268,8 @@ int md_acme_acct_matches_md(md_acme_acct_t *acct, const md_t *md)
 
 typedef struct {
     apr_pool_t *p;
-    md_acme_t *acme;
     const md_t *md;
-    md_acme_acct_t *acct;
+    const char *id;
 } find_ctx;
 
 static int find_acct(void *baton, const char *name, const char *aspect,
@@ -286,15 +285,15 @@ static int find_acct(void *baton, const char *name, const char *aspect,
     (void)ptemp;
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, "account candidate %s/%s", name, aspect); 
     if (MD_SV_JSON == vtype) {
-        rv = md_acme_acct_from_json(&acct, (md_json_t*)value, ctx->p);
+        rv = md_acme_acct_from_json(&acct, (md_json_t*)value, ptemp);
         if (APR_SUCCESS != rv) goto cleanup;
 
         if (MD_ACME_ACCT_ST_VALID == acct->status
             && (!ctx->md || md_acme_acct_matches_md(acct, ctx->md))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
                           "found account %s for %s: %s, status=%d",
-                          acct->id, ctx->acme->url, aspect, acct->status);
-            ctx->acct = acct;
+                          acct->id, ctx->md->ca_url, aspect, acct->status);
+            ctx->id = apr_pstrdup(ctx->p, name);
             return 0;
         }
     }
@@ -305,22 +304,20 @@ cleanup:
 static apr_status_t acct_find(const char **pid, md_acme_acct_t **pacct, md_pkey_t **ppkey, 
                               md_store_t *store, md_store_group_t group,
                               const char *name_pattern,
-                              md_acme_t *acme, const md_t *md, apr_pool_t *p)
+                              const md_t *md, apr_pool_t *p)
 {
     apr_status_t rv;
     find_ctx ctx;
-    
+
+    memset(&ctx, 0, sizeof(ctx));
     ctx.p = p;
-    ctx.acme = acme;
     ctx.md = md;
-    ctx.acct = NULL;
-    *pid = NULL;
-    
+
     rv = md_store_iter(find_acct, &ctx, store, p, group, name_pattern, MD_FN_ACCOUNT, MD_SV_JSON);
-    if (ctx.acct) {
-        *pid = ctx.acct->id;
-        *pacct = ctx.acct;
-        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "acct_find: got account %s", ctx.acct->id);
+    if (ctx.id) {
+        *pid = ctx.id;
+        rv = md_acme_acct_load(pacct, ppkey, store, group, ctx.id, p);
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "acct_find: got account %s", ctx.id);
     }
     else {
         *pacct = NULL;
@@ -340,13 +337,17 @@ static apr_status_t acct_find_and_verify(md_store_t *store, md_store_group_t gro
     const char *id;
     apr_status_t rv;
 
-    rv = acct_find(&id, &acct, &pkey, store, group, name_pattern, acme, md, p);
+    rv = acct_find(&id, &acct, &pkey, store, group, name_pattern, md, p);
     if (APR_SUCCESS == rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, 0, p, "acct_find_and_verify: found %s",
+                      id);
         acme->acct_id = (MD_SG_STAGING == group)? NULL : id;
         acme->acct = acct;
         acme->acct_key = pkey;
         rv = md_acme_acct_validate(acme, NULL, p);
-    
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, p, "acct_find_and_verify: verified %s",
+                      id);
+
         if (APR_SUCCESS != rv) {
             acme->acct_id = NULL;
             acme->acct = NULL;
@@ -384,53 +385,23 @@ apr_status_t md_acme_find_acct_for_md(md_acme_t *acme, md_store_t *store, const 
     return rv;
 }
 
-typedef struct {
-    apr_pool_t *p;
-    const char *url;
-    const char *id;
-} load_ctx;
-
-static int id_by_url(void *baton, const char *name, const char *aspect,
-                     md_store_vtype_t vtype, void *value, apr_pool_t *ptemp)
-{
-    load_ctx *ctx = baton;
-    int disabled;
-    const char *acct_url, *status;
-    
-    (void)aspect;
-    (void)ptemp;
-    if (MD_SV_JSON == vtype) {
-        md_json_t *json = value;
-        
-        status = md_json_gets(json, MD_KEY_STATUS, NULL);
-        disabled = md_json_getb(json, MD_KEY_DISABLED, NULL);
-        acct_url = md_json_gets(json, MD_KEY_URL, NULL);
-        
-        if ((!status || !strcmp("valid", status)) && !disabled 
-            && acct_url && !strcmp(ctx->url, acct_url)) {
-            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
-                          "found account %s for url %s: %s, status=%s, disabled=%d", 
-                          name, ctx->url, aspect, status, disabled);
-            ctx->id = apr_pstrdup(ctx->p, name);
-            return 0;
-        }
-    }
-    return 1;
-}
-
-apr_status_t md_acme_acct_id_for_url(const char **pid, md_store_t *store, 
-                                     md_store_group_t group, const char *url, apr_pool_t *p)
+apr_status_t md_acme_acct_id_for_md(const char **pid, md_store_t *store,
+                                    md_store_group_t group, const md_t *md,
+                                    apr_pool_t *p)
 {
     apr_status_t rv;
-    load_ctx ctx;
-    
+    find_ctx ctx;
+
+    memset(&ctx, 0, sizeof(ctx));
     ctx.p = p;
-    ctx.url = url;
-    ctx.id = NULL;
-    
-    rv = md_store_iter(id_by_url, &ctx, store, p, group, "*", MD_FN_ACCOUNT, MD_SV_JSON);
-    *pid = (APR_SUCCESS == rv)? ctx.id : NULL;
-    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "acct_id_by_url %s -> %s", url, *pid);
+    ctx.md = md;
+
+    rv = md_store_iter(find_acct, &ctx, store, p, group, "*", MD_FN_ACCOUNT, MD_SV_JSON);
+    if (ctx.id) {
+        *pid = ctx.id;
+        rv = APR_SUCCESS;
+    }
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "acct_id_for_md %s -> %s", md->name, *pid);
     return rv;
 }
 
@@ -644,20 +615,19 @@ apr_status_t md_acme_acct_register(md_acme_t *acme, md_store_t *store,
      */
     if (!acme->acct_key) {
         find_ctx fctx;
-    
+
+        memset(&fctx, 0, sizeof(fctx));
         fctx.p = p;
-        fctx.acme = acme;
         fctx.md = md;
-        fctx.acct = NULL;
 
         md_store_iter(find_acct, &fctx, store, p, MD_SG_ACCOUNTS, 
                       mk_acct_pattern(p, acme), MD_FN_ACCOUNT, MD_SV_JSON);
-        if (fctx.acct) {
-            rv = md_store_load(store, MD_SG_ACCOUNTS, fctx.acct->id, MD_FN_ACCT_KEY, MD_SV_PKEY,
+        if (fctx.id) {
+            rv = md_store_load(store, MD_SG_ACCOUNTS, fctx.id, MD_FN_ACCT_KEY, MD_SV_PKEY,
                                (void**)&acme->acct_key, p);
             if (APR_SUCCESS == rv) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p,
-                              "reusing key from account %s", fctx.acct->id);
+                              "reusing key from account %s", fctx.id);
             }
             else {
                 acme->acct_key = NULL;

@@ -906,6 +906,7 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
     md_credentials_t *creds;
     apr_array_header_t *all_creds;
     struct md_acme_acct_t *acct;
+    const char *id;
     int i;
 
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: preload start", name);
@@ -965,7 +966,6 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
     
     if (acct) {
         md_acme_t *acme;
-        const char *id = md->ca_account;
 
         /* We may have STAGED the same account several times. This happens when
          * several MDs are renewed at once and need a new account. They will all store
@@ -973,8 +973,9 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
          * the same url, we save them all into a single one.
          */
         md_result_activity_setn(result, "saving staged account");
-        if (!id && acct->url) {
-            rv = md_acme_acct_id_for_url(&id, d->store, MD_SG_ACCOUNTS, acct->url, d->p);
+        id = md->ca_account;
+        if (!id) {
+            rv = md_acme_acct_id_for_md(&id, d->store, MD_SG_ACCOUNTS, md, d->p);
             if (APR_STATUS_IS_ENOENT(rv)) {
                 id = NULL;
             }
@@ -994,6 +995,14 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
             goto leave;
         }
         md->ca_account = id;
+    }
+    else if (!md->ca_account) {
+        /* staging reused another account and did not create a new one. find
+         * the account, if it is already there */
+        rv = md_acme_acct_id_for_md(&id, d->store, MD_SG_ACCOUNTS, md, d->p);
+        if (APR_SUCCESS == rv) {
+            md->ca_account = id;
+        }
     }
     
     md_result_activity_setn(result, "saving staged md/privkey/pubcert");

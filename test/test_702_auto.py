@@ -61,7 +61,7 @@ class TestAutov2:
         env.check_dir_empty(env.store_challenges())
         env.check_file_permissions(domain)
 
-    # test case: same as test_7001, but with two parallel managed domains
+    # test case: same as test_702_001, but with two parallel managed domains
     def test_702_002(self, env):
         domain = self.test_domain
         domain_a = "a-" + domain
@@ -98,6 +98,10 @@ class TestAutov2:
         assert domains_a == cert_a.get_san_list()
         cert_b = env.get_cert(domain_b)
         assert domains_b == cert_b.get_san_list()
+        # check that we created only one account
+        md_a = env.get_md_status(domain_a)
+        md_b = env.get_md_status(domain_b)
+        assert md_a['ca'] == md_b['ca']
 
     # test case: one MD, that covers two vhosts
     def test_702_003(self, env):

@@ -109,10 +109,10 @@ const char *md_acme_get_agreement(md_acme_t *acme);
 apr_status_t md_acme_find_acct_for_md(md_acme_t *acme, md_store_t *store, const md_t *md);
 
 /**
- * Find the account id for a given account url. 
+ * Find the account id for a given md.
  */
-apr_status_t md_acme_acct_id_for_url(const char **pid, md_store_t *store, 
-                                     md_store_group_t group, const char *url, apr_pool_t *p);
+apr_status_t md_acme_acct_id_for_md(const char **pid, md_store_t *store,
+                                    md_store_group_t group, const md_t *md, apr_pool_t *p);
 
 /**
  * Create a new account at the ACME server for an MD. The

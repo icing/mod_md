@@ -147,9 +147,8 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
-    @pytest.mark.skip(reason="FIXME: this create 2 accounts instead of 1")
     def test_750_013(self, env):
-        # 2 mds with the same EAB, how many accounts do they create?
+        # 2 mds with the same EAB, should one create a single account
         domain_a = f"a{self.test_domain}"
         domain_b = f"b{self.test_domain}"
         conf = HttpdConf(env)
