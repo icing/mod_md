@@ -1,5 +1,5 @@
 
-# mod_md - Let's Encrypt for Apache
+# mod_md - ACME for Apache
 
 This repository contains `mod_md`, a module for Apache httpd that helps you to manage your domains.
 
@@ -11,6 +11,8 @@ This repository contains `mod_md`, a module for Apache httpd that helps you to m
 2. Offer robust ***OCSP Stapling*** of SSL certificates which is important for fast page loads in modern browsers.
 
 Both functions work well together, but you can use one without the other. If you do not want the ACME/Let's Encrypt parts, there is ["Just the Stapling, Mam!"](#just-the-stapling-mam)
+
+***NEW:*** `mod_md` has added support for [External Account Binding](#a-key-to-bind-them) that let's you use Apache ACME with more CAs!
 
 ## Thanks
 
@@ -617,6 +619,75 @@ will show aggregated information regarding valid and renewal times.
 The renewal is triggered by the certificate that expires first. The renewal process will renew
 all certificates. For Let's Encrypt, this does not make a difference, since lifetimes for RSA and
 ECDSA certificates are handled the same. It is expected that other CA will do the same.
+
+
+# A key to bind them
+
+Several CAs now support the ACME protocol that manage customers accounts and need to tie ACME
+clients to those accounts. This allows them to tie ACME certificates into their web interfaces,
+for example. Or impose limits based on the subscription type.
+
+The ACME standard (rfc8555) defines a feature called "External Account Binding". An ACME client
+is provided with a Key Identifier (key-id) and a number of bits, base64 encoded, (hmac) that
+gets used on registration at the ACME server. The client sends the `key-id` and "signs" the
+registration with the bits, allowing the ACME CA to connect this registration to one of its
+known accounts.
+
+If you use such a CA and do not configure an EAB, the registration fails and you will see the
+appropriate error code in the MDomains job log (common error: `externalAccountRequired`). If
+you configure an unknown/wrong EAB value, the registration will also fail and you'll most
+like see the error `unauthorized`.
+
+Where you get the EAB values is a matter of the CA. Most have a web interface where you login
+and can create EAB values that tie to your account. Since these would be usable by anyone, you
+should keep those value to yourself. 
+
+In Apache, you then add the following to your configuration (example from the test suite):
+
+```
+MDExternalAccountBinding kid-1 zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W
+```
+
+If you do this globally, it applies to all your managed domains. To have it only for a
+particular domain, use something like:
+
+```
+<MDomain mydomain.com>
+  MDExternalAccountBinding kid-1 zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W
+</Mdomain>
+```
+just as you can do with other configurations of `mod_md`.
+
+If you have done this for a domain and gotten a new certificate, Apache will have registered
+an local 'ACME account' and placed this in the md store under `md/accounts/ACME-*/account.json`.
+All information is kept there. For example like this (again, from the test suite):
+
+```
+{
+  "status": "valid",
+  "url": "https://localhost:14000/my-account/8",
+  "ca-url": "https://localhost:14000/dir",
+  "contact": [
+    "mailto:admin@mydomain.com"
+  ],
+  "orders": "https://localhost:14000/list-orderz/8",
+  "eab": {
+    "kid": "kid-1",
+    "hmac": "zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W"
+  }
+}
+```
+
+If you change the EAB afterwards, nothing will happen until the certificate needs to be renewed. Then
+Apache will find the EAB changed and, having no account with that EAB, will register anew at
+the CA.
+
+Should you change back to the old EAB value, a renewal will find the previous account in `md/accounts/ACME-*`
+and use that one. No new registration will be done.
+
+It depends on the CA, if there are any limits on EAB values and ACME accounts connected via them. Since it
+needs to track those, they will not come without restrictions. But several EAB values active at the
+same time seems common practise.
 
 
 # Just the Stapling, Mam!
@@ -1994,6 +2065,27 @@ This is mainly used in test setups where the module needs to connect to a test A
 server that has its own root certificate. People who run an enterprise wide internal
 CA might find a use for this, but they have probably adapted the general CA root 
 store already and there is no special need.
+
+## MDExternalAccountBinding
+***Sets the external account binding (EAB) information to use***<BR/>
+`MDExternalAccountBinding key-id hmac-value`
+Default: none
+
+Some ACME CAs have already customer accounts and require ACME clients to *bind* to such an existing 
+account on registration. For this, they allow customers to create unique EAB values, for example in
+the Web interfaces. Customers then configure their ACME clients with these values.
+
+EAB values are 2 strings: a key identifier and a base64 encoded `HMAC` value. Use `MDExternalAccountBinding`
+to provide these to a Managed Domain. As with all other configurations, you may set these globally
+or on each MDomain separately.
+
+All MDomains with the same CA and EAB value will share one local ACME account. If you configure
+a new EAB value, this will register another ACME account when needed. Note that just changing the EAB
+will not trigger a renewal of otherwise valid certificates.
+
+In case you need to force a new registration, you may delete the files in the MD store for an account
+and reload the server. Each account has its own directory in `md/accounts/ACME-*`. In the `account.json` file you can see the EAB setting tied to it.
+
 
 # Test Suite
 
