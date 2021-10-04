@@ -417,7 +417,7 @@ The module is used on various platforms. Some require special attention:
 
 ### CentOS 8 advice by @marcstern 
 
-The chrooted `md` directory [where are certficiates are stored] must be have the following properties:
+The chrooted `md` directory [where are certificates are stored] must be have the following properties:
 
 ```
 owner: root -> rwx
@@ -608,7 +608,7 @@ Besides support in the SSL library, it is also important to note that the Certif
 i.e. Let's Encrypt, also needs to support it. A good example is `secp192r1` which OpenSSL knows
 but Let's Encrypt rejects.
 
-To make it all the more confusing, there are possiblilties to parametrize these curves, but this
+To make it all the more confusing, there are possibilities to parameterize these curves, but this
 is left to `mod_ssl` and whatever configuration capabilities the SSL library has.
 
 The certificates will be listed individually in the JSON data from `md-status`. The httpd `server-status`
@@ -630,7 +630,7 @@ MDStapleOthers on
 
 and that is all you need to do. All your existing https: sites get provided with OCSP 
 stapling information by mod_md. You can see it [in your server status pages](#how-would-you-know-it-works). 
-(Remember to reload your server afterconfig changes.)
+(Remember to reload your server after config changes.)
 
 
 
@@ -678,14 +678,14 @@ Here you see all domains listed for which `MDStapling` is enabled. For most site
 
 All your certificates should have status `good`. If not, the `Check` link might help you further. It points to the page on `https://crt.sh` where that specific certificate is listed. This gives you a second opinion about your certificate. `crt.sh` is just on of the certificate monitors that are available. If you prefer using another, you can configure this via `MDCertificateMonitor` directive.
 
-More detailled information about OCSP status/activities can also be retrieved from the `md-status` handler in JSON format (you need to enable that handler).
+More detailed information about OCSP status/activities can also be retrieved from the `md-status` handler in JSON format (you need to enable that handler).
 
 And last, but not least, a configured `MDMessageCmd` gets invoked whenever OCSP Stapling information is renewed or encounters errors. More in the description of that directive.
 
 
 # How to Know which Stapling You Want
 
-And why is Stapling important anway? A short introduction might help:
+And why is Stapling important anyway? A short introduction might help:
 
 ### Stapling
 
@@ -694,7 +694,7 @@ longer trust it. So you tell your Certificate Authority (CA) which gave it to yo
 "Make it go away again!". Turns out, this is rather difficult for the CA.
 
 When the internet was young and the number of certificates was small, CAs used to publish *Revocation Lists*
-where all revoked certificates were listed. Clients were exepcted to download these lists regularly and no
+where all revoked certificates were listed. Clients were expected to download these lists regularly and no
 longer trust certificates on the list. As you can imagine, these just grew too large and cumbersome
 to use.
 
@@ -1336,7 +1336,7 @@ MDomain abc.com
 MDomain xyz.com
 ```
 
-In other words, all your domains should use `tls-alpn-01` for certicate renewal. And no checks please, as you know what you are doing.
+In other words, all your domains should use `tls-alpn-01` for certificate renewal. And no checks please, as you know what you are doing.
 
 
 # TLS ALPN Challenges
@@ -1564,7 +1564,7 @@ Since version 2.0.4, you can also use the shorter `<MDomain name>` variant. The 
 Default: (auto selected))
 
 Supported by the module are the challenge methods `tls-alpn-01`, `http-01` and  `dns-01`. The module
-will look at the overall configuation of the server to find out which method can be used - in this order. 
+will look at the overall configruation of the server to find out which method can be used - in this order. 
 
 If the server listens on port 80, for example, the `http-01` method is available. The prerequisite for `dns-01` 
 is a configured  `MDChallengeDns01` command. `tls-alpn-01` needs `https:` connections  and the
@@ -1714,11 +1714,11 @@ Define a program to be called when something happened concerning a managed domai
  * `expiring`: will warn about an expiring domain that could not be renewed (or where renewal is not performed by `mod_md` itself). See `MDWarnWindow` on how to configure its timing.
  * `errored`: errors were encountered during certificate renewal. `mod_md` will continue trying.
  * `ocsp-renewed`: when MDStapling is enabled for a domain, this indicates that an OCSP response from the Certificate Authority has been updated successfully.
- * `ocsp-errored`: when MDStapling is enabled for a domain, this indicates that an error was encountered retrieveing the OCSP response from the Certificate Authority. `mod_md` will continue trying.
+ * `ocsp-errored`: when MDStapling is enabled for a domain, this indicates that an error was encountered retrieving the OCSP response from the Certificate Authority. `mod_md` will continue trying.
 
  The `reason` and `domain` arguments are provided after any optional arguments; that is, they are currently the last two arguments.  Your program should recognize your optional arguments since a future `mod_md` might add additional arguments after `domain`.
  
- The calls are rate limited. The successful renewal will only be called once, errrors will triggers this only once per hour. The warning on an expiring certificate will run only once per day.
+ The calls are rate limited. The successful renewal will only be called once, errors will triggers this only once per hour. The warning on an expiring certificate will run only once per day.
 
 If you have configured:
 
@@ -1909,11 +1909,11 @@ Controls if Managed Domains respond to public requests for `/.httpd/certificate-
 Default: `off`
 
 `mod_md` has its own implementation for providing OCSP stapling information. This is an 
-alternative to the one provided by `mod_ssl`. For backward compatiblity reasons, this is
+alternative to the one provided by `mod_ssl`. For backward compatibility reasons, this is
 disabled by default.
 
 The new stapling can be switched on for all certificates on the server or for an individual MDomain. This
-will replace any stapling configurtion in `mod_ssl` for these hosts. When disabled, the `mod_ssl`
+will replace any stapling configuration in `mod_ssl` for these hosts. When disabled, the `mod_ssl`
 stapling (if configured) will do the work. This allows for a gradual shift over from one 
 implementation to the other.
 
@@ -1950,21 +1950,21 @@ Default: 33%
 
 If the validity of the OCSP response used in stapling falls below `duration`, `mod_md` will obtain a new OCSP response.
 
-The CA issueing a certificate commonly also operates the OCSP responder service and determines how long its
+The CA issuing a certificate commonly also operates the OCSP responder service and determines how long its
 signed response about the validity of a certificate are valid. The longer a response is valid, the longer it can be cached
 which mean better overall performance for everyone. The shorter the life time, the more rapidly certificate revocations 
 spread to clients. Then there is overall reliability which requires responses to outlive an eventual downtime of 
 OCSP responders.
 
 By adjusting the stapling renew window you can control parts of this yourself. If you make this very short, you
-gain maximum cache time, but service unavailablity will affect you. A very long window will make updates
+gain maximum cache time, but service unavailability will affect you. A very long window will make updates
 very frequent which may, driven to extremes, even affect your TLS connection setup times.
 
 The default is chosen as 33%, which means renewal is started when only  a third of the response lifetime
 is left. For a CA that issues OCSP responses with lifetime of 3 days, this means 2 days of caching and 1 day 
 of renewing. A service outage would have to last full 24 hours to affect you.
 
-Setting an absolute renew window, like `2d` (2 days), is also possible. Howwever, since this does not
+Setting an absolute renew window, like `2d` (2 days), is also possible. However, since this does not
 automatically adjusts to changes by the CA, this may result in renewals not taking place when needed.
  
 ## MDCertificateMonitor
@@ -2033,7 +2033,7 @@ If you did not give any more arguments to `configure`, it will detect if a `pebb
 may specify a path with `--with-pebble=path` or use `--with-boulder` if you have a local `boulder` ACME server
 running.
 
-It no ACME test server was detected, most of the tests will be skippped.
+It no ACME test server was detected, most of the tests will be skipped.
 
 # Testing with Pebble
 
@@ -2074,6 +2074,194 @@ Boulder has its main configuration in `docker-compose.yml` and there you will wa
 which answers all DNS requests for boulder with the address of your machine. The default value of `127.0.0.1` will not do. Boulder runs in a docker image and localhost is its own image and not your local machine where Apache listens. But for the tests to succeed, `boulder` needs to reach the Apache started by the test suite.
 
 Start up boulder, see `All servers running. Hit ^C to kill.` after a while and start the test suite:
+
+
+# The Let's Encrpyt Expiration
+
+Read this if you have problems with your Let's Encrypt certificate
+with older or not-updated clients. There is an easy way to fix.
+
+[As with everything crypto, it's always surrounded by a mist of
+mystery and one is not sure to have ever understood it completely.
+It's one of the technologies indistinguishable from magic.]
+
+Luckily, all that `mod_md` does is stored in the file system. If
+you look at one of your domains, you see something like this:
+
+```
+root:<path-to-md-store>/domains/eissing.org# ls -l
+total 36
+-rw------- 1 root root 7254 Sep 29 00:00 job.json
+-rw------- 1 root root  743 Sep 29 00:00 md.json
+-rw------- 1 root root 3000 Sep 29 00:00 privkey.pem
+-rw------- 1 root root  500 Sep 29 00:00 privkey.secp384r1.pem
+-rw------- 1 root root 5806 Sep 29 00:00 pubcert.pem
+-rw------- 1 root root 5396 Sep 29 00:00 pubcert.secp384r1.pem
+```
+My domain `eissing.org` is configured with one RSA and one `secp384r1`
+key and for each there is a `pubcert*.pem` file that contains
+the certificate and its "chain".
+
+Looking at `pubcert.pem`, there are 3(!) certificates in there.
+First the one for eissing.org, then one with name `R3`, followed
+by `ISRG Root X1`:
+
+```
+> cat pubcert.pem
+-----BEGIN CERTIFICATE-----
+(the certificate for eissing.org)
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIFFjCCAv6gAwIBAgIRAJErCErPDBinU/bWLiWnX1owDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMjAwOTA0MDAwMDAw
+WhcNMjUwOTE1MTYwMDAwWjAyMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg
+RW5jcnlwdDELMAkGA1UEAxMCUjMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+AoIBAQC7AhUozPaglNMPEuyNVZLD+ILxmaZ6QoinXSaqtSu5xUyxr45r+XXIo9cP
+R5QUVTVXjJ6oojkZ9YI8QqlObvU7wy7bjcCwXPNZOOftz2nwWgsbvsCUJCWH+jdx
+sxPnHKzhm+/b5DtFUkWWqcFTzjTIUu61ru2P3mBw4qVUq7ZtDpelQDRrK9O8Zutm
+NHz6a4uPVymZ+DAXXbpyb/uBxa3Shlg9F8fnCbvxK/eG3MHacV3URuPMrSXBiLxg
+Z3Vms/EY96Jc5lP/Ooi2R6X/ExjqmAl3P51T+c8B5fWmcBcUr2Ok/5mzk53cU6cG
+/kiFHaFpriV1uxPMUgP17VGhi9sVAgMBAAGjggEIMIIBBDAOBgNVHQ8BAf8EBAMC
+AYYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMBIGA1UdEwEB/wQIMAYB
+Af8CAQAwHQYDVR0OBBYEFBQusxe3WFbLrlAJQOYfr52LFMLGMB8GA1UdIwQYMBaA
+FHm0WeZ7tuXkAXOACIjIGlj26ZtuMDIGCCsGAQUFBwEBBCYwJDAiBggrBgEFBQcw
+AoYWaHR0cDovL3gxLmkubGVuY3Iub3JnLzAnBgNVHR8EIDAeMBygGqAYhhZodHRw
+Oi8veDEuYy5sZW5jci5vcmcvMCIGA1UdIAQbMBkwCAYGZ4EMAQIBMA0GCysGAQQB
+gt8TAQEBMA0GCSqGSIb3DQEBCwUAA4ICAQCFyk5HPqP3hUSFvNVneLKYY611TR6W
+PTNlclQtgaDqw+34IL9fzLdwALduO/ZelN7kIJ+m74uyA+eitRY8kc607TkC53wl
+ikfmZW4/RvTZ8M6UK+5UzhK8jCdLuMGYL6KvzXGRSgi3yLgjewQtCPkIVz6D2QQz
+CkcheAmCJ8MqyJu5zlzyZMjAvnnAT45tRAxekrsu94sQ4egdRCnbWSDtY7kh+BIm
+lJNXoB1lBMEKIq4QDUOXoRgffuDghje1WrG9ML+Hbisq/yFOGwXD9RiX8F6sw6W4
+avAuvDszue5L3sz85K+EC4Y/wFVDNvZo4TYXao6Z0f+lQKc0t8DQYzk1OXVu8rp2
+yJMC6alLbBfODALZvYH7n7do1AZls4I9d1P4jnkDrQoxB3UqQ9hVl3LEKQ73xF1O
+yK5GhDDX8oVfGKF5u+decIsH4YaTw7mP3GFxJSqv3+0lUFJoi5Lc5da149p90Ids
+hCExroL1+7mryIkXPeFM5TgO9r0rvZaBFOvV2z0gp35Z0+L4WPlbuEjN/lxPFin+
+HlUjr8gRsI3qfJOQFy/9rKIJR0Y/8Omwt/8oTWgy1mdeHmmjk7j1nYsvC9JSQ6Zv
+MldlTTKB3zhThV1+XWYp6rjd5JW1zbVWEkLNxE7GJThEUG3szgBVGP7pSWTUTsqX
+nLRbwHOoq7hHwg==
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIFYDCCBEigAwIBAgIQQAF3ITfU6UK47naqPGQKtzANBgkqhkiG9w0BAQsFADA/
+MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMT
+DkRTVCBSb290IENBIFgzMB4XDTIxMDEyMDE5MTQwM1oXDTI0MDkzMDE4MTQwM1ow
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwggIiMA0GCSqGSIb3DQEB
+AQUAA4ICDwAwggIKAoICAQCt6CRz9BQ385ueK1coHIe+3LffOJCMbjzmV6B493XC
+ov71am72AE8o295ohmxEk7axY/0UEmu/H9LqMZshftEzPLpI9d1537O4/xLxIZpL
+wYqGcWlKZmZsj348cL+tKSIG8+TA5oCu4kuPt5l+lAOf00eXfJlII1PoOK5PCm+D
+LtFJV4yAdLbaL9A4jXsDcCEbdfIwPPqPrt3aY6vrFk/CjhFLfs8L6P+1dy70sntK
+4EwSJQxwjQMpoOFTJOwT2e4ZvxCzSow/iaNhUd6shweU9GNx7C7ib1uYgeGJXDR5
+bHbvO5BieebbpJovJsXQEOEO3tkQjhb7t/eo98flAgeYjzYIlefiN5YNNnWe+w5y
+sR2bvAP5SQXYgd0FtCrWQemsAXaVCg/Y39W9Eh81LygXbNKYwagJZHduRze6zqxZ
+Xmidf3LWicUGQSk+WT7dJvUkyRGnWqNMQB9GoZm1pzpRboY7nn1ypxIFeFntPlF4
+FQsDj43QLwWyPntKHEtzBRL8xurgUBN8Q5N0s8p0544fAQjQMNRbcTa0B7rBMDBc
+SLeCO5imfWCKoqMpgsy6vYMEG6KDA0Gh1gXxG8K28Kh8hjtGqEgqiNx2mna/H2ql
+PRmP6zjzZN7IKw0KKP/32+IVQtQi0Cdd4Xn+GOdwiK1O5tmLOsbdJ1Fu/7xk9TND
+TwIDAQABo4IBRjCCAUIwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYw
+SwYIKwYBBQUHAQEEPzA9MDsGCCsGAQUFBzAChi9odHRwOi8vYXBwcy5pZGVudHJ1
+c3QuY29tL3Jvb3RzL2RzdHJvb3RjYXgzLnA3YzAfBgNVHSMEGDAWgBTEp7Gkeyxx
++tvhS5B1/8QVYIWJEDBUBgNVHSAETTBLMAgGBmeBDAECATA/BgsrBgEEAYLfEwEB
+ATAwMC4GCCsGAQUFBwIBFiJodHRwOi8vY3BzLnJvb3QteDEubGV0c2VuY3J5cHQu
+b3JnMDwGA1UdHwQ1MDMwMaAvoC2GK2h0dHA6Ly9jcmwuaWRlbnRydXN0LmNvbS9E
+U1RST09UQ0FYM0NSTC5jcmwwHQYDVR0OBBYEFHm0WeZ7tuXkAXOACIjIGlj26Ztu
+MA0GCSqGSIb3DQEBCwUAA4IBAQAKcwBslm7/DlLQrt2M51oGrS+o44+/yQoDFVDC
+5WxCu2+b9LRPwkSICHXM6webFGJueN7sJ7o5XPWioW5WlHAQU7G75K/QosMrAdSW
+9MUgNTP52GE24HGNtLi1qoJFlcDyqSMo59ahy2cI2qBDLKobkx/J3vWraV0T9VuG
+WCLKTVXkcGdtwlfFRjlBz4pYg1htmf5X6DYO8A4jqv2Il9DjXA6USbW1FzXSLr9O
+he8Y4IWS6wY7bCkjCWDcRQJMEhg76fsO3txE+FiYruq9RUWhiF1myv4Q6W+CyBFC
+Dfvp7OOGAN6dEOM4+qR9sdjoSYKEBpsr6GtPAQw4dy753ec5
+-----END CERTIFICATE-----
+```
+
+Running openssl on the first one gives:
+
+```
+>  openssl x509 -in le-c1.pem -text
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            91:2b:08:4a:cf:0c:18:a7:53:f6:d6:2e:25:a7:5f:5a
+    Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=US, O=Internet Security Research Group, CN=ISRG Root X1
+        Validity
+            Not Before: Sep  4 00:00:00 2020 GMT
+            Not After : Sep 15 16:00:00 2025 GMT
+        Subject: C=US, O=Let's Encrypt, CN=R3
+    ...
+```
+
+Running openssl on the second one gives:
+
+```
+>  openssl x509 -in le-c2.pem -text
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            40:01:77:21:37:d4:e9:42:b8:ee:76:aa:3c:64:0a:b7
+    Signature Algorithm: sha256WithRSAEncryption
+        Issuer: O=Digital Signature Trust Co., CN=DST Root CA X3
+        Validity
+            Not Before: Jan 20 19:14:03 2021 GMT
+            Not After : Sep 30 18:14:03 2024 GMT
+        Subject: C=US, O=Internet Security Research Group, CN=ISRG Root X1
+     ...
+```
+
+When a client connects to your Apache, it basically sends the content of `pubcert.pem`
+for the client to inspect and verify that everything can be trusted. Both `ISRG Root X1`
+and `R3` trust the `eissing.org` certificate. So, the client needs to determine if
+it can trust those. Trusting one of them is enough!
+
+When clients check `ISRG Root X1`, they *SHOULD* see that this one cannot be trusted,
+because the certificate which signed it, namely `Digital Signature Trust Co., CN=DST Root CA X3`,
+has expired on 2021-09-30.
+
+And here, very old OpenSSL or even recent gnuTLS clients give up and fail. The correct
+behaviour is to then check trust for the *other* certificate that was sent to the client,
+namely the `R3` one.
+
+`R3` can be trusted, *if* the client has a recent CA root store (the trust anchors certificates
+where trust always starts). So, if you have a correct client, but your CA root store has not
+been updated for some time, the connection to `eissing.org` will also fail.
+
+Why is Let's Encrypt giving us this no longer trusted `ISRG Root X1`? Well, they found out
+that many, many old Android devices (which for a long time have not been updated nor will they
+ever be) are so bad that they will trust `ISRG Root X1` foreva! Therefore, they still include
+`ISRG Root X1` in your `pubcert.pem` files to allow these Android owners to stay on the internet.
+Since a lot of those are in developing countries, it is not feasible for many of them to
+update their phones just like that.
+
+But Let's Encrypt could not fix the situation for everyone in the world. Someone was going
+to get hurt by the expiring `ISRG Root X1` trust chain. And those are now the people with
+faulty SSL clients or good ones with old root store.
+
+### What can one do?
+
+**If(!)** you can live without serving old Android devices, you can remove `ISRG Root X1`
+from your `pubcert*.pem` files. That will make your site work for faulty clients with a
+recent CA root store. And modern clients do not need `ISRG Root X1` anyway.
+
+There is a script in `scripts/fix_le_pubcerts.sh` that removes the `ISRG Root X1` from 
+pubcert*.pem files. You can run it on a directory, like:
+
+```
+> fix_le_pubcerts.sh <path-of-md-store>/domains/eissing.org
+```
+
+or you can install it as an `MDMessageCmd` in your Apache configuration:
+
+```
+  MDMessageCmd <path-to>/fix_le_pubcerts.sh <path-of-md-store>
+```
+
+which will remove `ISRG Root X1` whenever `mod_md` renews a certificate.
+
+WARNING: this script was tested by me, but I give no warranties on its proper function
+in your environment. Use with care. It makes copies of modified files, in case something
+goes wrong.
 
 
 # Licensing
