@@ -2215,9 +2215,7 @@ for the client to inspect and verify that everything can be trusted. Both `X3`
 and `R3` trust the `eissing.org` certificate. So, the client needs to determine if
 it can trust those. Trusting one of them is enough!
 
-When clients check `X3`, they *SHOULD* see that this one cannot be trusted,
-because the certificate which signed it, namely `Digital Signature Trust Co., CN=DST Root CA X3`,
-has expired on 2021-09-30.
+When clients check `X3`, they *SHOULD* see that this one cannot be trusted, as it has expired on 2021-09-30.
 
 And here, very old OpenSSL or even recent gnuTLS clients give up and fail. The correct
 behaviour is to then check trust for the *other* certificate that was sent to the client,
