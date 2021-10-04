@@ -2104,7 +2104,7 @@ the certificate and its "chain".
 
 Looking at `pubcert.pem`, there are 3(!) certificates in there.
 First the one for eissing.org, then one with name `R3`, followed
-by `ISRG Root X1`:
+by `X3`:
 
 ```
 > cat pubcert.pem
@@ -2211,11 +2211,11 @@ Certificate:
 ```
 
 When a client connects to your Apache, it basically sends the content of `pubcert.pem`
-for the client to inspect and verify that everything can be trusted. Both `ISRG Root X1`
+for the client to inspect and verify that everything can be trusted. Both `X3`
 and `R3` trust the `eissing.org` certificate. So, the client needs to determine if
 it can trust those. Trusting one of them is enough!
 
-When clients check `ISRG Root X1`, they *SHOULD* see that this one cannot be trusted,
+When clients check `X3`, they *SHOULD* see that this one cannot be trusted,
 because the certificate which signed it, namely `Digital Signature Trust Co., CN=DST Root CA X3`,
 has expired on 2021-09-30.
 
@@ -2227,24 +2227,24 @@ namely the `R3` one.
 where trust always starts). So, if you have a correct client, but your CA root store has not
 been updated for some time, the connection to `eissing.org` will also fail.
 
-Why is Let's Encrypt giving us this no longer trusted `ISRG Root X1`? Well, they found out
+Why is Let's Encrypt giving us this no longer trusted `X3`? Well, they found out
 that many, many old Android devices (which for a long time have not been updated nor will they
-ever be) are so bad that they will trust `ISRG Root X1` foreva! Therefore, they still include
-`ISRG Root X1` in your `pubcert.pem` files to allow these Android owners to stay on the internet.
+ever be) are so bad that they will trust `X3` foreva! Therefore, they still include
+`X3` in your `pubcert.pem` files to allow these Android owners to stay on the internet.
 Since a lot of those are in developing countries, it is not feasible for many of them to
 update their phones just like that.
 
 But Let's Encrypt could not fix the situation for everyone in the world. Someone was going
-to get hurt by the expiring `ISRG Root X1` trust chain. And those are now the people with
+to get hurt by the expiring `X3` trust chain. And those are now the people with
 faulty SSL clients or good ones with old root store.
 
 ### What can one do?
 
-**If(!)** you can live without serving old Android devices, you can remove `ISRG Root X1`
+**If(!)** you can live without serving old Android devices, you can remove `X3`
 from your `pubcert*.pem` files. That will make your site work for faulty clients with a
-recent CA root store. And modern clients do not need `ISRG Root X1` anyway.
+recent CA root store. And modern clients do not need `X3` anyway.
 
-There is a script in `scripts/fix_le_pubcerts.sh` that removes the `ISRG Root X1` from 
+There is a script in `scripts/fix_le_pubcerts.sh` that removes the `X3` from 
 pubcert*.pem files. You can run it on a directory, like:
 
 ```
@@ -2257,7 +2257,7 @@ or you can install it as an `MDMessageCmd` in your Apache configuration:
   MDMessageCmd <path-to>/fix_le_pubcerts.sh <path-of-md-store>
 ```
 
-which will remove `ISRG Root X1` whenever `mod_md` renews a certificate.
+which will remove `X3` whenever `mod_md` renews a certificate.
 
 WARNING: this script was tested by me, but I give no warranties on its proper function
 in your environment. Use with care. It makes copies of modified files, in case something
