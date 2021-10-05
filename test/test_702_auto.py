@@ -91,6 +91,10 @@ class TestAutov2:
         assert 'cert' in status['renewal']
         assert 'rsa' in status['renewal']['cert']
         assert 'sha256-fingerprint' in status['renewal']['cert']['rsa']
+        # check the non-staged status
+        assert status['state'] == 1
+        assert status['state-descr'] == "certificate(rsa) is missing"
+
         # restart and activate
         assert env.apache_restart() == 0
         # check: SSL is running OK

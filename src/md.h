@@ -98,6 +98,7 @@ struct md_t {
     const char *ca_eab_hmac;        /* optional HMAC for external accont binding */
 
     md_state_t state;               /* state of this MD */
+    const char *state_descr;        /* description of state of NULL */
     
     struct apr_array_header_t *acme_tls_1_domains; /* domains supporting "acme-tls/1" protocol */
     int stapling;                   /* if OCSP stapling is enabled */
@@ -189,6 +190,7 @@ struct md_t {
 #define MD_KEY_SHA256_FINGERPRINT  "sha256-fingerprint"
 #define MD_KEY_STAPLING         "stapling"
 #define MD_KEY_STATE            "state"
+#define MD_KEY_STATE_DESCR      "state-descr"
 #define MD_KEY_STATUS           "status"
 #define MD_KEY_STORE            "store"
 #define MD_KEY_SUBPROBLEMS      "subproblems"

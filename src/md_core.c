@@ -277,6 +277,8 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
             md_json_setj(md_pkeys_spec_to_json(md->pks, p), json, MD_KEY_PKEY, NULL);
         }
         md_json_setl(md->state, json, MD_KEY_STATE, NULL);
+        if (md->state_descr)
+            md_json_sets(md->state_descr, json, MD_KEY_STATE_DESCR, NULL);
         md_json_setl(md->renew_mode, json, MD_KEY_RENEW_MODE, NULL);
         if (md->renew_window)
             md_json_sets(md_timeslice_format(md->renew_window, p), json, MD_KEY_RENEW_WINDOW, NULL);
@@ -327,6 +329,7 @@ md_t *md_from_json(md_json_t *json, apr_pool_t *p)
             md->pks = md_pkeys_spec_from_json(md_json_getj(json, MD_KEY_PKEY, NULL), p);
         }
         md->state = (md_state_t)md_json_getl(json, MD_KEY_STATE, NULL);
+        md->state_descr = md_json_dups(p, json, MD_KEY_STATE_DESCR, NULL);
         if (MD_S_EXPIRED_DEPRECATED == md->state) md->state = MD_S_COMPLETE;
         md->renew_mode = (int)md_json_getl(json, MD_KEY_RENEW_MODE, NULL);
         md->domains = md_array_str_compact(p, md->domains, 0);
