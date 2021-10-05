@@ -25,12 +25,6 @@
 #include "md_log.h"
 #include "md_util.h"
 
-static int header_set(void *data, const char *key, const char *val)
-{
-    md_json_sets(val, (md_json_t *)data, key, NULL);
-    return 1;
-}
-
 apr_status_t md_jws_get_jwk(md_json_t **pjwk, apr_pool_t *p, struct md_pkey_t *pkey)
 {
     md_json_t *jwk;
@@ -119,7 +113,7 @@ apr_status_t md_jws_hmac(md_json_t **pmsg, apr_pool_t *p,
                          md_data_t *payload, md_json_t *prot_fields,
                          const md_data_t *hmac_key)
 {
-    md_json_t *msg, *jprotected, *jwk;
+    md_json_t *msg, *jprotected;
     const char *prot64, *pay64, *mac64, *sign, *prot;
     md_data_t data;
     apr_status_t rv;

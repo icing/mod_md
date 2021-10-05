@@ -276,8 +276,6 @@ static int find_acct(void *baton, const char *name, const char *aspect,
                      md_store_vtype_t vtype, void *value, apr_pool_t *ptemp)
 {
     find_ctx *ctx = baton;
-    int disabled;
-    const char *ca_url, *status;
     md_acme_acct_t *acct;
     apr_status_t rv;
 

@@ -1001,7 +1001,6 @@ static apr_status_t sha256_digest(md_data_t **pdigest, apr_pool_t *p, const md_d
             }
         }
     }
-leave:
     if (ctx) {
         EVP_MD_CTX_destroy(ctx);
     }
@@ -1045,11 +1044,10 @@ apr_status_t md_crypt_hmac64(const char **pmac64, const md_data_t *hmac_key,
     unsigned int digest_len = 0;
     md_data_t *digest;
     apr_status_t rv = APR_SUCCESS;
-    unsigned char data[EVP_MAX_MD_SIZE];
 
     digest = md_data_pmake(EVP_MAX_MD_SIZE, p);
     s = HMAC(EVP_sha256(), (const unsigned char*)hmac_key->data, (int)hmac_key->len,
-             (const unsigned char*)d, (int)dlen,
+             (const unsigned char*)d, (size_t)dlen,
              (unsigned char*)digest->data, &digest_len);
     if (!s) {
         rv = APR_EINVAL;
@@ -1351,15 +1349,13 @@ apr_status_t md_cert_to_sha256_digest(md_data_t **pdigest, const md_cert_t *cert
 {
     md_data_t *digest;
     unsigned int dlen;
-    apr_status_t rv = APR_ENOMEM;
 
     digest = md_data_pmake(EVP_MAX_MD_SIZE, p);
     X509_digest(cert->x509, EVP_sha256(), (unsigned char*)digest->data, &dlen);
     digest->len = dlen;
-    rv = APR_SUCCESS;
-leave:
-    *pdigest = (APR_SUCCESS == rv)? digest : NULL;
-    return rv;
+
+    *pdigest = digest;
+    return APR_SUCCESS;
 }
 
 apr_status_t md_cert_to_sha256_fingerprint(const char **pfinger, const md_cert_t *cert, apr_pool_t *p)
