@@ -73,6 +73,7 @@ class TestNotify:
         assert env.await_completion([self.domain], restart=False)
         stat = env.get_md_status(self.domain)
         assert stat["renewal"]["last"]["status"] == 0
+        time.sleep(1)
         nlines = open(self.notify_log).readlines()
         assert 1 == len(nlines)
         assert ("['%s', '%s', '%s']" % (command, args, self.domain)) == nlines[0].strip()
