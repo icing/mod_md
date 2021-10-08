@@ -2076,7 +2076,7 @@ which answers all DNS requests for boulder with the address of your machine. The
 Start up boulder, see `All servers running. Hit ^C to kill.` after a while and start the test suite:
 
 
-# The Let's Encrpyt Expiration
+# The Let's Encrypt Expiration
 
 Read this if you have problems with your Let's Encrypt certificate
 with older or not-updated clients. There is an easy way to fix.
