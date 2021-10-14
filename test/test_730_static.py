@@ -79,20 +79,16 @@ class TestStatic:
         conf.add_vhost(domain)
         conf.install()
         assert env.apache_restart() == 0
-        
-        # check if the domain uses it, it appears in our stats and renewal is on
-        cert = env.get_cert(domain)
-        assert cert.same_serial_as(730001)
+        # this should enforce a renewal
         stat = env.get_md_status(domain)
-        assert stat
-        assert 'cert' in stat
-        assert stat['renew'] is True
-        assert env.await_renewal(domains)
+        assert stat['renew'] is True, stat
+        assert env.await_completion(domains, restart=False)
+        # and show the newly created certificates
         stat = env.get_md_status(domain)
         assert 'renewal' in stat
         assert 'cert' in stat['renewal']
-        assert 'rsa' in stat['renewal']['cert']
         assert 'secp384r1' in stat['renewal']['cert']
+        assert 'rsa' in stat['renewal']['cert']
 
     def test_730_003(self, env):
         # just configuring one file will not work
