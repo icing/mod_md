@@ -181,11 +181,11 @@ apr_status_t md_acme_drive_set_acct(md_proto_driver_t *d, md_result_t *result)
     
 leave:
     /* Persist MD changes in STAGING, so we pick them up on next run */
-    if (APR_SUCCESS == rv&& update_md) {
+    if (APR_SUCCESS == rv && update_md) {
         rv = md_save(d->store, d->p, MD_SG_STAGING, ad->md, 0);
     }
     /* Persist account changes in STAGING, so we pick them up on next run */
-    if (APR_SUCCESS == rv&& update_acct) {
+    if (APR_SUCCESS == rv && update_acct) {
         rv = save_acct_staged(ad->acme, d->store, md->name, d->p);
     }
     return rv;

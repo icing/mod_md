@@ -1477,17 +1477,30 @@ apr_status_t md_cert_chain_read_http(struct apr_array_header_t *chain,
     ct = apr_table_get(res->headers, "Content-Type");
     if (!res->body || !ct) goto cleanup;
     ct = md_util_parse_ct(res->req->pool, ct);
-    if (!strcmp("application/pem-certificate-chain", ct)
+    if (!strcmp("application/pkix-cert", ct)) {
+        rv = md_cert_read_http(&cert, p, res);
+        if (APR_SUCCESS != rv) goto cleanup;
+        APR_ARRAY_PUSH(chain, md_cert_t *) = cert;
+    }
+    else if (!strcmp("application/pem-certificate-chain", ct)
         || !strncmp("text/plain", ct, sizeof("text/plain")-1)) {
         /* Some servers seem to think 'text/plain' is sufficient, see #232 */
         rv = apr_brigade_pflatten(res->body, &data, &data_len, res->req->pool);
         if (APR_SUCCESS != rv) goto cleanup;
         rv = md_cert_read_chain(chain, res->req->pool, data, data_len);
     }
-    else if (!strcmp("application/pkix-cert", ct)) {
-        rv = md_cert_read_http(&cert, p, res);
+    else {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p,
+            "attempting to parse certificates from unrecognized content-type: %s", ct);
+        rv = apr_brigade_pflatten(res->body, &data, &data_len, res->req->pool);
         if (APR_SUCCESS != rv) goto cleanup;
-        APR_ARRAY_PUSH(chain, md_cert_t *) = cert;
+        rv = md_cert_read_chain(chain, res->req->pool, data, data_len);
+        if (APR_SUCCESS == rv && chain->nelts == 0) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p,
+                "certificiate chain response did not contain any certificates "
+                "(suspicious content-type: %s)", ct);
+            rv = APR_ENOENT;
+        }
     }
 cleanup:
     md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, p,

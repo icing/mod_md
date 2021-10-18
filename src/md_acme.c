@@ -204,6 +204,7 @@ static apr_status_t inspect_problem(md_acme_req_t *req, const md_http_response_t
     switch (res->status) {
         case 400:
             return APR_EINVAL;
+        case 401: /* sectigo returns this instead of 403 */
         case 403:
             return APR_EACCES;
         case 404:
@@ -385,11 +386,6 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
     
     if (req->req_json) {
         body = apr_pcalloc(req->p, sizeof(*body));
-        if (!body) {
-            rv = APR_EINVAL; goto leave;
-        }
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, rv, req->p,
-                      "error retrieving new nonce from ACME server");
         body->data = md_json_writep(req->req_json, req->p, MD_JSON_FMT_INDENT);
         body->len = strlen(body->data);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p,

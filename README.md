@@ -44,6 +44,7 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Have many Names for a Host](#how-to-have-many-names-for-a-host)
     * [Live with `http:`](#how-to-live-with-http)
     * [Live without `http:`](#how-to-live-without-http)
+    * [Manage Server Reloads](#how-to-manage-server-reloads)
     * [Analyze and fix problems](#how-to-fix-problems)
     * [Platorm Specifics](#platform-specifics)
   - Advanced:
@@ -79,7 +80,7 @@ into your Apache server log where `mod_md` logs its version at startup.
  
 # HowTos
 
-This is a list of recipes on how you can use `mod_md` in your Apache configuration. This assumes that you are somewhat familiar with Apache's configuration directives `Listen`, `VirtualHost`, `SSLEngine` and friends. It also assumes that your Apache is running, has the basic modules loaded. You can see a document in your browser (maybe only on `http:` for now).
+This is a list of recipes on how you can use ACME in your Apache configuration. This assumes that you are somewhat familiar with Apache's configuration directives `Listen`, `VirtualHost`, `SSLEngine` and friends. It also assumes that your Apache is running, has the basic modules loaded. You can see a document in your browser (maybe only on `http:` for now).
 
 ### Prerequisites
 
@@ -370,6 +371,33 @@ This is true for _all_ Let's Encrypt clients: `certbot`, `acme.sh`, `mod_md`, et
 Assuming you do not have a DNS setup working, and your port 80 is blocked, this leaves only port 443. Let's Encrypt will open a connection to your server on this port and indicate that it wants to talk a very specific protocol named `acme-tls/1`. It then expects a very specific answer from the server.
 
 For this to work with your Apache, you need to enable this protocol using the `Protocols` directive. See [TLS ALPN Challenges](#tls-alpn-challenges) for details.
+
+
+## How to Manage Server Reloads
+
+When Apache ACME gets a new certificate they do not automatically become active. You need to *reload* the
+server. The common command `apachectl` calls this `graceful`. `systemd` calls it `reload`. 
+
+However you call it, a full restart is not necessary. This is less disruptive, since a reload will finish ongoing
+requests.
+
+When you get your first certificates via Apache ACME, you will probably monitor this closely and do the reloads
+yourself. But after that, you probably want this automated. There are several options.
+
+You can add the reload command to root's crontab (or whichever user starts your apache). Depending on the 
+platform you use, this may be done via `systemd` or `apachectl`. To be safe, run this daily when you have
+a time of day with low traffic. A weekly reload would probably also suffice, since ACME certificates are
+commonly renewed early enough.
+
+You can use [MDMessageCmd](#mdmessagecmd) to add a script to run when certificates are renewed. While this
+command has probably not the privileges to restart your apache, it may send you an email about it. You can
+also do some `sudo` magic to give it allowance for reloads. But be aware that these also may happen during
+busy hours.
+
+Another thing you can do is combine those. Make a [MDMessageCmd](#mdmessagecmd) that creates a file, like `/tmp/apache-reload-required` and a cronjob that checks the presence of it, makes a reload and removes that file again.
+
+It's really up to you system and traffic what is best here. For most sites, which have times of day with little traffic, I recommend the simple approach with a daily reload via crontab.
+
 
 ## How to Fix Problems
 
@@ -2065,6 +2093,8 @@ This is mainly used in test setups where the module needs to connect to a test A
 server that has its own root certificate. People who run an enterprise wide internal
 CA might find a use for this, but they have probably adapted the general CA root 
 store already and there is no special need.
+
+Use "none" as path to disable explicitly.
 
 ## MDExternalAccountBinding
 ***Sets the external account binding (EAB) information to use***<BR/>

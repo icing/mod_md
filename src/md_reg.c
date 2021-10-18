@@ -92,7 +92,8 @@ apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *p, struct md_store_t *st
     reg->can_http = 1;
     reg->can_https = 1;
     reg->proxy_url = proxy_url? apr_pstrdup(p, proxy_url) : NULL;
-    reg->ca_file = ca_file? apr_pstrdup(p, ca_file) : NULL;
+    reg->ca_file = (ca_file && apr_strnatcasecmp("none", ca_file))?
+                    apr_pstrdup(p, ca_file) : NULL;
 
     md_timeslice_create(&reg->renew_window, p, MD_TIME_LIFE_NORM, MD_TIME_RENEW_WINDOW_DEF); 
     md_timeslice_create(&reg->warn_window, p, MD_TIME_LIFE_NORM, MD_TIME_WARN_WINDOW_DEF); 

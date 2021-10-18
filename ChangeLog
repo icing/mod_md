@@ -1,3 +1,11 @@
+ * First successful tests with a Sectigo demo setup.
+ * Treating 401 HTTP status codes for orders like 403, since Sectigo
+   seems to prefer that for accessing oders from other accounts.
+ * When retrieving certificate chains, try to read the repsonse even
+   if the HTTP Content-Type is unrecognized (Sectigo workaround).
+ * Ignore ACME accounts when the verification results in a 400 response.
+   This seems to happen on Sectigo for some not fully understood reason
+   when a account is re-used. Needs more test cases.
  * Fixed the renewal process giving up every time on an already existing order
    with some invalid domains. Now, if such are seen in a previous order, a new
    order is created for a clean start over again. See #268.

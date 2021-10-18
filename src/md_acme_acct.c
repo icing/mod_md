@@ -131,12 +131,7 @@ apr_status_t md_acme_acct_from_json(md_acme_acct_t **pacct, md_json_t *json, apr
     if (md_json_has_key(json, MD_KEY_STATUS, NULL)) {
         status = acct_st_from_str(md_json_gets(json, MD_KEY_STATUS, NULL));
     }
-    else {
-        /* old accounts only had disabled boolean field */
-        status = md_json_getb(json, MD_KEY_DISABLED, NULL)? 
-            MD_ACME_ACCT_ST_DEACTIVATED : MD_ACME_ACCT_ST_VALID;
-    }
-    
+
     url = md_json_gets(json, MD_KEY_URL, NULL);
     if (!url) {
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, "account has no url");
@@ -342,7 +337,7 @@ static apr_status_t acct_find_and_verify(md_store_t *store, md_store_group_t gro
         acme->acct_id = (MD_SG_STAGING == group)? NULL : id;
         acme->acct = acct;
         acme->acct_key = pkey;
-        rv = md_acme_acct_validate(acme, NULL, p);
+        rv = md_acme_acct_validate(acme, (MD_SG_STAGING == group)? NULL : store, p);
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, p, "acct_find_and_verify: verified %s",
                       id);
 
@@ -375,9 +370,9 @@ apr_status_t md_acme_find_acct_for_md(md_acme_t *acme, md_store_t *store, const 
          * can already be found in MD_SG_STAGING? */
         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, acme->p, 
                       "no account found, looking in STAGING");
-        while (APR_EAGAIN == (rv = acct_find_and_verify(store, MD_SG_STAGING, "*", 
-                                                        acme, md, acme->p))) {
-            /* nop */
+        rv = acct_find_and_verify(store, MD_SG_STAGING, "*", acme, md, acme->p);
+        if (APR_EAGAIN == rv) {
+            rv = APR_ENOENT;
         }
     }
     return rv;
@@ -478,7 +473,9 @@ apr_status_t md_acme_acct_validate(md_acme_t *acme, md_store_t *store, apr_pool_
     apr_status_t rv;
     
     if (APR_SUCCESS != (rv = md_acme_acct_update(acme))) {
-        if (acme->acct && (APR_ENOENT == rv || APR_EACCES == rv)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, acme->p,
+                      "acct update failed for %s", acme->acct->url);
+        if (acme->acct && (APR_ENOENT == rv || APR_EACCES == rv || APR_EINVAL == rv)) {
             if (MD_ACME_ACCT_ST_VALID == acme->acct->status) {
                 acme->acct->status = MD_ACME_ACCT_ST_UNKNOWN;
                 if (store) {

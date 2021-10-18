@@ -397,9 +397,14 @@ static apr_status_t await_valid(void *baton, int attempt)
                                                   ctx->result, ctx->p))) goto out;
     switch (ctx->order->status) {
         case MD_ACME_ORDER_ST_VALID:
+            md_result_set(ctx->result, APR_EINVAL, "ACME server order status is 'valid'.");
             break;
         case MD_ACME_ORDER_ST_PROCESSING:
             rv = APR_EAGAIN;
+            break;
+        case MD_ACME_ORDER_ST_INVALID:
+            md_result_set(ctx->result, APR_EINVAL, "ACME server order status is 'invalid'.");
+            rv = APR_EINVAL;
             break;
         default:
             rv = APR_EINVAL;

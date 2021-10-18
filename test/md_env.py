@@ -307,9 +307,11 @@ class MDTestEnv:
         ]
 
         self._verbosity = pytestconfig.option.verbose if pytestconfig is not None else 0
-        if self._verbosity >= 2:
-            self._httpd_base_conf.append("LogLevel md:trace2 core:trace5")
-        elif self._verbosity >= 2:
+        if self._verbosity > 2:
+            self._httpd_base_conf.append("LogLevel md:trace4 core:trace5")
+        elif self._verbosity == 2:
+            self._httpd_base_conf.append("LogLevel md:trace2")
+        elif self._verbosity == 1:
             self._httpd_base_conf.append("LogLevel md:debug")
         else:
             self._httpd_base_conf.append("LogLevel md:info")
@@ -527,6 +529,8 @@ class MDTestEnv:
             pass
         elif insecure:
             args.append('--insecure')
+        elif options and "--cacert" in options:
+            pass
         elif u.hostname == self._default_domain:
             args.extend(["--cacert", f"{self.ca.cert_file}"])
         else:
@@ -576,8 +580,9 @@ class MDTestEnv:
                 r.response["json"] = r.json
         return r
 
-    def curl_get(self, url, insecure=False, debug_log=True):
-        return self.curl_raw(urls=[url], insecure=insecure, debug_log=debug_log)
+    def curl_get(self, url, insecure=False, debug_log=True, options=None):
+        return self.curl_raw(urls=[url], insecure=insecure,
+                             options=options, debug_log=debug_log)
 
     # --------- HTTP ---------
 
@@ -1155,12 +1160,12 @@ class MDTestEnv:
         # staging
         self.check_file_access(self.store_stagings(), 0o755)
 
-    def get_ocsp_status(self, domain, proto=None, cipher=None):
+    def get_ocsp_status(self, domain, proto=None, cipher=None, ca_file=None):
         stat = {}
         args = [
             self._openssl, "s_client", "-status",
             "-connect", "%s:%s" % (self._httpd_addr, self.https_port),
-            "-CAfile", self.acme_ca_pemfile,
+            "-CAfile", ca_file if ca_file else self.acme_ca_pemfile,
             "-servername", domain,
             "-showcerts"
         ]
@@ -1187,12 +1192,12 @@ class MDTestEnv:
                 stat['verify'] = m.group(1)
         return stat
 
-    def await_ocsp_status(self, domain, timeout=10):
+    def await_ocsp_status(self, domain, timeout=10, ca_file=None):
         try_until = time.time() + timeout
         while True:
             if time.time() >= try_until:
                 break
-            stat = self.get_ocsp_status(domain)
+            stat = self.get_ocsp_status(domain, ca_file=ca_file)
             if 'ocsp' in stat and stat['ocsp'] != "no response sent":
                 return stat
             time.sleep(0.1)

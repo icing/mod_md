@@ -1,7 +1,3 @@
-import os
-import time
-from typing import List
-
 import pytest
 
 from md_conf import HttpdConf
@@ -203,7 +199,6 @@ class TestEab:
         conf.install()
         assert env.apache_restart() == 0
         assert env.await_completion(domains)
-        md_1 = env.get_md_status(domain)
         conf = HttpdConf(env)
         # this is another one of the values in conf/pebble-eab.json
         # add a dns name to force renewal
@@ -229,7 +224,6 @@ class TestEab:
         conf.install()
         assert env.apache_restart() == 0
         assert env.await_completion(domains)
-        md_1 = env.get_md_status(domain)
         conf = HttpdConf(env)
         # this is another one of the values in conf/pebble-eab.json
         # add a dns name to force renewal
@@ -243,4 +237,3 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
-
