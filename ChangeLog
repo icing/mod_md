@@ -1,3 +1,6 @@
+ * Fixed the renewal process giving up every time on an already existing order
+   with some invalid domains. Now, if such are seen in a previous order, a new
+   order is created for a clean start over again. See #268.
  * Fixed a mixup in md-status handler when static certificate files and
    renewal was configured at the same time.
 

@@ -29,6 +29,11 @@ class TestAutov2:
         env.clear_store()
         self.test_domain = env.get_request_domain(request)
 
+    def _write_res_file(self, doc_root, name, content):
+        if not os.path.exists(doc_root):
+            os.makedirs(doc_root)
+        open(os.path.join(doc_root, name), "w").write(content)
+
     # create a MD not used in any virtual host, auto drive should NOT pick it up
     def test_702_001(self, env):
         domain = self.test_domain
@@ -711,9 +716,41 @@ class TestAutov2:
         cert = env.get_cert(long_domain)
         assert long_domain in cert.get_san_list()
 
-    # --------- _utils_ ---------
+    # test case: fourth level domain
+    def test_702_070(self, env):
+        domain = self.test_domain
+        name_a = "one.test." + domain
+        name_b = "two.test." + domain
+        domains = [name_a, name_b]
+        #
+        # generate 1 MD and 2 vhosts
+        conf = HttpdConf(env)
+        conf.add_admin("admin@" + domain)
+        conf.add_md(domains)
+        conf.add_vhost(name_a)
+        conf.install()
+        #
+        # restart (-> drive), check that MD was synched and completes
+        assert env.apache_restart() == 0
+        assert env.await_completion(domains)
+        env.check_md_complete(domains[0])
 
-    def _write_res_file(self, doc_root, name, content):
-        if not os.path.exists(doc_root):
-            os.makedirs(doc_root)
-        open(os.path.join(doc_root, name), "w").write(content)
+    # test case: fifth level domain
+    def test_702_071(self, env):
+        domain = self.test_domain
+        name_a = "one.more.test." + domain
+        name_b = "two.more.test." + domain
+        domains = [name_a, name_b]
+        #
+        # generate 1 MD and 2 vhosts
+        conf = HttpdConf(env)
+        conf.add_admin("admin@" + domain)
+        conf.add_md(domains)
+        conf.add_vhost(name_a)
+        conf.install()
+        #
+        # restart (-> drive), check that MD was synched and completes
+        assert env.apache_restart() == 0
+        assert env.await_completion(domains)
+        env.check_md_complete(domains[0])
+
