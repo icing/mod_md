@@ -1,3 +1,4 @@
+ * `MDContactEmail` can now be specified inside a `<MDomain dnsname>` section.
  * Added workaround for ACME servers that do not accept account retrieval
    via a GET-AS-POST. This is commonly used to detect if a known account
    is still usable. In case this fails, a "termsOfServiceAgreed" is set

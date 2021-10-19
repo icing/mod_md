@@ -12,7 +12,7 @@ class HttpdConf(object):
         self._lines = []
 
         if admin is None:
-            admin = "admin@not-forbidden.org"
+            admin = f"admin@{env.http_tld}"
         if len(admin.strip()):
             self.add_admin(admin)
 
@@ -70,7 +70,7 @@ class HttpdConf(object):
         self.add("MDPrivateKeys %s %s\n" % (key_type, " ".join(map(lambda p: str(p), key_params))))
 
     def add_admin(self, email):
-        self.add("ServerAdmin mailto:%s\n" % email)
+        self.add(f"ServerAdmin mailto:{email}")
 
     def add_md(self, domains):
         dlist = " ".join(domains)    # without quotes

@@ -301,7 +301,7 @@ class MDTestEnv:
         self._httpd_base_conf = [
             f"LoadModule mpm_{self.mpm_type}_module  \"{self.libexec_dir}/mod_mpm_{self.mpm_type}.so\"",
             f"LoadModule {self._ssl_type}_module  \"{self.prefix}/modules/mod_{self._ssl_type}.so\"",
-            f"LogLevel {self._ssl_type}:debug",
+            f"LogLevel {self._ssl_type}:info",
             f"SSLSessionCache \"shmcb:ssl_gcache_data(32000)\"",
             "",
         ]
@@ -512,12 +512,12 @@ class MDTestEnv:
         log.debug("running: {0} {1}".format(preargs, args))
         return self.run(preargs + args)
 
-    def curl_complete_args(self, urls, timeout=None, options=None, insecure=False):
+    def curl_complete_args(self, urls, timeout=None, options=None,
+                           insecure=False, force_resolve=True):
         if not isinstance(urls, list):
             urls = [urls]
         u = urlparse(urls[0])
         assert u.hostname, f"hostname not in url: {urls[0]}"
-        assert u.port, f"port not in url: {urls[0]}"
         headerfile = f"{self.gen_dir}/curl.headers"
         if os.path.isfile(headerfile):
             os.remove(headerfile)
@@ -536,8 +536,10 @@ class MDTestEnv:
         else:
             args.extend(["--cacert", self.acme_ca_pemfile])
 
-        if u.hostname != 'localhost' and u.hostname != self._httpd_addr \
+        if force_resolve and u.hostname != 'localhost' \
+                and u.hostname != self._httpd_addr \
                 and not re.match(r'^(\d+|\[|:).*', u.hostname):
+            assert u.port, f"port not in url: {urls[0]}"
             args.extend(["--resolve", f"{u.hostname}:{u.port}:{self._httpd_addr}"])
         if timeout is not None and int(timeout) > 0:
             args.extend(["--connect-timeout", str(int(timeout))])
@@ -547,9 +549,10 @@ class MDTestEnv:
         return args, headerfile
 
     def curl_raw(self, urls, timeout=10, options=None, insecure=False,
-                 debug_log=True):
+                 debug_log=True, force_resolve=True):
         args, headerfile = self.curl_complete_args(
-            urls=urls, timeout=timeout, options=options, insecure=insecure)
+            urls=urls, timeout=timeout, options=options, insecure=insecure,
+            force_resolve=force_resolve)
         r = self.run(args, debug_log=debug_log)
         if r.exit_code == 0:
             lines = open(headerfile).readlines()

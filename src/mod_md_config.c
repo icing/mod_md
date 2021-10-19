@@ -202,6 +202,11 @@ static void srv_conf_props_apply(md_t *md, const md_srv_conf_t *from, apr_pool_t
     if (from->ca_url) md->ca_url = from->ca_url;
     if (from->ca_proto) md->ca_proto = from->ca_proto;
     if (from->ca_agreement) md->ca_agreement = from->ca_agreement;
+    if (from->ca_contact) {
+        apr_array_clear(md->contacts);
+        APR_ARRAY_PUSH(md->contacts, const char *) =
+            md_util_schemify(p, from->ca_contact, "mailto");
+    }
     if (from->ca_challenges) md->ca_challenges = apr_array_copy(p, from->ca_challenges);
     if (from->ca_eab_kid) md->ca_eab_kid = from->ca_eab_kid;
     if (from->ca_eab_hmac) md->ca_eab_hmac = from->ca_eab_hmac;

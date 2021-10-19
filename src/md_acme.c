@@ -388,12 +388,12 @@ static apr_status_t md_acme_req_send(md_acme_req_t *req)
         body = apr_pcalloc(req->p, sizeof(*body));
         body->data = md_json_writep(req->req_json, req->p, MD_JSON_FMT_INDENT);
         body->len = strlen(body->data);
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p,
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, req->p,
                       "sending JSON body: %s", body->data);
     }
 
-    if (body && md_log_is_level(req->p, MD_LOG_TRACE2)) {
-        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, req->p, 
+    if (body && md_log_is_level(req->p, MD_LOG_TRACE4)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE4, 0, req->p,
                       "req: %s %s, body:\n%s", req->method, req->url, body->data);
     }
     else {
