@@ -1,3 +1,5 @@
+import os
+import re
 import time
 
 import pytest
@@ -7,11 +9,18 @@ from md_conf import HttpdConf
 
 EABS = [
     {'kid': '0123', 'hmac': 'abcdef'},
-    # add a working EAB to enable these tests
+    # set the environment variable SECTIGO_EAB="$kid $hmac" for
+    # these tests to become active
 ]
 
+def missing_eab():
+    if len(EABS) == 1 and 'SECTIGO_EAB' in os.environ:
+        m = re.match(r'^\s*(\S+)\s+(\S+)\s*$', os.environ['SECTIGO_EAB'])
+        if m:
+            EABS.append({'kid': m.group(1), 'hmac': m.group(2)})
+    return len(EABS) == 1
 
-@pytest.mark.skipif(condition=len(EABS) == 1, reason="no Sectigo EAB added")
+@pytest.mark.skipif(condition=missing_eab(), reason="no Sectigo EAB added")
 class TestSectigo:
 
     DEMO_ACME = "https://acme.demo.sectigo.com/"
@@ -107,6 +116,8 @@ class TestSectigo:
             "--cacert", f"{env.test_dir}/data/sectigo-demo-root.pem"
         ])
         assert r.exit_code != 0
+        md1 = env.get_md_status(domain)
+        acct1 = md1['ca']['account']
         # add the domain2 to the dns names
         domains = [domain, domain2]
         conf = HttpdConf(env)
@@ -123,6 +134,9 @@ class TestSectigo:
             "--cacert", f"{env.test_dir}/data/sectigo-demo-root.pem"
         ])
         assert r.response['status'] == 200
+        md2 = env.get_md_status(domain)
+        acct2 = md2['ca']['account']
+        assert acct2 == acct1, f"ACME account was not reused: {acct1} became {acct2}"
 
     def test_751_020(self, env):
         # valid config, get cert, check OCSP status

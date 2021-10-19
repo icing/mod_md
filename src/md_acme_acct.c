@@ -423,7 +423,12 @@ static apr_status_t acct_upd(md_acme_t *acme, apr_pool_t *p,
     acct_ctx_t *ctx = baton;
     apr_status_t rv = APR_SUCCESS;
     md_acme_acct_t *acct = acme->acct;
-    
+
+    if (md_log_is_level(p, MD_LOG_TRACE2)) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, acme->p, "acct update response: %s",
+                      md_json_writep(body, p, MD_JSON_FMT_COMPACT));
+    }
+
     if (!acct->url) {
         const char *location = apr_table_get(hdrs, "location");
         if (!location) {
@@ -475,6 +480,13 @@ apr_status_t md_acme_acct_validate(md_acme_t *acme, md_store_t *store, apr_pool_
     if (APR_SUCCESS != (rv = md_acme_acct_update(acme))) {
         md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, acme->p,
                       "acct update failed for %s", acme->acct->url);
+        if (APR_EINVAL == rv && (acme->acct->agreement || !acme->ca_agreement)) {
+            /* Sadly, some proprietary ACME servers choke on empty POSTs
+             * on accounts. Try a faked ToS agreement. */
+            md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, acme->p,
+                          "trying acct update via ToS agreement");
+            rv = md_acme_agree(acme, p, "accepted");
+        }
         if (acme->acct && (APR_ENOENT == rv || APR_EACCES == rv || APR_EINVAL == rv)) {
             if (MD_ACME_ACCT_ST_VALID == acme->acct->status) {
                 acme->acct->status = MD_ACME_ACCT_ST_UNKNOWN;

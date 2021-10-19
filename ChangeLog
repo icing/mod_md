@@ -1,3 +1,7 @@
+ * Added workaround for ACME servers that do not accept account retrieval
+   via a GET-AS-POST. This is commonly used to detect if a known account
+   is still usable. In case this fails, a "termsOfServiceAgreed" is set
+   on an account to verify its existence.
  * First successful tests with a Sectigo demo setup.
  * Treating 401 HTTP status codes for orders like 403, since Sectigo
    seems to prefer that for accessing oders from other accounts.
