@@ -6,25 +6,39 @@ import pytest
 
 from md_conf import HttpdConf
 
+# set the environment variables
+#   SECTIGO_EAB="$kid $hmac" for
+#   SECTIGO_TLD="<your registered dns name>"
+# these tests to become active
+#
+
+DEMO_ACME = "https://acme.demo.sectigo.com/"
+DEMO_TLD = None
 
 EABS = [
     {'kid': '0123', 'hmac': 'abcdef'},
-    # set the environment variable SECTIGO_EAB="$kid $hmac" for
-    # these tests to become active
 ]
 
+
 def missing_eab():
+    global EABS
     if len(EABS) == 1 and 'SECTIGO_EAB' in os.environ:
         m = re.match(r'^\s*(\S+)\s+(\S+)\s*$', os.environ['SECTIGO_EAB'])
         if m:
             EABS.append({'kid': m.group(1), 'hmac': m.group(2)})
     return len(EABS) == 1
 
-@pytest.mark.skipif(condition=missing_eab(), reason="no Sectigo EAB added")
-class TestSectigo:
 
-    DEMO_ACME = "https://acme.demo.sectigo.com/"
-    DEMO_TLD = "eissing.org"
+def missing_tld():
+    global DEMO_TLD
+    if 'SECTIGO_TLD' in os.environ:
+        DEMO_TLD = os.environ['SECTIGO_TLD']
+    return DEMO_TLD is None
+
+
+@pytest.mark.skipif(condition=missing_tld(), reason="env var SECTIGO_TLD not set")
+@pytest.mark.skipif(condition=missing_eab(), reason="env var SECTIGO_EAB not set")
+class TestSectigo:
 
     @pytest.fixture(autouse=True, scope='class')
     def _class_scope(self, env, acme):
@@ -41,11 +55,11 @@ class TestSectigo:
 
     def test_751_001(self, env):
         # valid config, expect cert with correct chain
-        domain = f"test1.{self.DEMO_TLD}"
+        domain = f"test1.{DEMO_TLD}"
         domains = [domain]
         conf = HttpdConf(env)
         conf.start_md(domains)
-        conf.add(f"MDCertificateAuthority {self.DEMO_ACME}")
+        conf.add(f"MDCertificateAuthority {DEMO_ACME}")
         conf.add("MDCACertificateFile none")
         conf.add(f"MDExternalAccountBinding {EABS[1]['kid']} {EABS[1]['hmac']}")
         conf.end_md()
@@ -60,11 +74,11 @@ class TestSectigo:
 
     def test_751_002(self, env):
         # without EAB set
-        domain = f"test1.{self.DEMO_TLD}"
+        domain = f"test1.{DEMO_TLD}"
         domains = [domain]
         conf = HttpdConf(env)
         conf.start_md(domains)
-        conf.add(f"MDCertificateAuthority {self.DEMO_ACME}")
+        conf.add(f"MDCertificateAuthority {DEMO_ACME}")
         conf.add("MDCACertificateFile none")
         conf.end_md()
         conf.add_vhost(domains=domains)
@@ -77,11 +91,11 @@ class TestSectigo:
 
     def test_751_003(self, env):
         # with wrong EAB set
-        domain = f"test1.{self.DEMO_TLD}"
+        domain = f"test1.{DEMO_TLD}"
         domains = [domain]
         conf = HttpdConf(env)
         conf.start_md(domains)
-        conf.add(f"MDCertificateAuthority {self.DEMO_ACME}")
+        conf.add(f"MDCertificateAuthority {DEMO_ACME}")
         conf.add("MDCACertificateFile none")
         conf.add(f"MDExternalAccountBinding xxxxxx aaaaaaaaaaaaasdddddsdasdsadsadsadasdsadsa")
         conf.end_md()
@@ -95,12 +109,12 @@ class TestSectigo:
 
     def test_751_004(self, env):
         # valid config, get cert, add dns name, renew cert
-        domain = f"test1.{self.DEMO_TLD}"
-        domain2 = f"test2.{self.DEMO_TLD}"
+        domain = f"test1.{DEMO_TLD}"
+        domain2 = f"test2.{DEMO_TLD}"
         domains = [domain]
         conf = HttpdConf(env)
         conf.start_md(domains)
-        conf.add(f"MDCertificateAuthority {self.DEMO_ACME}")
+        conf.add(f"MDCertificateAuthority {DEMO_ACME}")
         conf.add("MDCACertificateFile none")
         conf.add(f"MDExternalAccountBinding {EABS[1]['kid']} {EABS[1]['hmac']}")
         conf.end_md()
@@ -122,7 +136,7 @@ class TestSectigo:
         domains = [domain, domain2]
         conf = HttpdConf(env)
         conf.start_md(domains)
-        conf.add(f"MDCertificateAuthority {self.DEMO_ACME}")
+        conf.add(f"MDCertificateAuthority {DEMO_ACME}")
         conf.add("MDCACertificateFile none")
         conf.add(f"MDExternalAccountBinding {EABS[1]['kid']} {EABS[1]['hmac']}")
         conf.end_md()
@@ -140,13 +154,13 @@ class TestSectigo:
 
     def test_751_020(self, env):
         # valid config, get cert, check OCSP status
-        domain = f"test1.{self.DEMO_TLD}"
+        domain = f"test1.{DEMO_TLD}"
         domains = [domain]
         conf = HttpdConf(env)
         conf.add("MDStapling on")
         conf.start_md(domains)
         conf.add(f"""
-            MDCertificateAuthority {self.DEMO_ACME}
+            MDCertificateAuthority {DEMO_ACME}
             MDCACertificateFile none
             MDExternalAccountBinding {EABS[1]['kid']} {EABS[1]['hmac']}
             """)
@@ -165,4 +179,3 @@ class TestSectigo:
                                          ca_file=f"{env.test_dir}/data/sectigo-demo-root.pem")
             assert stat['ocsp'] == "successful (0x0)"
             assert stat['verify'] == "0 (ok)"
-
