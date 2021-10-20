@@ -520,12 +520,10 @@ static apr_status_t check_challenges(void *baton, int attempt)
                     goto leave;
                 case MD_ACME_AUTHZ_S_INVALID:
                     rv = APR_EINVAL;
-                    if (!authz->error_type) {
-                        md_result_printf(ctx->result, rv, 
-                                         "domain authorization for %s failed, CA considers "
-                                         "answer to challenge invalid, no error given", 
-                                         authz->domain);
-                    } 
+                    md_result_printf(ctx->result, rv,
+                                     "domain authorization for %s failed, CA considers "
+                                     "answer to challenge invalid%s.",
+                                     authz->domain, authz->error_type? "" : ", no error given");
                     md_result_log(ctx->result, MD_LOG_ERR);
                     goto leave;
                 default:

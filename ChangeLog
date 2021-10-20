@@ -1,3 +1,7 @@
+ * Fixed a bug that reset the error counter of a certificate renewal and
+   prevented the increasing delays in further attempts. Test case 741 added
+   to verify the correct behaviour.
+
 v2.4.8
 ----------------------------------------------------------------------------------------------------
  * `MDContactEmail` can now be specified inside a `<MDomain dnsname>` section.

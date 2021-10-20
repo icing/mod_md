@@ -638,8 +638,9 @@ apr_status_t md_job_notify(md_job_t *job, const char *reason, md_result_t *resul
     job->dirty = 1;
     if (APR_SUCCESS == rv && APR_SUCCESS == result->status) {
         job->notified = 1;
-        if (!strcmp("renewed", reason)) job->notified_renewed = 1;
-        job->error_runs = 0;
+        if (!strcmp("renewed", reason)) {
+            job->notified_renewed = 1;
+        }
     }
     else {
         ++job->error_runs;

@@ -1118,7 +1118,7 @@ class MDTestEnv:
                 time.sleep(0.1)
         return True
 
-    def await_error(self, domain, timeout=60, via_domain=None, use_https=True):
+    def await_error(self, domain, timeout=60, via_domain=None, use_https=True, errors=1):
         try_until = time.time() + timeout
         while True:
             if time.time() >= try_until:
@@ -1127,7 +1127,8 @@ class MDTestEnv:
             if md:
                 if 'state' in md and md['state'] == MDTestEnv.MD_S_ERROR:
                     return md
-                if 'renewal' in md and 'errors' in md['renewal'] and md['renewal']['errors'] > 0:
+                if 'renewal' in md and 'errors' in md['renewal'] \
+                        and md['renewal']['errors'] >= errors:
                     return md
             time.sleep(0.1)
         return None
