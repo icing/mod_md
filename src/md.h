@@ -302,12 +302,8 @@ int md_is_covered_by_alt_names(const md_t *md, const struct apr_array_header_t* 
 /* how many certificates this domain has/will eventually have. */
 int md_cert_count(const md_t *md);
 
-#define LE_ACMEv1_PROD      "https://acme-v01.api.letsencrypt.org/directory"
-#define LE_ACMEv1_STAGING   "https://acme-staging.api.letsencrypt.org/directory"
-
-#define LE_ACMEv2_PROD      "https://acme-v02.api.letsencrypt.org/directory"  
-#define LE_ACMEv2_STAGING   "https://acme-staging-v02.api.letsencrypt.org/directory"
-
+const char *md_get_ca_name_from_url(apr_pool_t *p, const char *url);
+apr_status_t md_get_ca_url_from_name(const char **purl, apr_pool_t *p, const char *name);
 
 /**************************************************************************************************/
 /* notifications */

@@ -1,3 +1,7 @@
+ * The directive 'MDCertificateAuthority' now checks if its parameter is a http/https
+   url or one of a set of known names. Those are 'LetsEncrypt', 'LetsEncrypt-Test',
+   'Buypass' and 'Buypass-Test' for now and they are not case-sensitive.
+   The default of LetsEncrypt is unchanged.
  * Fixed a bug that reset the error counter of a certificate renewal and
    prevented the increasing delays in further attempts. Test case 741 added
    to verify the correct behaviour.

@@ -1141,7 +1141,7 @@ In short, they allow anyone to monitor these CTLogs and detect certificates more
 
 # Using Lets Encrypt
 
-The module has defaults that let you use Let's Encrypt (LE) with the least effort possible. For most people, this is the best choice available. These guys do an amazing job!
+The module has defaults that let you use Let's Encrypt (LE) with the least effort possible. For most people, this is the best choice available.
 
 There is one thing that Let's Encrypt requires from you: you need to accept their [Terms of Service](https://letsencrypt.org/documents/LE-SA-v1.2-November-15-2017.pdf). `mod_md` needs to tell them that you accepted them, so you need to tell the module that you actually do! Add to you httpd configuration:
 
@@ -1152,39 +1152,50 @@ MDCertificateAgreement accepted
 and you are ready to get certificates from Let's Encrypt.
 
 
-### LE and ACME
+# Other ACME CAs
 
-`mod_md` talks to LE using a protocol name `ACME` (automated certificate management environment). This is, since March 2019, [an internet standard as RFC 8555](https://tools.ietf.org/html/rfc8555). This means is documented, stable and usable by everyone. It may be extended in the future, but this is the base set.
-
-But, chicken and egg, LE was born before there was `ACME` and the protocol they initially designed is now referred to as `ACMEv1` and the from RFC 8555 is named `ACMEv2`. Versions v1.1.x of `mod_md` used the former only, version 2.x now supports both.
-
-While most users will not have to care about this, there is a feature only available in `ACMEv2`: wildcard domains. If your want a certificate that matches something like `*.mydomain.net`, you need to [setup additional things](#wildcard-certificates), among them to use `ACMEv2``.
-
-
-| CA | Protocol| dns names | dns wildcards | Challenges  | Cert Life   | Rate Limit |
------|----|-----------|---------------|--------------|------------|------------|
-|LE|[ACMEv1](https://acme-v01.api.letsencrypt.org/directory)|  yes      |  no         | ports 80+443, DNS| 90 days| [50/domain/week](https://letsencrypt.org/docs/rate-limits/) |
-|LE|[ACMEv2](https://acme-v02.api.letsencrypt.org/directory)|  yes      | yes (dns-01)| ports 80+443, DNS| 90 days| [50/domain/week](https://letsencrypt.org/docs/rate-limits/) |
-| Others? |
-
-If you do not specify in `mod_md` which CA to use, the module will select ACMEv2. If you do not want this, you can enforce the older protocol for by:
+There are other Certificate Authorities that offer ACME also. You configure them with the URL they mention in their
+documentation. For example `buypass.com` offers ACME at `https://api.buypass.com/acme/directory`. To use that, you 
+would configure Apache with:
 
 ```
-MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
+MDCertificateAuthority https://api.buypass.com/acme/directory
 ```
-You can also set this per domain:
 
-```
-<MDomain aaa.mydomain.net>
-  MDCertificateAuthority https://acme-v01.api.letsencrypt.org/directory
-</MDomain
-```
-which ensure that, whatever you set globally, this domain will use ACMEv1 with LE. For more information about this migration, see [upgrading](#upgrading).
+You may configure a different CA for each of your domains, if your want.
 
+## Known Issues with other CAs
 
-### Other CAs
+### Buypass
 
-Other Certificate Authorities start offering ACMEv2 now also, according to some press statements. However I do not have any experiences with those.
+Buypass issues you certificates without an account under its [Buypass GO SSL](https://community.buypass.com/t/63d4ay/buypass-go-ssl-endpoints-updated-14-05-2020) program. This works with `mod_md` with one exception: if you configure `MDMustStaple on` for a certificate, Buypass will accept the request but silently issue a certificate without this feature. Apache will detect it missing and turn around to get a new certificate. Until your limits are exhausted. Do not use `MDMustStable` with Buypass until they have fixed their server.
+
+### Sectigo
+
+Sectigo's Certificate Manager also offers an ACME endpoint with External Account Binding (EAB). You request
+an EAB key in their web UI and configured this in Apache. They offer a multitude of operation modes in
+Certificate Manager
+
+### ZeroSSL
+
+ZeroSSL has 1.5 modes of operating ACME. It requires a feature from the ACME standard called "External Account Binding" (EAB).
+[See this for more details](#a-key-to-bind-them).
+
+So, the first way to use ZeroSSL is to register an account at their web site and from there get the EAB key values
+which you configure in your ACME client. Since mod_md v2.4.8, you can add those to your Apache ACME as well. However.
+ZeroSSL has designed these as one-time-use only keys. A client can create an account with these once and only once. For
+new attempts, you need to get new EAB values on the ZeroSSL site again.
+
+This works with mod_md, if everything works the first time. If your use of ZeroSSL does not succeed for the
+first certificate, the created account will not be stored permanently and the next attempt may try to create
+a new account. Which is then denied by ZeroSSL.
+
+Once you have gotten a certificate and reload your Apache, the account is persisted and everything should
+from thereon work fine.
+
+The other 0.5 modes of operation is a special access point in their "Rest API" (something apart from ACME)
+where any client can get new EAB values for an unverified email address. This is a bit silly, since functionally
+this is the same as managing accounts like Let's Encrypt does, only more complicated and outside of any standard.
 
 
 # Basic Usage
@@ -1699,6 +1710,18 @@ In case of Let's Encrypt, their current [Terms of Service are here](https://lets
 Default: `https://acme-v02.api.letsencrypt.org/directory`
 
 The URL where the CA offers its service.<BR/>
+
+This needs to be an absolute `http` or `https` URL or the name of a known CA. `mod_md` currently knows
+the following names:
+
+| Name | URL |
+|------|-----|
+| LetsEncrypt | https://acme-v02.api.letsencrypt.org/directory |
+|LetsEncrypt-Test | https://acme-staging-v02.api.letsencrypt.org/directory |
+| Buypass | https://api.buypass.com/acme/directory |
+| Buypass-Test | https://api.test4.buypass.no/acme/directory |
+
+The name is not case-sensitive, so you may use `letsencrypt` as well.
 
 ## MDCertificateProtocol
 

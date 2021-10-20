@@ -476,13 +476,16 @@ static const char *md_config_set_names(cmd_parms *cmd, void *dc,
 static const char *md_config_set_ca(cmd_parms *cmd, void *dc, const char *value)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    const char *err;
+    const char *err, *url;
 
     (void)dc;
     if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
         return err;
     }
-    sc->ca_url = value;
+    if (APR_SUCCESS != md_get_ca_url_from_name(&url, cmd->pool, value)) {
+        return url;
+    }
+    sc->ca_url = url;
     return NULL;
 }
 
@@ -1047,7 +1050,7 @@ static const char *md_config_set_eab(cmd_parms *cmd, void *dc,
 
 const command_rec md_cmds[] = {
     AP_INIT_TAKE1("MDCertificateAuthority", md_config_set_ca, NULL, RSRC_CONF, 
-                  "URL of CA issuing the certificates"),
+                  "URL or known name of CA issuing the certificates"),
     AP_INIT_TAKE1("MDCertificateAgreement", md_config_set_agreement, NULL, RSRC_CONF, 
                   "either 'accepted' or the URL of CA Terms-of-Service agreement you accept"),
     AP_INIT_TAKE_ARGV("MDCAChallenges", md_config_set_cha_tyes, NULL, RSRC_CONF, 

@@ -191,28 +191,11 @@ static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *in
 static void si_val_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     const char *url, *s;
-    apr_uri_t uri_parsed;
 
-    
     s = url = md_json_gets(mdj, info->key, NULL);
     if (!url) return;
-    if (!strcmp(LE_ACMEv2_PROD, url)) {
-        s = "Let's Encrypt";
-    }
-    else if (!strcmp(LE_ACMEv2_STAGING, url)) {
-        s = "Let's Encrypt (staging)";
-    }
-    else if (!strcmp(LE_ACMEv1_PROD, url)) {
-        s = "Let's Encrypt (v1)";
-    }
-    else if (!strcmp(LE_ACMEv1_STAGING, url)) {
-        s = "Let's Encrypt (v1,staging)";
-    }
-    else if (APR_SUCCESS == apr_uri_parse(ctx->p, url, &uri_parsed)) {
-        s = uri_parsed.hostname;
-        
-    }
-    apr_brigade_printf(ctx->bb, NULL, NULL, "<a href='%s'>%s</a>", 
+    s = md_get_ca_name_from_url(ctx->p, url);
+    apr_brigade_printf(ctx->bb, NULL, NULL, "<a href='%s'>%s</a>",
                        ap_escape_html2(ctx->p, url, 1), 
                        ap_escape_html2(ctx->p, s, 1));
 }

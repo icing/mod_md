@@ -19,6 +19,7 @@
 
 #include <apr_lib.h>
 #include <apr_strings.h>
+#include <apr_uri.h>
 #include <apr_tables.h>
 #include <apr_time.h>
 #include <apr_date.h>
@@ -379,3 +380,66 @@ md_json_t *md_to_public_json(const md_t *md, apr_pool_t *p)
     return json;
 }
 
+typedef struct {
+    const char *name;
+    const char *url;
+} md_ca_t;
+
+#define LE_ACMEv2_PROD      "https://acme-v02.api.letsencrypt.org/directory"
+#define LE_ACMEv2_STAGING   "https://acme-staging-v02.api.letsencrypt.org/directory"
+#define BUYPASS_ACME        "https://api.buypass.com/acme/directory"
+#define BUYPASS_ACME_TEST   "https://api.test4.buypass.no/acme/directory"
+
+static md_ca_t KNOWN_CAs[] = {
+    { "LetsEncrypt", LE_ACMEv2_PROD },
+    { "LetsEncrypt-Test", LE_ACMEv2_STAGING },
+    { "Buypass", BUYPASS_ACME },
+    { "Buypass-Test", BUYPASS_ACME_TEST },
+};
+
+const char *md_get_ca_name_from_url(apr_pool_t *p, const char *url)
+{
+    apr_uri_t uri_parsed;
+    unsigned int i;
+
+    for (i = 0; i < sizeof(KNOWN_CAs)/sizeof(KNOWN_CAs[0]); ++i) {
+        if (!apr_strnatcasecmp(KNOWN_CAs[i].url, url)) {
+            return KNOWN_CAs[i].name;
+        }
+    }
+    if (APR_SUCCESS == apr_uri_parse(p, url, &uri_parsed)) {
+        return uri_parsed.hostname;
+    }
+    return apr_pstrdup(p, url);
+}
+
+apr_status_t md_get_ca_url_from_name(const char **purl, apr_pool_t *p, const char *name)
+{
+    const char *err;
+    unsigned int i;
+    apr_status_t rv = APR_SUCCESS;
+
+    *purl = NULL;
+    for (i = 0; i < sizeof(KNOWN_CAs)/sizeof(KNOWN_CAs[0]); ++i) {
+        if (!apr_strnatcasecmp(KNOWN_CAs[i].name, name)) {
+            *purl = KNOWN_CAs[i].url;
+            goto leave;
+        }
+    }
+    *purl = name;
+    rv = md_util_abs_http_uri_check(p, name, &err);
+    if (APR_SUCCESS != rv) {
+        apr_array_header_t *names;
+
+        names = apr_array_make(p, 10, sizeof(const char*));
+        for (i = 0; i < sizeof(KNOWN_CAs)/sizeof(KNOWN_CAs[0]); ++i) {
+            APR_ARRAY_PUSH(names, const char *) = KNOWN_CAs[i].name;
+        }
+        *purl = apr_psprintf(p,
+            "The CA name '%s' is not known and it is not a URL either (%s). "
+            "Known CA names are: %s.",
+            name, err, apr_array_pstrcat(p, names, ' '));
+    }
+leave:
+    return rv;
+}

@@ -310,3 +310,39 @@ class TestConf:
         conf.install()
         assert env.apache_fail() == 0
         env.apache_error_log_clear()
+
+    # test case: invalid parameter for MDCertificateAuthority
+    @pytest.mark.parametrize("ca,exp_err_msg", [
+        ("", "takes one argument"),
+        ("yes", "The CA name 'yes' is not known "),
+    ])
+    def test_300_024(self, env, ca, exp_err_msg):
+        conf = HttpdConf(env, text=f"""
+            MDCertificateAuthority {ca}
+            MDRenewMode manual  # lets not contact these in testing
+        """)
+        conf.install()
+        assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
+        assert exp_err_msg in env.apachectl_stderr
+
+    # test case: valid parameter for MDCertificateAuthority
+    @pytest.mark.parametrize("ca, url", [
+        ("LetsEncrypt", "https://acme-v02.api.letsencrypt.org/directory"),
+        ("letsencrypt", "https://acme-v02.api.letsencrypt.org/directory"),
+        ("letsencrypt-test", "https://acme-staging-v02.api.letsencrypt.org/directory"),
+        ("LETSEncrypt-TESt", "https://acme-staging-v02.api.letsencrypt.org/directory"),
+        ("buypass", "https://api.buypass.com/acme/directory"),
+        ("buypass-test", "https://api.test4.buypass.no/acme/directory"),
+    ])
+    def test_300_025(self, env, ca, url):
+        domain = f"test1.{env.http_tld}"
+        conf = HttpdConf(env, text=f"""
+            MDCertificateAuthority {ca}
+            MDRenewMode manual
+        """)
+        conf.add_md([domain])
+        conf.install()
+        assert env.apache_restart() == 0, "Server did not accepted CA '{}'".format(ca)
+        md = env.get_md_status(domain)
+        assert md['ca']['url'] == url
+
