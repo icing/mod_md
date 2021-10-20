@@ -396,7 +396,7 @@ busy hours.
 
 Another thing you can do is combine those. Make a [MDMessageCmd](#mdmessagecmd) that creates a file, like `/tmp/apache-reload-required` and a cronjob that checks the presence of it, makes a reload and removes that file again.
 
-It's really up to you system and traffic what is best here. For most sites, which have times of day with little traffic, I recommend the simple approach with a daily reload via crontab.
+It's really up to your system and traffic what is best here. For most sites, which have times of day with little traffic, I recommend the simple approach with a daily reload via crontab.
 
 
 ## How to Fix Problems
