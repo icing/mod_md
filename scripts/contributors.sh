@@ -42,8 +42,8 @@ else
 fi
 
 if test -n "$rtag"; then
-    git show ${rtag} -lw >/dev/null || exit 1
-    rcommit=$( git show ${rtag} -lw |egrep '^commit '|cut -d' ' -f2 )
+    git show ${rtag} -w >/dev/null || exit 1
+    rcommit=$( git show ${rtag} -w |egrep '^commit '|cut -d' ' -f2 )
     echo "since-release: ${rtag}"
 fi
 

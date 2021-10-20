@@ -16,10 +16,12 @@ Both functions work well together, but you can use one without the other. If you
 
 ## Thanks
 
-The following people directly contributed to `mod_md` by code and documentation changes:
-Alvaro Octal, Bernard Spil, Daniel Caminada, Jacob Hoffman-Andrews, Joe Orton,
-Josh Soref, Lubos Uhliarik, Michael Kaufmann, Michael Köller,
-Michal Karm Babacek, Timothe Litt. 
+The following people directly contributed to `mod_md`:
+Alvaro Octal, Andreas Ulm, Bernard Spil, Daniel Caminada, Dominik Stillhard,
+  Fraser Tweedale, Giovanni Bechis, Jacob Hoffman-Andrews, Joe Orton,
+  Josh Soref, Lubos Uhliarik, Max-Milan Stoyanov, Michael Kaufmann,
+  Michael Köller, Michal Karm Babacek, Mina Galić, Moritz Schlarb,
+  Stefan Eissing, Timothe Litt. 
 
 Many thanks!
 
