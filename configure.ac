@@ -412,7 +412,7 @@ AC_CONFIG_FILES([
     src/md_version.h
     src/Makefile
     test/Makefile
-    test/config.ini
+    test/pyhttpd/config.ini
 ])
 
 AC_OUTPUT
