@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from string import Template
-from typing import List
+from typing import List, Optional
 
 from configparser import ConfigParser, ExtendedInterpolation
 from urllib.parse import urlparse
@@ -122,12 +122,13 @@ class HttpdTestSetup:
                 mod_path = os.path.join(self.env.libexec_dir, f"mod_{m}.so")
                 if os.path.isfile(mod_path):
                     fd.write(f"LoadModule {m}_module   \"{mod_path}\"\n")
-                elif m in self.env.dso_modules:
+                elif m in self.env.static_modules:
                     fd.write(f"#built static: LoadModule {m}_module   \"{mod_path}\"\n")
                 else:
                     missing_mods.append(m)
         if len(missing_mods) > 0:
-            raise Exception(f"Unable to find modules: {missing_mods}")
+            raise Exception(f"Unable to find modules: {missing_mods} "\
+                            f"DSOs: {self.env.dso_modules}")
 
     def _make_htdocs(self):
         our_dir = os.path.dirname(inspect.getfile(Dummy))
@@ -151,7 +152,7 @@ class HttpdTestEnv:
         return os.environ['SSL'] if 'SSL' in os.environ else 'ssl'
 
     def __init__(self, pytestconfig=None,
-                 local_dir=None, add_base_conf: str = None,
+                 local_dir=None, add_base_conf: List[str] = None,
                  interesting_modules: List[str] = None):
         self._our_dir = os.path.dirname(inspect.getfile(Dummy))
         self._local_dir = local_dir if local_dir else self._our_dir
@@ -182,7 +183,8 @@ class HttpdTestEnv:
         self._server_error_log = os.path.join(self._server_logs_dir, "error_log")
         self._apachectl_stderr = None
 
-        self._dso_modules = self.config.get('global', 'dso_modules').split(' ')
+        self._dso_modules = self.config.get('httpd', 'dso_modules').split(' ')
+        self._static_modules = self.config.get('httpd', 'static_modules').split(' ')
         self._mpm_module = f"mpm_{os.environ['MPM']}" if 'MPM' in os.environ else 'mpm_event'
         self._ssl_module = self.get_ssl_module()
         if len(self._ssl_module.strip()) == 0:
@@ -193,25 +195,23 @@ class HttpdTestEnv:
         self._https_base = f"https://{self._httpd_addr}:{self.https_port}"
 
         self._test_conf = os.path.join(self._server_conf_dir, "test.conf")
-        self._httpd_base_conf = ""
+        self._httpd_base_conf = []
         if add_base_conf:
-            self._httpd_base_conf += f"\n{add_base_conf}"
+            self._httpd_base_conf.extend(add_base_conf)
 
         self._verbosity = pytestconfig.option.verbose if pytestconfig is not None else 0
         if self._verbosity >= 2:
             log_level = "trace2"
-            self._httpd_base_conf += f"""
-                LogLevel core:trace5 {self.mpm_module}:trace5
-                """
+            self._httpd_base_conf .append(f"LogLevel core:trace5 {self.mpm_module}:trace5")
         elif self._verbosity >= 1:
             log_level = "debug"
         else:
             log_level = "info"
         if interesting_modules:
-            self._httpd_base_conf += "\nLogLevel"
+            l = "LogLevel"
             for name in interesting_modules:
-                self._httpd_base_conf += f" {name}:{log_level}"
-            self._httpd_base_conf += "\n"
+                l += f" {name}:{log_level}"
+            self._httpd_base_conf.append(l)
 
         self._ca = None
         self._cert_specs = [CertificateSpec(domains=[
@@ -304,6 +304,10 @@ class HttpdTestEnv:
         return self._dso_modules
 
     @property
+    def static_modules(self) -> List[str]:
+        return self._static_modules
+
+    @property
     def server_conf_dir(self) -> str:
         return self._server_conf_dir
 
@@ -312,7 +316,7 @@ class HttpdTestEnv:
         return self._server_docs_dir
 
     @property
-    def httpd_base_conf(self) -> str:
+    def httpd_base_conf(self) -> List[str]:
         return self._httpd_base_conf
 
     def local_src(self, path):
@@ -339,7 +343,8 @@ class HttpdTestEnv:
     def issue_certs(self):
         if self._ca is None:
             self._ca = HttpdTestCA.create_root(name=self.http_tld,
-                                               store_dir=os.path.join(self.server_dir, 'ca'), key_type="rsa4096")
+                                               store_dir=os.path.join(self.server_dir, 'ca'),
+                                               key_type="rsa4096")
         self._ca.issue_certs(self._cert_specs)
 
     def get_credentials_for_name(self, dns_name) -> List['Credentials']:
@@ -396,16 +401,18 @@ class HttpdTestEnv:
         start = datetime.now()
         p = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE,
                            input=input.encode() if input else None)
-        return ExecResult(exit_code=p.returncode, stdout=p.stdout, stderr=p.stderr,
+        return ExecResult(args=args, exit_code=p.returncode,
+                          stdout=p.stdout, stderr=p.stderr,
                           duration=datetime.now() - start)
 
     def mkurl(self, scheme, hostname, path='/'):
         port = self.https_port if scheme == 'https' else self.http_port
-        return "%s://%s.%s:%s%s" % (scheme, hostname, self.http_tld, port, path)
+        return f"{scheme}://{hostname}.{self.http_tld}:{port}{path}"
 
     def install_test_conf(self, conf: List[str]):
         with open(self._test_conf, 'w') as fd:
-            fd.write(f"{self.httpd_base_conf}\n")
+            for line in self.httpd_base_conf:
+                fd.write(f"{line}\n")
             for line in conf:
                 fd.write(f"{line}\n")
 
@@ -558,6 +565,12 @@ class HttpdTestEnv:
                     continue
         return errors, warnings
 
+    def get_ca_pem_file(self, hostname: str) -> Optional[str]:
+        if len(self.get_credentials_for_name(hostname)) > 0:
+            return self.ca.cert_file
+            #args.extend(["--cacert", self.acme_ca_pemfile])
+        return None
+
     def curl_complete_args(self, urls, timeout=None, options=None,
                            insecure=False, force_resolve=True):
         if not isinstance(urls, list):
@@ -577,10 +590,10 @@ class HttpdTestEnv:
             args.append('--insecure')
         elif options and "--cacert" in options:
             pass
-        elif u.hostname == self._default_domain:
-            args.extend(["--cacert", f"{self.ca.cert_file}"])
         else:
-            args.extend(["--cacert", self.acme_ca_pemfile])
+            ca_pem = self.get_ca_pem_file(u.hostname)
+            if ca_pem:
+                args.extend(["--cacert", ca_pem])
 
         if force_resolve and u.hostname != 'localhost' \
                 and u.hostname != self._httpd_addr \
@@ -598,7 +611,7 @@ class HttpdTestEnv:
         lines = open(headerfile).readlines()
         exp_stat = True
         if r is None:
-            r = ExecResult(exit_code=0, stdout=b'', stderr=b'')
+            r = ExecResult(args=[], exit_code=0, stdout=b'', stderr=b'')
         header = {}
         for line in lines:
             if exp_stat:
@@ -648,7 +661,7 @@ class HttpdTestEnv:
         options.extend([
             "--form", ("file=@%s" % fpath)
         ])
-        return self.curl_raw([url], timeout, options)
+        return self.curl_raw(urls=[url], timeout=timeout, options=options)
 
     def curl_post_data(self, url, data="", timeout=5, options=None):
         if not options:

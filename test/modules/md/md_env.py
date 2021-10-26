@@ -204,6 +204,12 @@ class MDTestEnv(HttpdTestEnv):
             pytest.fail(msg="ACME server not running", pytrace=False)
             return False
 
+    def get_ca_pem_file(self, hostname: str) -> Optional[str]:
+        pem_file = super().get_ca_pem_file(hostname)
+        if pem_file is None:
+            pem_file = self.acme_ca_pemfile
+        return pem_file
+
     # --------- access local store ---------
 
     def purge_store(self):

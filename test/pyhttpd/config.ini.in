@@ -13,11 +13,12 @@ libexecdir = @libexecdir@
 apr_bindir = @APR_BINDIR@
 apxs = @bindir@/apxs
 apachectl = @sbindir@/apachectl
-dso_modules = @DSO_MODULES@
 
 [httpd]
 version = @HTTPD_VERSION@
 name = @progname@
+dso_modules = @DSO_MODULES@
+static_modules = @STATIC_MODULES@
 
 [test]
 gen_dir = @abs_srcdir@/../gen
