@@ -502,6 +502,7 @@ class HttpdTestEnv:
             timeout = timedelta(seconds=10)
             rv = 0 if self.is_dead(self._http_base, timeout=timeout) else -1
             log.debug("waited for a apache.is_dead, rv=%d", rv)
+            time.sleep(.1)
         return rv
 
     def apache_graceful_stop(self):

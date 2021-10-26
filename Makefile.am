@@ -34,3 +34,6 @@ endif
 test: all-recursive
 	$(MAKE) -C test/ test
 
+docker-test:
+	docker-compose build debian-sid
+	docker-compose run debian-sid

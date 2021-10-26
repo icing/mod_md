@@ -1,0 +1,26 @@
+version: '3.7'
+services:
+  debian-sid:
+    # build and run tests in a debian sid container
+    image: ${DOCKER_REGISTRY}/mod-md-debian-sid:0.0.1
+    container_name: mod-md-debian-sid
+    build:
+      context: .
+      dockerfile: docker/debian-sid/Dockerfile
+      labels:
+        - "description=mod_md debian sid server"
+        - "maintainer=stefan@eissing.org"
+    ports:
+      - 14000:14000  # HTTPS ACME API
+      - 15000:15000  # HTTPS Management API
+
+    volumes:
+      - mod-md-debian-sid-data:/apache-httpd/data
+
+volumes:
+  mod-md-debian-sid-data:
+    name: mod-md-debian-sid-data
+    labels:
+      - "description=debian sid data for mod_md"
+      - "maintainer=stefan@eissing.org"
+

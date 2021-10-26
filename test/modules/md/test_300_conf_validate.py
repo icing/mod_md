@@ -136,6 +136,7 @@ class TestConf:
 
     # test case: MDomain, misses one ServerAlias
     def test_300_011a(self, env):
+        env.apache_stop()
         conf = MDConf(env, text="""
             MDomain not-forbidden.org manual www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
         """)
@@ -149,7 +150,7 @@ class TestConf:
 
     # test case: MDomain, misses one ServerAlias, but auto add enabled
     def test_300_011b(self, env):
-        assert env.apache_stop() == 0
+        env.apache_stop()
         MDConf(env, text="""
             MDomain not-forbidden.org auto mail.not-forbidden.org
 
@@ -275,6 +276,7 @@ class TestConf:
 
     # test case: alt-names incomplete detection, github isse #68
     def test_300_021(self, env):
+        env.apache_stop()
         conf = MDConf(env, text="""
             MDMembers manual
             MDomain secret.com

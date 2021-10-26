@@ -54,7 +54,6 @@
 #include "mod_md_ocsp.h"
 #include "mod_md_os.h"
 #include "mod_md_status.h"
-#include "mod_ssl_openssl.h"
 
 static void md_hooks(apr_pool_t *pool);
 

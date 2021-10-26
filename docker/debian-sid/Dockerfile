@@ -1,0 +1,24 @@
+FROM debian:sid
+
+RUN apt update; apt upgrade -y
+RUN apt install -y apt-listchanges \
+      make openssl libssl-dev libcurl4 libcurl4-openssl-dev \
+      gcc subversion git cargo python3 iputils-ping \
+      libapr1-dev libaprutil1-dev libnghttp2-dev pip \
+      autoconf libtool libtool-bin libpcre3-dev libjansson-dev curl rsync nghttp2-client
+
+RUN pip install pytest tqdm pycurl cryptography requests pyopenssl
+
+RUN apt install -y apache2 apache2-dev libapache2-mod-md
+RUN apt install -y pebble
+
+COPY docker/debian-sid/bin/* /apache-httpd/bin/
+COPY configure.ac Makefile.am NEWS README* AUTHORS ChangeLog COPYING LICENSE /apache-httpd/mod_md/
+COPY m4 /apache-httpd/mod_md/m4
+COPY src /apache-httpd/mod_md/src
+COPY test test/Makefile.am /apache-httpd/mod_md/test/
+COPY test/pyhttpd /apache-httpd/mod_md/test/pyhttpd
+COPY test/modules /apache-httpd/mod_md/test/modules
+COPY test/unit /apache-httpd/mod_md/test/unit
+
+CMD ["/bin/bash", "-c", "/apache-httpd/bin/mod_md_test.sh"]

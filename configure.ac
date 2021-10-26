@@ -125,6 +125,16 @@ if test ! -x "$APACHECTL"; then
 fi
 AC_SUBST(APACHECTL)
 
+if test -x "$APACHECTL"; then
+    DSO_MODULES="$($APACHECTL -t -D DUMP_MODULES | fgrep '(shared)'| sed 's/_module.*//g'|tr -d \\n)"
+    AC_SUBST(DSO_MODULES)
+    STATIC_MODULES="$($APACHECTL -t -D DUMP_MODULES | fgrep '(static)'| sed 's/_module.*//g'|tr -d \\n)"
+    AC_SUBST(STATIC_MODULES)
+else
+    AC_MSG_WARN("apachectl not found in '$BINDIR', test suite will not work!")
+    APACHECTL=""
+fi
+
 # We need crypto to be in our link path, check for it.
 #
 AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found")])
