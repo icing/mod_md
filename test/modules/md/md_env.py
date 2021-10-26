@@ -96,7 +96,7 @@ class MDTestEnv(HttpdTestEnv):
             self._acme_url = "http://localhost:4001/directory"
             self._acme_eab_url = None
         else:
-            raise ExecResult(f"unknown ACME server type: {self._acme_server}")
+            raise Exception(f"unknown ACME server type: {self._acme_server}")
         self._acme_server_down = False
         self._acme_server_ok = False
 

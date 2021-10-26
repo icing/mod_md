@@ -17,7 +17,7 @@ def pytest_report_header(config, startdir):
     return "mod_md: [apache: {aversion}({prefix}), mod_{ssl}, ACME server: {acme}]".format(
         prefix=env.prefix,
         aversion=env.get_httpd_version(),
-        ssl=env.get_ssl_type(),
+        ssl=env.ssl_module,
         acme=env.acme_server,
     )
 

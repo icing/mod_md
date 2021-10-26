@@ -12,7 +12,9 @@ from .md_env import MDTestEnv
 
 log = logging.getLogger(__name__)
 
+
 def monitor_proc(env: MDTestEnv, proc):
+    _env = env
     proc.wait()
 
 
@@ -95,7 +97,7 @@ class MDBoulderRunner(ACMEServer):
         self.env = env
         self.install_ca_bundle(self.env.acme_ca_pemfile)
 
-    def start(self, configs=None):
+    def start(self, config=None):
         pass
 
     def stop(self):
@@ -108,4 +110,3 @@ class MDBoulderRunner(ACMEServer):
         assert r.exit_code == 0
         with open(dest, 'w') as fd:
             fd.write(r.stdout)
-
