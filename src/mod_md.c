@@ -686,18 +686,18 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
         if (md->cert_files && md->cert_files->nelts) {
             if (!md->pkey_files || (md->cert_files->nelts != md->pkey_files->nelts)) {
                 ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10170)
-                             "The Managed Domain '%s', defined in %s(line %d), "
+                             "The Managed Domain '%s' "
                              "needs one MDCertificateKeyFile for each MDCertificateFile.",
-                             md->name, md->defn_name, md->defn_line_number);
+                             md->name);
                 return APR_EINVAL;
             }
         }
         else if (md->pkey_files && md->pkey_files->nelts 
             && (!md->cert_files || !md->cert_files->nelts)) {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10171)
-                         "The Managed Domain '%s', defined in %s(line %d), "
+                         "The Managed Domain '%s' "
                          "has MDCertificateKeyFile(s) but no MDCertificateFile.",
-                         md->name, md->defn_name, md->defn_line_number);
+                         md->name);
             return APR_EINVAL;
         }
 

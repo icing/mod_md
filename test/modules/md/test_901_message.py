@@ -46,7 +46,6 @@ class TestMessage:
         stat = env.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
-        env.httpd_error_log.ignore_recent()
 
     # test: signup with configured message cmd that is valid but returns != 0
     def test_901_002(self, env):
@@ -64,7 +63,6 @@ class TestMessage:
         stat = env.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
-        env.httpd_error_log.ignore_recent()
 
     # test: signup with working message cmd and see that it logs the right things
     def test_901_003(self, env):
@@ -296,5 +294,4 @@ class TestMessage:
         stat = env.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "challenge-setup-failure"
-        env.httpd_error_log.ignore_recent()
 

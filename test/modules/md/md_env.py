@@ -11,8 +11,7 @@ import subprocess
 import time
 
 from datetime import datetime, timedelta
-from configparser import ConfigParser, ExtendedInterpolation
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from pyhttpd.certs import CertificateSpec
 from .md_cert_util import MDCertUtil
@@ -109,16 +108,6 @@ class MDTestEnv(HttpdTestEnv):
                             valid_to=timedelta(days=-10)),
             CertificateSpec(domains=["localhost"], key_type='rsa2048'),
         ])
-
-        self.httpd_error_log.set_ignored_lognos([
-            #"AH10045",  # mod_md complains that there is no vhost for an MDomain
-            "AH10105",  # mod_md does not find a vhost with SSL enabled for an MDomain
-            "AH10085"   # mod_ssl complains about fallback certificates
-        ])
-        if self.lacks_ocsp():
-            self.httpd_error_log.set_ignored_patterns([
-                re.compile(r'.*certificate with serial \S+ has no OCSP responder URL.*'),
-            ])
 
         if setup_dirs:
             self._setup = MDTestSetup(env=self)

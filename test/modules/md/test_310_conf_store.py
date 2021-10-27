@@ -20,10 +20,6 @@ class TestConf:
     def _class_scope(self, env, acme):
         acme.start(config='default')
         env.check_acme()
-        yield
-        # these tests produce many warnings, ignore those
-        errors, _warnings = env.httpd_error_log.get_recent_count()
-        assert errors == 0, f"{env.httpd_error_log}"
 
     @pytest.fixture(autouse=True, scope='function')
     def _method_scope(self, env, request):
@@ -350,8 +346,6 @@ class TestConf:
         # check: md overwrite previous name and changes name
         env.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"],
                      md="testdomain.org", state=1)
-        errors, _warnings = env.httpd_error_log.get_recent_count()
-        assert errors == 0, f"{env.httpd_error_log}"
 
     # test case: remove one md, keep another
     def test_310_203(self, env):

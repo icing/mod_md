@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 from datetime import timedelta
 import pytest
@@ -38,8 +39,34 @@ def env(pytestconfig) -> MDTestEnv:
 
 @pytest.fixture(autouse=True, scope="package")
 def _session_scope(env):
+    # we'd like to check the httpd error logs after the test suite has
+    # run to catch anything unusual. For this, we setup the ignore list
+    # of errors and warnings that we do expect.
+    env.httpd_error_log.set_ignored_lognos([
+        'AH10040',  # mod_md, setup complain
+        'AH10045',  # mod_md complains that there is no vhost for an MDomain
+        'AH10056',  # mod_md, invalid params
+        'AH10105',  # mod_md does not find a vhost with SSL enabled for an MDomain
+        'AH10085',  # mod_ssl complains about fallback certificates
+        'AH01909',  # mod_ssl, cert alt name complains
+    ])
+
+    env.httpd_error_log.add_ignored_patterns([
+        re.compile(r'.*urn:ietf:params:acme:error:.*'),
+        re.compile(r'.*None of the ACME challenge methods configured for this domain are suitable.*'),
+        re.compile(r'.*problem\[(challenge-mismatch|challenge-setup-failure|apache:eab-hmac-invalid)].*'),
+        re.compile(r'.*CA considers answer to challenge invalid.].*'),
+        re.compile(r'.*The Managed Domain \'test-730-003-\S+.org\'.*'),
+        re.compile(r'.*problem\[urn:org:apache:httpd:log:AH\d+:].*'),
+        re.compile(r'.*Unsuccessful in contacting ACME server at :*'),
+        re.compile(r'.*test-720-002-\S+.org: dns-01 setup command failed .*'),
+    ])
+    if env.lacks_ocsp():
+        env.httpd_error_log.add_ignored_patterns([
+            re.compile(r'.*certificate with serial \S+ has no OCSP responder URL.*'),
+        ])
     yield
-    # HttpdConf(env).install()
+    HttpdConf(env).install()
     assert env.apache_stop() == 0
     errors, warnings = env.httpd_error_log.get_missed()
     assert (len(errors), len(warnings)) == (0, 0),\

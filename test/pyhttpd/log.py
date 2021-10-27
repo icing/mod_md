@@ -1,7 +1,7 @@
 import os
 import re
 from io import SEEK_END
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 
 class HttpdErrorLog:
@@ -17,7 +17,7 @@ class HttpdErrorLog:
     def __init__(self, path: str):
         self._path = path
         self._ignored_modules = []
-        self._ignored_lognos = []
+        self._ignored_lognos = set()
         self._ignored_patterns = []
         # remember the file position we started with
         self._start_pos = 0
@@ -52,10 +52,12 @@ class HttpdErrorLog:
         self._ignored_modules = modules.copy() if modules else []
 
     def set_ignored_lognos(self, lognos: List[str]):
-        self._ignored_lognos = lognos.copy() if lognos else []
+        if lognos:
+            for l in lognos:
+                self._ignored_lognos.add(l)
 
-    def set_ignored_patterns(self, patterns: List[str]):
-        self._ignored_patterns = patterns.copy() if patterns else []
+    def add_ignored_patterns(self, patterns: List[Any]):
+        self._ignored_patterns.extend(patterns)
 
     def _is_ignored(self, line: str) -> bool:
         for p in self._ignored_patterns:

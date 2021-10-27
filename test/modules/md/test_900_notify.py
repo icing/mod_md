@@ -49,7 +49,6 @@ class TestNotify:
         assert env.await_error(self.domain)
         stat = env.get_md_status(self.domain)
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10108:"
-        env.httpd_error_log.ignore_recent()
 
     # test: valid notify cmd that fails, check error
     def test_900_002(self, env):
@@ -62,7 +61,6 @@ class TestNotify:
         assert env.await_error(self.domain)
         stat = env.get_md_status(self.domain)
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10108:"
-        env.httpd_error_log.ignore_recent()
 
     # test: valid notify that logs to file
     def test_900_010(self, env):

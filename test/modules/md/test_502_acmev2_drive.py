@@ -371,8 +371,6 @@ class TestDrivev2:
                  "-servername", "example.com", "-crlf"
                  ], input="GET https:// HTTP/1.1\nHost: example.com\n\n")
         assert env.apache_restart() == 0
-        # assert that no crash is reported in the log
-        assert not env.httpd_error_log.scan_recent(re.compile(r'^.* child pid \S+ exit .*$'))
 
     # --------- critical state change -> drive again ---------
 

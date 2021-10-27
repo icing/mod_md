@@ -239,4 +239,3 @@ Protocols h2 http/1.1 acme-tls/1
             assert ktype in stat['cert']
             if env.acme_server == 'boulder':
                 assert 'ocsp' in stat['cert'][ktype]
-        assert env.httpd_error_log.get_recent_count() == (0, 0), f"{env.httpd_error_log}"
