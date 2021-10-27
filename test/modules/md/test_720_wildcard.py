@@ -46,7 +46,6 @@ class TestWildcard:
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-mismatch'
-        env.apache_error_log_clear()
 
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command path 
@@ -72,7 +71,6 @@ class TestWildcard:
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-setup-failure'
-        env.apache_error_log_clear()
 
     # variation, invalid cmd path, other challenges still get certificate for non-wildcard
     def test_720_002b(self, env):
@@ -121,7 +119,6 @@ class TestWildcard:
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-setup-failure'
-        env.apache_error_log_clear()
 
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name certificate with ACMEv2, only dns-01 configured 

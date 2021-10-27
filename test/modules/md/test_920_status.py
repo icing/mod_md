@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 
 import pytest
 
@@ -17,12 +18,9 @@ class TestStatus:
 
     @pytest.fixture(autouse=True, scope='class')
     def _class_scope(self, env, acme):
-        env.APACHE_CONF_SRC = "data/test_auto"
         acme.start(config='default')
         env.check_acme()
         env.clear_store()
-        MDConf(env).install()
-        assert env.apache_restart() == 0
 
     @pytest.fixture(autouse=True, scope='function')
     def _method_scope(self, env, request):
@@ -217,7 +215,6 @@ Protocols h2 http/1.1 acme-tls/1
         conf.add_md(domains)
         conf.add_vhost(domain)
         conf.install()
-        env.apache_error_log_clear()
         assert env.apache_restart() == 0
         assert env.await_completion([domain], restart=False)
         # In the stats JSON, we excpect 2 certificates under 'renewal'
@@ -242,4 +239,4 @@ Protocols h2 http/1.1 acme-tls/1
             assert ktype in stat['cert']
             if env.acme_server == 'boulder':
                 assert 'ocsp' in stat['cert'][ktype]
-        env.apache_errors_check()
+        assert env.httpd_error_log.get_recent_count() == (0, 0), f"{env.httpd_error_log}"

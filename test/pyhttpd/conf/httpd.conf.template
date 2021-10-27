@@ -17,6 +17,11 @@ TypesConfig "${gen_dir}/apache/conf/mime.types"
 Listen ${http_port}
 Listen ${https_port}
 
+<IfModule mod_ssl.c>
+    # provide some default
+    SSLSessionCache "shmcb:ssl_gcache_data(32000)"
+</IfModule>
+
 # Insert our test specific configuration before the first vhost,
 # so that its vhosts can be the default one. This is relevant in
 # certain behaviours, such as protocol selection during SSL ALPN
@@ -36,11 +41,10 @@ RequestReadTimeout header=10 body=10
 <VirtualHost *:${http_port}>
     ServerName ${http_tld}
     ServerAlias www.${http_tld}
-
-    DocumentRoot "${server_dir}/htdocs"
     <IfModule ssl_module>
-        SSLEngine off
+      SSLEngine off
     </IfModule>
+    DocumentRoot "${server_dir}/htdocs"
 </VirtualHost>
 
 <Directory "${server_dir}/htdocs/cgi">

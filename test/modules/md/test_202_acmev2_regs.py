@@ -16,7 +16,6 @@ class TestAcmeAcc:
     def _class_scope(self, env, acme):
         acme.start(config='default')
         env.check_acme()
-        env.apache_error_log_clear()
         env.APACHE_CONF_SRC = "data/test_drive"
         MDConf(env).install()
         assert env.apache_restart() == 0

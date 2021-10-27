@@ -46,4 +46,3 @@ class TestSetupErrors:
         md = env.await_error(domain, errors=2, timeout=10)
         assert md
         assert md['renewal']['errors'] > 0
-        env.apache_error_log_clear()

@@ -17,7 +17,6 @@ class TestConf:
     @pytest.fixture(autouse=True, scope='class')
     def _class_scope(self, env):
         env.clear_store()
-        env.apache_error_log_clear()
 
     # test case: just one MDomain definition
     def test_300_001(self, env):
@@ -42,7 +41,7 @@ class TestConf:
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             """).install()
         assert env.apache_fail() == 0
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test case: two MDomain definitions, overlapping
     def test_300_004(self, env):
@@ -52,7 +51,7 @@ class TestConf:
             MDomain example2.org test3.not-forbidden.org www.example2.org mail.example2.org
             """).install()
         assert env.apache_fail() == 0
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test case: two MDomains, one inside a virtual host
     def test_300_005(self, env):
@@ -109,7 +108,8 @@ class TestConf:
     # test case: vhosts with overlapping MDs
     def test_300_009(self, env):
         assert env.apache_stop() == 0
-        conf = MDConf(env, text="""
+        conf = MDConf(env)
+        conf.add("""
             MDMembers manual
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
             MDomain example2.org www.example2.org www.example3.org
@@ -119,20 +119,23 @@ class TestConf:
         conf.add_vhost(port=12346, domains=["not-forbidden.org", "example2.org"], with_ssl=True)
         conf.install()
         assert env.apache_fail() == 0
-        env.apache_error_log_clear()
+        env.apache_stop()
+        env.httpd_error_log.ignore_recent()
 
     # test case: MDomain, vhost with matching ServerAlias
     def test_300_010(self, env):
-        MDConf(env, text="""
+        conf = MDConf(env)
+        conf.add("""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org test3.not-forbidden.org
 
             <VirtualHost *:12346>
                 ServerName not-forbidden.org
                 ServerAlias test3.not-forbidden.org
             </VirtualHost>
-            """).install()
+            """)
+        conf.install()
         assert env.apache_restart() == 0
-        assert (0, 0) == env.httpd_error_log_count()
+        assert (0, 0) == env.httpd_error_log.get_recent_count(), env.httpd_error_log
 
     # test case: MDomain, misses one ServerAlias
     def test_300_011a(self, env):
@@ -145,8 +148,8 @@ class TestConf:
         ])
         conf.install()
         assert env.apache_fail() == 0
-        assert (1, 0) == env.httpd_error_log_count(expect_errors=True)
-        env.apache_error_log_clear()
+        env.apache_stop()
+        assert (1, 0) == env.httpd_error_log.get_recent_count(), f"{env.httpd_error_log}"
 
     # test case: MDomain, misses one ServerAlias, but auto add enabled
     def test_300_011b(self, env):
@@ -161,7 +164,7 @@ class TestConf:
             </VirtualHost>
             """ % env.https_port).install()
         assert env.apache_restart() == 0
-        assert (0, 0) == env.httpd_error_log_count()
+        assert (0, 0) == env.httpd_error_log.get_recent_count()
 
     # test case: MDomain does not match any vhost
     def test_300_012(self, env):
@@ -173,8 +176,7 @@ class TestConf:
             </VirtualHost>
             """).install()
         assert env.apache_restart() == 0
-        assert (0, 1) == env.httpd_error_log_count(expect_errors=True)
-        env.apache_error_log_clear()
+        assert (0, 1) == env.httpd_error_log.get_recent_count()
 
     # test case: one md covers two vhosts
     def test_300_013(self, env):
@@ -188,7 +190,7 @@ class TestConf:
             </VirtualHost>
             """).install()
         assert env.apache_restart() == 0
-        assert (0, 0) == env.httpd_error_log_count()
+        assert (0, 0) == env.httpd_error_log.get_recent_count()
 
     # test case: global server name as managed domain name
     def test_300_014(self, env):
@@ -200,7 +202,7 @@ class TestConf:
             </VirtualHost>
             """).install()
         assert env.apache_restart() == 0
-        assert (0, 0) == env.httpd_error_log_count()
+        assert (0, 0) == env.httpd_error_log.get_recent_count()
 
     # test case: valid pkey specification
     def test_300_015(self, env):
@@ -212,7 +214,7 @@ class TestConf:
             MDPrivateKeys RSA 4096
             """).install()
         assert env.apache_restart() == 0
-        assert (0, 0) == env.httpd_error_log_count()
+        assert (0, 0) == env.httpd_error_log.get_recent_count(), env.httpd_error_log
 
     # test case: invalid pkey specification
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -227,7 +229,6 @@ class TestConf:
         MDConf(env, text=line).install()
         assert env.apache_fail() == 0
         assert exp_err_msg in env.apachectl_stderr
-        env.apache_error_log_clear()
 
     # test case: invalid renew window directive
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -239,7 +240,7 @@ class TestConf:
         MDConf(env, text=line).install()
         assert env.apache_fail() == 0
         assert exp_err_msg in env.apachectl_stderr
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test case: invalid uri for MDProxyPass
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -251,7 +252,7 @@ class TestConf:
         MDConf(env, text=line).install()
         assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
         assert exp_err_msg in env.apachectl_stderr
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test case: invalid parameter for MDRequireHttps
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -261,7 +262,7 @@ class TestConf:
         MDConf(env, text=line).install()
         assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
         assert exp_err_msg in env.apachectl_stderr
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test case: invalid parameter for MDMustStaple
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -272,7 +273,7 @@ class TestConf:
         MDConf(env, text=line).install()
         assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
         assert exp_err_msg in env.apachectl_stderr
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test case: alt-names incomplete detection, github isse #68
     def test_300_021(self, env):
@@ -286,12 +287,12 @@ class TestConf:
         ])
         conf.install()
         assert env.apache_fail() == 0
-        assert (1, 0) == env.httpd_error_log_count(expect_errors=True)
-        assert env.httpd_error_log_scan(
-            re.compile(".*Virtual Host not.secret.com:0 matches Managed Domain 'secret.com', "
-                       "but the name/alias not.secret.com itself is not managed. A requested "
-                       "MD certificate will not match ServerName.*"))
-        env.apache_error_log_clear()
+        time.sleep(1)
+        assert env.httpd_error_log.scan_recent(
+            re.compile(r'.*Virtual Host not.secret.com:0 matches Managed Domain \'secret.com\', '
+                       'but the name/alias not.secret.com itself is not managed. A requested '
+                       'MD certificate will not match ServerName.*'))
+        assert (1, 2) == env.httpd_error_log.get_recent_count(), f"{env.httpd_error_log}"
 
     # test case: use MDRequireHttps in an <if> construct, but not in <Directory
     def test_300_022(self, env):
@@ -317,7 +318,7 @@ class TestConf:
         conf.add_vhost(port=12344, domains=["secret.com"])
         conf.install()
         assert env.apache_fail() == 0
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test case: invalid parameter for MDCertificateAuthority
     @pytest.mark.parametrize("ca,exp_err_msg", [
@@ -330,9 +331,8 @@ class TestConf:
             MDRenewMode manual  # lets not contact these in testing
         """)
         conf.install()
-        assert env.apache_fail() == 0, "Server accepted test config {}".format(line)
+        assert env.apache_fail() == 0
         assert exp_err_msg in env.apachectl_stderr
-        env.apache_error_log_clear()
 
     # test case: valid parameter for MDCertificateAuthority
     @pytest.mark.parametrize("ca, url", [

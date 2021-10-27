@@ -21,7 +21,9 @@ class TestConf:
         acme.start(config='default')
         env.check_acme()
         yield
-        env.apache_error_log_clear()
+        # these tests produce many warnings, ignore those
+        errors, _warnings = env.httpd_error_log.get_recent_count()
+        assert errors == 0, f"{env.httpd_error_log}"
 
     @pytest.fixture(autouse=True, scope='function')
     def _method_scope(self, env, request):
@@ -256,7 +258,6 @@ class TestConf:
         assert env.apache_restart() == 0
         assert env.a2md(["list"]).json['output'][0]['domains'] == \
                ['testdomain.org', 'test.testdomain.org', 'mail.testdomain.org']
-        env.apache_error_log_clear()
 
     # add renew window to existing md
     def test_310_118(self, env):
@@ -349,6 +350,8 @@ class TestConf:
         # check: md overwrite previous name and changes name
         env.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"],
                      md="testdomain.org", state=1)
+        errors, _warnings = env.httpd_error_log.get_recent_count()
+        assert errors == 0, f"{env.httpd_error_log}"
 
     # test case: remove one md, keep another
     def test_310_203(self, env):

@@ -21,7 +21,6 @@ class TestDrivev2:
     def _class_scope(self, env, acme):
         acme.start(config='default')
         env.check_acme()
-        env.apache_error_log_clear()
         env.APACHE_CONF_SRC = "data/test_drive"
         MDConf(env).install()
         assert env.apache_restart() == 0
@@ -373,7 +372,7 @@ class TestDrivev2:
                  ], input="GET https:// HTTP/1.1\nHost: example.com\n\n")
         assert env.apache_restart() == 0
         # assert that no crash is reported in the log
-        assert not env.httpd_error_log_scan(re.compile(r'^.* child pid \S+ exit .*$'))
+        assert not env.httpd_error_log.scan_recent(re.compile(r'^.* child pid \S+ exit .*$'))
 
     # --------- critical state change -> drive again ---------
 

@@ -46,7 +46,6 @@ class TestAcmeErrors:
             assert md['renewal']['last']['detail'] == (
                     "Error creating new order :: Cannot issue for "
                     "\"%s\": Domain name contains an invalid character" % domains[1])
-        env.apache_error_log_clear()
 
     # test case: MD with 3 names, 2 invalid
     #
@@ -71,4 +70,3 @@ class TestAcmeErrors:
                 "Error creating new order :: Cannot issue for")
             assert md['renewal']['last']['subproblems']
             assert len(md['renewal']['last']['subproblems']) == 2
-        env.apache_error_log_clear()

@@ -115,4 +115,3 @@ class TestStatic:
         conf.add_vhost(domain)
         conf.install()
         assert env.apache_fail() == 0
-        env.apache_error_log_clear()

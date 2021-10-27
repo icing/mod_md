@@ -22,7 +22,6 @@ class TestAutov2:
 
     @pytest.fixture(autouse=True, scope='function')
     def _method_scope(self, env, request):
-        env.apache_error_log_clear()
         env.clear_store()
         self.test_domain = env.get_request_domain(request)
 

@@ -41,14 +41,12 @@ class TestMessage:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        env.apache_errors_check()
-        env.apache_error_log_clear()
         assert env.apache_restart() == 0
         assert env.await_file(env.store_staged_file(domain, 'job.json'))
         stat = env.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test: signup with configured message cmd that is valid but returns != 0
     def test_901_002(self, env):
@@ -61,14 +59,12 @@ class TestMessage:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        env.apache_errors_check()
-        env.apache_error_log_clear()
         assert env.apache_restart() == 0
         assert env.await_error(domain)
         stat = env.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 
     # test: signup with working message cmd and see that it logs the right things
     def test_901_003(self, env):
@@ -253,6 +249,7 @@ class TestMessage:
                     assert job["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
                     break
             time.sleep(0.1)
+        env.httpd_error_log.ignore_recent()
 
         # reconfigure to a working notification command and restart
         conf = MDConf(env)
@@ -299,5 +296,5 @@ class TestMessage:
         stat = env.get_md_status(domain)
         # this command should have failed and logged an error
         assert stat["renewal"]["last"]["problem"] == "challenge-setup-failure"
-        env.apache_error_log_clear()
+        env.httpd_error_log.ignore_recent()
 

@@ -33,7 +33,6 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
-        env.apache_error_log_clear()
 
     def test_750_002(self, env):
         # md with known EAB KID and non base64 hmac key configured
@@ -48,7 +47,6 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'apache:eab-hmac-invalid'
-        env.apache_error_log_clear()
 
     def test_750_003(self, env):
         # md with empty EAB KID configured
@@ -63,7 +61,6 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
-        env.apache_error_log_clear()
 
     def test_750_004(self, env):
         # md with unknown EAB KID configured
@@ -78,7 +75,6 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
-        env.apache_error_log_clear()
 
     def test_750_005(self, env):
         # md with known EAB KID but wrong HMAC configured
@@ -93,7 +89,6 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
-        env.apache_error_log_clear()
 
     def test_750_010(self, env):
         # md with correct EAB configured
@@ -126,7 +121,6 @@ class TestEab:
         md = env.await_error(domain_b)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
-        env.apache_error_log_clear()
 
     def test_750_012(self, env):
         # first one md without EAB, then one with
@@ -146,7 +140,6 @@ class TestEab:
         md = env.await_error(domain_a)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
-        env.apache_error_log_clear()
 
     def test_750_013(self, env):
         # 2 mds with the same EAB, should one create a single account
@@ -218,7 +211,6 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
-        env.apache_error_log_clear()
 
     def test_750_016(self, env):
         # md with correct EAB, get cert, change to invalid EAB
@@ -245,4 +237,3 @@ class TestEab:
         md = env.await_error(domain)
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
-        env.apache_error_log_clear()

@@ -83,8 +83,6 @@ class MDTestEnv(HttpdTestEnv):
     def __init__(self, pytestconfig=None, setup_dirs=True):
         super().__init__(pytestconfig=pytestconfig,
                          local_dir=os.path.dirname(inspect.getfile(MDTestEnv)),
-                         add_base_conf="""
-                            """,
                          interesting_modules=["md"])
         self._acme_server = self.get_acme_server()
         self._acme_tos = "accepted"
@@ -111,6 +109,16 @@ class MDTestEnv(HttpdTestEnv):
                             valid_to=timedelta(days=-10)),
             CertificateSpec(domains=["localhost"], key_type='rsa2048'),
         ])
+
+        self.httpd_error_log.set_ignored_lognos([
+            #"AH10045",  # mod_md complains that there is no vhost for an MDomain
+            "AH10105",  # mod_md does not find a vhost with SSL enabled for an MDomain
+            "AH10085"   # mod_ssl complains about fallback certificates
+        ])
+        if self.lacks_ocsp():
+            self.httpd_error_log.set_ignored_patterns([
+                re.compile(r'.*certificate with serial \S+ has no OCSP responder URL.*'),
+            ])
 
         if setup_dirs:
             self._setup = MDTestSetup(env=self)
@@ -346,89 +354,6 @@ class MDTestEnv(HttpdTestEnv):
         not_after = cert.get_not_after()
         assert not_before < datetime.now(not_before.tzinfo)
         assert not_after > datetime.now(not_after.tzinfo)
-
-    RE_MD_RESET = re.compile(r'.*\[md:info].*initializing\.\.\.')
-    RE_MD_ERROR = re.compile(r'.*\[md:error].*')
-    RE_MD_WARN = re.compile(r'.*\[md:warn].*')
-
-    def httpd_error_log_count(self, expect_errors=False, timeout_sec=5):
-        ecount = 0
-        wcount = 0
-        end = datetime.now() + timedelta(seconds=timeout_sec)
-        while datetime.now() < end:
-            if os.path.isfile(self._server_error_log):
-                fin = open(self._server_error_log)
-                for line in fin:
-                    m = self.RE_MD_ERROR.match(line)
-                    if m:
-                        ecount += 1
-                        continue
-                    m = self.RE_MD_WARN.match(line)
-                    if m:
-                        wcount += 1
-                        continue
-                    m = self.RE_MD_RESET.match(line)
-                    if m:
-                        ecount = 0
-                        wcount = 0
-            if not expect_errors or ecount + wcount > 0:
-                return ecount, wcount
-            time.sleep(.1)
-        raise TimeoutError(f"waited {timeout_sec} sec for error/warnings to show up in log")
-
-    def httpd_error_log_scan(self, regex):
-        if not os.path.isfile(self._server_error_log):
-            return False
-        fin = open(self._server_error_log)
-        for line in fin:
-            if regex.match(line):
-                return True
-        return False
-
-    RE_APLOGNO = re.compile(r'.*\[(?P<module>[^:]+):(error|warn)].* (?P<aplogno>AH\d+): .+')
-    RE_ERRLOG_ERROR = re.compile(r'.*\[(?P<module>[^:]+):error].*')
-    RE_ERRLOG_WARN = re.compile(r'.*\[(?P<module>[^:]+):warn].*')
-    RE_NOTIFY_ERR = re.compile(r'.*\[urn:org:apache:httpd:log:AH10108:.+')
-    RE_NO_RESPONDER = re.compile(r'.*has no OCSP responder URL.*')
-
-    def apache_errors_and_warnings(self):
-        errors = []
-        warnings = []
-
-        if os.path.isfile(self._server_error_log):
-            for line in open(self._server_error_log):
-                m = self.RE_APLOGNO.match(line)
-                if m and m.group('aplogno') in [
-                    'AH01873',  # ssl session cache not configured
-                    'AH10085',  # warning about fallback cert active
-                    'AH02217',  # ssl_stapling init error
-                    'AH02604',  # ssl unable to configure our self signed for stapling
-                    'AH10045',  # md reports a non match domain to vhosts
-                ]:
-                    # we know these happen normally in our tests
-                    continue
-                m = self.RE_NOTIFY_ERR.match(line)
-                if m:
-                    continue
-                m = self.RE_NO_RESPONDER.match(line)
-                if m:
-                    # happens during testing
-                    continue
-                m = self.RE_ERRLOG_ERROR.match(line)
-                if m and m.group('module') not in ['cgid']:
-                    errors.append(line)
-                    continue
-                m = self.RE_ERRLOG_WARN.match(line)
-                if m:
-                    warnings.append(line)
-                    continue
-        return errors, warnings
-
-    def apache_errors_check(self):
-        errors, warnings = self.apache_errors_and_warnings()
-        assert (len(errors), len(warnings)) == (0, 0), \
-            f"apache logged {len(errors)} errors and {len(warnings)} warnings: \n" \
-            "{0}\n{1}\n".format("\n".join(errors), "\n".join(warnings))
 
     # --------- check utilities ---------
 
