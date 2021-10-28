@@ -2182,6 +2182,18 @@ running.
 
 It no ACME test server was detected, most of the tests will be skipped.
 
+# Testing with Docker
+
+You can test the module with docker:
+
+```
+> make test-docker
+```
+
+This creates a Debian sid image and installs the current apache2 package and Pebble. It copies and
+builds the sources from your file system and runs the test suite.
+
+
 # Testing with Pebble
 
 Pebble is the preferred ACME test server now.

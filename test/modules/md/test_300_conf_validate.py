@@ -279,7 +279,8 @@ class TestConf:
         assert env.httpd_error_log.scan_recent(
             re.compile(r'.*Virtual Host not.secret.com:0 matches Managed Domain \'secret.com\', '
                        'but the name/alias not.secret.com itself is not managed. A requested '
-                       'MD certificate will not match ServerName.*'))
+                       'MD certificate will not match ServerName.*'), timeout=10
+        )
 
     # test case: use MDRequireHttps in an <if> construct, but not in <Directory
     def test_300_022(self, env):

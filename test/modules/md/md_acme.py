@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
 from threading import Thread
@@ -68,6 +69,18 @@ class MDPebbleRunner(ACMEServer):
         t = Thread(target=monitor_proc, args=(self.env, self._challtestsrv))
         t.start()
         self.install_ca_bundle(self.env.acme_ca_pemfile)
+        # disable ipv6 default address, this gives trouble inside docker
+        end = datetime.now() + timedelta(seconds=5)
+        while True:
+            r = self.env.run(['curl', 'localhost:8055/'])
+            if r.exit_code == 0:
+                break
+            if datetime.now() > end:
+                raise TimeoutError(f'unable to contact pebble-challtestsrv on localhost:8055')
+            time.sleep(.1)
+        r = self.env.run(['curl', '-d', f'{{"ip":""}}',
+                          'localhost:8055/set-default-ipv6'])
+        assert r.exit_code == 0, f"{r}"
 
     def stop(self):
         if self._pebble:

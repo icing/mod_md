@@ -305,21 +305,26 @@ class MDTestEnv(HttpdTestEnv):
 
     def pkey_fname(self, pkeyspec=None):
         if pkeyspec and not re.match(r'^rsa( ?\d+)?$', pkeyspec.lower()):
-            return "privkey.{0}.pem".format(pkeyspec)
+            return "privkey.{0}.pem".format(pkeyspec.lower())
         return 'privkey.pem'
 
     def cert_fname(self, pkeyspec=None):
         if pkeyspec and not re.match(r'^rsa( ?\d+)?$', pkeyspec.lower()):
-            return "pubcert.{0}.pem".format(pkeyspec)
+            return "pubcert.{0}.pem".format(pkeyspec.lower())
         return 'pubcert.pem'
 
     def check_md_complete(self, domain, pkey=None):
         md = self.get_md_status(domain)
         assert md
         assert 'state' in md, "md is unexpected: {0}".format(md)
-        assert md['state'] is MDTestEnv.MD_S_COMPLETE, "unexpected state: {0}".format(md['state'])
-        assert os.path.isfile(self.store_domain_file(domain, self.pkey_fname(pkey)))
-        assert os.path.isfile(self.store_domain_file(domain, self.cert_fname(pkey)))
+        assert md['state'] is MDTestEnv.MD_S_COMPLETE, f"unexpected state: {md['state']}"
+        pkey_file = self.store_domain_file(domain, self.pkey_fname(pkey))
+        cert_file = self.store_domain_file(domain, self.cert_fname(pkey))
+        r = self.run(['ls', os.path.dirname(pkey_file)])
+        if not os.path.isfile(pkey_file):
+            assert False, f"pkey missing: {pkey_file}: {r.stdout}"
+        if not os.path.isfile(cert_file):
+            assert False, f"cert missing: {cert_file}: {r.stdout}"
 
     def check_md_credentials(self, domain):
         if isinstance(domain, list):

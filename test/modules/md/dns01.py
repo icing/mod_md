@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import subprocess
 import sys
@@ -8,7 +8,7 @@ challtestsrv = "localhost:8055"
 
 
 def run(args):
-    sys.stderr.write("run: %s\n" % (' '.join(args)))
+    sys.stderr.write(f"run: {' '.join(args)}\n")
     p = subprocess.Popen(args, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, errput = p.communicate(None)
     rv = p.wait()
@@ -19,35 +19,41 @@ def run(args):
 
 
 def teardown(domain):
-    return run([curl, "-s", "-X", "POST",
-                "-d", "{\"host\":\"_acme-challenge.%s.\"}" % domain,
-                "%s/clear-txt" % challtestsrv])
+    rv = run([curl, '-s', '-d', f'{{"host":"_acme-challenge.{domain}"}}',
+              f'{challtestsrv}/clear-txt'])
+    if rv == 0:
+        rv = run([curl, '-s', '-d', f'{{"host":"{domain}"}}',
+                  f'{challtestsrv}/set-txt'])
+    return rv
 
 
 def setup(domain, challenge):
     teardown(domain)
-    return run([curl, "-s", "-X", "POST",
-                "-d", "{\"host\":\"_acme-challenge.%s.\", \"value\":\"%s\"}" % (domain, challenge),
-                "%s/set-txt" % challtestsrv])
+    rv = run([curl, '-s', '-d', f'{{"host":"{domain}", "addresses":["127.0.0.1"]}}',
+              f'{challtestsrv}/set-txt'])
+    if rv == 0:
+        rv = run([curl, '-s', '-d', f'{{"host":"_acme-challenge.{domain}.", "value":"{challenge}"}}',
+                  f'{challtestsrv}/set-txt'])
+    return rv
 
 
 def main(argv):
     if len(argv) > 1:
         if argv[1] == 'setup':
             if len(argv) != 4:
-                sys.stderr.write("wrong number of arguments: dns01.py setup <domain> <challenge>")
+                sys.stderr.write("wrong number of arguments: dns01.py setup <domain> <challenge>\n")
                 sys.exit(2)
             rv = setup(argv[2], argv[3])
         elif argv[1] == 'teardown':
             if len(argv) != 3:
-                sys.stderr.write("wrong number of arguments: dns01.py teardown <domain>")
+                sys.stderr.write("wrong number of arguments: dns01.py teardown <domain>\n")
                 sys.exit(1)
             rv = teardown(argv[2])
         else:
-            sys.stderr.write("unknown option %s" % (argv[1]))
+            sys.stderr.write(f"unknown option {argv[1]}\n")
             rv = 2
     else:
-        sys.stderr.write("dns01.py wrong number of arguments")
+        sys.stderr.write("dns01.py wrong number of arguments\n")
         rv = 2
     sys.exit(rv)
     

@@ -46,4 +46,5 @@ if needs_update .installed .; then
   touch .installed
 fi
 make install ||fail
-pytest -vvv -k test_310_400
+#pytest -vvv -k test_300_021 || cat test/gen/apache/logs/error_log
+pytest

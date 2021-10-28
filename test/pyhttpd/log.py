@@ -1,5 +1,7 @@
 import os
 import re
+import time
+from datetime import datetime, timedelta
 from io import SEEK_END
 from typing import List, Tuple, Any
 
@@ -145,12 +147,17 @@ class HttpdErrorLog:
                             continue
         return errors, warnings
 
-    def scan_recent(self, pattern: re):
+    def scan_recent(self, pattern: re, timeout=10):
         if not os.path.isfile(self.path):
             return False
         with open(self.path) as fd:
-            fd.seek(self._last_pos, os.SEEK_SET)
-            for line in fd:
-                if pattern.match(line):
-                    return True
+            end = datetime.now() + timedelta(seconds=timeout)
+            while True:
+                fd.seek(self._last_pos, os.SEEK_SET)
+                for line in fd:
+                    if pattern.match(line):
+                        return True
+                if datetime.now() > end:
+                    raise TimeoutError(f"pattern not found in error log after {timeout} seconds")
+                time.sleep(.1)
         return False
