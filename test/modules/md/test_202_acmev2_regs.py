@@ -8,6 +8,7 @@ from .md_conf import MDConf
 from .md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_a2md(), reason="no a2md available")
 @pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
                     reason="no ACME test server configured")
 class TestAcmeAcc:
@@ -29,7 +30,7 @@ class TestAcmeAcc:
     @pytest.mark.parametrize("contact", [
         "x@not-forbidden.org", "xx@not-forbidden.org", "xxx@not-forbidden.org"
     ])
-    def test_202_000(self, env, contact):
+    def test_md_202_000(self, env, contact):
         r = env.a2md(["-t", "accepted", "acme", "newreg", contact], raw=True)
         assert r.exit_code == 0, r
         m = re.match("registered: (.*)$", r.stdout)
@@ -39,7 +40,7 @@ class TestAcmeAcc:
         self._check_account(env, acct, ["mailto:" + contact])
 
     # test case: register a new account without accepting ToS, must fail
-    def test_202_000b(self, env):
+    def test_md_202_000b(self, env):
         r = env.a2md(["acme", "newreg", "x@not-forbidden.org"], raw=True)
         assert r.exit_code == 1
         m = re.match(".*must agree to terms of service.*", r.stderr)
@@ -49,7 +50,7 @@ class TestAcmeAcc:
         assert m, "did not match: {0}".format(r.stderr)
 
     # test case: respect 'mailto:' prefix in contact url
-    def test_202_001(self, env):
+    def test_md_202_001(self, env):
         contact = "mailto:xx@not-forbidden.org"
         r = env.a2md(["-t", "accepted", "acme", "newreg", contact], raw=True)
         assert r.exit_code == 0
@@ -64,11 +65,11 @@ class TestAcmeAcc:
         "missing.host@", "@missing.localpart.de",
         "double..dot@test.com", "double@at@test.com"
     ])
-    def test_202_002(self, env, invalid_contact):
+    def test_md_202_002(self, env, invalid_contact):
         assert env.a2md(["acme", "newreg", invalid_contact]).exit_code == 1
 
     # test case: use contact list
-    def test_202_003(self, env):
+    def test_md_202_003(self, env):
         contact = ["xx@not-forbidden.org", "aa@not-forbidden.org"]
         r = env.a2md(["-t", "accepted", "acme", "newreg"] + contact, raw=True)
         assert r.exit_code == 0
@@ -78,16 +79,16 @@ class TestAcmeAcc:
         self._check_account(env, acct, ["mailto:" + contact[0], "mailto:" + contact[1]])
 
     # test case: validate new account
-    def test_202_100(self, env):
+    def test_md_202_100(self, env):
         acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
         assert env.a2md(["acme", "validate", acct]).exit_code == 0
 
     # test case: fail on non-existing account
-    def test_202_101(self, env):
+    def test_md_202_101(self, env):
         assert env.a2md(["acme", "validate", "ACME-localhost-1000"]).exit_code == 1
 
     # test case: report fail on request signing problem
-    def test_202_102(self, env):
+    def test_md_202_102(self, env):
         acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
         with open(env.path_account(acct)) as f:
             acctj = json.load(f)
@@ -96,12 +97,12 @@ class TestAcmeAcc:
         assert env.a2md(["acme", "validate", acct]).exit_code == 1
 
     # test case: register and try delete an account, will fail without persistence
-    def test_202_200(self, env):
+    def test_md_202_200(self, env):
         acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
         assert env.a2md(["delreg", acct]).exit_code == 1
 
     # test case: register and try delete an account with persistence
-    def test_202_201(self, env):
+    def test_md_202_201(self, env):
         acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
         assert env.a2md(["acme", "delreg", acct]).exit_code == 0
         # check that store is clean
@@ -109,12 +110,12 @@ class TestAcmeAcc:
         assert re.match(env.store_dir, r.stdout)
 
     # test case: delete a persisted account without specifying url
-    def test_202_202(self, env):
+    def test_md_202_202(self, env):
         acct = self._prepare_account(env, ["tmp@not-forbidden.org"])
         assert env.run([env.a2md_bin, "-d", env.store_dir, "acme", "delreg", acct]).exit_code == 0
 
     # test case: delete, then validate an account
-    def test_202_203(self, env):
+    def test_md_202_203(self, env):
         acct = self._prepare_account(env, ["test014@not-forbidden.org"])
         assert env.a2md(["acme", "delreg", acct]).exit_code == 0
         # validate on deleted account fails

@@ -31,7 +31,7 @@ class TestMustStaple:
         conf.install()
 
     # MD with default, e.g. not staple
-    def test_800_001(self, env):
+    def test_md_800_001(self, env):
         self.configure_httpd(env, self.domain)
         assert env.apache_restart() == 0
         assert env.await_completion([self.domain])
@@ -40,7 +40,7 @@ class TestMustStaple:
         assert not cert1.get_must_staple()
 
     # MD that should explicitly not staple
-    def test_800_002(self, env):
+    def test_md_800_002(self, env):
         self.configure_httpd(env, self.domain, "MDMustStaple off")
         assert env.apache_restart() == 0
         env.check_md_complete(self.domain)
@@ -51,7 +51,7 @@ class TestMustStaple:
 
     # MD that must staple and toggle off again
     @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
-    def test_800_003(self, env):
+    def test_md_800_003(self, env):
         self.configure_httpd(env, self.domain, "MDMustStaple on")
         assert env.apache_restart() == 0
         assert env.await_completion([self.domain])
@@ -68,7 +68,7 @@ class TestMustStaple:
     # MD that must staple
     @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     @pytest.mark.skipif(MDTestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
-    def test_800_004(self, env):
+    def test_md_800_004(self, env):
         # mod_ssl stapling is off, expect no stapling
         stat = env.get_ocsp_status(self.domain)
         assert stat['ocsp'] == "no response sent" 

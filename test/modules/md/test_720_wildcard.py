@@ -28,7 +28,7 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, no dns-01 supported
     #
-    def test_720_001(self, env):
+    def test_md_720_001(self, env):
         domain = self.test_domain
         
         # generate config with DNS wildcard
@@ -50,7 +50,7 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command path 
     #
-    def test_720_002(self, env):
+    def test_md_720_002(self, env):
         dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01-not-found.py")
 
         domain = self.test_domain
@@ -73,7 +73,7 @@ class TestWildcard:
         assert md['renewal']['last']['problem'] == 'challenge-setup-failure'
 
     # variation, invalid cmd path, other challenges still get certificate for non-wildcard
-    def test_720_002b(self, env):
+    def test_md_720_002b(self, env):
         dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01-not-found.py")
         domain = self.test_domain
         domains = [domain, "xxx." + domain]
@@ -99,7 +99,7 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command option 
     #
-    def test_720_003(self, env):
+    def test_md_720_003(self, env):
         dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01.py fail")
         domain = self.test_domain
         domains = [domain, "*." + domain]
@@ -123,7 +123,7 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name certificate with ACMEv2, only dns-01 configured 
     #
-    def test_720_004(self, env):
+    def test_md_720_004(self, env):
         dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01.py")
         domain = self.test_domain
         domains = [domain, "*." + domain]
@@ -150,7 +150,7 @@ class TestWildcard:
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name and 2nd normal vhost, not overlapping
     #
-    def test_720_005(self, env):
+    def test_md_720_005(self, env):
         dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01.py")
         domain = self.test_domain
         domain2 = "www.x" + domain
@@ -178,7 +178,7 @@ class TestWildcard:
 
     # -----------------------------------------------------------------------------------------------
     # test case: a wildcard name and 2nd normal vhost, overlapping
-    def test_720_006(self, env):
+    def test_md_720_006(self, env):
         dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01.py")
         domain = self.test_domain
         dwild = "*." + domain
@@ -207,7 +207,7 @@ class TestWildcard:
 
     # -----------------------------------------------------------------------------------------------
     # test case: a MDomain with just a wildcard, see #239
-    def test_720_007(self, env):
+    def test_md_720_007(self, env):
         dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01.py")
         domain = self.test_domain
         dwild = "*." + domain

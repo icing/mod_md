@@ -4,8 +4,10 @@ import os
 import pytest
 
 from .md_conf import MDConf
+from .md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_a2md(), reason="no a2md available")
 class TestStoreMigrate:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -14,7 +16,7 @@ class TestStoreMigrate:
         assert env.apache_restart() == 0
 
     # install old store, start a2md list, check files afterwards
-    def test_010_000(self, env):
+    def test_md_010_000(self, env):
         domain = "7007-1502285564.org"
         env.replace_store(os.path.join(env.test_dir, "../modules/md/data/store_migrate/1.0/sample1"))
         #

@@ -8,6 +8,7 @@ from .md_conf import MDConf
 from .md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_a2md(), reason="no a2md available")
 @pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
                     reason="no ACME test server configured")
 class TestRoundtripv2:
@@ -26,7 +27,7 @@ class TestRoundtripv2:
 
     # --------- add to store ---------
 
-    def test_602_000(self, env):
+    def test_md_602_000(self, env):
         # test case: generate config with md -> restart -> drive -> generate config
         # with vhost and ssl -> restart -> check HTTPS access
         domain = self.test_domain
@@ -55,7 +56,7 @@ class TestRoundtripv2:
         # check file system permissions:
         env.check_file_permissions(domain)
 
-    def test_602_001(self, env):
+    def test_md_602_001(self, env):
         # test case: same as test_600_000, but with two parallel managed domains
         domain_a = "a-" + self.test_domain
         domain_b = "b-" + self.test_domain
@@ -93,7 +94,7 @@ class TestRoundtripv2:
         cert_b = env.get_cert(domain_b)
         assert domains_b == cert_b.get_san_list()
 
-    def test_602_002(self, env):
+    def test_md_602_002(self, env):
         # test case: one md, that covers two vhosts
         domain = self.test_domain
         name_a = "a." + domain

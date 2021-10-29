@@ -12,6 +12,7 @@ MS_PER_DAY = SEC_PER_DAY * 1000
 NS_PER_DAY = MS_PER_DAY * 1000
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_a2md(), reason="no a2md available")
 @pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
                     reason="no ACME test server configured")
 class TestConf:
@@ -27,7 +28,7 @@ class TestConf:
         self.test_domain = env.get_request_domain(request)
 
     # test case: no md definitions in config
-    def test_310_001(self, env):
+    def test_md_310_001(self, env):
         MDConf(env, text="").install()
         assert env.apache_restart() == 0
         r = env.a2md(["list"])
@@ -42,14 +43,14 @@ class TestConf:
             [["testdomain.org", "www.testdomain.org", "mail.testdomain.org"],
              ["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"]], 2)
     ])
-    def test_310_100(self, env, confline, dns_lists, md_count):
+    def test_md_310_100(self, env, confline, dns_lists, md_count):
         MDConf(env, text=confline).install()
         assert env.apache_restart() == 0
         for i in range(0, len(dns_lists)):
             env.check_md(dns_lists[i], state=1)
 
     # test case: add managed domains as separate steps
-    def test_310_101(self, env):
+    def test_md_310_101(self, env):
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
@@ -64,7 +65,7 @@ class TestConf:
         env.check_md(["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"], state=1)
 
     # test case: add dns to existing md
-    def test_310_102(self, env):
+    def test_md_310_102(self, env):
         assert env.a2md(["add", "testdomain.org", "www.testdomain.org"]).exit_code == 0
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -73,7 +74,7 @@ class TestConf:
         env.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
     # test case: add new md definition with acme url, acme protocol, acme agreement
-    def test_310_103(self, env):
+    def test_md_310_103(self, env):
         MDConf(env, text="""
             MDCertificateAuthority http://acme.test.org:4000/directory
             MDCertificateProtocol ACME
@@ -88,7 +89,7 @@ class TestConf:
                      agreement="http://acme.test.org:4000/terms/v1")
 
     # test case: add to existing md: acme url, acme protocol
-    def test_310_104(self, env):
+    def test_md_310_104(self, env):
         name = "testdomain.org"
         MDConf(env, local_ca=False, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -109,7 +110,7 @@ class TestConf:
                      agreement="http://acme.test.org:4000/terms/v1")
 
     # test case: add new md definition with server admin
-    def test_310_105(self, env):
+    def test_md_310_105(self, env):
         MDConf(env, admin="admin@testdomain.org", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
@@ -119,7 +120,7 @@ class TestConf:
                      contacts=["mailto:admin@testdomain.org"])
 
     # test case: add to existing md: server admin
-    def test_310_106(self, env):
+    def test_md_310_106(self, env):
         name = "testdomain.org"
         assert env.a2md(["add", name, "www.testdomain.org", "mail.testdomain.org"]).exit_code == 0
         MDConf(env, admin="admin@testdomain.org", text="""
@@ -130,7 +131,7 @@ class TestConf:
                      contacts=["mailto:admin@testdomain.org"])
 
     # test case: assign separate contact info based on VirtualHost
-    def test_310_107(self, env):
+    def test_md_310_107(self, env):
         MDConf(env, admin="", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDomain testdomain2.org www.testdomain2.org mail.testdomain2.org
@@ -154,7 +155,7 @@ class TestConf:
         env.check_md([name2, "www." + name2, "mail." + name2], state=1, contacts=["mailto:admin@" + name2])
 
     # test case: normalize names - lowercase
-    def test_310_108(self, env):
+    def test_md_310_108(self, env):
         MDConf(env, text="""
             MDomain testdomain.org WWW.testdomain.org MAIL.testdomain.org
             """).install()
@@ -162,7 +163,7 @@ class TestConf:
         env.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
     # test case: default drive mode - auto
-    def test_310_109(self, env):
+    def test_md_310_109(self, env):
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
@@ -170,7 +171,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 1
 
     # test case: drive mode manual
-    def test_310_110(self, env):
+    def test_md_310_110(self, env):
         MDConf(env, text="""
             MDRenewMode manual
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -179,7 +180,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 0
 
     # test case: drive mode auto
-    def test_310_111(self, env):
+    def test_md_310_111(self, env):
         MDConf(env, text="""
             MDRenewMode auto
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -188,7 +189,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 1
 
     # test case: drive mode always
-    def test_310_112(self, env):
+    def test_md_310_112(self, env):
         MDConf(env, text="""
             MDRenewMode always
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -197,7 +198,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 2
 
     # test case: renew window - 14 days
-    def test_310_113a(self, env):
+    def test_md_310_113a(self, env):
         MDConf(env, text="""
             MDRenewWindow 14d
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -206,7 +207,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-window'] == '14d'
 
     # test case: renew window - 10 percent
-    def test_310_113b(self, env):
+    def test_md_310_113b(self, env):
         MDConf(env, text="""
             MDRenewWindow 10%
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -215,7 +216,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-window'] == '10%'
         
     # test case: ca challenge type - http-01
-    def test_310_114(self, env):
+    def test_md_310_114(self, env):
         MDConf(env, text="""
             MDCAChallenges http-01
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -224,7 +225,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01']
 
     # test case: ca challenge type - http-01
-    def test_310_115(self, env):
+    def test_md_310_115(self, env):
         MDConf(env, text="""
             MDCAChallenges tls-alpn-01
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -233,7 +234,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['tls-alpn-01']
 
     # test case: ca challenge type - all
-    def test_310_116(self, env):
+    def test_md_310_116(self, env):
         MDConf(env, text="""
             MDCAChallenges http-01 tls-alpn-01
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -242,7 +243,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01', 'tls-alpn-01']
 
     # test case: automatically collect md names from vhost config
-    def test_310_117(self, env):
+    def test_md_310_117(self, env):
         conf = MDConf(env, text="""
             MDMember auto
             MDomain testdomain.org
@@ -256,7 +257,7 @@ class TestConf:
                ['testdomain.org', 'test.testdomain.org', 'mail.testdomain.org']
 
     # add renew window to existing md
-    def test_310_118(self, env):
+    def test_md_310_118(self, env):
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             """).install()
@@ -270,7 +271,7 @@ class TestConf:
         assert stat['renew-window'] == '14d'
 
     # test case: set RSA key length 2048
-    def test_310_119(self, env):
+    def test_md_310_119(self, env):
         MDConf(env, text="""
             MDPrivateKeys RSA 2048
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -282,7 +283,7 @@ class TestConf:
         }
 
     # test case: set RSA key length 4096
-    def test_310_120(self, env):
+    def test_md_310_120(self, env):
         MDConf(env, text="""
             MDPrivateKeys RSA 4096
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -294,7 +295,7 @@ class TestConf:
         }
 
     # test case: require HTTPS
-    def test_310_121(self, env):
+    def test_md_310_121(self, env):
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDRequireHttps temporary
@@ -303,7 +304,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['require-https'] == "temporary"
 
     # test case: require OCSP stapling
-    def test_310_122(self, env):
+    def test_md_310_122(self, env):
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDMustStaple on
@@ -312,7 +313,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['must-staple'] is True
 
     # test case: remove managed domain from config
-    def test_310_200(self, env):
+    def test_md_310_200(self, env):
         dns_list = ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         env.a2md(["add"] + dns_list)
         env.check_md(dns_list, state=1)
@@ -323,7 +324,7 @@ class TestConf:
         env.check_md(dns_list, state=1)
 
     # test case: remove alias DNS from managed domain
-    def test_310_201(self, env):
+    def test_md_310_201(self, env):
         dns_list = ["testdomain.org", "test.testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         env.a2md(["add"] + dns_list)
         env.check_md(dns_list, state=1)
@@ -335,7 +336,7 @@ class TestConf:
         env.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
     # test case: remove primary name from managed domain
-    def test_310_202(self, env):
+    def test_md_310_202(self, env):
         dns_list = ["name.testdomain.org", "testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         env.a2md(["add"] + dns_list)
         env.check_md(dns_list, state=1)
@@ -348,7 +349,7 @@ class TestConf:
                      md="testdomain.org", state=1)
 
     # test case: remove one md, keep another
-    def test_310_203(self, env):
+    def test_md_310_203(self, env):
         dns_list1 = ["greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"]
         dns_list2 = ["testdomain.org", "www.testdomain.org", "mail.testdomain.org"]
         env.a2md(["add"] + dns_list1)
@@ -364,7 +365,7 @@ class TestConf:
         env.check_md(dns_list2, state=1)
 
     # test case: remove ca info from md, should switch over to new defaults
-    def test_310_204(self, env):
+    def test_md_310_204(self, env):
         name = "testdomain.org"
         MDConf(env, local_ca=False, text="""
             MDCertificateAuthority http://acme.test.org:4000/directory
@@ -383,7 +384,7 @@ class TestConf:
                      ca="https://acme-v02.api.letsencrypt.org/directory", protocol="ACME")
 
     # test case: remove server admin from md
-    def test_310_205(self, env):
+    def test_md_310_205(self, env):
         name = "testdomain.org"
         MDConf(env, admin="admin@testdomain.org", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -399,7 +400,7 @@ class TestConf:
                      contacts=["mailto:admin@testdomain.org"])
 
     # test case: remove renew window from conf -> fallback to default
-    def test_310_206(self, env):
+    def test_md_310_206(self, env):
         MDConf(env, text="""
             MDRenewWindow 14d
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -419,7 +420,7 @@ class TestConf:
         ("auto", 1), 
         ("always", 2)
     ])
-    def test_310_207(self, env, renew_mode, exp_code):
+    def test_md_310_207(self, env, renew_mode, exp_code):
         MDConf(env, text="""
             MDRenewMode %s
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -434,7 +435,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 1
 
     # test case: remove challenges from conf -> fallback to default (not set)
-    def test_310_208(self, env):
+    def test_md_310_208(self, env):
         MDConf(env, text="""
             MDCAChallenges http-01
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -450,7 +451,7 @@ class TestConf:
 
     # test case: specify RSA key
     @pytest.mark.parametrize("key_size", ["2048", "4096"])
-    def test_310_209(self, env, key_size):
+    def test_md_310_209(self, env, key_size):
         MDConf(env, text="""
             MDPrivateKeys RSA %s
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -466,7 +467,7 @@ class TestConf:
 
     # test case: require HTTPS
     @pytest.mark.parametrize("mode", ["temporary", "permanent"])
-    def test_310_210(self, env, mode):
+    def test_md_310_210(self, env, mode):
         MDConf(env, text="""
             <MDomainSet testdomain.org>
                 MDMember www.testdomain.org mail.testdomain.org
@@ -485,7 +486,7 @@ class TestConf:
             "HTTPS require still persisted in store. config: {}".format(mode)
 
     # test case: require OCSP stapling
-    def test_310_211(self, env):
+    def test_md_310_211(self, env):
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
             MDMustStaple on
@@ -500,7 +501,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['must-staple'] is False
 
     # test case: reorder DNS names in md definition
-    def test_310_300(self, env):
+    def test_md_310_300(self, env):
         dns_list = ["testdomain.org", "mail.testdomain.org", "www.testdomain.org"]
         env.a2md(["add"] + dns_list)
         env.check_md(dns_list, state=1)
@@ -512,7 +513,7 @@ class TestConf:
         env.check_md(["testdomain.org", "www.testdomain.org", "mail.testdomain.org"], state=1)
 
     # test case: move DNS from one md to another
-    def test_310_301(self, env):
+    def test_md_310_301(self, env):
         env.a2md(["add", "testdomain.org", "www.testdomain.org", "mail.testdomain.org", "mail.testdomain2.org"])
         env.a2md(["add", "testdomain2.org", "www.testdomain2.org"])
         env.check_md(["testdomain.org", "www.testdomain.org",
@@ -527,7 +528,7 @@ class TestConf:
         env.check_md(["testdomain2.org", "www.testdomain2.org", "mail.testdomain2.org"], state=1)
 
     # test case: change ca info
-    def test_310_302(self, env):
+    def test_md_310_302(self, env):
         name = "testdomain.org"
         MDConf(env, local_ca=False, text="""
             MDCertificateAuthority http://acme.test.org:4000/directory
@@ -553,7 +554,7 @@ class TestConf:
                      agreement="http://somewhere.com:6666/terms/v1")
 
     # test case: change server admin
-    def test_310_303(self, env):
+    def test_md_310_303(self, env):
         name = "testdomain.org"
         MDConf(env, admin="admin@testdomain.org", text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -573,7 +574,7 @@ class TestConf:
                      contacts=["mailto:webmaster@testdomain.org"])
 
     # test case: change drive mode - manual -> auto -> always
-    def test_310_304(self, env):
+    def test_md_310_304(self, env):
         MDConf(env, text="""
             MDRenewMode manual
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -596,7 +597,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['renew-mode'] == 2
 
     # test case: change config value for renew window, use various syntax alternatives
-    def test_310_305(self, env):
+    def test_md_310_305(self, env):
         MDConf(env, text="""
             MDRenewWindow 14d
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -620,7 +621,7 @@ class TestConf:
         assert md['renew-window'] == '10%'
 
     # test case: change challenge types - http -> tls-sni -> all
-    def test_310_306(self, env):
+    def test_md_310_306(self, env):
         MDConf(env, text="""
             MDCAChallenges http-01
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -643,7 +644,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['ca']['challenges'] == ['http-01', 'tls-alpn-01']
 
     # test case:  RSA key length: 4096 -> 2048 -> 4096
-    def test_310_307(self, env):
+    def test_md_310_307(self, env):
         MDConf(env, text="""
             MDPrivateKeys RSA 4096
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -673,7 +674,7 @@ class TestConf:
         }
 
     # test case: change HTTPS require settings on existing md
-    def test_310_308(self, env):
+    def test_md_310_308(self, env):
         # setup: nothing set
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -698,7 +699,7 @@ class TestConf:
         assert env.a2md(["list"]).json['output'][0]['require-https'] == "permanent"
 
     # test case: change OCSP stapling settings on existing md
-    def test_310_309(self, env):
+    def test_md_310_309(self, env):
         # setup: nothing set
         MDConf(env, text="""
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -724,7 +725,7 @@ class TestConf:
     @pytest.mark.parametrize("window", [
         "0%", "33d", "40%"
     ])
-    def test_310_310(self, env, window):
+    def test_md_310_310(self, env, window):
         # non-default renewal setting
         domain = self.test_domain
         conf = MDConf(env, admin="admin@" + domain)
@@ -739,7 +740,7 @@ class TestConf:
         assert stat["renew-window"] == window
 
     # test case: add dns name on existing valid md
-    def test_310_400(self, env):
+    def test_md_310_400(self, env):
         # setup: create complete md in store
         domain = self.test_domain
         name = "www." + domain
@@ -763,7 +764,7 @@ class TestConf:
         assert env.a2md(["list", name]).json['output'][0]['state'] == env.MD_S_INCOMPLETE
 
     # test case: change ca info
-    def test_310_401(self, env):
+    def test_md_310_401(self, env):
         # setup: create complete md in store
         domain = self.test_domain
         name = "www." + domain
@@ -780,7 +781,7 @@ class TestConf:
         assert env.a2md(["list", name]).json['output'][0]['state'] == env.MD_S_COMPLETE
 
     # test case: change the store dir
-    def test_310_500(self, env):
+    def test_md_310_500(self, env):
         MDConf(env, text="""
             MDStoreDir md-other
             MDomain testdomain.org www.testdomain.org mail.testdomain.org
@@ -793,7 +794,7 @@ class TestConf:
         env.set_store_dir_default()
 
     # test case: place an unexpected file into the store, check startup survival, see #218
-    def test_310_501(self, env):
+    def test_md_310_501(self, env):
         # setup: create complete md in store
         domain = self.test_domain
         conf = MDConf(env, admin="admin@" + domain)
@@ -810,7 +811,7 @@ class TestConf:
         assert env.apache_restart() == 0
 
     # test case: add external account binding
-    def test_310_601(self, env):
+    def test_md_310_601(self, env):
         domain = self.test_domain
         # directly set
         conf = MDConf(env, admin="admin@" + domain)

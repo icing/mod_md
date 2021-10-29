@@ -49,6 +49,8 @@ def _session_scope(env):
         'AH10105',  # mod_md does not find a vhost with SSL enabled for an MDomain
         'AH10085',  # mod_ssl complains about fallback certificates
         'AH01909',  # mod_ssl, cert alt name complains
+        'AH10170',  # mod_md, wrong config, tested
+        'AH10171',  # mod_md, wrong config, tested
     ])
 
     env.httpd_error_log.add_ignored_patterns([
@@ -56,10 +58,9 @@ def _session_scope(env):
         re.compile(r'.*None of the ACME challenge methods configured for this domain are suitable.*'),
         re.compile(r'.*problem\[(challenge-mismatch|challenge-setup-failure|apache:eab-hmac-invalid)].*'),
         re.compile(r'.*CA considers answer to challenge invalid.].*'),
-        re.compile(r'.*The Managed Domain \'test-730-003-\S+.org\'.*'),
         re.compile(r'.*problem\[urn:org:apache:httpd:log:AH\d+:].*'),
         re.compile(r'.*Unsuccessful in contacting ACME server at :*'),
-        re.compile(r'.*test-720-002-\S+.org: dns-01 setup command failed .*'),
+        re.compile(r'.*test-md-720-002-\S+.org: dns-01 setup command failed .*'),
     ])
     if env.lacks_ocsp():
         env.httpd_error_log.add_ignored_patterns([

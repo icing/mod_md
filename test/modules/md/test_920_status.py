@@ -28,7 +28,7 @@ class TestStatus:
         self.test_domain = env.get_request_domain(request)
 
     # simple MD, drive it, check status before activation
-    def test_920_001(self, env):
+    def test_md_920_001(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)
@@ -56,7 +56,7 @@ class TestStatus:
         assert 'from' in status['rsa']['valid']
 
     # simple MD, drive it, manipulate staged credentials and check status
-    def test_920_002(self, env):
+    def test_md_920_002(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)
@@ -78,7 +78,7 @@ class TestStatus:
         assert 'sha256-fingerprint' in status['renewal']['cert']['rsa']
 
     # test if switching status off has effect
-    def test_920_003(self, env):
+    def test_md_920_003(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)
@@ -91,7 +91,7 @@ class TestStatus:
         status = env.get_certificate_status(domain)
         assert not status
 
-    def test_920_004(self, env):
+    def test_md_920_004(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)
@@ -107,7 +107,7 @@ class TestStatus:
         assert 1 == len(status["managed-domains"])
 
     # get the status of a domain on base server
-    def test_920_010(self, env):
+    def test_md_920_010(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env, std_vhosts=False, std_ports=False, text=f"""
@@ -156,7 +156,7 @@ Protocols h2 http/1.1 acme-tls/1
         assert int(m.group(4)) == 0
         assert int(m.group(5)) == 1
 
-    def test_920_011(self, env):
+    def test_md_920_011(self, env):
         # MD with static cert files in base server, see issue #161
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
@@ -206,7 +206,7 @@ Protocols h2 http/1.1 acme-tls/1
         assert status['renew-mode'] == 1  # manual
 
     # MD with 2 certificates
-    def test_920_020(self, env):
+    def test_md_920_020(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)

@@ -32,7 +32,7 @@ class TestMessage:
             os.remove(self.mlog)
 
     # test: signup with configured message cmd that is invalid
-    def test_901_001(self, env):
+    def test_md_901_001(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = MDConf(env)
@@ -48,7 +48,7 @@ class TestMessage:
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
 
     # test: signup with configured message cmd that is valid but returns != 0
-    def test_901_002(self, env):
+    def test_md_901_002(self, env):
         mcmd = os.path.join(env.test_dir, "../modules/md/notifail.py")
         domain = self.test_domain
         domains = [domain, "www." + domain]
@@ -65,7 +65,7 @@ class TestMessage:
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10109:"
 
     # test: signup with working message cmd and see that it logs the right things
-    def test_901_003(self, env):
+    def test_md_901_003(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = MDConf(env)
@@ -105,7 +105,7 @@ class TestMessage:
     # - no longer adds the re-validations to the log
     # - messages only once
     @pytest.mark.skipif(MDTestEnv.is_pebble(), reason="ACME server certs valid too long")
-    def test_901_004(self, env):
+    def test_md_901_004(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = MDConf(env)
@@ -130,7 +130,7 @@ class TestMessage:
         assert len(nlines) == 1
         assert nlines[0].strip() == f"['{self.mcmd}', '{self.mlog}', 'renewed', '{domain}']"
     
-    def test_901_010(self, env):
+    def test_md_901_010(self, env):
         #  MD with static cert files, lifetime in renewal window, no message about renewal
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
@@ -153,7 +153,7 @@ class TestMessage:
         assert env.apache_restart() == 0
         assert not os.path.isfile(self.mlog)
         
-    def test_901_011(self, env):
+    def test_md_901_011(self, env):
         # MD with static cert files, lifetime in warn window, check message
         domain = self.test_domain
         domains = [domain, f'www.{domain}']
@@ -187,7 +187,7 @@ class TestMessage:
 
     # MD, check messages from stapling
     @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
-    def test_901_020(self, env):
+    def test_md_901_020(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)
@@ -216,7 +216,7 @@ class TestMessage:
     # test: while testing gh issue #146, it was noted that a failed renew notification never
     # resets the MD activity.
     @pytest.mark.skipif(MDTestEnv.is_pebble(), reason="ACME server certs valid too long")
-    def test_901_030(self, env):
+    def test_md_901_030(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         conf = MDConf(env)
@@ -271,7 +271,7 @@ class TestMessage:
             assert job["errors"] == 0
 
     # MD, check a failed challenge setup
-    def test_901_040(self, env):
+    def test_md_901_040(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)

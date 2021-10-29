@@ -48,7 +48,7 @@ class TestAutov2:
         self.check_pkeys(env, domain, pkeys)
         
     # one EC key, no RSA
-    def test_810_001(self, env):
+    def test_md_810_001(self, env):
         domain = self.test_domain
         self.set_get_check_pkeys(env, domain, [
             {'spec': "secp256r1", 'ciphers': "ECDSA", 'keylen': 256},
@@ -56,7 +56,7 @@ class TestAutov2:
         ])
 
     # set EC key type override on MD and get certificate
-    def test_810_002(self, env):
+    def test_md_810_002(self, env):
         domain = self.test_domain
         # generate config with one MD
         domains = [domain]
@@ -72,7 +72,7 @@ class TestAutov2:
         ])
 
     # set two key spec, ec before rsa
-    def test_810_003a(self, env):
+    def test_md_810_003a(self, env):
         domain = self.test_domain
         self.set_get_check_pkeys(env, domain, [
             {'spec': "P-256", 'ciphers': "ECDSA", 'keylen': 256},
@@ -80,7 +80,7 @@ class TestAutov2:
         ])
 
     # set two key spec, rsa before ec
-    def test_810_003b(self, env):
+    def test_md_810_003b(self, env):
         domain = self.test_domain
         self.set_get_check_pkeys(env, domain, [
             {'spec': "RSA 3072", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 3072},
@@ -91,7 +91,7 @@ class TestAutov2:
     # only works with mod_ssl as rustls refuses to load such a weak key
     @pytest.mark.skipif(MDTestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
     @pytest.mark.skipif(MDTestEnv.get_acme_server() != 'boulder', reason="onyl boulder rejects this")
-    def test_810_004(self, env):
+    def test_md_810_004(self, env):
         domain = self.test_domain
         # generate config with one MD
         domains = [domain]
@@ -107,7 +107,7 @@ class TestAutov2:
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
 
     # set three key specs
-    def test_810_005(self, env):
+    def test_md_810_005(self, env):
         domain = self.test_domain
         # behaviour differences, mod_ssl selects the strongest suitable,
         # mod_tls selects the first suitable
@@ -119,7 +119,7 @@ class TestAutov2:
         ])
 
     # set three key specs
-    def test_810_006(self, env):
+    def test_md_810_006(self, env):
         domain = self.test_domain
         self.set_get_check_pkeys(env, domain, [
             {'spec': "rsa2048", 'ciphers': "ECDHE-RSA-CHACHA20-POLY1305", 'keylen': 2048},
@@ -127,7 +127,7 @@ class TestAutov2:
         ])
 
     # start with one pkey and add another one
-    def test_810_007(self, env):
+    def test_md_810_007(self, env):
         domain = self.test_domain
         domains = [domain]
         conf = MDConf(env)

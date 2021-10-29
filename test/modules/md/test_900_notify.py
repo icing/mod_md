@@ -39,7 +39,7 @@ class TestNotify:
         return domain
     
     # test: invalid notify cmd, check error
-    def test_900_001(self, env):
+    def test_md_900_001(self, env):
         command = "blablabla"
         args = ""
         self.configure_httpd(env, self.domain, f"""
@@ -51,7 +51,7 @@ class TestNotify:
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10108:"
 
     # test: valid notify cmd that fails, check error
-    def test_900_002(self, env):
+    def test_md_900_002(self, env):
         command = "%s/notifail.py" % env.test_dir
         args = ""
         self.configure_httpd(env, self.domain, f"""
@@ -63,7 +63,7 @@ class TestNotify:
         assert stat["renewal"]["last"]["problem"] == "urn:org:apache:httpd:log:AH10108:"
 
     # test: valid notify that logs to file
-    def test_900_010(self, env):
+    def test_md_900_010(self, env):
         command = self.notify_cmd
         args = self.notify_log
         self.configure_httpd(env, self.domain, f"""
@@ -81,7 +81,7 @@ class TestNotify:
 
     # test: signup with working notify cmd and see that it is called with the 
     #       configured extra arguments
-    def test_900_011(self, env):
+    def test_md_900_011(self, env):
         command = self.notify_cmd
         args = self.notify_log
         extra_arg = "test_900_011_extra"
@@ -97,7 +97,7 @@ class TestNotify:
         assert ("['%s', '%s', '%s', '%s']" % (command, args, extra_arg, self.domain)) == nlines[0].strip()
 
     # test: signup with working notify cmd for 2 MD and expect it to be called twice
-    def test_900_012(self, env):
+    def test_md_900_012(self, env):
         md1 = "a-" + self.domain
         domains1 = [md1, "www." + md1]
         md2 = "b-" + self.domain

@@ -53,7 +53,7 @@ class TestSectigo:
         env.clear_store()
         self.test_domain = env.get_request_domain(request)
 
-    def test_751_001(self, env):
+    def test_md_751_001(self, env):
         # valid config, expect cert with correct chain
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]
@@ -72,7 +72,7 @@ class TestSectigo:
         ])
         assert r.response['status'] == 200
 
-    def test_751_002(self, env):
+    def test_md_751_002(self, env):
         # without EAB set
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]
@@ -89,7 +89,7 @@ class TestSectigo:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
-    def test_751_003(self, env):
+    def test_md_751_003(self, env):
         # with wrong EAB set
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]
@@ -107,7 +107,7 @@ class TestSectigo:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
 
-    def test_751_004(self, env):
+    def test_md_751_004(self, env):
         # valid config, get cert, add dns name, renew cert
         domain = f"test1.{DEMO_TLD}"
         domain2 = f"test2.{DEMO_TLD}"
@@ -152,7 +152,7 @@ class TestSectigo:
         acct2 = md2['ca']['account']
         assert acct2 == acct1, f"ACME account was not reused: {acct1} became {acct2}"
 
-    def test_751_020(self, env):
+    def test_md_751_020(self, env):
         # valid config, get cert, check OCSP status
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]

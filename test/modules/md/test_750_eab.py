@@ -21,7 +21,7 @@ class TestEab:
         env.clear_store()
         self.test_domain = env.get_request_domain(request)
 
-    def test_750_001(self, env):
+    def test_md_750_001(self, env):
         # md without EAB configured
         domain = self.test_domain
         domains = [domain]
@@ -34,7 +34,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
-    def test_750_002(self, env):
+    def test_md_750_002(self, env):
         # md with known EAB KID and non base64 hmac key configured
         domain = self.test_domain
         domains = [domain]
@@ -48,7 +48,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'apache:eab-hmac-invalid'
 
-    def test_750_003(self, env):
+    def test_md_750_003(self, env):
         # md with empty EAB KID configured
         domain = self.test_domain
         domains = [domain]
@@ -62,7 +62,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
 
-    def test_750_004(self, env):
+    def test_md_750_004(self, env):
         # md with unknown EAB KID configured
         domain = self.test_domain
         domains = [domain]
@@ -76,7 +76,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
 
-    def test_750_005(self, env):
+    def test_md_750_005(self, env):
         # md with known EAB KID but wrong HMAC configured
         domain = self.test_domain
         domains = [domain]
@@ -90,7 +90,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:unauthorized'
 
-    def test_750_010(self, env):
+    def test_md_750_010(self, env):
         # md with correct EAB configured
         domain = self.test_domain
         domains = [domain]
@@ -103,7 +103,7 @@ class TestEab:
         assert env.apache_restart() == 0
         assert env.await_completion(domains)
 
-    def test_750_011(self, env):
+    def test_md_750_011(self, env):
         # first one md with EAB, then one without, works only for the first
         # as the second is unable to reuse the account
         domain_a = f"a{self.test_domain}"
@@ -122,7 +122,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
-    def test_750_012(self, env):
+    def test_md_750_012(self, env):
         # first one md without EAB, then one with
         # first one fails, second works
         domain_a = f"a{self.test_domain}"
@@ -141,7 +141,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
-    def test_750_013(self, env):
+    def test_md_750_013(self, env):
         # 2 mds with the same EAB, should one create a single account
         domain_a = f"a{self.test_domain}"
         domain_b = f"b{self.test_domain}"
@@ -161,7 +161,7 @@ class TestEab:
         md_b = env.get_md_status(domain_b)
         assert md_a['ca'] == md_b['ca']
 
-    def test_750_014(self, env):
+    def test_md_750_014(self, env):
         # md with correct EAB, get cert, change to another correct EAB
         # needs to create a new account
         domain = self.test_domain
@@ -187,7 +187,7 @@ class TestEab:
         md_2 = env.get_md_status(domain)
         assert md_1['ca'] != md_2['ca']
 
-    def test_750_015(self, env):
+    def test_md_750_015(self, env):
         # md with correct EAB, get cert, change to no EAB
         # needs to fail
         domain = self.test_domain
@@ -212,7 +212,7 @@ class TestEab:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
-    def test_750_016(self, env):
+    def test_md_750_016(self, env):
         # md with correct EAB, get cert, change to invalid EAB
         # needs to fail
         domain = self.test_domain

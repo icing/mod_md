@@ -26,7 +26,7 @@ class TestSetupErrors:
         self.mcmd = os.path.join(env.test_dir, "../modules/md/http_challenge_foobar.py")
         self.test_domain = env.get_request_domain(request)
 
-    def test_741_001(self, env):
+    def test_md_741_001(self, env):
         # setup an MD with a MDMessageCmd that make the http-01 challenge file invalid
         # before the ACME server is asked to retrieve it. This will result in
         # an "invalid" domain authorization.

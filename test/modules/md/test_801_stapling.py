@@ -63,7 +63,7 @@ class TestStapling:
 
     # MD with stapling on/off and mod_ssl stapling off
     # expect to only see stapling response when MD stapling is on
-    def test_801_001(self, env):
+    def test_md_801_001(self, env):
         md = self.mdA
         self.configure_httpd(env, md).install()
         assert env.apache_restart() == 0
@@ -97,7 +97,7 @@ class TestStapling:
         
     # MD with stapling on/off and mod_ssl stapling on
     # expect to see stapling response in all cases
-    def test_801_002(self, env):
+    def test_md_801_002(self, env):
         md = self.mdA
         self.configure_httpd(env, md, ssl_stapling=True).install()
         assert env.apache_restart() == 0
@@ -129,7 +129,7 @@ class TestStapling:
         assert not stat["stapling"]
         
     # 2 MDs, one with md stapling on, one with default (off)
-    def test_801_003(self, env):
+    def test_md_801_003(self, env):
         md_a = self.mdA
         md_b = self.mdB
         conf = self.configure_httpd(env)
@@ -160,7 +160,7 @@ class TestStapling:
         assert not stat["stapling"]
 
     # 2 MDs, md stapling on+off, ssl stapling on
-    def test_801_004(self, env):
+    def test_md_801_004(self, env):
         md_a = self.mdA
         md_b = self.mdB
         conf = self.configure_httpd(env, ssl_stapling=True)
@@ -193,7 +193,7 @@ class TestStapling:
 
     # MD, check that restart leaves response unchanged, reconfigure keep interval, 
     # should remove the file on restart and get a new one
-    def test_801_005(self, env):
+    def test_md_801_005(self, env):
         # TODO: mod_watchdog seems to have problems sometimes with fast restarts
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
@@ -238,7 +238,7 @@ class TestStapling:
 
     # MD, check that stapling renew window works. Set a large window
     # that causes response to be retrieved all the time.
-    def test_801_006(self, env):
+    def test_md_801_006(self, env):
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
         self.configure_httpd(env, md, "MDStapling on").install()
@@ -276,7 +276,7 @@ class TestStapling:
         assert mtime1 != mtime3
 
     # MD, make a MDomain with static files, check that stapling works
-    def test_801_007(self, env):
+    def test_md_801_007(self, env):
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
         conf = self.configure_httpd(env)
@@ -304,7 +304,7 @@ class TestStapling:
         assert ocsp_file
 
     # Use certificate files in direct config, check that stapling works
-    def test_801_008(self, env):
+    def test_md_801_008(self, env):
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
         conf = self.configure_httpd(env)
@@ -329,7 +329,7 @@ class TestStapling:
 
     # Turn on stapling for a certificate without OCSP responder and issuer
     # (certificates without issuer prevent mod_ssl asking around for stapling)
-    def test_801_009(self, env):
+    def test_md_801_009(self, env):
         md = self.mdA
         domains = [md]
         testpath = os.path.join(env.gen_dir, 'test_801_009')
@@ -355,7 +355,7 @@ class TestStapling:
 
     # Turn on stapling for an MDomain not used in any virtualhost
     # There was a crash in server-status in this case
-    def test_801_010(self, env):
+    def test_md_801_010(self, env):
         env.clear_ocsp_store()
         md = self.mdA
         domains = [md]
@@ -374,7 +374,7 @@ class TestStapling:
     # scheduling.
     # This checks the mistaken assert() reported in
     # <https://bz.apache.org/bugzilla/show_bug.cgi?id=65567>
-    def test_801_011(self, env):
+    def test_md_801_011(self, env):
         domains = [ f'test-801-011-{i}-{env.DOMAIN_SUFFIX}' for i in range(7)]
         self.configure_httpd(env, domains, """
             MDStapling on

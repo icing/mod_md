@@ -2,6 +2,7 @@ import copy
 import inspect
 import json
 import logging
+from configparser import ConfigParser, ExtendedInterpolation
 
 import pytest
 import re
@@ -78,6 +79,15 @@ class MDTestEnv(HttpdTestEnv):
     @classmethod
     def lacks_ocsp(cls):
         return cls.is_pebble()
+
+    @classmethod
+    def has_a2md(cls):
+        dir = os.path.dirname(inspect.getfile(HttpdTestEnv))
+        config = ConfigParser(interpolation=ExtendedInterpolation())
+        config.read(os.path.join(dir, 'config.ini'))
+        bin_dir = config.get('global', 'bindir')
+        a2md_bin = os.path.join(bin_dir, 'a2md')
+        return os.path.isfile(a2md_bin)
 
     def __init__(self, pytestconfig=None, setup_dirs=True):
         super().__init__(pytestconfig=pytestconfig,
@@ -522,7 +532,9 @@ class MDTestEnv(HttpdTestEnv):
             time.sleep(0.1)
 
     def check_file_permissions(self, domain):
-        md = self.a2md(["list", domain]).json['output'][0]
+        dpath = os.path.join(self.store_dir, 'domains', domain)
+        assert os.path.isdir(dpath)
+        md = json.load(open(os.path.join(dpath, 'md.json')))
         assert md
         acct = md['ca']['account']
         assert acct

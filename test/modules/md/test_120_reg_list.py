@@ -7,6 +7,7 @@ import pytest
 from .md_env import MDTestEnv
 
 
+@pytest.mark.skipif(condition=not MDTestEnv.has_a2md(), reason="no a2md available")
 @pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
                     reason="no ACME test server configured")
 class TestRegAdd:
@@ -16,11 +17,11 @@ class TestRegAdd:
         env.clear_store()
 
     # test case: list empty store
-    def test_120_000(self, env):
+    def test_md_120_000(self, env):
         assert env.a2md(["list"]).json == env.EMPTY_JOUT
 
     # test case: list two managed domains
-    def test_120_001(self, env):
+    def test_md_120_001(self, env):
         domains = [ 
             ["test120-001.com", "test120-001a.com", "test120-001b.com"],
             ["greenbytes2.de", "www.greenbytes2.de", "mail.greenbytes2.de"]
@@ -49,7 +50,7 @@ class TestRegAdd:
             assert md['name'] == dns
 
     # test case: validate md state in store
-    def test_120_002(self, env):
+    def test_md_120_002(self, env):
         # check: md without pkey/cert -> INCOMPLETE
         domain = f"test1.{env.http_tld}"
         assert env.a2md(["add", domain]).exit_code == 0
@@ -70,7 +71,7 @@ class TestRegAdd:
         assert out['renew'] is True
 
     # test case: broken cert file
-    def test_120_003(self, env):
+    def test_md_120_003(self, env):
         domain = f"test1.{env.http_tld}"
         assert env.a2md(["add", domain]).exit_code == 0
         assert env.a2md(["update", domain, "contacts", "admin@" + domain]).exit_code == 0

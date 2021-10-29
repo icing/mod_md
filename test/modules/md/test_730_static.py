@@ -24,7 +24,7 @@ class TestStatic:
         env.clear_store()
         self.test_domain = env.get_request_domain(request)
 
-    def test_730_001(self, env):
+    def test_md_730_001(self, env):
         # MD with static cert files, will not be driven
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
@@ -54,7 +54,7 @@ class TestStatic:
         assert stat['renew'] is True
         assert 'renewal' not in stat
 
-    def test_730_002(self, env):
+    def test_md_730_002(self, env):
         # MD with static cert files, force driving
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]
@@ -87,7 +87,7 @@ class TestStatic:
         assert 'secp384r1' in stat['renewal']['cert']
         assert 'rsa' in stat['renewal']['cert']
 
-    def test_730_003(self, env):
+    def test_md_730_003(self, env):
         # just configuring one file will not work
         domain = self.test_domain
         domains = [domain, 'www.%s' % domain]

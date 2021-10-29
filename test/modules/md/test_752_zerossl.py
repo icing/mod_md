@@ -49,7 +49,7 @@ class TestZeroSSL:
     def _method_scope(self, env, request):
         self.test_domain = env.get_request_domain(request)
 
-    def test_752_001(self, env):
+    def test_md_752_001(self, env):
         # valid config, expect cert with correct chain
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]
@@ -73,7 +73,7 @@ class TestZeroSSL:
         ])
         assert r.response['status'] == 200
 
-    def test_752_002(self, env):
+    def test_md_752_002(self, env):
         # without EAB set
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]
@@ -94,7 +94,7 @@ class TestZeroSSL:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:externalAccountRequired'
 
-    def test_752_003(self, env):
+    def test_md_752_003(self, env):
         # with wrong EAB set
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]
@@ -116,7 +116,7 @@ class TestZeroSSL:
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'urn:ietf:params:acme:error:malformed'
 
-    def test_752_004(self, env):
+    def test_md_752_004(self, env):
         # valid config, get cert, add dns name, renew cert
         domain = f"test1.{DEMO_TLD}"
         domain2 = f"test2.{DEMO_TLD}"
@@ -170,7 +170,7 @@ class TestZeroSSL:
         acct2 = md2['ca']['account']
         assert acct2 == acct1, f"ACME account was not reused: {acct1} became {acct2}"
 
-    def test_752_020(self, env):
+    def test_md_752_020(self, env):
         # valid config, get cert, check OCSP status
         domain = f"test1.{DEMO_TLD}"
         domains = [domain]

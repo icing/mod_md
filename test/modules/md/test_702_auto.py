@@ -32,7 +32,7 @@ class TestAutov2:
         open(os.path.join(doc_root, name), "w").write(content)
 
     # create a MD not used in any virtual host, auto drive should NOT pick it up
-    def test_702_001(self, env):
+    def test_md_702_001(self, env):
         domain = self.test_domain
         # generate config with one MD
         domains = [domain, "www." + domain]
@@ -64,7 +64,7 @@ class TestAutov2:
         env.check_file_permissions(domain)
 
     # test case: same as test_702_001, but with two parallel managed domains
-    def test_702_002(self, env):
+    def test_md_702_002(self, env):
         domain = self.test_domain
         domain_a = "a-" + domain
         domain_b = "b-" + domain
@@ -110,7 +110,7 @@ class TestAutov2:
         assert md_a['ca'] == md_b['ca']
 
     # test case: one MD, that covers two vhosts
-    def test_702_003(self, env):
+    def test_md_702_003(self, env):
         domain = self.test_domain
         name_a = "test-a." + domain
         name_b = "test-b." + domain
@@ -147,7 +147,7 @@ class TestAutov2:
     @pytest.mark.parametrize("challenge_type", [
         "tls-alpn-01", "http-01",
     ])
-    def test_702_004(self, env, challenge_type):
+    def test_md_702_004(self, env, challenge_type):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         #
@@ -171,7 +171,7 @@ class TestAutov2:
         assert domain in cert.get_san_list()
 
     # test case: drive_mode manual, check that server starts, but requests to domain are 503'd
-    def test_702_005(self, env):
+    def test_md_702_005(self, env):
         domain = self.test_domain
         name_a = "test-a." + domain
         domains = [domain, name_a]
@@ -202,7 +202,7 @@ class TestAutov2:
             "but found cn: %s" % (name_a, cert2.get_cn(), cert1.get_cn())
 
     # test case: drive MD with only invalid challenges, domains should stay 503'd
-    def test_702_006(self, env):
+    def test_md_702_006(self, env):
         domain = self.test_domain
         name_a = "test-a." + domain
         domains = [domain, name_a]
@@ -233,7 +233,7 @@ class TestAutov2:
         assert env.get_http_status(name_a, "/name.txt") == 503
 
     # Specify a non-working http proxy
-    def test_702_008(self, env):
+    def test_md_702_008(self, env):
         domain = self.test_domain
         domains = [domain]
         #
@@ -253,7 +253,7 @@ class TestAutov2:
         assert 'account' not in md['ca']
 
     # Specify a valid http proxy
-    def test_702_008a(self, env):
+    def test_md_702_008a(self, env):
         domain = self.test_domain
         domains = [domain]
         #
@@ -271,7 +271,7 @@ class TestAutov2:
 
     # Force cert renewal due to critical remaining valid duration
     # Assert that new cert activation is delayed
-    def test_702_009(self, env):
+    def test_md_702_009(self, env):
         domain = self.test_domain
         domains = [domain]
         #
@@ -306,7 +306,7 @@ class TestAutov2:
         assert not cert3.same_serial_as(stat['rsa']['serial'])
         
     # test case: drive with an unsupported challenge due to port availability 
-    def test_702_010(self, env):
+    def test_md_702_010(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         #
@@ -333,7 +333,7 @@ class TestAutov2:
         env.check_md(domains)
         assert env.await_completion([domain])
 
-    def test_702_011(self, env):
+    def test_md_702_011(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         #
@@ -365,7 +365,7 @@ class TestAutov2:
     # test case: one MD with several dns names. sign up. remove the *first* name
     # in the MD. restart. should find and keep the existing MD.
     # See: https://github.com/icing/mod_md/issues/68
-    def test_702_030(self, env):
+    def test_md_702_030(self, env):
         domain = self.test_domain
         name_x = "test-x." + domain
         name_a = "test-a." + domain
@@ -408,7 +408,7 @@ class TestAutov2:
     # test case: Same as 7030, but remove *and* add another at the same time.
     # restart. should find and keep the existing MD and renew for additional name.
     # See: https://github.com/icing/mod_md/issues/68
-    def test_702_031(self, env):
+    def test_md_702_031(self, env):
         domain = self.test_domain
         name_x = "test-x." + domain
         name_a = "test-a." + domain
@@ -454,7 +454,7 @@ class TestAutov2:
 
     # test case: create two MDs, move them into one
     # see: <https://bz.apache.org/bugzilla/show_bug.cgi?id=62572>
-    def test_702_032(self, env):
+    def test_md_702_032(self, env):
         domain = self.test_domain
         name1 = "server1." + domain
         name2 = "server2.b" + domain  # need a separate TLD to avoid rate limites
@@ -497,7 +497,7 @@ class TestAutov2:
         assert not cert1.same_serial_as(cert1b)
 
     # test case: test "tls-alpn-01" challenge handling
-    def test_702_040(self, env):
+    def test_md_702_040(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         #
@@ -525,7 +525,7 @@ class TestAutov2:
         assert domain in cert.get_san_list()
 
     # test case: test "tls-alpn-01" without enabling 'acme-tls/1' challenge protocol
-    def test_702_041(self, env):
+    def test_md_702_041(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         #
@@ -549,7 +549,7 @@ class TestAutov2:
     # test case: 2.4.40 mod_ssl stumbles over a SSLCertificateChainFile when installing
     # a fallback certificate
     @pytest.mark.skipif(HttpdTestEnv.get_ssl_module() != "ssl", reason="only for mod_ssl")
-    def test_702_042(self, env):
+    def test_md_702_042(self, env):
         domain = self.test_domain
         dns_list = [domain]
         conf = MDConf(env, admin="admin@" + domain)
@@ -565,7 +565,7 @@ class TestAutov2:
 
     # test case: test "tls-alpn-01" without enabling 'acme-tls/1' challenge protocol
     # and fallback "http-01" configured, see https://github.com/icing/mod_md/issues/255
-    def test_702_043(self, env):
+    def test_md_702_043(self, env):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         #
@@ -594,7 +594,7 @@ class TestAutov2:
     @pytest.mark.parametrize("challenge_type", [
         "tls-alpn-01"  # , "http-01",
     ])
-    def test_702_044(self, env, challenge_type):
+    def test_md_702_044(self, env, challenge_type):
         domain = self.test_domain
         md_domains = [domain, "mail." + domain]
         domains = [domain]
@@ -620,7 +620,7 @@ class TestAutov2:
         assert md_domains[1] in cert.get_san_list()
 
     # Make a setup using the base server. It will use http-01 challenge.
-    def test_702_050(self, env):
+    def test_md_702_050(self, env):
         domain = self.test_domain
         conf = MDConf(env, admin=f"admin@{domain}")
         conf.add(f"""
@@ -633,7 +633,7 @@ class TestAutov2:
         assert env.await_completion([domain])
 
     # Make a setup using the base server without http:, will fail.
-    def test_702_051(self, env):
+    def test_md_702_051(self, env):
         domain = self.test_domain
         conf = MDConf(env, admin=f"admin@{domain}")
         conf.add(f"""
@@ -647,7 +647,7 @@ class TestAutov2:
         assert env.await_error(domain)
 
     # Make a setup using the base server without http:, but with acme-tls/1, should work.
-    def test_702_052(self, env):
+    def test_md_702_052(self, env):
         domain = self.test_domain
         conf = MDConf(env, std_vhosts=False, admin=f"admin@{domain}")
         conf.add([
@@ -675,7 +675,7 @@ class TestAutov2:
     @pytest.mark.parametrize("challenge_type", [
         "tls-alpn-01", "http-01"
     ])
-    def test_702_060(self, env, challenge_type):
+    def test_md_702_060(self, env, challenge_type):
         domain = self.test_domain
         # use only too long names, this is expected to fail:
         # see <https://github.com/jetstack/cert-manager/issues/1462>
@@ -711,7 +711,7 @@ class TestAutov2:
         assert long_domain in cert.get_san_list()
 
     # test case: fourth level domain
-    def test_702_070(self, env):
+    def test_md_702_070(self, env):
         domain = self.test_domain
         name_a = "one.test." + domain
         name_b = "two.test." + domain
@@ -730,7 +730,7 @@ class TestAutov2:
         env.check_md_complete(domains[0])
 
     # test case: fifth level domain
-    def test_702_071(self, env):
+    def test_md_702_071(self, env):
         domain = self.test_domain
         name_a = "one.more.test." + domain
         name_b = "two.more.test." + domain

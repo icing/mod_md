@@ -26,7 +26,7 @@ class TestAcmeErrors:
     # -----------------------------------------------------------------------------------------------
     # test case: MD with 2 names, one invalid
     #
-    def test_740_000(self, env):
+    def test_md_740_000(self, env):
         domain = self.test_domain
         domains = [domain, "invalid!." + domain]
         conf = MDConf(env)
@@ -49,7 +49,7 @@ class TestAcmeErrors:
 
     # test case: MD with 3 names, 2 invalid
     #
-    def test_740_001(self, env):
+    def test_md_740_001(self, env):
         domain = self.test_domain
         domains = [domain, "invalid1!." + domain, "invalid2!." + domain]
         conf = MDConf(env)

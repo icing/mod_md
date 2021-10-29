@@ -29,7 +29,7 @@ class TestCleanups:
     def teardown_method(self, method):
         print("teardown_method: %s" % method.__name__)
 
-    def test_910_01(self, env):
+    def test_md_910_01(self, env):
         # generate a simple MD
         domain = self.test_domain
         domains = [domain]
