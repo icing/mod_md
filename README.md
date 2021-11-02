@@ -35,7 +35,7 @@ into your Apache server log where `mod_md` logs its version at startup.
    Among other improvements v2.4.0 brings support for multiple certificates with different key types.
    The large feature added in v2.2.0 is OCSP stapling. This release line shipped in Apache httpd 2.4.46.
    Apache releases will always get the latest, stable version from here. 
-
+ * The current releases require Apache httpd >= 2.4.48 
 
 ## Index
 
