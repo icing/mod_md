@@ -1,3 +1,5 @@
+ * OpenSSL 3.0 compatibility: fixed generation of Elliptic Curve private
+   keys to work with openssl 3.0.0.
  * Docker testing arrived. Run `make docker-test` in your mod_md directory
    to build and test the current sources in a Debian sid image.
  * The directive 'MDCertificateAuthority' now checks if its parameter is a http/https
