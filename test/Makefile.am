@@ -21,16 +21,10 @@ ACME_TEST_DIR  = @ACME_TEST_DIR@
 
 .phony: unit_tests
 
-EXTRA_DIST     = conf data htdocs
+EXTRA_DIST     = modules pyhttpd unit
  	
 dist-hook:
-	rm -rf $(distdir)/conf/httpd.conf
-	rm -rf $(distdir)/conf/proxy.conf
-	rm -rf $(distdir)/conf/modules.conf
-	rm -rf $(distdir)/conf/modules.conf
-	rm -rf $(distdir)/conf/std_vhosts.conf
-	cp -p $(srcdir)/*.py $(distdir)
-
+	rm -rf $(distdir)/pyhttpd/htdocs/test1/apache.org-files
 
 
 if BUILD_UNIT_TESTS
