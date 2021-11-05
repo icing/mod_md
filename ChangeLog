@@ -1,3 +1,5 @@
+v2.4.9
+----------------------------------------------------------------------------------------------------
  * MDExternalAccountBinding can be configured with a file that contains the
    'kid' and 'hmac' values in JSON format. Since httpd config files are often
    readable to non-admins, this allows to keep those values in a more protected
