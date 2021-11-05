@@ -2123,7 +2123,7 @@ Use "none" as path to disable explicitly.
 
 ## MDExternalAccountBinding
 ***Sets the external account binding (EAB) information to use***<BR/>
-`MDExternalAccountBinding key-id hmac-value`
+`MDExternalAccountBinding key-id hmac-value | json-file`
 Default: none
 
 Some ACME CAs have already customer accounts and require ACME clients to *bind* to such an existing 
@@ -2140,6 +2140,24 @@ will not trigger a renewal of otherwise valid certificates.
 
 In case you need to force a new registration, you may delete the files in the MD store for an account
 and reload the server. Each account has its own directory in `md/accounts/ACME-*`. In the `account.json` file you can see the EAB setting tied to it.
+
+EAB values require protection as they allow anyone in their possession to operate on an ACME account.
+You are advised therefore to make the httpd configuration file restricted (e.g. readable for root only) OR
+keep the EAB values in a separate file that you restrict access to.
+
+```
+MDExternalAccountBinding path/my-eab.json
+```
+
+would configure the module to read the actual value from the file at startup. The file has a simple JSON
+format and would look like this:
+
+```
+{"kid": "kid-1", "hmac": "zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W"}
+```
+
+Make the file readable for root only (or what the httpd starts with) and handle your configuiration
+files as ususal.
 
 
 # Test Suite
