@@ -1,3 +1,8 @@
+v2.4.10
+----------------------------------------------------------------------------------------------------
+ * Fix memory leak in case of failures to load the private key.
+   Apache PR 65620 [ Filipe Casal <filipe.casal@trailofbits.com> ]
+
 v2.4.9
 ----------------------------------------------------------------------------------------------------
  * MDExternalAccountBinding can be configured with a file that contains the
