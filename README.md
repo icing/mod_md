@@ -727,12 +727,16 @@ If you just want to use the new OCSP Stapling feature of the module, load it int
 ```
 MDStapling on
 MDStapleOthers on
+
+<IfModule ssl_module>
+  SSLUseStapling on
+</IfModule>
 ```
 
-and that is all you need to do. All your existing https: sites get provided with OCSP 
-stapling information by mod_md. You can see it [in your server status pages](#how-would-you-know-it-works). 
-(Remember to reload your server after config changes.)
+and the module will provide the stapling for all your sites. If you use a module other than `mod_ssl` for your
+https: sites, you may need to activate stapling for them as well.
 
+You can see it [in your server status pages](#how-would-you-know-it-works) for which sites stapling information is delivered. 
 
 
 # How to Staple All My Certificates
@@ -749,7 +753,36 @@ This is a bit of a bold approach, however. A more controlled rollout might be be
 
 # How to Staple Some of My Certificates
 
-There are several variations possible here. You may try the new stapling on one of your managed domains only at first. Then your configure:
+For this, it is useful to know about how TLS modules like `mod_ssl` and `mod_md` work together in the server.
+When you configure:
+
+```
+SSLUseStaping on
+```
+
+`mod_ssl` will add stapling data to each new connection. It will ask around if someone in the server is
+willing to provide it and, if none does, use its own stapling implementation. If you configure `SSLUseStapling off`, it
+will never ask `mod_md` for the data.
+
+If you want some of your sites stapled and some not, you would configure something like this:
+
+```
+<VirtualHost *:443>
+  ServerName a.exampl.org
+  SSLUseStapling on
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName b.exampl.org
+  SSLUseStapling off
+</VirtualHost>
+```
+Site `b` then does not send stapling data to clients. And no `mod_md` configuration will change that.
+
+What you configure in `mod_md` are the sites that the module retrieves and updates OCSP information
+for, *in case someone like mod_ssl asks for it*.
+
+For example with:
 
 ```
 <MDomain mydomain.net>
@@ -757,14 +790,8 @@ There are several variations possible here. You may try the new stapling on one 
 </MDomain>
 ```
 
-Reload the server and the stapling will be enabled just for `mydomain.org` (change that name to whatever you dns name is, of course). When that works well, maybe you want to enable this for all your managed domains, but *not* for the virtualhosts where you still have your `SSLCertificateFile...` configured manually. Then you would write:
-
-```
-MDStapling on
-MDStapleOthers off
-```
-
-These settings are global.
+OCSP data management will be enabled just for `mydomain.org`. For all other sites, `mod_ssl` will
+continue to manage it.
 
 # How Would You Know It Works?
 
@@ -2156,8 +2183,8 @@ format and would look like this:
 {"kid": "kid-1", "hmac": "zWNDZM6eQGHWpSRTPal5eIUYFTu7EajVIoguysqZ9wG44nMEtx3MUAsUDkMTQ12W"}
 ```
 
-Make the file readable for root only (or what the httpd starts with) and handle your configuiration
-files as ususal.
+Make the file readable for root only (or what the httpd starts with) and handle your configuration
+files as usual.
 
 
 # Test Suite
