@@ -1,3 +1,7 @@
+ * The status description in MDomain's JSON, exposed in the
+   md-status handler (if configured) did sometimes not carry the correct
+   message when certificates needed renew.
+
 v2.4.10
 ----------------------------------------------------------------------------------------------------
  * Fix memory leak in case of failures to load the private key.
