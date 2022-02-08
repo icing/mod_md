@@ -23,7 +23,7 @@ class MDConf(HttpdConf):
                 ])
         if std_ports:
             self.add(f"MDPortMap 80:{env.http_port} 443:{env.https_port}")
-            if env.ssl_module == "tls":
+            if env.ssl_module == "mod_tls":
                 self.add(f"TLSListen {env.https_port}")
         self.add([
             "<Location /server-status>",

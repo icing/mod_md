@@ -2,12 +2,10 @@ import logging
 import os
 import re
 import sys
-from datetime import timedelta
 import pytest
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from .md_certs import CertificateSpec, MDTestCA
 from .md_conf import HttpdConf
 from .md_env import MDTestEnv
 from .md_acme import MDPebbleRunner, MDBoulderRunner
@@ -32,6 +30,7 @@ def env(pytestconfig) -> MDTestEnv:
     logging.getLogger('').addHandler(console)
     logging.getLogger('').setLevel(level=level)
     env = MDTestEnv(pytestconfig=pytestconfig)
+    env.setup_httpd()
     env.apache_access_log_clear()
     env.httpd_error_log.clear_log()
     return env
@@ -51,6 +50,7 @@ def _session_scope(env):
         'AH01909',  # mod_ssl, cert alt name complains
         'AH10170',  # mod_md, wrong config, tested
         'AH10171',  # mod_md, wrong config, tested
+        'AH10373',  # SSL errors on uncompleted handshakes
     ])
 
     env.httpd_error_log.add_ignored_patterns([
@@ -67,7 +67,6 @@ def _session_scope(env):
             re.compile(r'.*certificate with serial \S+ has no OCSP responder URL.*'),
         ])
     yield
-    HttpdConf(env).install()
     assert env.apache_stop() == 0
     errors, warnings = env.httpd_error_log.get_missed()
     assert (len(errors), len(warnings)) == (0, 0),\
