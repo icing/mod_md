@@ -658,7 +658,10 @@ class TestAutov2:
             "<IfModule ssl_module>",
             "  SSLEngine on",
             "</IfModule>",
-            ])
+            "<IfModule tls_module>",
+            f"  TLSEngine {env.https_port}",
+            "</IfModule>",
+        ])
         conf.add_md([domain])
         conf.install()
         assert env.apache_restart() == 0
