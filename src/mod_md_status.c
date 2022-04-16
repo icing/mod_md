@@ -535,33 +535,34 @@ int md_domains_status_hook(request_rec *r, int flags)
     qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
 
     if (!html) {
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "no-html summary");
-        apr_brigade_puts(ctx.bb, NULL, NULL, "Managed Certificates: ");
+        int total = 0, complete = 0, renewing = 0, errored = 0, ready = 0;
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "no-html managed domain status summary");
         if (mc->mds->nelts > 0) {
             md_status_take_stock(&jstock, mds, mc->reg, r->pool);
-            ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON summary");
-            apr_brigade_printf(ctx.bb, NULL, NULL, "total=%d, ok=%d renew=%d errored=%d ready=%d",
-                                (int)md_json_getl(jstock, MD_KEY_TOTAL, NULL), 
-                                (int)md_json_getl(jstock, MD_KEY_COMPLETE, NULL), 
-                                (int)md_json_getl(jstock, MD_KEY_RENEWING, NULL), 
-                                (int)md_json_getl(jstock, MD_KEY_ERRORED, NULL), 
-                                (int)md_json_getl(jstock, MD_KEY_READY, NULL));
-        } 
-        else {
-            apr_brigade_puts(ctx.bb, NULL, NULL, "[]"); 
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON managed domain status summary");
+            total = (int)md_json_getl(jstock, MD_KEY_TOTAL, NULL);
+            complete = (int)md_json_getl(jstock, MD_KEY_COMPLETE, NULL);
+            renewing = (int)md_json_getl(jstock, MD_KEY_RENEWING, NULL);
+            errored = (int)md_json_getl(jstock, MD_KEY_ERRORED, NULL);
+            ready = (int)md_json_getl(jstock, MD_KEY_READY, NULL);
         }
-        apr_brigade_puts(ctx.bb, NULL, NULL, "\n"); 
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesTotal: %d\n", total);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesOK: %d\n", complete);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesRenew: %d\n", renewing);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesErrored: %d\n", errored);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesReady: %d\n", ready);
     }
     else if (mc->mds->nelts > 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "html table");
         md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON status");
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON managed domain status");
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "html managed domain status table");
         apr_brigade_puts(ctx.bb, NULL, NULL, 
                          "<hr>\n<h3>Managed Certificates</h3>\n<table class='md_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
             si_add_header(&ctx, &status_infos[i]);
         }
         apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "iterating JSON managed domain status");
         md_json_itera(add_md_row, &ctx, jstatus, MD_KEY_MDS, NULL);
         apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
     }
@@ -628,28 +629,32 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     ctx.separator = " ";
 
     if (!html) {
-        apr_brigade_puts(ctx.bb, NULL, NULL, "Managed Staplings: ");
+        int total = 0, good = 0, revoked = 0, unknown = 0;
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "no-html ocsp stapling status summary");
         if (md_ocsp_count(mc->ocsp) > 0) {
             md_ocsp_get_summary(&jstock, mc->ocsp, r->pool);
-            apr_brigade_printf(ctx.bb, NULL, NULL, "total=%d, good=%d revoked=%d unknown=%d",
-                                (int)md_json_getl(jstock, MD_KEY_TOTAL, NULL), 
-                                (int)md_json_getl(jstock, MD_KEY_GOOD, NULL), 
-                                (int)md_json_getl(jstock, MD_KEY_REVOKED, NULL), 
-                                (int)md_json_getl(jstock, MD_KEY_UNKNOWN, NULL));
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON ocsp stapling status summary");
+            total = (int)md_json_getl(jstock, MD_KEY_TOTAL, NULL);
+            good = (int)md_json_getl(jstock, MD_KEY_GOOD, NULL);
+            revoked = (int)md_json_getl(jstock, MD_KEY_REVOKED, NULL);
+            unknown = (int)md_json_getl(jstock, MD_KEY_UNKNOWN, NULL);
         } 
-        else {
-            apr_brigade_puts(ctx.bb, NULL, NULL, "[]"); 
-        }
-        apr_brigade_puts(ctx.bb, NULL, NULL, "\n"); 
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsTotal: %d\n", total);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsOK: %d\n", good);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsRenew: %d\n", revoked);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsErrored: %d\n", unknown);
     }
     else if (md_ocsp_count(mc->ocsp) > 0) {
         md_ocsp_get_status_all(&jstatus, mc->ocsp, r->pool);
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON ocsp stapling status");
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "html ocsp stapling status table");
         apr_brigade_puts(ctx.bb, NULL, NULL, 
                          "<hr>\n<h3>Managed Staplings</h3>\n<table class='md_ocsp_status'><thead><tr>\n");
         for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
             si_add_header(&ctx, &ocsp_status_infos[i]);
         }
         apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "iterating JSON ocsp stapling status");
         md_json_itera(add_ocsp_row, &ctx, jstatus, MD_KEY_OCSPS, NULL);
         apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
     }
