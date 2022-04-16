@@ -191,6 +191,10 @@ static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *in
     if (HTML_STATUS(ctx)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, s);
     }
+    else {
+        apr_brigade_printf(ctx->bb, NULL, NULL, "%s%s: %s\n",
+                           ctx->prefix, info->label, s);
+    }
 }
 
 static void si_val_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -204,6 +208,12 @@ static void si_val_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
         apr_brigade_printf(ctx->bb, NULL, NULL, "<a href='%s'>%s</a>",
                            ap_escape_html2(ctx->p, url, 1), 
                            ap_escape_html2(ctx->p, s, 1));
+    }
+    else {
+        apr_brigade_printf(ctx->bb, NULL, NULL, "%s%sName: %s\n",
+                           ctx->prefix, info->label, s);
+        apr_brigade_printf(ctx->bb, NULL, NULL, "%s%sURL: %s\n",
+                           ctx->prefix, info->label, url);
     }
 }
 
@@ -228,6 +238,10 @@ static void print_date(status_ctx *ctx, apr_time_t timestamp, const char *title)
             apr_brigade_printf(bb, NULL, NULL, 
                                "<span title='%s' style='white-space: nowrap;'>%s</span>", 
                                ap_escape_html2(bb->p, title, 1), ts);
+        }
+        else {
+            apr_brigade_printf(bb, NULL, NULL, "%s%s: %s\n", 
+                               ctx->prefix, title, ts);
         }
     }
 }
@@ -274,6 +288,11 @@ static void print_time(status_ctx *ctx, const char *label, apr_time_t t)
                                label, sep, ts, pre, md_duration_roughly(bb->p, delta), post); 
         }
     }
+    else {
+        delta = t - now;
+        apr_brigade_printf(bb, NULL, NULL, "%s%s: %" APR_TIME_T_FMT "\n",
+                           ctx->prefix, label, apr_time_sec(delta)); 
+    }
 }
 
 static void si_val_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -298,6 +317,16 @@ static void si_val_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info
             apr_brigade_puts(ctx->bb, NULL, NULL, "until ");
             title = sfrom? apr_psprintf(ctx->p, "%s - %s", sfrom, suntil) : suntil;
             print_date(ctx, until, title);
+        }
+    }
+    else {
+        if (from > apr_time_now()) {
+            print_date(ctx, from,
+            apr_pstrcat(ctx->p, info->label, "From", NULL));
+        }
+        if (until) {
+            print_date(ctx, from,
+            apr_pstrcat(ctx->p, info->label, "Until", NULL));
         }
     }
 }
@@ -368,8 +397,16 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
             line = apr_psprintf(bb->p, "%s Error[%s]: %s", line, 
                                 errstr, s? s : "");
         }
+        else {
+            apr_brigade_printf(bb, NULL, NULL, "%sLastStatus: %s\n", ctx->prefix, errstr);
+            apr_brigade_printf(bb, NULL, NULL, "%sLastProblem: %s\n", ctx->prefix, s);
+        }
     }
     
+    if (!HTML_STATUS(ctx)) {
+        apr_brigade_printf(bb, NULL, NULL, "%sFinished: %s\n", ctx->prefix,
+                           finished ? "yes" : "no");
+    }
     if (finished) {
         cert_count = 0;
         md_json_iterkey(count_certs, &cert_count, mdj, key, MD_KEY_CERT, NULL);
@@ -382,12 +419,18 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
                 line = apr_psprintf(bb->p, "%s  finished successfully.", line);
             }
         }
+        else {
+            apr_brigade_printf(bb, NULL, NULL, "%sNewStaged: %d\n", ctx->prefix, cert_count);
+        }
     }
     else {
         s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
         if (s) {
             if (HTML_STATUS(ctx)) {
                 line = apr_psprintf(bb->p, "%s %s", line, s);
+            }
+            else {
+                apr_brigade_printf(bb, NULL, NULL, "%sLastDetail: %s\n", ctx->prefix, s);
             }
         }
     }
@@ -398,6 +441,9 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
             line = apr_psprintf(bb->p, "%s (%d retr%s) ", line, 
                 errors, (errors > 1)? "y" : "ies");
         } 
+        else {
+            apr_brigade_printf(bb, NULL, NULL, "%sRetries: %d\n", ctx->prefix, errors);
+        }
     } 
     
     if (HTML_STATUS(ctx)) {
@@ -406,11 +452,16 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
 
     t = md_json_get_time(mdj, key, MD_KEY_NEXT_RUN, NULL);
     if (t > apr_time_now() && !finished) {
-        print_time(ctx, "\nNext run", t);
+        print_time(ctx,
+                   HTML_STATUS(ctx) ? "\nNext run" : "NextRun",
+                   t);
     }
     else if (line[0] != '\0') {
         if (HTML_STATUS(ctx)) {
             apr_brigade_puts(bb, NULL, NULL, "\nOngoing...");
+        }
+        else {
+            apr_brigade_printf(bb, NULL, NULL, "%s: Ongoing\n", ctx->prefix);
         }
     }
 }
@@ -438,10 +489,16 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
         if (HTML_STATUS(ctx)) {
             apr_brigade_puts(ctx->bb, NULL, NULL, "Pending");
         }
+        else {
+            apr_brigade_printf(ctx->bb, NULL, NULL, "%s: %s", ctx->prefix, "Pending");
+        }
     }
     else if (MD_RENEW_MANUAL == md_json_getl(mdj, MD_KEY_RENEW_MODE, NULL)) {
         if (HTML_STATUS(ctx)) {
             apr_brigade_puts(ctx->bb, NULL, NULL, "Manual renew");
+        }
+        else {
+            apr_brigade_printf(ctx->bb, NULL, NULL, "%s: %s", ctx->prefix, "Manual renew");
         }
     }
     if (!HTML_STATUS(ctx)) {
@@ -461,6 +518,24 @@ static int cert_check_iter(void *baton, const char *key, md_json_t *json)
                                "<a href=\"%s%s\">%s[%s]</a><br>", 
                                ctx->mc->cert_check_url, fingerprint, 
                                ctx->mc->cert_check_name, key);
+        }
+        else {
+            apr_brigade_printf(ctx->bb, NULL, NULL, 
+                               "%sType: %s\n",
+                               ctx->prefix,
+                               key);
+            apr_brigade_printf(ctx->bb, NULL, NULL, 
+                               "%sName: %s\n",
+                               ctx->prefix,
+                               ctx->mc->cert_check_name);
+            apr_brigade_printf(ctx->bb, NULL, NULL, 
+                               "%sURL: %s%s\n",
+                               ctx->prefix,
+                               ctx->mc->cert_check_url, fingerprint);
+            apr_brigade_printf(ctx->bb, NULL, NULL, 
+                               "%sFingerprint: %s\n",
+                               ctx->prefix,
+                               fingerprint);
         }
     }
     return 1;
@@ -488,6 +563,9 @@ static void si_val_stapling(status_ctx *ctx, md_json_t *mdj, const status_info *
     if (HTML_STATUS(ctx)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "on");
     }
+    else {
+        apr_brigade_printf(ctx->bb, NULL, NULL, "%s: on", ctx->prefix);
+    }
 }
 
 static int json_iter_val(void *data, size_t index, md_json_t *json)
@@ -510,10 +588,15 @@ static int json_iter_val(void *data, size_t index, md_json_t *json)
 static void add_json_val(status_ctx *ctx, md_json_t *j)
 {
     if (!j) return;
-    else if (md_json_is(MD_JSON_TYPE_ARRAY, j, NULL)) {
+    if (md_json_is(MD_JSON_TYPE_ARRAY, j, NULL)) {
         md_json_itera(json_iter_val, ctx, j, NULL);
+        return;
     }
-    else if (md_json_is(MD_JSON_TYPE_INT, j, NULL)) {
+    if (!HTML_STATUS(ctx)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, ctx->prefix);
+        apr_brigade_puts(ctx->bb, NULL, NULL, ": ");
+    }
+    if (md_json_is(MD_JSON_TYPE_INT, j, NULL)) {
         md_json_writeb(j, MD_JSON_FMT_COMPACT, ctx->bb);
     }
     else if (md_json_is(MD_JSON_TYPE_STRING, j, NULL)) {
@@ -524,6 +607,9 @@ static void add_json_val(status_ctx *ctx, md_json_t *j)
     }
     else if (md_json_is(MD_JSON_TYPE_BOOL, j, NULL)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, md_json_getb(j, NULL)? "on" : "off");
+    }
+    if (!HTML_STATUS(ctx)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "\n");
     }
 }
 
