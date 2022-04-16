@@ -202,8 +202,9 @@ static void si_val_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
                        ap_escape_html2(ctx->p, s, 1));
 }
 
-static void print_date(apr_bucket_brigade *bb, apr_time_t timestamp, const char *title)
+static void print_date(status_ctx *ctx, apr_time_t timestamp, const char *title)
 {
+    apr_bucket_brigade *bb = ctx->bb;
     if (timestamp > 0) {
         char ts[128];
         char ts2[128];
@@ -224,8 +225,9 @@ static void print_date(apr_bucket_brigade *bb, apr_time_t timestamp, const char 
     }
 }
 
-static void print_time(apr_bucket_brigade *bb, const char *label, apr_time_t t)
+static void print_time(status_ctx *ctx, const char *label, apr_time_t t)
 {
+    apr_bucket_brigade *bb = ctx->bb;
     apr_time_t now;
     const char *pre, *post, *sep;
     char ts[APR_RFC822_DATE_LEN];
@@ -278,14 +280,14 @@ static void si_val_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info
     
     if (from > apr_time_now()) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "from ");
-        print_date(ctx->bb, from, sfrom);
+        print_date(ctx, from, sfrom);
         sep = " ";
     }
     if (until) {
         if (sep) apr_brigade_puts(ctx->bb, NULL, NULL, sep);
         apr_brigade_puts(ctx->bb, NULL, NULL, "until ");
         title = sfrom? apr_psprintf(ctx->p, "%s - %s", sfrom, suntil) : suntil;
-        print_date(ctx->bb, until, title);
+        print_date(ctx, until, title);
     }
 }
 
@@ -326,9 +328,10 @@ static int count_certs(void *baton, const char *key, md_json_t *json)
     return 1;
 }
 
-static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char *key, 
+static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key, 
                               const char *separator)
 {
+    apr_bucket_brigade *bb = ctx->bb;
     char buffer[HUGE_STRING_LEN];
     apr_status_t rv;
     int finished, errors, cert_count;
@@ -377,7 +380,7 @@ static void print_job_summary(apr_bucket_brigade *bb, md_json_t *mdj, const char
 
     t = md_json_get_time(mdj, key, MD_KEY_NEXT_RUN, NULL);
     if (t > apr_time_now() && !finished) {
-        print_time(bb, "\nNext run", t);
+        print_time(ctx, "\nNext run", t);
     }
     else if (!strlen(line)) {
         apr_brigade_puts(bb, NULL, NULL, "\nOngoing...");
@@ -390,13 +393,13 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
     
     (void)info;
     if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
-        print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, NULL);
+        print_job_summary(ctx, mdj, MD_KEY_RENEWAL, NULL);
         return;
     }
     
     t = md_json_get_time(mdj, MD_KEY_RENEW_AT, NULL);
     if (t > apr_time_now()) {
-        print_time(ctx->bb, "Renew", t);
+        print_time(ctx, "Renew", t);
     }
     else if (t) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "Pending");
@@ -582,8 +585,8 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
     
     (void)info;
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
-    print_time(ctx->bb, "Refresh", t);
-    print_job_summary(ctx->bb, mdj, MD_KEY_RENEWAL, ": ");
+    print_time(ctx, "Refresh", t);
+    print_job_summary(ctx, mdj, MD_KEY_RENEWAL, ": ");
 }
 
 static const status_info ocsp_status_infos[] = {
