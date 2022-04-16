@@ -407,7 +407,7 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
     if (t > apr_time_now() && !finished) {
         print_time(ctx, "\nNext run", t);
     }
-    else if (!strlen(line)) {
+    else if (line[0] != '\0') {
         if (HTML_STATUS(ctx)) {
             apr_brigade_puts(bb, NULL, NULL, "\nOngoing...");
         }
