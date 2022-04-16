@@ -486,7 +486,7 @@ static const status_info status_infos[] = {
     { "Valid", MD_KEY_CERT, si_val_cert_valid_time },
     { "CA", MD_KEY_CA, si_val_ca_url },
     { "Stapling", MD_KEY_STAPLING, si_val_stapling },
-    { "Check@", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
+    { "CheckAt", MD_KEY_SHA256_FINGERPRINT, si_val_remote_check },
     { "Activity",  MD_KEY_NOTIFIED, si_val_activity },
 };
 
@@ -585,9 +585,9 @@ static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_i
 
 static const status_info ocsp_status_infos[] = {
     { "Domain", MD_KEY_DOMAIN, NULL },
-    { "Certificate ID", MD_KEY_ID, NULL },
-    { "OCSP Status", MD_KEY_STATUS, NULL },
-    { "Stapling Valid", MD_KEY_VALID, si_val_valid_time },
+    { "CertificateID", MD_KEY_ID, NULL },
+    { "OCSPStatus", MD_KEY_STATUS, NULL },
+    { "StaplingValid", MD_KEY_VALID, si_val_valid_time },
     { "Responder", MD_KEY_URL, si_val_url },
     { "Activity",  MD_KEY_NOTIFIED, si_val_ocsp_activity },
 };
