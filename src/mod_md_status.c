@@ -187,7 +187,9 @@ static void si_val_status(status_ctx *ctx, md_json_t *mdj, const status_info *in
         case MD_S_MISSING_INFORMATION: s = "missing information"; break;
         default: break;
     }
-    apr_brigade_puts(ctx->bb, NULL, NULL, s);
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, s);
+    }
 }
 
 static void si_val_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -197,9 +199,11 @@ static void si_val_url(status_ctx *ctx, md_json_t *mdj, const status_info *info)
     s = url = md_json_gets(mdj, info->key, NULL);
     if (!url) return;
     s = md_get_ca_name_from_url(ctx->p, url);
-    apr_brigade_printf(ctx->bb, NULL, NULL, "<a href='%s'>%s</a>",
-                       ap_escape_html2(ctx->p, url, 1), 
-                       ap_escape_html2(ctx->p, s, 1));
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, "<a href='%s'>%s</a>",
+                           ap_escape_html2(ctx->p, url, 1), 
+                           ap_escape_html2(ctx->p, s, 1));
+    }
 }
 
 static void print_date(status_ctx *ctx, apr_time_t timestamp, const char *title)
@@ -219,9 +223,11 @@ static void print_date(status_ctx *ctx, apr_time_t timestamp, const char *title)
             ts2[len] = '\0';
             title = ts2;
         }
-        apr_brigade_printf(bb, NULL, NULL, 
-                           "<span title='%s' style='white-space: nowrap;'>%s</span>", 
-                           ap_escape_html2(bb->p, title, 1), ts);
+        if (HTML_STATUS(ctx)) {
+            apr_brigade_printf(bb, NULL, NULL, 
+                               "<span title='%s' style='white-space: nowrap;'>%s</span>", 
+                               ap_escape_html2(bb->p, title, 1), ts);
+        }
     }
 }
 
@@ -245,25 +251,27 @@ static void print_time(status_ctx *ctx, const char *label, apr_time_t t)
     pre = post = "";
     sep = (label && strlen(label))? " " : "";
     delta = 0;
-    apr_rfc822_date(ts, t);
-    if (t > now) {
-        delta = t - now;
-        pre = "in ";
-    }
-    else {
-        delta = now - t;
-        post = " ago";
-    }
-    if (delta >= (4 * apr_time_from_sec(MD_SECS_PER_DAY))) {
-        apr_strftime(ts2, &len, sizeof(ts2)-1, "%Y-%m-%d", &texp);
-        ts2[len] = '\0';
-        apr_brigade_printf(bb, NULL, NULL, "%s%s<span title='%s' "
-                           "style='white-space: nowrap;'>%s</span>", 
-                           label, sep, ts, ts2); 
-    }
-    else {
-        apr_brigade_printf(bb, NULL, NULL, "%s%s<span title='%s'>%s%s%s</span>", 
-                           label, sep, ts, pre, md_duration_roughly(bb->p, delta), post); 
+    if (HTML_STATUS(ctx)) {
+        apr_rfc822_date(ts, t);
+        if (t > now) {
+            delta = t - now;
+            pre = "in ";
+        }
+        else {
+            delta = now - t;
+            post = " ago";
+        }
+        if (delta >= (4 * apr_time_from_sec(MD_SECS_PER_DAY))) {
+            apr_strftime(ts2, &len, sizeof(ts2)-1, "%Y-%m-%d", &texp);
+            ts2[len] = '\0';
+            apr_brigade_printf(bb, NULL, NULL, "%s%s<span title='%s' "
+                               "style='white-space: nowrap;'>%s</span>", 
+                               label, sep, ts, ts2); 
+        }
+        else {
+            apr_brigade_printf(bb, NULL, NULL, "%s%s<span title='%s'>%s%s%s</span>", 
+                               label, sep, ts, pre, md_duration_roughly(bb->p, delta), post); 
+        }
     }
 }
 
@@ -278,23 +286,27 @@ static void si_val_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info
     suntil = md_json_gets(mdj, info->key, MD_KEY_UNTIL, NULL);
     until = suntil?apr_date_parse_rfc(suntil) : 0;
     
-    if (from > apr_time_now()) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "from ");
-        print_date(ctx, from, sfrom);
-        sep = " ";
-    }
-    if (until) {
-        if (sep) apr_brigade_puts(ctx->bb, NULL, NULL, sep);
-        apr_brigade_puts(ctx->bb, NULL, NULL, "until ");
-        title = sfrom? apr_psprintf(ctx->p, "%s - %s", sfrom, suntil) : suntil;
-        print_date(ctx, until, title);
+    if (HTML_STATUS(ctx)) {
+        if (from > apr_time_now()) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "from ");
+            print_date(ctx, from, sfrom);
+            sep = " ";
+        }
+        if (until) {
+            if (sep) apr_brigade_puts(ctx->bb, NULL, NULL, sep);
+            apr_brigade_puts(ctx->bb, NULL, NULL, "until ");
+            title = sfrom? apr_psprintf(ctx->p, "%s - %s", sfrom, suntil) : suntil;
+            print_date(ctx, until, title);
+        }
     }
 }
 
 static void si_add_header(status_ctx *ctx, const status_info *info)
 {
-    const char *html = ap_escape_html2(ctx->p, info->label, 1);
-    apr_brigade_printf(ctx->bb, NULL, NULL, "<th class=\"%s\">%s</th>", html, html);
+    if (HTML_STATUS(ctx)) {
+        const char *html = ap_escape_html2(ctx->p, info->label, 1);
+        apr_brigade_printf(ctx->bb, NULL, NULL, "<th class=\"%s\">%s</th>", html, html);
+    }
 }
 
 static void si_val_cert_valid_time(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -350,40 +362,55 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
 
     if (rv != APR_SUCCESS) {
         s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
-        line = apr_psprintf(bb->p, "%s Error[%s]: %s", line, 
-                           apr_strerror(rv, buffer, sizeof(buffer)), s? s : "");
+        char *errstr = apr_strerror(rv, buffer, sizeof(buffer));
+        if (HTML_STATUS(ctx)) {
+            line = apr_psprintf(bb->p, "%s Error[%s]: %s", line, 
+                                errstr, s? s : "");
+        }
     }
     
     if (finished) {
         cert_count = 0;
         md_json_iterkey(count_certs, &cert_count, mdj, key, MD_KEY_CERT, NULL);
-        if (cert_count > 0) {
-            line =apr_psprintf(bb->p, "%s  finished, %d new certificate%s staged.",
-                               line, cert_count, cert_count > 1? "s" : "");
-        }
-        else {
-            line = apr_psprintf(bb->p, "%s  finished successfully.", line);
+        if (HTML_STATUS(ctx)) {
+            if (cert_count > 0) {
+                line =apr_psprintf(bb->p, "%s  finished, %d new certificate%s staged.",
+                                   line, cert_count, cert_count > 1? "s" : "");
+            }
+            else {
+                line = apr_psprintf(bb->p, "%s  finished successfully.", line);
+            }
         }
     }
     else {
         s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_DETAIL, NULL);
-        if (s) line = apr_psprintf(bb->p, "%s %s", line, s);
+        if (s) {
+            if (HTML_STATUS(ctx)) {
+                line = apr_psprintf(bb->p, "%s %s", line, s);
+            }
+        }
     }
     
     errors = (int)md_json_getl(mdj, MD_KEY_ERRORS, NULL);
     if (errors > 0) {
-        line = apr_psprintf(bb->p, "%s (%d retr%s) ", line, 
-            errors, (errors > 1)? "y" : "ies");
+        if (HTML_STATUS(ctx)) {
+            line = apr_psprintf(bb->p, "%s (%d retr%s) ", line, 
+                errors, (errors > 1)? "y" : "ies");
+        } 
     } 
     
-    apr_brigade_puts(bb, NULL, NULL, line);
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_puts(bb, NULL, NULL, line);
+    }
 
     t = md_json_get_time(mdj, key, MD_KEY_NEXT_RUN, NULL);
     if (t > apr_time_now() && !finished) {
         print_time(ctx, "\nNext run", t);
     }
     else if (!strlen(line)) {
-        apr_brigade_puts(bb, NULL, NULL, "\nOngoing...");
+        if (HTML_STATUS(ctx)) {
+            apr_brigade_puts(bb, NULL, NULL, "\nOngoing...");
+        }
     }
 }
 
@@ -402,10 +429,14 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
         print_time(ctx, "Renew", t);
     }
     else if (t) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Pending");
+        if (HTML_STATUS(ctx)) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "Pending");
+        }
     }
     else if (MD_RENEW_MANUAL == md_json_getl(mdj, MD_KEY_RENEW_MODE, NULL)) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "Manual renew");
+        if (HTML_STATUS(ctx)) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "Manual renew");
+        }
     }
 }
 
@@ -416,10 +447,12 @@ static int cert_check_iter(void *baton, const char *key, md_json_t *json)
     
     fingerprint = md_json_gets(json, MD_KEY_SHA256_FINGERPRINT, NULL);
     if (fingerprint) {
-        apr_brigade_printf(ctx->bb, NULL, NULL, 
-                           "<a href=\"%s%s\">%s[%s]</a><br>", 
-                           ctx->mc->cert_check_url, fingerprint, 
-                           ctx->mc->cert_check_name, key);
+        if (HTML_STATUS(ctx)) {
+            apr_brigade_printf(ctx->bb, NULL, NULL, 
+                               "<a href=\"%s%s\">%s[%s]</a><br>", 
+                               ctx->mc->cert_check_url, fingerprint, 
+                               ctx->mc->cert_check_name, key);
+        }
     }
     return 1;
 }
@@ -436,13 +469,17 @@ static void si_val_stapling(status_ctx *ctx, md_json_t *mdj, const status_info *
 {
     (void)info;
     if (!md_json_getb(mdj, MD_KEY_STAPLING, NULL)) return;
-    apr_brigade_puts(ctx->bb, NULL, NULL, "on");
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "on");
+    }
 }
 
 static int json_iter_val(void *data, size_t index, md_json_t *json)
 {
     status_ctx *ctx = data;
-    if (index) apr_brigade_puts(ctx->bb, NULL, NULL, ctx->separator);
+    if (HTML_STATUS(ctx)) {
+        if (index) apr_brigade_puts(ctx->bb, NULL, NULL, ctx->separator);
+    }
     add_json_val(ctx, json);
     return 1;
 }
@@ -469,9 +506,13 @@ static void add_json_val(status_ctx *ctx, md_json_t *j)
 
 static void si_val_names(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
-    apr_brigade_puts(ctx->bb, NULL, NULL, "<div style=\"max-width:400px;\">");
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "<div style=\"max-width:400px;\">");
+    }
     add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
-    apr_brigade_puts(ctx->bb, NULL, NULL, "</div>");
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_puts(ctx->bb, NULL, NULL, "</div>");
+    }
 }
 
 static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *info)
@@ -500,13 +541,15 @@ static int add_md_row(void *baton, apr_size_t index, md_json_t *mdj)
     status_ctx *ctx = baton;
     int i;
     
-    apr_brigade_printf(ctx->bb, NULL, NULL, "<tr class=\"%s\">", (index % 2)? "odd" : "even");
-    for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
-        add_status_cell(ctx, mdj, &status_infos[i]);
-        apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, "<tr class=\"%s\">", (index % 2)? "odd" : "even");
+        for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
+            add_status_cell(ctx, mdj, &status_infos[i]);
+            apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
+        }
+        apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
     }
-    apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
     return 1;
 }
 
@@ -560,16 +603,20 @@ int md_domains_status_hook(request_rec *r, int flags)
     else if (mc->mds->nelts > 0) {
         md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON managed domain status");
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "html managed domain status table");
-        apr_brigade_puts(ctx.bb, NULL, NULL, 
-                         "<hr>\n<h3>Managed Certificates</h3>\n<table class='md_status'><thead><tr>\n");
-        for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
-            si_add_header(&ctx, &status_infos[i]);
+        if (HTML_STATUS(&ctx)) {
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "html managed domain status table");
+            apr_brigade_puts(ctx.bb, NULL, NULL, 
+                             "<hr>\n<h3>Managed Certificates</h3>\n<table class='md_status'><thead><tr>\n");
+            for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+                si_add_header(&ctx, &status_infos[i]);
+            }
+            apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
         }
-        apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "iterating JSON managed domain status");
         md_json_itera(add_md_row, &ctx, jstatus, MD_KEY_MDS, NULL);
-        apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
+        if (HTML_STATUS(&ctx)) {
+            apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
+        }
     }
 
     ap_pass_brigade(r->output_filters, ctx.bb);
@@ -603,13 +650,15 @@ static int add_ocsp_row(void *baton, apr_size_t index, md_json_t *mdj)
     status_ctx *ctx = baton;
     int i;
     
-    apr_brigade_printf(ctx->bb, NULL, NULL, "<tr class=\"%s\">", (index % 2)? "odd" : "even");
-    for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
-        apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
-        add_status_cell(ctx, mdj, &ocsp_status_infos[i]);
-        apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
+    if (HTML_STATUS(ctx)) {
+        apr_brigade_printf(ctx->bb, NULL, NULL, "<tr class=\"%s\">", (index % 2)? "odd" : "even");
+        for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
+            apr_brigade_puts(ctx->bb, NULL, NULL, "<td>");
+            add_status_cell(ctx, mdj, &ocsp_status_infos[i]);
+            apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
+        }
+        apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
     }
-    apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
     return 1;
 }
 
@@ -652,16 +701,20 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     else if (md_ocsp_count(mc->ocsp) > 0) {
         md_ocsp_get_status_all(&jstatus, mc->ocsp, r->pool);
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON ocsp stapling status");
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "html ocsp stapling status table");
-        apr_brigade_puts(ctx.bb, NULL, NULL, 
-                         "<hr>\n<h3>Managed Staplings</h3>\n<table class='md_ocsp_status'><thead><tr>\n");
-        for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
-            si_add_header(&ctx, &ocsp_status_infos[i]);
+        if (HTML_STATUS(&ctx)) {
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "html ocsp stapling status table");
+            apr_brigade_puts(ctx.bb, NULL, NULL, 
+                             "<hr>\n<h3>Managed Staplings</h3>\n<table class='md_ocsp_status'><thead><tr>\n");
+            for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
+                si_add_header(&ctx, &ocsp_status_infos[i]);
+            }
+            apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
         }
-        apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "iterating JSON ocsp stapling status");
         md_json_itera(add_ocsp_row, &ctx, jstatus, MD_KEY_OCSPS, NULL);
-        apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
+        if (HTML_STATUS(&ctx)) {
+            apr_brigade_puts(ctx.bb, NULL, NULL, "</td></tr>\n</tbody>\n</table>\n");
+        }
     }
 
     ap_pass_brigade(r->output_filters, ctx.bb);
