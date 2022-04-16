@@ -153,6 +153,7 @@ typedef struct {
     const md_mod_conf_t *mc;
     apr_bucket_brigade *bb;
     int flags;
+    const char *prefix;
     const char *separator;
 } status_ctx;
 
@@ -417,8 +418,13 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
 static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     apr_time_t t;
+    const char *prefix = ctx->prefix;
     
     (void)info;
+    if (!HTML_STATUS(ctx)) {
+        ctx->prefix = apr_pstrcat(ctx->p, prefix, info->label, NULL);
+    }
+
     if (md_json_has_key(mdj, MD_KEY_RENEWAL, NULL)) {
         print_job_summary(ctx, mdj, MD_KEY_RENEWAL, NULL);
         return;
@@ -437,6 +443,9 @@ static void si_val_activity(status_ctx *ctx, md_json_t *mdj, const status_info *
         if (HTML_STATUS(ctx)) {
             apr_brigade_puts(ctx->bb, NULL, NULL, "Manual renew");
         }
+    }
+    if (!HTML_STATUS(ctx)) {
+        ctx->prefix = prefix;
     }
 }
 
@@ -461,7 +470,14 @@ static void si_val_remote_check(status_ctx *ctx, md_json_t *mdj, const status_in
 {
     (void)info;
     if (ctx->mc->cert_check_name && ctx->mc->cert_check_url) {
+        const char *prefix = ctx->prefix;
+        if (!HTML_STATUS(ctx)) {
+            ctx->prefix = apr_pstrcat(ctx->p, prefix, info->label, NULL);
+        }
         md_json_iterkey(cert_check_iter, ctx, mdj, MD_KEY_CERT, NULL);
+        if (!HTML_STATUS(ctx)) {
+            ctx->prefix = prefix;
+        }
     }
 }
 
@@ -477,10 +493,17 @@ static void si_val_stapling(status_ctx *ctx, md_json_t *mdj, const status_info *
 static int json_iter_val(void *data, size_t index, md_json_t *json)
 {
     status_ctx *ctx = data;
+    const char *prefix = ctx->prefix;
     if (HTML_STATUS(ctx)) {
         if (index) apr_brigade_puts(ctx->bb, NULL, NULL, ctx->separator);
     }
+    else {
+        ctx->prefix = apr_pstrcat(ctx->p, prefix, apr_psprintf(ctx->p, "[%" APR_SIZE_T_FMT "]", index), NULL);
+    }
     add_json_val(ctx, json);
+    if (!HTML_STATUS(ctx)) {
+        ctx->prefix = prefix;
+    }
     return 1;
 }
 
@@ -506,12 +529,19 @@ static void add_json_val(status_ctx *ctx, md_json_t *j)
 
 static void si_val_names(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
+    const char *prefix = ctx->prefix;
     if (HTML_STATUS(ctx)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "<div style=\"max-width:400px;\">");
+    }
+    else {
+        ctx->prefix = apr_pstrcat(ctx->p, prefix, info->label, NULL);
     }
     add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
     if (HTML_STATUS(ctx)) {
         apr_brigade_puts(ctx->bb, NULL, NULL, "</div>");
+    }
+    else {
+        ctx->prefix = prefix;
     }
 }
 
@@ -521,7 +551,14 @@ static void add_status_cell(status_ctx *ctx, md_json_t *mdj, const status_info *
         info->fn(ctx, mdj, info);
     }
     else {
+        const char *prefix = ctx->prefix;
+        if (!HTML_STATUS(ctx)) {
+            ctx->prefix = apr_pstrcat(ctx->p, prefix, info->label, NULL);
+        }
         add_json_val(ctx, md_json_getj(mdj, info->key, NULL));
+        if (!HTML_STATUS(ctx)) {
+            ctx->prefix = prefix;
+        }
     }
 }
 
@@ -539,6 +576,7 @@ static const status_info status_infos[] = {
 static int add_md_row(void *baton, apr_size_t index, md_json_t *mdj)
 {
     status_ctx *ctx = baton;
+    const char *prefix = ctx->prefix;
     int i;
     
     if (HTML_STATUS(ctx)) {
@@ -549,6 +587,12 @@ static int add_md_row(void *baton, apr_size_t index, md_json_t *mdj)
             apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
         }
         apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
+    } else {
+        for (i = 0; i < (int)(sizeof(status_infos)/sizeof(status_infos[0])); ++i) {
+            ctx->prefix = apr_pstrcat(ctx->p, prefix, apr_psprintf(ctx->p, "[%" APR_SIZE_T_FMT "]", index), NULL);
+            add_status_cell(ctx, mdj, &status_infos[i]);
+            ctx->prefix = prefix;
+        }
     }
     return 1;
 }
@@ -576,8 +620,9 @@ int md_domains_status_hook(request_rec *r, int flags)
     ctx.p = r->pool;
     ctx.mc = mc;
     ctx.bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
-    ctx.separator = " ";
     ctx.flags = flags;
+    ctx.prefix = "ManagedCertificates";
+    ctx.separator = " ";
 
     mds = apr_array_copy(r->pool, mc->mds);
     qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
@@ -594,13 +639,13 @@ int md_domains_status_hook(request_rec *r, int flags)
             errored = (int)md_json_getl(jstock, MD_KEY_ERRORED, NULL);
             ready = (int)md_json_getl(jstock, MD_KEY_READY, NULL);
         }
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesTotal: %d\n", total);
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesOK: %d\n", complete);
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesRenew: %d\n", renewing);
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesErrored: %d\n", errored);
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedCertificatesReady: %d\n", ready);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sTotal: %d\n", ctx.prefix, total);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sOK: %d\n", ctx.prefix, complete);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sRenew: %d\n", ctx.prefix, renewing);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sErrored: %d\n", ctx.prefix, errored);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sReady: %d\n", ctx.prefix, ready);
     }
-    else if (mc->mds->nelts > 0) {
+    if (mc->mds->nelts > 0) {
         md_status_get_json(&jstatus, mds, mc->reg, mc->ocsp, r->pool);
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON managed domain status");
         if (HTML_STATUS(&ctx)) {
@@ -611,6 +656,9 @@ int md_domains_status_hook(request_rec *r, int flags)
                 si_add_header(&ctx, &status_infos[i]);
             }
             apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
+        }
+        else {
+            ctx.prefix = "ManagedDomain";
         }
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "iterating JSON managed domain status");
         md_json_itera(add_md_row, &ctx, jstatus, MD_KEY_MDS, NULL);
@@ -629,11 +677,18 @@ int md_domains_status_hook(request_rec *r, int flags)
 static void si_val_ocsp_activity(status_ctx *ctx, md_json_t *mdj, const status_info *info)
 {
     apr_time_t t;
-    
+    const char *prefix = ctx->prefix;
+
     (void)info;
+    if (!HTML_STATUS(ctx)) {
+        ctx->prefix = apr_pstrcat(ctx->p, prefix, info->label, NULL);
+    }
     t = md_json_get_time(mdj,  MD_KEY_RENEW_AT, NULL);
     print_time(ctx, "Refresh", t);
     print_job_summary(ctx, mdj, MD_KEY_RENEWAL, ": ");
+    if (!HTML_STATUS(ctx)) {
+        ctx->prefix = prefix;
+    }
 }
 
 static const status_info ocsp_status_infos[] = {
@@ -648,6 +703,7 @@ static const status_info ocsp_status_infos[] = {
 static int add_ocsp_row(void *baton, apr_size_t index, md_json_t *mdj)
 {
     status_ctx *ctx = baton;
+    const char *prefix = ctx->prefix;
     int i;
     
     if (HTML_STATUS(ctx)) {
@@ -658,6 +714,12 @@ static int add_ocsp_row(void *baton, apr_size_t index, md_json_t *mdj)
             apr_brigade_puts(ctx->bb, NULL, NULL, "</td>");
         }
         apr_brigade_puts(ctx->bb, NULL, NULL, "</tr>");
+    } else {
+        for (i = 0; i < (int)(sizeof(ocsp_status_infos)/sizeof(ocsp_status_infos[0])); ++i) {
+            ctx->prefix = apr_pstrcat(ctx->p, prefix, apr_psprintf(ctx->p, "[%" APR_SIZE_T_FMT "]", index), NULL);
+            add_status_cell(ctx, mdj, &ocsp_status_infos[i]);
+            ctx->prefix = prefix;
+        }
     }
     return 1;
 }
@@ -679,8 +741,9 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     ctx.p = r->pool;
     ctx.mc = mc;
     ctx.bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
-    ctx.separator = " ";
     ctx.flags = flags;
+    ctx.prefix = "ManagedStaplings";
+    ctx.separator = " ";
 
     if (!HTML_STATUS(&ctx)) {
         int total = 0, good = 0, revoked = 0, unknown = 0;
@@ -692,13 +755,13 @@ int md_ocsp_status_hook(request_rec *r, int flags)
             good = (int)md_json_getl(jstock, MD_KEY_GOOD, NULL);
             revoked = (int)md_json_getl(jstock, MD_KEY_REVOKED, NULL);
             unknown = (int)md_json_getl(jstock, MD_KEY_UNKNOWN, NULL);
-        } 
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsTotal: %d\n", total);
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsOK: %d\n", good);
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsRenew: %d\n", revoked);
-        apr_brigade_printf(ctx.bb, NULL, NULL, "ManagedStaplingsErrored: %d\n", unknown);
+        }
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sTotal: %d\n", ctx.prefix, total);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sOK: %d\n", ctx.prefix, good);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sRenew: %d\n", ctx.prefix, revoked);
+        apr_brigade_printf(ctx.bb, NULL, NULL, "%sErrored: %d\n", ctx.prefix, unknown);
     }
-    else if (md_ocsp_count(mc->ocsp) > 0) {
+    if (md_ocsp_count(mc->ocsp) > 0) {
         md_ocsp_get_status_all(&jstatus, mc->ocsp, r->pool);
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "got JSON ocsp stapling status");
         if (HTML_STATUS(&ctx)) {
@@ -709,6 +772,9 @@ int md_ocsp_status_hook(request_rec *r, int flags)
                 si_add_header(&ctx, &ocsp_status_infos[i]);
             }
             apr_brigade_puts(ctx.bb, NULL, NULL, "</tr>\n</thead><tbody>");
+        }
+        else {
+            ctx.prefix = "ManagedStapling";
         }
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "iterating JSON ocsp stapling status");
         md_json_itera(add_ocsp_row, &ctx, jstatus, MD_KEY_OCSPS, NULL);
