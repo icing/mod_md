@@ -55,6 +55,7 @@
 
 #define APACHE_PREFIX               "/.httpd/"
 #define MD_STATUS_RESOURCE          APACHE_PREFIX"certificate-status"
+#define HTML_STATUS(X)              (!((X)->flags & AP_STATUS_SHORT))
 
 int md_http_cert_status(request_rec *r)
 {
@@ -151,6 +152,7 @@ typedef struct {
     apr_pool_t *p;
     const md_mod_conf_t *mc;
     apr_bucket_brigade *bb;
+    int flags;
     const char *separator;
 } status_ctx;
 
@@ -514,7 +516,7 @@ int md_domains_status_hook(request_rec *r, int flags)
 {
     const md_srv_conf_t *sc;
     const md_mod_conf_t *mc;
-    int i, html;
+    int i;
     status_ctx ctx;
     apr_array_header_t *mds;
     md_json_t *jstatus, *jstock;
@@ -525,16 +527,16 @@ int md_domains_status_hook(request_rec *r, int flags)
     mc = sc->mc;
     if (!mc || !mc->server_status_enabled) return DECLINED;
 
-    html = !(flags & AP_STATUS_SHORT);
     ctx.p = r->pool;
     ctx.mc = mc;
     ctx.bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
     ctx.separator = " ";
+    ctx.flags = flags;
 
     mds = apr_array_copy(r->pool, mc->mds);
     qsort(mds->elts, (size_t)mds->nelts, sizeof(md_t *), md_name_cmp);
 
-    if (!html) {
+    if (!HTML_STATUS(&ctx)) {
         int total = 0, complete = 0, renewing = 0, errored = 0, ready = 0;
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "no-html managed domain status summary");
         if (mc->mds->nelts > 0) {
@@ -612,7 +614,7 @@ int md_ocsp_status_hook(request_rec *r, int flags)
 {
     const md_srv_conf_t *sc;
     const md_mod_conf_t *mc;
-    int i, html;
+    int i;
     status_ctx ctx;
     md_json_t *jstatus, *jstock;
     
@@ -622,13 +624,13 @@ int md_ocsp_status_hook(request_rec *r, int flags)
     mc = sc->mc;
     if (!mc || !mc->server_status_enabled) return DECLINED;
 
-    html = !(flags & AP_STATUS_SHORT);
     ctx.p = r->pool;
     ctx.mc = mc;
     ctx.bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
     ctx.separator = " ";
+    ctx.flags = flags;
 
-    if (!html) {
+    if (!HTML_STATUS(&ctx)) {
         int total = 0, good = 0, revoked = 0, unknown = 0;
         ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "no-html ocsp stapling status summary");
         if (md_ocsp_count(mc->ocsp) > 0) {
