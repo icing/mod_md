@@ -391,8 +391,8 @@ static void print_job_summary(status_ctx *ctx, md_json_t *mdj, const char *key,
     line = separator? separator : "";
 
     if (rv != APR_SUCCESS) {
-        s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
         char *errstr = apr_strerror(rv, buffer, sizeof(buffer));
+        s = md_json_gets(mdj, key, MD_KEY_LAST, MD_KEY_PROBLEM, NULL);
         if (HTML_STATUS(ctx)) {
             line = apr_psprintf(bb->p, "%s Error[%s]: %s", line,
                                 errstr, s? s : "");
