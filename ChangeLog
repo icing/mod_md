@@ -1,3 +1,7 @@
+ * A possible NULL pointer deref was fixed in the JSON code for
+   persisting time periods (start+end). Fixes #282.
+   Thanks to @marcstern for finding this.
+
 v2.4.12
 ----------------------------------------------------------------------------------------------------
  * Implement full auto status ("key: value" type status output).
