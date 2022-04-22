@@ -1,3 +1,5 @@
+v2.4.13
+----------------------------------------------------------------------------------------------------
  * A possible NULL pointer deref was fixed in the JSON code for
    persisting time periods (start+end). Fixes #282.
    Thanks to @marcstern for finding this.
