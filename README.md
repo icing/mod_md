@@ -740,7 +740,7 @@ Via `mod_md`, you can make use of that service (if you are on **linux** for now)
 
 <VirtualHost *:443>
   ServerName my-raspberry.headless-chicken.ts.net
-  SSLEnging on
+  SSLEngine on
   ...
 </VirtualHost>
 ```
