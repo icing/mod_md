@@ -1,3 +1,8 @@
+v2.4.14
+----------------------------------------------------------------------------------------------------
+ * Added support for tailscale (https://tailscale.com) certificates to have
+   trusted access to your internal domain names. See README.md for more
+   information on how to set this up.
  * Fix for a memory leak in handling of JSON arrays. This leak was mainly
    triggered by the additions to the `server-status` handler and lead to
    increased process sizes with each request of a status page.
