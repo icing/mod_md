@@ -359,11 +359,11 @@ static void si_val_ca_url(status_ctx *ctx, md_json_t *mdj, const status_info *in
 
         proto = md_json_gets(jcert, MD_KEY_PROTO, NULL);
         s = url = md_json_gets(jcert, MD_KEY_URL, NULL);
-        if (url) {
-            s = md_get_ca_name_from_url(ctx->p, url);
-        }
-        if ((!s || !s[0]) && (proto && !strcmp(proto, "tailscale"))) {
+        if (proto && !strcmp(proto, "tailscale")) {
             s = "tailscale";
+        }
+        else if (url) {
+            s = md_get_ca_name_from_url(ctx->p, url);
         }
         if (HTML_STATUS(ctx)) {
             apr_brigade_printf(ctx->bb, NULL, NULL, "<a href='%s'>%s</a>",
