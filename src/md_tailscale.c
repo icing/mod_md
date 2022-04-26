@@ -47,6 +47,7 @@ static apr_status_t ts_init(md_proto_driver_t *d, md_result_t *result)
 {
     ts_ctx_t *ts_ctx;
     apr_uri_t uri;
+    const char *ca_url;
     apr_status_t rv = APR_SUCCESS;
 
     md_result_set(result, APR_SUCCESS, NULL);
@@ -55,10 +56,9 @@ static apr_status_t ts_init(md_proto_driver_t *d, md_result_t *result)
     ts_ctx->driver = d;
     ts_ctx->chain = apr_array_make(d->p, 5, sizeof(md_cert_t *));
 
-    if (!d->md->ca_url) {
-        rv = APR_EINVAL;
-        md_result_set(result, rv, "CA URL missing");
-        goto leave;
+    ca_url = d->md->ca_url;
+    if (!ca_url) {
+        ca_url = MD_TAILSCALE_DEF_URL;
     }
     rv = apr_uri_parse(d->p, d->md->ca_url, &uri);
     if (APR_SUCCESS != rv) {
