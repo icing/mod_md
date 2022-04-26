@@ -745,7 +745,10 @@ Via `mod_md`, you can make use of that service (if you are on **linux** for now)
 </VirtualHost>
 ```
 
-This works just like certificates from Let's Encrypt. `mod_md` will give you status information on the cert
+If you do this on a distribution like `debian` your Apache runs as user `www-data` and you need to
+tell the tailscale demon to give access to it. See [here for a description by tailscale on how to do this](https://tailscale.com/kb/1190/caddy-certificates/).
+
+This then works just like certificates from Let's Encrypt. `mod_md` will give you status information on the cert
 and also try to renew it and give you notifications via `MDMessageCmd`. OCSP stapling should be available as
 well, but I have not tested that.
 
