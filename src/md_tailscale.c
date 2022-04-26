@@ -60,21 +60,21 @@ static apr_status_t ts_init(md_proto_driver_t *d, md_result_t *result)
     if (!ca_url) {
         ca_url = MD_TAILSCALE_DEF_URL;
     }
-    rv = apr_uri_parse(d->p, d->md->ca_url, &uri);
+    rv = apr_uri_parse(d->p, ca_url, &uri);
     if (APR_SUCCESS != rv) {
-        md_result_printf(result, rv, "error parsing CA URL `%s`", d->md->ca_url);
+        md_result_printf(result, rv, "error parsing CA URL `%s`", ca_url);
         goto leave;
     }
     if (uri.scheme && uri.scheme[0] && strcmp("file", uri.scheme)) {
         rv = APR_ENOTIMPL;
         md_result_printf(result, rv, "non `file` URLs not supported, CA URL is `%s`",
-                         d->md->ca_url);
+                         ca_url);
         goto leave;
     }
     if (uri.hostname && uri.hostname[0] && strcmp("localhost", uri.hostname)) {
         rv = APR_ENOTIMPL;
         md_result_printf(result, rv, "non `localhost` URLs not supported, CA URL is `%s`",
-                         d->md->ca_url);
+                         ca_url);
         goto leave;
     }
     ts_ctx->unix_socket_path = uri.path;
