@@ -260,6 +260,9 @@ AC_SUBST(MODULE_SRC)
 ACME_DEF_URL=https://acme-v02.api.letsencrypt.org/directory
 AC_SUBST(ACME_DEF_URL)
 
+TAILSCALE_DEF_URL="file://localhost/var/run/tailscale/tailscaled.sock"
+AC_SUBST(TAILSCALE_DEF_URL)
+
 # it must be configurable without an ACME test server installed
 ACME_TEST_TYPE="none"
 ACME_TEST_URL="none"
