@@ -38,6 +38,7 @@ typedef struct {
     apr_pool_t *pool;
     md_proto_driver_t *driver;
     const char *unix_socket_path;
+    md_t *md;
     apr_array_header_t *chain;
     md_pkey_t *pkey;
 } ts_ctx_t;
@@ -52,6 +53,7 @@ static apr_status_t ts_init(md_proto_driver_t *d, md_result_t *result)
     ts_ctx = apr_pcalloc(d->p, sizeof(*ts_ctx));
     ts_ctx->pool = d->p;
     ts_ctx->driver = d;
+    ts_ctx->chain = apr_array_make(d->p, 5, sizeof(md_cert_t *));
 
     if (!d->md->ca_url) {
         rv = APR_EINVAL;
@@ -210,6 +212,7 @@ static apr_status_t ts_renew(md_proto_driver_t *d, md_result_t *result)
     md_http_t *http;
     const md_pubcert_t *pubcert;
     md_cert_t *old_cert, *new_cert;
+    int reset_staging = d->reset;
 
     /* "renewing" the certificate from tailscale. Since tailscale has its
      * own ideas on when to do this, we can only inspect the certificate
@@ -219,6 +222,51 @@ static apr_status_t ts_renew(md_proto_driver_t *d, md_result_t *result)
      */
     name = d->md->name;
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: renewing cert", name);
+
+    /* When not explicitly told to reset, we check the existing data. If
+     * it is incomplete or old, we trigger the reset for a clean start. */
+    if (!reset_staging) {
+        md_result_activity_setn(result, "Checking staging area");
+        rv = md_load(d->store, MD_SG_STAGING, d->md->name, &ts_ctx->md, d->p);
+        if (APR_SUCCESS == rv) {
+            /* So, we have a copy in staging, but is it a recent or an old one? */
+            if (md_is_newer(d->store, MD_SG_DOMAINS, MD_SG_STAGING, d->md->name, d->p)) {
+                reset_staging = 1;
+            }
+        }
+        else if (APR_STATUS_IS_ENOENT(rv)) {
+            reset_staging = 1;
+            rv = APR_SUCCESS;
+        }
+    }
+
+    if (reset_staging) {
+        md_result_activity_setn(result, "Resetting staging area");
+        /* reset the staging area for this domain */
+        rv = md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
+        md_log_perror(MD_LOG_MARK, MD_LOG_TRACE1, rv, d->p,
+                      "%s: reset staging area", d->md->name);
+        if (APR_SUCCESS != rv && !APR_STATUS_IS_ENOENT(rv)) {
+            md_result_printf(result, rv, "resetting staging area");
+            goto leave;
+        }
+        rv = APR_SUCCESS;
+        ts_ctx->md = NULL;
+    }
+
+    if (!ts_ctx->md || strcmp(ts_ctx->md->ca_url, d->md->ca_url)) {
+        md_result_activity_printf(result, "Resetting staging for %s", d->md->name);
+        /* re-initialize staging */
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p, "%s: setup staging", d->md->name);
+        md_store_purge(d->store, d->p, MD_SG_STAGING, d->md->name);
+        ts_ctx->md = md_copy(d->p, d->md);
+        rv = md_save(d->store, d->p, MD_SG_STAGING, ts_ctx->md, 0);
+        if (APR_SUCCESS != rv) {
+            md_result_printf(result, rv, "Saving MD information in staging area.");
+            md_result_log(result, MD_LOG_ERR);
+            goto leave;
+        }
+    }
 
     if (!ts_ctx->unix_socket_path) {
         rv = APR_ENOTIMPL;
@@ -271,6 +319,8 @@ static apr_status_t ts_renew(md_proto_driver_t *d, md_result_t *result)
             /* tailscale has not renewed the certificate, yet */
             rv = APR_ENOENT;
             md_result_set(result, rv, "tailscale has not renewed the certificate yet");
+            /* let's check this daily */
+            md_result_delay_set(result, apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY));
             goto leave;
         }
     }
