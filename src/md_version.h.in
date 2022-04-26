@@ -37,6 +37,7 @@
  */
 #define MOD_MD_VERSION_NUM @PACKAGE_VERSION_NUM@
 
-#define MD_ACME_DEF_URL    "@ACME_DEF_URL@"
+#define MD_ACME_DEF_URL         "@ACME_DEF_URL@"
+#define MD_TAILSCALE_DEF_URL    "@TAILSCALE_DEF_URL@"
 
 #endif /* mod_md_md_version_h */

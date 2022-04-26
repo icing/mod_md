@@ -45,15 +45,41 @@ typedef struct {
 static apr_status_t ts_init(md_proto_driver_t *d, md_result_t *result)
 {
     ts_ctx_t *ts_ctx;
+    apr_uri_t uri;
+    apr_status_t rv = APR_SUCCESS;
 
     md_result_set(result, APR_SUCCESS, NULL);
     ts_ctx = apr_pcalloc(d->p, sizeof(*ts_ctx));
     ts_ctx->pool = d->p;
     ts_ctx->driver = d;
-    ts_ctx->unix_socket_path = "/var/run/tailscale/tailscaled.sock";
+
+    if (!d->md->ca_url) {
+        rv = APR_EINVAL;
+        md_result_set(result, rv, "CA URL missing");
+        goto leave;
+    }
+    rv = apr_uri_parse(d->p, d->md->ca_url, &uri);
+    if (APR_SUCCESS != rv) {
+        md_result_printf(result, rv, "error parsing CA URL `%s`", d->md->ca_url);
+        goto leave;
+    }
+    if (uri.scheme && uri.scheme[0] && strcmp("file", uri.scheme)) {
+        rv = APR_ENOTIMPL;
+        md_result_printf(result, rv, "non `file` URLs not supported, CA URL is `%s`",
+                         d->md->ca_url);
+        goto leave;
+    }
+    if (uri.hostname && uri.hostname[0] && strcmp("localhost", uri.hostname)) {
+        rv = APR_ENOTIMPL;
+        md_result_printf(result, rv, "non `localhost` URLs not supported, CA URL is `%s`",
+                         d->md->ca_url);
+        goto leave;
+    }
+    ts_ctx->unix_socket_path = uri.path;
     d->baton = ts_ctx;
 
-    return APR_SUCCESS;
+leave:
+    return rv;
 }
 
 static apr_status_t ts_preload_init(md_proto_driver_t *d, md_result_t *result)
@@ -282,10 +308,19 @@ leave:
     return rv;
 }
 
+static apr_status_t ts_complete_md(md_t *md, apr_pool_t *p)
+{
+    (void)p;
+    if (!md->ca_url) {
+        md->ca_url = MD_TAILSCALE_DEF_URL;
+    }
+    return APR_SUCCESS;
+}
+
 
 static md_proto_t TAILSCALE_PROTO = {
     MD_PROTO_TAILSCALE, ts_init, ts_renew,
-    ts_preload_init, ts_preload
+    ts_preload_init, ts_preload, ts_complete_md,
 };
 
 apr_status_t md_tailscale_protos_add(apr_hash_t *protos, apr_pool_t *p)
