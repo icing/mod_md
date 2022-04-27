@@ -736,6 +736,7 @@ Via `mod_md`, you can make use of that service (if you are on **linux** for now)
 ```
 <MDomain my-raspberry.headless-chicken.ts.net>
   MDCertificateProtocol tailscale
+  MDCertificateAuthority file://localhost/var/run/tailscale/tailscaled.sock
 </MDomain>
 
 <VirtualHost *:443>
