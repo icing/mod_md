@@ -1,3 +1,8 @@
+v2.4.15
+----------------------------------------------------------------------------------------------------
+ * Fixed a bug leading to failed transfers for OCSP stapling information
+   when more than 6 certificates needed updates in the same run.
+   
 v2.4.14
 ----------------------------------------------------------------------------------------------------
  * Added support for tailscale (https://tailscale.com) certificates to have
