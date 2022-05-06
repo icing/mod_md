@@ -583,19 +583,7 @@ static void md_curl_req_cleanup(md_http_request_t *req)
     md_curl_internals_t *internals = req->internals;
     if (internals) {
         if (internals->curl) {
-            CURL *curl = md_http_get_impl_data(req->http);
-            if (curl == internals->curl) {
-                /* NOP: we have this curl at the md_http_t already */
-            }
-            else if (!curl) {
-                /* no curl at the md_http_t yet, install this one */
-                md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, req->pool, "register curl instance at http");
-                md_http_set_impl_data(req->http, internals->curl);
-            }
-            else {
-                /* There already is a curl at the md_http_t and it's not this one. */
-                curl_easy_cleanup(internals->curl);
-            }
+            curl_easy_cleanup(internals->curl);
         }
         if (internals->req_hdrs) curl_slist_free_all(internals->req_hdrs);
         req->internals = NULL;
