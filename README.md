@@ -58,6 +58,7 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Use Other Certificates](#how-to-use-other-certificates)
     * [Have two certs for one Host](#how-to-have-two-certs-for-one-host)
     * [Use tailscale certificates](#tailscale)
+    * [Have a failover ACME CA](#acme_failover)
   - Stapling
     * [Staple all my certificates](#how-to-staple-all-my-certificates)
     * [Staple some of my certificates](#how-to-staple-some-of-my-certificates)
@@ -769,6 +770,33 @@ security in a tailscale network can be managed.
 
 **Credits**: the nice and friendly [Caddy server](https://caddyserver.com) was the first HTTP server to add
 tailscale support a couple of days ago. Which inspired me to strive for second place.
+
+# ACME Failover
+
+Since version 2.4.16, more than one ACME CA may be configured. An example would be:
+
+```
+MDCertificateAuthoriy letsencrypt buypass
+```
+
+which would use letsencrypt to obtain/renew certificates, just as before. But should Lets Encrypt
+fail for a number of times, Apache will switch to buypass. Should buypass also fail these number
+of times, letsencrypt is selected again. And so forth. You may configure even three or more CAs.
+
+The directives `MDRetryDelay` and `MDRetryFailover` allow you to configure how fast the failover
+happens. The default setting will do the failover after half a day of unfortunate events.
+
+With the current 90 days lifetime of certificates, the reliability gains with more than one
+CA are minor. Apache, by default, starts renewal 30 days before expiry, ample time to survive
+any error downtime of a CA.
+
+Shorter lifetimes however are desirable, since certificate revocation is not working very well. If certificates 
+would only be viable for a couple of days, a revocation would no longer be necessary in most cases as
+it cannot be done effectively before the certificate expires anyway.
+
+The problem is that the duration of disasters are hard to shrink. With shorter lifetimes, the
+probability rises that a CA is unavailable during the time of a renewal. An easy counter
+is the configruation of a second CA as failover in the client, e.g. Apache.
 
 
 # Just the Stapling, Mam!
@@ -1801,6 +1829,16 @@ the following names:
 
 The name is not case-sensitive, so you may use `letsencrypt` as well.
 
+Since version 2.4.16, you may configure more than one CA here. For example:
+
+```
+MDCertificateAuthority letsencrypt buypass
+```
+The module will try letsencrypt for a number of times and then use buypass for as many attempts. Should
+that also fail, letsencrypt is tried again. This works also for 3 or more CAs configured.
+
+The number of attempts, before a failover to the next CA happens in configured via `MDRetryFailover`.
+
 ## MDCertificateProtocol
 
 ***The protocol to use with the CA***<BR/>
@@ -2236,6 +2274,22 @@ format and would look like this:
 
 Make the file readable for root only (or what the httpd starts with) and handle your configuration
 files as usual.
+
+## MDRetryDelay
+`MDRetryDelay duration`
+Default: 5s
+
+The delay on a failed renewal before the next attempt is done. This doubles on every consecutive error with a
+cap of 24 hours, e.g. daily retries. Furthermore, the effective delay is randomly jiggled by +-50%. This is
+done to avoid peak traffic, e.g. all ACME clients in the world starting at midnight in their time zones.
+
+## MDRetryFailover
+`MDRetryFailover n`
+Default: 13
+
+If more than one ACME CA is configured, this gives the number of failed attempts before the next
+CA is used. It is recommended to have that larger than 1, so that an intermittent error does not lead
+to discarding any results already achieved.
 
 
 # Test Suite

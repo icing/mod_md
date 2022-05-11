@@ -186,7 +186,7 @@ static apr_status_t cmd_process(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         }
         if (APR_SUCCESS != (rv = md_reg_create(&ctx->reg, ctx->p, ctx->store,
                                                md_cmd_ctx_get_option(ctx, MD_CMD_OPT_PROXY_URL),
-                                               ctx->ca_file))) {
+                                               ctx->ca_file, apr_time_from_sec(2), 10))) {
             fprintf(stderr, "error %d creating registry from store: %s\n", rv, ctx->base_dir);
             return APR_EINVAL;
         }
