@@ -13,7 +13,9 @@ class MDConf(HttpdConf):
             admin = f"admin@{env.http_tld}"
         if len(admin.strip()):
             self.add_admin(admin)
-
+        self.add([
+            "MDRetryDelay 1s",  # speed up testing a little
+        ])
         if local_ca:
             self.add([
                 f"MDCertificateAuthority {env.acme_url}",

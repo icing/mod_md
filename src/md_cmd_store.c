@@ -47,7 +47,11 @@ static apr_status_t cmd_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return APR_EINVAL;
     }
 
-    md->ca_url = ctx->ca_url;
+    md->ca_urls = NULL;
+    if (ctx->ca_url) {
+        md->ca_urls = apr_array_make(ctx->p, 3, sizeof(const char*));
+        APR_ARRAY_PUSH(md->ca_urls, const char*) = ctx->ca_url;
+    }
     md->ca_proto = "ACME";
     
     rv = md_save(ctx->store, ctx->p, MD_SG_DOMAINS, md, 1);
@@ -187,8 +191,11 @@ static apr_status_t cmd_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         }
     }
 
-    if (ctx->ca_url && (md->ca_url == NULL || strcmp(ctx->ca_url, md->ca_url))) {
-        md->ca_url = ctx->ca_url;
+    if (ctx->ca_url && (md->ca_urls == NULL
+        || md->ca_urls->nelts != 1
+        || strcmp(ctx->ca_url, APR_ARRAY_IDX(md->ca_urls, 0, const char*)))) {
+        md->ca_urls = apr_array_make(ctx->p, 3, sizeof(const char*));
+        APR_ARRAY_PUSH(md->ca_urls, const char*) = ctx->ca_url;
         changed = 1;
     }
     

@@ -48,7 +48,11 @@ static apr_status_t cmd_reg_add(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return APR_EINVAL;
     }
 
-    md->ca_url = ctx->ca_url;
+    md->ca_urls = NULL;
+    if (ctx->ca_url) {
+        md->ca_urls = apr_array_make(ctx->p, 3, sizeof(const char*));
+        APR_ARRAY_PUSH(md->ca_urls, const char*) = ctx->ca_url;
+    }
     md->ca_proto = "ACME";
     
     rv = md_reg_add(ctx->reg, md, ctx->p);
@@ -154,8 +158,11 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
         return APR_ENOMEM;
     }
     
-    if (ctx->ca_url && (nmd->ca_url == NULL || strcmp(ctx->ca_url, nmd->ca_url))) {
-        nmd->ca_url = ctx->ca_url;
+    if (ctx->ca_url && (nmd->ca_urls == NULL
+            || nmd->ca_urls->nelts != 1
+            || strcmp(ctx->ca_url, APR_ARRAY_IDX(nmd->ca_urls, 0, const char*)))) {
+        nmd->ca_urls = apr_array_make(ctx->p, 3, sizeof(const char*));
+        APR_ARRAY_PUSH(nmd->ca_urls, const char*) = ctx->ca_url;
         fields |= MD_UPD_CA_URL;
     }
     
@@ -184,7 +191,8 @@ static apr_status_t cmd_reg_update(md_cmd_ctx *ctx, const md_cmd_t *cmd)
                 usage(cmd, "update name ca <url> [proto]");
                 return APR_EINVAL;
             }
-            nmd->ca_url = ctx->argv[2];
+            nmd->ca_urls = apr_array_make(ctx->p, 3, sizeof(const char*));
+            APR_ARRAY_PUSH(nmd->ca_urls, const char*) = ctx->argv[2];
             fields |= MD_UPD_CA_URL;
             if (ctx->argc > 3) {
                 nmd->ca_proto = ctx->argv[3];
@@ -275,7 +283,7 @@ static apr_status_t assess_and_drive(md_cmd_ctx *ctx, md_t *md)
     }
     md_result_log(result, MD_LOG_INFO);
     
-    rv = md_reg_renew(ctx->reg, md, ctx->env, reset, result, ctx->p);
+    rv = md_reg_renew(ctx->reg, md, ctx->env, reset, 0, result, ctx->p);
     if (APR_SUCCESS != rv) goto out;
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, ctx->p, "%s: loading", md->name);
