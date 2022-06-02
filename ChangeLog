@@ -1,3 +1,11 @@
+v2.4.17
+----------------------------------------------------------------------------------------------------
+ * A bug was fixed that caused very large MDomains with the combined DNS
+   names exceeding ~7k to fail, as request bodies would contain partially
+   wrong data from uninitialized memory. This would have appeared as
+   failure in signing-up/renewing such configurations.
+   This was reported by Ronald Crane (Zippenhop LLC).
+
 v2.4.16
 ----------------------------------------------------------------------------------------------------
  * The `MDCertificateAuthority` directive can take more than one URL/name of
