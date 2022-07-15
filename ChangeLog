@@ -1,3 +1,8 @@
+ * New directive `MDStoreLocks` that can be used on cluster setups with
+   a shared file system for `MDStoreDir` to order activation of renewed
+   certificates when several cluster nodes are restarted at the same time.
+   Store locks are not enabled by default.
+
 v2.4.17
 ----------------------------------------------------------------------------------------------------
  * A bug was fixed that caused very large MDomains with the combined DNS

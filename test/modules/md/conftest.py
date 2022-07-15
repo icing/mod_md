@@ -61,6 +61,7 @@ def _session_scope(env):
         re.compile(r'.*problem\[urn:org:apache:httpd:log:AH\d+:].*'),
         re.compile(r'.*Unsuccessful in contacting ACME server at :*'),
         re.compile(r'.*test-md-720-002-\S+.org: dns-01 setup command failed .*'),
+        re.compile(r'.*AH: unable to obtain global registry lock, .*'),
     ])
     if env.lacks_ocsp():
         env.httpd_error_log.add_ignored_patterns([

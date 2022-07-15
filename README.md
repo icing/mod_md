@@ -2291,6 +2291,26 @@ If more than one ACME CA is configured, this gives the number of failed attempts
 CA is used. It is recommended to have that larger than 1, so that an intermittent error does not lead
 to discarding any results already achieved.
 
+## MDStoreLocks
+`MDStoreLocks on|off|duration`
+Default: off
+
+Enable this to use a lock file on server startup when `MDStoreDir` is synchronized with the
+server configuration and renewed certificates are activated.
+
+Locking is intended for setups in a cluster that have a shared file system for `MDStoreDir`. It
+will protect the activation of renewed certificates when cluster nodes are restarted/reloaded
+at the same time. Under the condition that the shared file system does support file locking.
+
+The default duration to obtain the lock is 5 seconds. If the log cannot be obtained, an error is logged
+and the server startup will continue. This may result in a cluster node to still use the previous
+certificate afterwards. 
+
+A higher timeout will reduce that likelihood, but may delay server startups/reloads in case the
+locks are not properly handled in the underlying file system. A lock *should* only be held by a httpd
+instance for a short duration and *should* be released on process termination. At least on any *nix
+type host system, this is the case.
+
 
 # Test Suite
 
