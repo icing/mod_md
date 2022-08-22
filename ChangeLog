@@ -1,3 +1,6 @@
+ * restored curl_easy cleanup behaviour from v2.4.14 and refactored
+   the use of curl_multi for OCSP requests to work with that.
+
 v2.4.18
 ----------------------------------------------------------------------------------------------------
  * New directive `MDStoreLocks` that can be used on cluster setups with
