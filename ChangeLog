@@ -1,5 +1,7 @@
+v2.4.19
+----------------------------------------------------------------------------------------------------
  * restored curl_easy cleanup behaviour from v2.4.14 and refactored
-   the use of curl_multi for OCSP requests to work with that.
+   the use of curl_multi for OCSP requests to work with that. Fixes #293.
 
 v2.4.18
 ----------------------------------------------------------------------------------------------------
