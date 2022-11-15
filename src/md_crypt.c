@@ -61,8 +61,8 @@
 #define MD_USE_OPENSSL_PRE_1_1_API (OPENSSL_VERSION_NUMBER < 0x10100000L)
 #endif
 
-#if defined(LIBRESSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x10100000L) 
-/* Missing from LibreSSL and only available since OpenSSL v1.1.x */
+#if (defined(LIBRESSL_VERSION_NUMBER) && (LIBRESSL_VERSION_NUMBER < 0x3050000fL)) || (OPENSSL_VERSION_NUMBER < 0x10100000L) 
+/* Missing from LibreSSL < 3.5.0 and only available since OpenSSL v1.1.x */
 #ifndef OPENSSL_NO_CT
 #define OPENSSL_NO_CT
 #endif
