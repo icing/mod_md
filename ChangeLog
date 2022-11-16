@@ -1,3 +1,8 @@
+v2.4.20
+----------------------------------------------------------------------------------------------------
+ * Enabling ED25519 support and certificate transparancy information when
+   building with libressl v3.5.0 and newer. Thanks to Giovanni Bechis.
+
 v2.4.19
 ----------------------------------------------------------------------------------------------------
  * restored curl_easy cleanup behaviour from v2.4.14 and refactored
