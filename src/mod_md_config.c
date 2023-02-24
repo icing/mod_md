@@ -969,7 +969,6 @@ static const char *md_config_set_msg_cmd(cmd_parms *cmd, void *mconfig, const ch
 static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const char *arg)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
-    md_srv_conf_t *config = md_config_get(cmd->server);
     const char *err;
 
     if ((err = md_conf_check_location(cmd, MD_LOC_ALL))) {
@@ -977,7 +976,7 @@ static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const 
     }
 
     if (inside_md_section(cmd)) {
-        config->dns01_cmd = arg;
+        sc->dns01_cmd = arg;
     } else {
         apr_table_set(sc->mc->env, MD_KEY_CMD_DNS01, arg);
     }
