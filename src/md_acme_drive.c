@@ -587,7 +587,9 @@ static apr_status_t acme_driver_init(md_proto_driver_t *d, md_result_t *result)
             ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_TLSALPN01, 0);
             dis_alpn_acme = 1;
         }
-        if (!apr_table_get(d->env, MD_KEY_CMD_DNS01) && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0, 1) >= 0) {
+        if (!apr_table_get(d->env, MD_KEY_CMD_DNS01)
+            && NULL == d->md->dns01_cmd
+            && md_array_str_index(ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0, 1) >= 0) {
             ad->ca_challenges = md_array_str_remove(d->p, ad->ca_challenges, MD_AUTHZ_TYPE_DNS01, 0);
             dis_dns = 1;
         }
