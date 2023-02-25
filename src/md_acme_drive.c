@@ -834,7 +834,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                                 md_result_printf(result, rv, "Certificate and private key do not match.");
 
                                 /* Delete the order */
-                                md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
+                                md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md, d->env);
 
                                 goto out;
                             }
@@ -851,7 +851,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
                 }
                 
                 /* Clean up the order, so the next pkey spec sets up a new one */
-                md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
+                md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md, d->env);
             }
         }
     }
@@ -859,7 +859,7 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     
     /* As last step, cleanup any order we created so that challenge data
      * may be removed asap. */
-    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md->name, d->env);
+    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, d->md, d->env);
     
     /* first time this job ran through */
     first = 1;    
@@ -1000,7 +1000,7 @@ static apr_status_t acme_preload(md_proto_driver_t *d, md_store_group_t load_gro
     }
 
     md_result_activity_setn(result, "purging order information");
-    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, name, d->env);
+    md_acme_order_purge(d->store, d->p, MD_SG_STAGING, md, d->env);
 
     md_result_activity_setn(result, "purging store tmp space");
     rv = md_store_purge(d->store, d->p, load_group, name);
