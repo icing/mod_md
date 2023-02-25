@@ -1883,6 +1883,8 @@ and afterwards it will call
 # _acme-challenge.mydomain.com
 ```
 
+Since version 2.4.21 of the module, you may configure `MDChallengeDns01` for each MDomain separately, if needed.
+
 ## MDCertificateFile
 ***A static certificate (chain) file for the MDomain***<BR/>
 `MDCertificateFile path-of-the-file`<BR/>
