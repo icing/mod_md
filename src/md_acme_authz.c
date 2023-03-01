@@ -634,7 +634,7 @@ apr_status_t md_acme_authz_respond(md_acme_authz_t *authz, md_acme_t *acme, md_s
                         md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, 
                                       "%s: set up challenge '%s' for %s", 
                                       authz->domain, fctx.accepted->type, md->name);
-                        challenge_setup = CHA_TYPES[i].name;
+                        challenge_setup = CHA_TYPES[j].name;
                         goto out;
                     }
                     md_result_printf(result, rv, "error setting up challenge '%s' for %s, "
