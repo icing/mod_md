@@ -311,7 +311,7 @@ md_json_t *md_to_json(const md_t *md, apr_pool_t *p)
         md_json_setsa(md->acme_tls_1_domains, json, MD_KEY_PROTO, MD_KEY_ACME_TLS_1, NULL);
         if (md->cert_files) md_json_setsa(md->cert_files, json, MD_KEY_CERT_FILES, NULL);
         if (md->pkey_files) md_json_setsa(md->pkey_files, json, MD_KEY_PKEY_FILES, NULL);
-        md_json_setb(md->stapling > 0, json, MD_KEY_CMD_DNS01, NULL);
+        md_json_setb(md->stapling > 0, json, MD_KEY_STAPLING, NULL);
         if (md->dns01_cmd) md_json_sets(md->dns01_cmd, json, MD_KEY_CMD_DNS01, NULL);
         if (md->ca_eab_kid && strcmp("none", md->ca_eab_kid)) {
             md_json_sets(md->ca_eab_kid, json, MD_KEY_EAB, MD_KEY_KID, NULL);
