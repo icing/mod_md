@@ -1,3 +1,5 @@
+v2.4.21
+----------------------------------------------------------------------------------------------------
  * MDChallengeDns01 can now be configured for individual domains.
    Using PR from Jérôme Billiras (@bilhackmac) and adding test case and fixing proper working
  * Fixed a bug found by Jérôme Billiras (@bilhackmac) that caused the challenge
