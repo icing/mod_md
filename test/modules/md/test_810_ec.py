@@ -42,11 +42,11 @@ class TestAutov2:
             env.check_md_complete(domain, p['spec'])
         # check that openssl client sees the cert with given keylength for cipher
         env.verify_cert_key_lenghts(domain, pkeys)
-
+    
     def set_get_check_pkeys(self, env, domain, pkeys, conf=None):
         self.set_get_pkeys(env, domain, pkeys, conf=conf)
         self.check_pkeys(env, domain, pkeys)
-
+        
     # one EC key, no RSA
     def test_md_810_001(self, env):
         domain = self.test_domain

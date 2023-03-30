@@ -915,7 +915,7 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     if (APR_SUCCESS != (rv = link_mds_to_servers(mc, s, p))) goto leave;
     /*4*/
     if (APR_SUCCESS != (rv = md_reg_lock_global(mc->reg, ptemp))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO()
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10398)
                      "unable to obtain global registry lock, "
                      "renewed certificates may remain inactive on "
                      "this httpd instance!");

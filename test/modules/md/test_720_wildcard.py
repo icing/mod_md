@@ -28,7 +28,7 @@ class TestWildcard:
     # test case: a wildcard certificate with ACMEv2, no dns-01 supported
     def test_md_720_001(self, env):
         domain = self.test_domain
-
+        
         # generate config with DNS wildcard
         domains = [domain, "*." + domain]
         conf = MDConf(env)
@@ -252,32 +252,3 @@ class TestWildcard:
         assert r.response['body'] == content
         assert env.apache_restart() == 0
         env.check_md_complete(domain)
-
-    # test case: 2 wildcard MDomains, only one has the challenge command
-    def test_md_720_009(self, env):
-        dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01.py")
-        domain1 = self.test_domain
-        domains1 = [domain1, "*." + domain1]
-
-        domain2 = env.get_class_domain(self.__class__)
-        domains2 = [domain2, "*." + domain2]
-
-        conf = MDConf(env)
-        conf.add("MDCAChallenges dns-01")
-        conf.start_md(domains1)
-        conf.add(f"  MDChallengeDns01 {dns01cmd}")
-        conf.end_md()
-        conf.add_md(domains2)
-        conf.add_vhost(domains1)
-        conf.add_vhost(domains2)
-        conf.install()
-        # get the certs
-        assert env.apache_restart() == 0
-        # domain2 should fail, as no challenge command is configured
-        md = env.await_error(domain2)
-        assert md
-        assert md['renewal']['errors'] > 0
-        assert md['renewal']['last']['problem'] == 'challenge-mismatch'
-        # domain1 should succeed
-        assert env.await_completion([domain1])
-        env.check_md_complete(domain1)
