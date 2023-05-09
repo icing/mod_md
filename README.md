@@ -58,7 +58,7 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Use Other Certificates](#how-to-use-other-certificates)
     * [Have two certs for one Host](#how-to-have-two-certs-for-one-host)
     * [Use tailscale certificates](#tailscale)
-    * [Have a failover ACME CA](#acme_failover)
+    * [Have a failover ACME CA](#acme-failover)
   - Stapling
     * [Staple all my certificates](#how-to-staple-all-my-certificates)
     * [Staple some of my certificates](#how-to-staple-some-of-my-certificates)
@@ -1581,7 +1581,7 @@ See the documentation of [`MDChallengeDns01`](#mdchallengedns01) for a descripti
 
 If you do not want to dive head first into the world of `mod_md` - fair enough. Take an unimportant domain of yours and make a test of the temperature, see if you like it.
 
-As described in [Simple Usage](#simple-usage), configure this domain and see if it works for you. Maybe you have a very peculiar server setup where not all defaults fit. Maybe you need to configure outgoing proxies. Or you sit behind a port mapper. Or you want to develop and test your DNS script for wildcards. Whatever.
+As described in [Basic Usage](#basic-usage), configure this domain and see if it works for you. Maybe you have a very peculiar server setup where not all defaults fit. Maybe you need to configure outgoing proxies. Or you sit behind a port mapper. Or you want to develop and test your DNS script for wildcards. Whatever.
 
 What is helpful in such tests is to configure another endpoint at Let's Encrypt. This will not result in certificates that are recognized by browsers, but it helps in verifying the the process works. If it does, simply switch to the real ACME endpoints and get the valid certificates then.
 
@@ -1732,7 +1732,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDPrivateKeys](#mdprivatekeys)
 * [MDHttpProxy](#mdhttpproxy)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
-* [MDWarnWindow](#MDWarnWindow--When-to-warn)
+* [MDWarnWindow](#mdwarnwindow--when-to-warn)
 * [MDServerStatus](#mdserverstatus)
 * [MDStapling](#mdstapling)
 * [MDStapleOthers](#mdstapleothers)
