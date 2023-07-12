@@ -377,12 +377,12 @@ static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s,
         return APR_SUCCESS;
     }
     else {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(10040)
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10040)
                      "Virtual Host %s:%d matches Managed Domain '%s', but the "
                      "name/alias %s itself is not managed. A requested MD certificate "
                      "will not match ServerName.",
                      s->server_hostname, s->port, md->name, domain);
-        return APR_EINVAL;
+        return APR_SUCCESS;
     }
 }
 

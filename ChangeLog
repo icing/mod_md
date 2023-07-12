@@ -1,3 +1,10 @@
+v2.4.22
+----------------------------------------------------------------------------------------------------
+ * For Managed Domain in "manual" mode, the checks if all used ServerName and
+   ServerAlias are part of the MDomain now reports a warning instead of an error
+   (AH10040) when not all names are present.
+   This should resolve #301.
+
 v2.4.21
 ----------------------------------------------------------------------------------------------------
  * MDChallengeDns01 can now be configured for individual domains.
