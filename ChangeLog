@@ -1,3 +1,8 @@
+ * New directive `MDChallengeDns01Version`. Setting this to `2` will provide
+   the command also with the challenge value on `teardown` invocation. In version
+   1, the default, only the `setup` invocation gets this parameter.
+   Refs #312. Thanks to @domrim for the idea.
+
 v2.4.22
 ----------------------------------------------------------------------------------------------------
  * For Managed Domain in "manual" mode, the checks if all used ServerName and

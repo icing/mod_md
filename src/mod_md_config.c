@@ -985,6 +985,24 @@ static const char *md_config_set_dns01_cmd(cmd_parms *cmd, void *mconfig, const 
     return NULL;
 }
 
+static const char *md_config_set_dns01_version(cmd_parms *cmd, void *mconfig, const char *value)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    (void)mconfig;
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
+        return err;
+    }
+    if (!strcmp("1", value) || !strcmp("2", value)) {
+        apr_table_set(sc->mc->env, MD_KEY_DNS01_VERSION, value);
+    }
+    else {
+        return "Only versions `1` and `2` are supported";
+    }
+    return NULL;
+}
+
 static const char *md_config_add_cert_file(cmd_parms *cmd, void *mconfig, const char *arg)
 {
     md_srv_conf_t *sc = md_config_get(cmd->server);
@@ -1226,7 +1244,9 @@ const command_rec md_cmds[] = {
                   "Allow managing of base server outside virtual hosts."),
     AP_INIT_RAW_ARGS("MDChallengeDns01", md_config_set_dns01_cmd, NULL, RSRC_CONF, 
                   "Set the command for setup/teardown of dns-01 challenges"),
-    AP_INIT_TAKE1("MDCertificateFile", md_config_add_cert_file, NULL, RSRC_CONF, 
+    AP_INIT_TAKE1("MDChallengeDns01Version", md_config_set_dns01_version, NULL, RSRC_CONF,
+                  "Set the type of arguments to call `MDChallengeDns01` with"),
+    AP_INIT_TAKE1("MDCertificateFile", md_config_add_cert_file, NULL, RSRC_CONF,
                   "set the static certificate (chain) file to use for this domain."),
     AP_INIT_TAKE1("MDCertificateKeyFile", md_config_add_key_file, NULL, RSRC_CONF, 
                   "set the static private key file to use for this domain."),

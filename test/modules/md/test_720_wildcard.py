@@ -252,3 +252,29 @@ class TestWildcard:
         assert r.response['body'] == content
         assert env.apache_restart() == 0
         env.check_md_complete(domain)
+
+    # test case: dns01 command with v2 of args
+    def test_md_720_009(self, env):
+        dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01_v2.py")
+        domain = self.test_domain
+        domains = [domain, "*." + domain]
+
+        conf = MDConf(env)
+        conf.add("MDCAChallenges dns-01")
+        conf.add(f"MDChallengeDns01 {dns01cmd}")
+        conf.add("MDChallengeDns01Version 2")
+        conf.add_md(domains)
+        conf.add_vhost(domains)
+        conf.install()
+        # restart, check that md is in store
+        assert env.apache_restart() == 0
+        env.check_md(domains)
+        # await drive completion
+        assert env.await_completion([domain])
+        env.check_md_complete(domain)
+        # check: SSL is running OK
+        cert_a = env.get_cert(domain)
+        altnames = cert_a.get_san_list()
+        for domain in domains:
+            assert domain in altnames
+
