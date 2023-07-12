@@ -1723,6 +1723,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCertificateProtocol](#mdcertificateprotocol)
 * [MDCertificateStatus](#mdcertificatestatus)
 * [MDChallengeDns01](#mdchallengedns01)
+* [MDChallengeDns01Version](#mdchallengedns01version)
 * [MDRenewMode](#mdrenewmode--renew-mode)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
@@ -1856,7 +1857,8 @@ Wildcard certificates are possible with version 2.x of `mod_md`. But they are no
 
 When you configure a program to be called for these challenges, you may obtain them using `mod_md`. 
 The program is given the argument `setup` or `teardown` followed by the domain name. 
-For `setup` the challenge content is additionally given. 
+For `setup` the challenge content is additionally given. If you set `MDChallengeDns01Version` to `2`, the challenge
+is also given to the `teardown` command.
 
 The difficulty here is that Apache cannot do that on its own. (which is also a security benefit, since corrupting a web server or the communication path to it is the scenario `dns-01` protects against). As the name implies, `dns-01` requires you to show some specific DNS records for your domain that contain some challenge data. So you need to _write_ your domain's DNS records
 
@@ -1884,6 +1886,14 @@ and afterwards it will call
 ```
 
 Since version 2.4.21 of the module, you may configure `MDChallengeDns01` for each MDomain separately, if needed.
+
+## MDChallengeDns01Version
+
+`MDChallengeDns01Version 1|2`<BR/>
+Default: `1`
+
+Set the way `MDChallengeDns01` command is invoked, e.g the number and types of arguments. See `MDChallengeDns01` for the differences. This setting is global and cannot be varied per domain.
+
 
 ## MDCertificateFile
 ***A static certificate (chain) file for the MDomain***<BR/>
