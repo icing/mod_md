@@ -25,6 +25,8 @@ EXTRA_DIST     = modules pyhttpd unit
  	
 dist-hook:
 	rm -rf $(distdir)/pyhttpd/htdocs/test1/apache.org-files
+	rm -rf $(distdir)/pyhttpd/__pycache__
+	rm -rf $(distdir)/modules/*/__pycache__
 
 
 if BUILD_UNIT_TESTS
