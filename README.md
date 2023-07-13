@@ -1611,8 +1611,6 @@ md-+--
    +- archive              # copies of older domain data
    +- challenges           # temporary files for answering ACME challenges
    +- domains              # one subdir per MD, contains keys and certificates
-   +- fallback-privkey.pem # key used when no valid certificate is available
-   +- fallback-cert.pem    # certificate used as long as no other is available
    +- httpd.json           # properties of the server, e.g. which ports it listens on
    +- md_store.json        # SECRET for private key protection, store version info
    +- staging              # MD information during certificate process
