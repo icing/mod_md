@@ -1,4 +1,4 @@
-# Copyright 2019 greenbytes GmbH (https://www.greenbytes.de)
+# Copyright 2023 Stefan Eissing (https://eissing.org)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [2.4.22], [stefan.eissing@greenbytes.de])
+AC_INIT([mod_md], [2.4.22], [stefan@eissing.org])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -130,6 +130,8 @@ if test -x "$APACHECTL"; then
     AC_SUBST(DSO_MODULES)
     STATIC_MODULES="$($APACHECTL -t -D DUMP_MODULES | fgrep '(static)'| sed 's/_module.*//g'|tr -d \\n)"
     AC_SUBST(STATIC_MODULES)
+    MPM_MODULES="mpm_event mpm_worker"
+    AC_SUBST(MPM_MODULES)
 else
     AC_MSG_WARN("apachectl not found in '$BINDIR', test suite will not work!")
     APACHECTL=""

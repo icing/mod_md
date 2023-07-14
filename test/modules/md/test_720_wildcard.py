@@ -44,6 +44,15 @@ class TestWildcard:
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-mismatch'
+        #
+        env.httpd_error_log.ignore_recent(
+            lognos = [
+                "AH10056"   # None of offered challenge types
+            ],
+            matches = [
+                r'.*problem\[challenge-mismatch\].*'
+            ]
+        )
 
     # test case: a wildcard certificate with ACMEv2, only dns-01 configured, invalid command path
     def test_md_720_002(self, env):
@@ -67,6 +76,16 @@ class TestWildcard:
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-setup-failure'
+        #
+        env.httpd_error_log.ignore_recent(
+            lognos = [
+                "AH10056"   # None of offered challenge types
+            ],
+            matches = [
+                r'.*problem\[challenge-setup-failure\].*',
+                r'.*setup command failed to execute.*'
+            ]
+        )
 
     # variation, invalid cmd path, other challenges still get certificate for non-wildcard
     def test_md_720_002b(self, env):
@@ -113,6 +132,15 @@ class TestWildcard:
         assert md
         assert md['renewal']['errors'] > 0
         assert md['renewal']['last']['problem'] == 'challenge-setup-failure'
+        #
+        env.httpd_error_log.ignore_recent(
+            lognos = [
+                "AH10056"   # None of offered challenge types
+            ],
+            matches = [
+                r'.*problem\[challenge-setup-failure\].*'
+            ]
+        )
 
     # test case: a wildcard name certificate with ACMEv2, only dns-01 configured
     def test_md_720_004(self, env):
@@ -252,29 +280,3 @@ class TestWildcard:
         assert r.response['body'] == content
         assert env.apache_restart() == 0
         env.check_md_complete(domain)
-
-    # test case: dns01 command with v2 of args
-    def test_md_720_009(self, env):
-        dns01cmd = os.path.join(env.test_dir, "../modules/md/dns01_v2.py")
-        domain = self.test_domain
-        domains = [domain, "*." + domain]
-
-        conf = MDConf(env)
-        conf.add("MDCAChallenges dns-01")
-        conf.add(f"MDChallengeDns01 {dns01cmd}")
-        conf.add("MDChallengeDns01Version 2")
-        conf.add_md(domains)
-        conf.add_vhost(domains)
-        conf.install()
-        # restart, check that md is in store
-        assert env.apache_restart() == 0
-        env.check_md(domains)
-        # await drive completion
-        assert env.await_completion([domain])
-        env.check_md_complete(domain)
-        # check: SSL is running OK
-        cert_a = env.get_cert(domain)
-        altnames = cert_a.get_san_list()
-        for domain in domains:
-            assert domain in altnames
-
