@@ -1,3 +1,5 @@
+v2.4.23
+----------------------------------------------------------------------------------------------------
  * New directive `MDMatchNames all|servernames` to allow more control over how
    MDomains are matched to VirtualHosts.
  * New directive `MDChallengeDns01Version`. Setting this to `2` will provide
