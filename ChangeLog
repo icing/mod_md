@@ -1,3 +1,5 @@
+ * New directive `MDMatchNames all|servernames` to allow more control over how
+   MDomains are matched to VirtualHosts.
  * New directive `MDChallengeDns01Version`. Setting this to `2` will provide
    the command also with the challenge value on `teardown` invocation. In version
    1, the default, only the `setup` invocation gets this parameter.

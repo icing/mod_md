@@ -88,6 +88,7 @@ static md_mod_conf_t defmc = {
     13,                        /* retry_failover after 14 errors, with 5s delay ~ half a day */
     0,                         /* store locks, disabled by default */
     apr_time_from_sec(5),      /* max time to wait to obaint a store lock */
+    MD_MATCH_ALL,              /* match vhost severname and aliases */
 };
 
 static md_timeslice_t def_renew_window = {
@@ -680,6 +681,27 @@ static const char *md_config_set_store_locks(cmd_parms *cmd, void *dc, const cha
     config->mc->use_store_locks = use_store_locks;
     if (wait_time) {
         config->mc->lock_wait_timeout = wait_time;
+    }
+    return NULL;
+}
+
+static const char *md_config_set_match_mode(cmd_parms *cmd, void *dc, const char *s)
+{
+    md_srv_conf_t *config = md_config_get(cmd->server);
+    const char *err = md_conf_check_location(cmd, MD_LOC_NOT_MD);
+
+    (void)dc;
+    if (err) {
+        return err;
+    }
+    else if (!apr_strnatcasecmp("all", s)) {
+        config->mc->match_mode = MD_MATCH_ALL;
+    }
+    else if (!apr_strnatcasecmp("servernames", s)) {
+        config->mc->match_mode = MD_MATCH_SERVERNAMES;
+    }
+    else {
+        return "invalid argument, must be a 'all' or 'servernames'";
     }
     return NULL;
 }
@@ -1280,6 +1302,8 @@ const command_rec md_cmds[] = {
                   "The number of errors before a failover to another CA is triggered."),
     AP_INIT_TAKE1("MDStoreLocks", md_config_set_store_locks, NULL, RSRC_CONF,
                   "Configure locking of store for updates."),
+    AP_INIT_TAKE1("MDMatchNames", md_config_set_match_mode, NULL, RSRC_CONF,
+                  "Determines how DNS names are matched to vhosts."),
 
     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 };

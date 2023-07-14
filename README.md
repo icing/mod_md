@@ -1577,6 +1577,9 @@ Then, the new challenge type is usable.
 
 See the documentation of [`MDChallengeDns01`](#mdchallengedns01) for a description on how to get them.
 
+If you want to operate a mix of wildcard certificates and other, specific certificates for sub-domains, please
+see [`MDMatchNames`](#mdmatchnames).
+
 # Dipping the Toe
 
 If you do not want to dive head first into the world of `mod_md` - fair enough. Take an unimportant domain of yours and make a test of the temperature, see if you like it.
@@ -1723,6 +1726,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDChallengeDns01](#mdchallengedns01)
 * [MDChallengeDns01Version](#mdchallengedns01version)
 * [MDRenewMode](#mdrenewmode--renew-mode)
+* [MDMatchNames](#mdmatchnames)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
 * [MDNotifyCmd](#mdnotifycmd)
@@ -1919,6 +1923,46 @@ Both files for certificate and key need to be defined.
 Default: none
 
 This is the companion to `mod_ssl`'s `SSLCertficateKeyFile`. See `MDCertificateFile` for details on how it can be used to managed domains.
+
+## MDMatchNames
+
+`MDMatchNames all|servernames`<BR/>
+Default: `all`
+
+The mode `all` is the behaviour as in all previous versions. Both `ServerName` and `ServerAlias` are inspected
+to find the MDomain matching a `VirtualHost`. This automatically detects coverage, even when you only have added
+one of the names to an MDomain.
+
+However, this auto-magic has drawbacks in more complex setups. If you set this directive to `servernames`, only
+the `ServerName` of a virtual host is used for matching. ServerAliases are disregarded then, for matching. Aliases
+will still be added to the certificate obtained, unless you also run `MDMembers manual`.
+
+Another advantage of `servernames` is that it gives you more flexibility with sub-domains. Example:
+
+```
+MDMatchNames servernames
+MDomain mydomain.org *.mydomain.org
+MDomain sub.mydomain.org
+
+<VirtualHost *:443>
+  ServerName mydomain.org
+  ...
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName another.mydomain.org
+  ...
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName sub.mydomain.org
+  ...
+</VirtualHost>
+```
+
+Which allows you to get a wildcard certificate for `mydomain.org`, use that also for `another.mydomain.org`,
+but get a specific certificate for `sub.mydomain.org`. (wildcard certificates have special requirements to
+obtain, see [here for more information](#wildcard-certificates))
 
 ## MDMember
 

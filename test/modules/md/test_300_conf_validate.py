@@ -455,3 +455,71 @@ class TestConf:
             assert len(md['ca']['urls']) == len(cas)
         else:
             assert rv != 0, "Server should not have accepted CAs '{}'".format(cas)
+
+    # messy ServerAliases, see #301
+    def test_md_300_028(self, env):
+        assert env.apache_stop() == 0
+        conf = MDConf(env)
+        domaina = f"t300_028a.{env.http_tld}"
+        domainb = f"t300_028b.{env.http_tld}"
+        dalias = f"t300_028alias.{env.http_tld}"
+        conf.add_vhost(port=env.http_port, domains=[domaina, domainb, dalias], with_ssl=False)
+        conf.add(f"""
+            MDMembers manual
+            MDomain {domaina} 
+            MDomain {domainb} {dalias}
+            """)
+        conf.add(f"""
+            <VirtualHost 10.0.0.1:{env.https_port}>
+              ServerName {domaina}
+              ServerAlias {dalias}
+              SSLEngine on
+            </VirtualHost>
+            <VirtualHost 10.0.0.1:{env.https_port}>
+              ServerName {domainb}
+              ServerAlias {dalias}
+              SSLEngine on
+            </VirtualHost>
+            """)
+        conf.install()
+        # This does not work as we have both MDs match domaina's vhost
+        assert env.apache_fail() == 0
+        # It works, if we only match on ServerNames
+        conf.add("MDMatchNames servernames")
+        conf.install()
+        assert env.apache_restart() == 0
+
+    # wildcard and specfic MD overlaps
+    def test_md_300_029(self, env):
+        assert env.apache_stop() == 0
+        conf = MDConf(env)
+        domain = f"t300_029.{env.http_tld}"
+        subdomain = f"sub.{domain}"
+        conf.add_vhost(port=env.http_port, domains=[domain, subdomain], with_ssl=False)
+        conf.add(f"""
+            MDMembers manual
+            MDomain {domain} *.{domain} 
+            MDomain {subdomain}
+            """)
+        conf.add(f"""
+            <VirtualHost 10.0.0.1:{env.https_port}>
+              ServerName {domain}
+              SSLEngine on
+            </VirtualHost>
+            <VirtualHost 10.0.0.1:{env.https_port}>
+              ServerName another.{domain}
+              SSLEngine on
+            </VirtualHost>
+            <VirtualHost 10.0.0.1:{env.https_port}>
+              ServerName {subdomain}
+              SSLEngine on
+            </VirtualHost>
+            """)
+        conf.install()
+        # This does not work as we have overlapping names in MDs
+        assert env.apache_fail() == 0
+        # It works, if we only match on ServerNames
+        conf.add("MDMatchNames servernames")
+        conf.install()
+        assert env.apache_restart() == 0
+
