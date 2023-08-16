@@ -1,3 +1,6 @@
+ * Fixed passing of the server environment variables to programs started via
+   MDMessageCmd and MDChallengeDns01 on *nix system. See #319.
+
 v2.4.23
 ----------------------------------------------------------------------------------------------------
  * New directive `MDMatchNames all|servernames` to allow more control over how
