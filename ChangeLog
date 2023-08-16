@@ -1,3 +1,5 @@
+v2.4.24
+----------------------------------------------------------------------------------------------------
  * Fixed passing of the server environment variables to programs started via
    MDMessageCmd and MDChallengeDns01 on *nix system. See #319.
 
