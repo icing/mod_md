@@ -1,3 +1,5 @@
+v2.4.25
+----------------------------------------------------------------------------------------------------
  * Fix the reported "until" validity of a certificate in the status handler.
    [Rainer Jung]
  * Fix possible NULL deref when logging the error that an authentication
