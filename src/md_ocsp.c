@@ -696,8 +696,8 @@ static apr_status_t ostat_on_resp(const md_http_response_t *resp, void *baton)
         valid.end = md_asn1_generalized_time_get(bnextup);
     }
     else {
-        // nextUpdate not set; default to 12 hours.
-        // Refresh attempts will be started some time earlier.
+        /* nextUpdate not set; default to 12 hours.
+         * Refresh attempts will be started some time earlier. */
         valid.end = valid.start + apr_time_from_sec(MD_SECS_PER_DAY / 2);
     }
     
