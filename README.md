@@ -21,7 +21,7 @@ Alvaro Octal, Andreas Ulm, Bernard Spil, Daniel Caminada, Dominik Stillhard,
   Fraser Tweedale, Giovanni Bechis, Jacob Hoffman-Andrews, Joe Orton,
   Josh Soref, Lubos Uhliarik, Max-Milan Stoyanov, Michael Kaufmann,
   Michael Köller, Michal Karm Babacek, Mina Galić, Moritz Schlarb,
-  Stefan Eissing, Timothe Litt. 
+  Stefan Eissing, Timothe Litt, @frasertweedale. 
 
 Many thanks!
 

@@ -1,3 +1,8 @@
+ * OCSP stapling: accept OCSP responses without a `nextUpdate` entry which is
+   allowed in RFC 6960. Treat those as having an update interval of 12 hours.
+   Added by @frasertweedale.
+ * Adapt OpenSSL usage to changes in their API. By Yann Ylavic.
+
 v2.4.25
 ----------------------------------------------------------------------------------------------------
  * Fix the reported "until" validity of a certificate in the status handler.
