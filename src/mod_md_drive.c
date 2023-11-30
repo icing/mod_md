@@ -185,10 +185,13 @@ int md_will_renew_cert(const md_t *md)
     return 1;
 }
 
-static apr_time_t next_run_default(void)
+static apr_time_t next_run_default(md_renew_ctx_t *dctx)
 {
-    /* we'd like to run at least twice a day by default */
-    return apr_time_now() + apr_time_from_sec(MD_SECS_PER_DAY / 2);
+    unsigned char c;
+    apr_time_t delay = dctx->mc->check_interval;
+
+    md_rand_bytes(&c, sizeof(c), dctx->p);
+    return apr_time_now() + delay + (delay * (c - 128) / 256);
 }
 
 static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
@@ -216,7 +219,7 @@ static apr_status_t run_watchdog(int state, void *baton, apr_pool_t *ptemp)
              * and we schedule ourself at the earliest of all. A job may specify 0
              * as next_run to indicate that it wants to participate in the normal
              * regular runs. */
-            next_run = next_run_default();
+            next_run = next_run_default(dctx);
             for (i = 0; i < dctx->jobs->nelts; ++i) {
                 job = APR_ARRAY_IDX(dctx->jobs, i, md_job_t *);
                 

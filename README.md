@@ -59,6 +59,7 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Have two certs for one Host](#how-to-have-two-certs-for-one-host)
     * [Use tailscale certificates](#tailscale)
     * [Have a failover ACME CA](#acme-failover)
+    * [Revocations](#revocations)
   - Stapling
     * [Staple all my certificates](#how-to-staple-all-my-certificates)
     * [Staple some of my certificates](#how-to-staple-some-of-my-certificates)
@@ -798,6 +799,19 @@ The problem is that the duration of disasters are hard to shrink. With shorter l
 probability rises that a CA is unavailable during the time of a renewal. An easy counter
 is the configruation of a second CA as failover in the client, e.g. Apache.
 
+# Revocations
+
+The module does not provide for certificate revocations. If you need to revoke a certificate of yours, please 
+contact your ACME provider for documentation on how to do that. Notice that your certificates can not only
+be revoked by you. The ACME providers can also do that (and have done so in the past!).
+
+If you enable OCSP Stapling (see below), your Apache will check the status of certificate regularly. This
+way, it will learn when a certificate has been revoked. Since version 2.4.26 of the module, this will be
+observed when checking certificates and cause a renewal.
+
+You might want to consider choosing a shorter `MDCheckInterval`, if you need Apache to react more quickly to a
+revocation. But keep in mind that your server needs a graceful restart for new certificates to activate. If you
+restart only once every other day, shorter check intervals will not help.
 
 # Just the Stapling, Mam!
 
@@ -1723,6 +1737,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCertificateMonitor](#mdcertificatemonitor)
 * [MDCertificateProtocol](#mdcertificateprotocol)
 * [MDCertificateStatus](#mdcertificatestatus)
+* [MDCheckInterval](#mdcheckinterval)
 * [MDChallengeDns01](#mdchallengedns01)
 * [MDChallengeDns01Version](#mdchallengedns01version)
 * [MDRenewMode](#mdrenewmode--renew-mode)
@@ -1923,6 +1938,15 @@ Both files for certificate and key need to be defined.
 Default: none
 
 This is the companion to `mod_ssl`'s `SSLCertficateKeyFile`. See `MDCertificateFile` for details on how it can be used to managed domains.
+
+
+## MDCheckInterval
+`MDCheckInterval duration`
+Default: 12h
+
+The time between certificate checks. By default, the validity and need for renewals is checked twice a day. This interval is not followed precisely. Instead the module randomly applies a +/-50% jitter to it. With the default of 12 hours, this means the actual time between runs varies between 6 and 18 hours, jittered anew every run. This helps to mitigate traffic peaks at ACME servers.
+
+The minimum duration you may configure is 1 second. It is not recommended to use such short times in production.
 
 ## MDMatchNames
 
