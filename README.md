@@ -813,6 +813,22 @@ You might want to consider choosing a shorter `MDCheckInterval`, if you need Apa
 revocation. But keep in mind that your server needs a graceful restart for new certificates to activate. If you
 restart only once every other day, shorter check intervals will not help.
 
+It depends on your sites' specifics how fast you need Apache to react to revoked certificates. If about 6 hours would work for you, the following setting will do:
+
+```
+MDStapling on
+MDStaplingRenewWindow 6h
+MDCheckInterval 1h
+```
+
+`MDStaplingRenewWindow 6h` will get a new OCSP response for your certificates every 6 hours, ignoring the lifetime your CA sets. Once a CA publishes the revocation of your certificate, Apache will see it 6 hours later in the worst case, most likely sooner. Setting this shorter will result in more requests to your CA and they may not be happy about this if many people do it. OCSP requests are HTTP POST requests, so caching responses is not as cheap as with GET (no, I do not know why the OCSP inventors did this).
+
+`MDCheckInterval 1h` makes your Apache check all Managed Domains every hour. If your certificates are valid and Stapling has not found any revocations, this is very cheap. It will then *not* results in any additional requests. It "wastes" only cpu time. If you have some spare, you may run this even more often without harm. This setting then gives an average 3 hours to detect a revocation and half an hour to react on it and start renewing the certificate. Tweak for your needs. 
+
+**But remember**: the renewal puts a new cert into your file system. You need a server reload to make it active! Another choice for you to make. Small sites will have not trouble, but big installations may not want to do this during busy hours. If you do not want to reload during the day/week, small check/renew times will not help you.
+
+In order to treat revocations special, you may consider monitoring the OCSP stapling by asking your Apache about it. You can use a special client that checks OCSP stapling (hint: `curl --cert-status` may do). Or you can use the module's `md-status` handler to retrieve a domain status in JSON from Apache.
+
 # Just the Stapling, Mam!
 
 If you just want to use the new OCSP Stapling feature of the module, load it into your apache and configure
