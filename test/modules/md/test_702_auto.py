@@ -543,6 +543,40 @@ class TestAutov2:
         assert name2 in cert1b.get_san_list()
         assert not cert1.same_serial_as(cert1b)
 
+    # test case: one MD on a vhost with ServerAlias. Renew.
+    # Exchange ServerName and ServerAlias. Is the rename detected?
+    # See: https://github.com/icing/mod_md/issues/338
+    def test_md_702_033(self, env):
+        domain = self.test_domain
+        name_x = "test-x." + domain
+        name_a = "test-a." + domain
+        domains1 = [name_x, name_a]
+        #
+        # generate 1 MD and 2 vhosts
+        conf = MDConf(env, admin="admin@" + domain)
+        conf.add_md(domains=[name_x])
+        conf.add_vhost(domains=domains1)
+        conf.install()
+        #
+        # restart (-> drive), check that MD was synched and completes
+        assert env.apache_restart() == 0
+        env.check_md(domains1)
+        assert env.await_completion([name_x])
+        env.check_md_complete(name_x)
+        cert_x = env.get_cert(name_x)
+        #
+        # reverse ServerName and ServerAlias
+        domains2 = [name_a, name_x]
+        conf = MDConf(env, admin="admin@" + domain)
+        conf.add_md(domains=[name_a])
+        conf.add_vhost(domains=domains2)
+        conf.install()
+        # restart, check that host still works and kept the cert
+        assert env.apache_restart() == 0
+        status = env.get_certificate_status(name_a)
+        assert cert_x.same_serial_as(status['rsa']['serial'])
+
+
     # test case: test "tls-alpn-01" challenge handling
     def test_md_702_040(self, env):
         domain = self.test_domain
