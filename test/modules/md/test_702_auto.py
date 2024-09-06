@@ -1,9 +1,9 @@
 import os
-import time
+from datetime import timedelta
 
 import pytest
+from pyhttpd.certs import CertificateSpec
 
-from pyhttpd.conf import HttpdConf
 from pyhttpd.env import HttpdTestEnv
 from .md_cert_util import MDCertUtil
 from .md_env import MDTestEnv
@@ -320,18 +320,22 @@ class TestAutov2:
         assert cert1.same_serial_as(stat['rsa']['serial'])
         #
         # create self-signed cert, with critical remaining valid duration -> drive again
-        env.create_self_signed_cert([domain], {"notBefore": -120, "notAfter": 2}, serial=7029)
-        cert3 = MDCertUtil(env.store_domain_file(domain, 'pubcert.pem'))
-        assert cert3.same_serial_as('1B75')
+        creds = env.create_self_signed_cert(CertificateSpec(domains=[domain]),
+                                            valid_from=timedelta(days=-120),
+                                            valid_to=timedelta(days=2),
+                                            serial=7029)
+        creds.save_cert_pem(env.store_domain_file(domain, 'pubcert.pem'))
+        creds.save_pkey_pem(env.store_domain_file(domain, 'privkey.pem'))
+        assert creds.certificate.serial_number == 7029
         assert env.apache_restart() == 0
         stat = env.get_certificate_status(domain)
-        assert cert3.same_serial_as(stat['rsa']['serial'])
+        assert creds.certificate.serial_number == int(stat['rsa']['serial'], 16)
         #
         # cert should renew and be different afterwards
         assert env.await_completion([domain], must_renew=True)
         stat = env.get_certificate_status(domain)
-        assert not cert3.same_serial_as(stat['rsa']['serial'])
-        
+        creds.certificate.serial_number != int(stat['rsa']['serial'], 16)
+
     # test case: drive with an unsupported challenge due to port availability 
     def test_md_702_010(self, env):
         domain = self.test_domain

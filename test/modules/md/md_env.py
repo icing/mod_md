@@ -12,9 +12,9 @@ import subprocess
 import time
 
 from datetime import datetime, timedelta
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
-from pyhttpd.certs import CertificateSpec
+from pyhttpd.certs import CertificateSpec, Credentials, HttpdTestCA
 from .md_cert_util import MDCertUtil
 from pyhttpd.env import HttpdTestSetup, HttpdTestEnv
 from pyhttpd.result import ExecResult
@@ -611,8 +611,13 @@ class MDTestEnv(HttpdTestEnv):
             time.sleep(0.1)
         raise TimeoutError(f"ocsp respopnse not available: {domain}")
 
-    def create_self_signed_cert(self, name_list, valid_days, serial=1000, path=None):
-        dirpath = path
-        if not path:
-            dirpath = os.path.join(self.store_domains(), name_list[0])
-        return MDCertUtil.create_self_signed_cert(dirpath, name_list, valid_days, serial)
+    def create_self_signed_cert(self, spec: CertificateSpec,
+                                valid_from: timedelta = timedelta(days=-1),
+                                valid_to: timedelta = timedelta(days=89),
+                                serial: Optional[int] = None) -> Credentials:
+        key_type = spec.key_type if spec.key_type else 'rsa4096'
+        return HttpdTestCA.create_credentials(spec=spec, issuer=None,
+                                              key_type=key_type,
+                                              valid_from=valid_from,
+                                              valid_to=valid_to,
+                                              serial=serial)
