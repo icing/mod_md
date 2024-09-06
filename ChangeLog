@@ -1,3 +1,9 @@
+ * Fix certificate retrieval on ACME renewal to not require a 'Location:'
+   header returned by the ACME CA. This was the way it was done in ACME before
+   it became an IETF standard. Let's Encrypt still supports this, but other
+   CAs do not. Refs #265.
+ * Restore compatibility with OpenSSL < 1.1. [ylavic]
+
 v2.4.26
 ----------------------------------------------------------------------------------------------------
  * Using OCSP stapling information to trigger certificate renewals. Proposed
