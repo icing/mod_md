@@ -308,7 +308,7 @@ static apr_status_t csr_req(md_acme_t *acme, const md_http_response_t *res, void
     if (!location)
       return rv;
 
-    md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, d->p,
+    md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, d->p,
                   "cert created with location header (old ACMEv1 style)");
     ad->order->certificate = apr_pstrdup(d->p, location);
     if (APR_SUCCESS != (rv = md_acme_order_save(d->store, d->p, MD_SG_STAGING, 

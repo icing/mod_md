@@ -1,3 +1,5 @@
+v2.4.27
+----------------------------------------------------------------------------------------------------
  * Fix certificate retrieval on ACME renewal to not require a 'Location:'
    header returned by the ACME CA. This was the way it was done in ACME before
    it became an IETF standard. Let's Encrypt still supports this, but other
