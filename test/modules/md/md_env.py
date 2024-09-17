@@ -73,11 +73,11 @@ class MDTestEnv(HttpdTestEnv):
 
     @classmethod
     def has_acme_eab(cls):
-        return False
-        # Pebble, since v2.5.0 no longer supports HS256 for EAB, which
+        # Pebble, in v2.5.0 no longer supported HS256 for EAB, which
         # is the only thing mod_md supports. Issue opened at pebble:
         # https://github.com/letsencrypt/pebble/issues/455
-        # return cls.get_acme_server() == 'pebble'
+        # is fixed in v2.6.0
+        return cls.get_acme_server() == 'pebble'
 
     @classmethod
     def is_pebble(cls) -> bool:

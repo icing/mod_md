@@ -74,3 +74,11 @@ class TestSetupErrors:
         assert env.apache_restart() == 0
         assert env.await_completion([domain])
         env.check_md_complete(domain)
+        env.httpd_error_log.ignore_recent(
+            lognos = [
+                "AH10069"   # failed to load JSON file
+            ],
+            matches = [
+                r'.*failed to load JSON file.*',
+            ]
+        )
