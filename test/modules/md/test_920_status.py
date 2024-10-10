@@ -114,6 +114,7 @@ class TestStatus:
         conf = MDConf(env, std_vhosts=False, std_ports=False, text=f"""
 MDBaseServer on
 MDPortMap http:- https:{env.https_port}
+MDStapling on
 
 ServerName {domain}
 <IfModule ssl_module>
@@ -160,6 +161,8 @@ Protocols h2 http/1.1 acme-tls/1
         assert int(m.group(1)) == 0
         m = re.search(r'ManagedCertificatesReady: (\d+)', status, re.MULTILINE)
         assert int(m.group(1)) == 1
+        m = re.search(r'ManagedDomain\[0]Stapling: (on)', status, re.MULTILINE)
+        assert m, f'{status}'
 
     def test_md_920_011(self, env):
         # MD with static cert files in base server, see issue #161
