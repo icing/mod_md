@@ -1,3 +1,6 @@
+ * Fixed missing label+newline in server-status plain text output when
+   MDStapling is enabled.
+
 v2.4.28
 ----------------------------------------------------------------------------------------------------
  * When the server starts, it looks for new, staged certificates to activate. If
