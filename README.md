@@ -12,8 +12,6 @@ This repository contains `mod_md`, a module for Apache httpd that helps you to m
 
 Both functions work well together, but you can use one without the other. If you do not want the ACME/Let's Encrypt parts, there is ["Just the Stapling, Mam!"](#just-the-stapling-mam)
 
-***NEW:*** users of [tailscale](https://tailscale.com) secure networks can use trusted certificates for their internal domain names. See [the chapter about tailscale](#tailscale) for more information.
-
 ## Thanks
 
 The following people directly contributed to `mod_md`:
@@ -724,6 +722,10 @@ same time seems common practise.
 
 
 # Tailscale
+
+**Update**: this section is **historical** now. Tailscale have changed the API for certificate retrieval
+and this setup is no longer working. If someone with time and knowledge can make that working, I'd be 
+more than happy to accept a PR.
 
 The secure networking provided by [tailscale](https://tailscale.com) allows you to connect your own devices
 in a very easy way without fiddling with firewalls and without public IP addresses. It's a bit of magic.
