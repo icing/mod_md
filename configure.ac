@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [2.4.28], [stefan@eissing.org])
+AC_INIT([mod_md], [2.4.29], [stefan@eissing.org])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
@@ -76,7 +76,6 @@ AC_ARG_WITH([openssl], [AS_HELP_STRING([--with-openssl], [Use openssl from this 
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_CC_STDC
 
 # extern, we need to find where the apxs is. which then
 # can tell us the various directories we need.
@@ -136,10 +135,6 @@ else
     AC_MSG_WARN("apachectl not found in '$BINDIR', test suite will not work!")
     APACHECTL=""
 fi
-
-# We need crypto to be in our link path, check for it.
-#
-AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found")])
 
 # We need a JSON lib, like jansson
 #
@@ -240,6 +235,10 @@ AM_CONDITIONAL([FOUND_OPENSSL_BIN], [test "x$FOUND_OPENSSL_BIN" != xno])
 AM_COND_IF([FOUND_OPENSSL_BIN],,[AC_MSG_ERROR([required program 'openssl' not found.])])
 AC_SUBST(OPENSSL_BIN)
 
+
+# We need crypto to be in our link path, check for it.
+#
+AC_CHECK_LIB([crypto], [SHA256_Init], , [AC_MSG_ERROR("library crypto not found")])
 
 GEN_DIR="$PWD/test/gen"
 AC_SUBST(GEN_DIR)
