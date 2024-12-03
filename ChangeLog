@@ -1,3 +1,5 @@
+v2.4.29
+----------------------------------------------------------------------------------------------------
  * Fixed HTTP-01 challenges to not carry a final newline, as some ACME
    server fail to ignore it. [Michael Kaufmann (@mkauf)]
  * Fixed missing label+newline in server-status plain text output when
