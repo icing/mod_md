@@ -94,7 +94,6 @@ class TestStapling:
             assert stat["stapling"]
             pkey = 'rsa'
             assert 'ocsp' not in stat["cert"][pkey], f'{stat}'
-            assert False, f'{stat}'
         else:
             assert stat["stapling"]
             pkey = 'rsa'
