@@ -1,3 +1,8 @@
+v2.4.30
+----------------------------------------------------------------------------------------------------
+ * Change a log level from error to debug when Stapling is enabled but a
+   certificate carries no OCSP responder URL.
+
 v2.4.29
 ----------------------------------------------------------------------------------------------------
  * Fixed HTTP-01 challenges to not carry a final newline, as some ACME
