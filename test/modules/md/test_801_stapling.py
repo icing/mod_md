@@ -12,7 +12,6 @@ from .md_env import MDTestEnv
 
 @pytest.mark.skipif(condition=not MDTestEnv.has_acme_server(),
                     reason="no ACME test server configured")
-@pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
 class TestStapling:
 
     @pytest.fixture(autouse=True, scope='class')
@@ -70,7 +69,10 @@ class TestStapling:
         self.configure_httpd(env, md).install()
         assert env.apache_restart() == 0
         stat = env.get_ocsp_status(md)
-        assert stat['ocsp'] == "no response sent" 
+        if MDTestEnv.lacks_ocsp():
+            assert 'ocsp' not in stat, f'{stat}'
+        else:
+            assert stat['ocsp'] == "no response sent"
         stat = env.get_md_status(md)
         assert not stat["stapling"]
         #
@@ -80,25 +82,39 @@ class TestStapling:
             LogLevel md:trace5
             """).install()
         assert env.apache_restart() == 0
-        stat = env.await_ocsp_status(md)
-        assert stat['ocsp'] == "successful (0x0)" 
-        assert stat['verify'] == "0 (ok)"
+        if MDTestEnv.lacks_ocsp():
+            stat = env.get_md_status(md)
+            assert 'ocsp' not in stat, f'{stat}'
+        else:
+            stat = env.await_ocsp_status(md)
+            assert stat['ocsp'] == "successful (0x0)"
+            assert stat['verify'] == "0 (ok)"
         stat = env.get_md_status(md)
-        assert stat["stapling"]
-        pkey = 'rsa'
-        assert stat["cert"][pkey]["ocsp"]["status"] == "good"
-        assert stat["cert"][pkey]["ocsp"]["valid"]
+        if MDTestEnv.lacks_ocsp():
+            assert stat["stapling"]
+            pkey = 'rsa'
+            assert 'ocsp' not in stat["cert"][pkey], f'{stat}'
+            assert False, f'{stat}'
+        else:
+            assert stat["stapling"]
+            pkey = 'rsa'
+            assert stat["cert"][pkey]["ocsp"]["status"] == "good"
+            assert stat["cert"][pkey]["ocsp"]["valid"]
         #
         # turn stapling off (explicitly) again, should disappear
         self.configure_httpd(env, md, "MDStapling off").install()
         assert env.apache_restart() == 0
         stat = env.get_ocsp_status(md)
-        assert stat['ocsp'] == "no response sent" 
+        if MDTestEnv.lacks_ocsp():
+            assert 'ocsp' not in stat, f'{stat}'
+        else:
+            assert stat['ocsp'] == "no response sent"
         stat = env.get_md_status(md)
         assert not stat["stapling"]
         
     # MD with stapling on/off and mod_ssl stapling on
     # expect to see stapling response in all cases
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_002(self, env):
         md = self.mdA
         self.configure_httpd(env, md, ssl_stapling=True).install()
@@ -147,21 +163,28 @@ class TestStapling:
         conf.install()
         assert env.apache_restart() == 0
         # mdA has stapling
-        stat = env.await_ocsp_status(md_a)
-        assert stat['ocsp'] == "successful (0x0)" 
+        if MDTestEnv.lacks_ocsp():
+            stat = env.get_ocsp_status(md_a)
+            assert 'ocsp' not in stat, f'{stat}'
+        else:
+            stat = env.await_ocsp_status(md_a)
+            assert stat['ocsp'] == "successful (0x0)"
         assert stat['verify'] == "0 (ok)"
         stat = env.get_md_status(md_a)
         assert stat["stapling"]
-        pkey = 'rsa'
-        assert stat["cert"][pkey]["ocsp"]["status"] == "good"
-        assert stat["cert"][pkey]["ocsp"]["valid"]
+        if not MDTestEnv.lacks_ocsp():
+            pkey = 'rsa'
+            assert stat["cert"][pkey]["ocsp"]["status"] == "good"
+            assert stat["cert"][pkey]["ocsp"]["valid"]
         # mdB has no stapling
-        stat = env.get_ocsp_status(md_b)
-        assert stat['ocsp'] == "no response sent" 
+        if not MDTestEnv.lacks_ocsp():
+            stat = env.get_ocsp_status(md_b)
+            assert stat['ocsp'] == "no response sent"
         stat = env.get_md_status(md_b)
         assert not stat["stapling"]
 
     # 2 MDs, md stapling on+off, ssl stapling on
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_004(self, env):
         md_a = self.mdA
         md_b = self.mdB
@@ -195,6 +218,7 @@ class TestStapling:
 
     # MD, check that restart leaves response unchanged, reconfigure keep interval, 
     # should remove the file on restart and get a new one
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_005(self, env):
         # TODO: mod_watchdog seems to have problems sometimes with fast restarts
         # turn stapling on, wait for it to appear in connections
@@ -240,6 +264,7 @@ class TestStapling:
 
     # MD, check that stapling renew window works. Set a large window
     # that causes response to be retrieved all the time.
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_006(self, env):
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
@@ -278,6 +303,7 @@ class TestStapling:
         assert mtime1 != mtime3
 
     # MD, make a MDomain with static files, check that stapling works
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_007(self, env):
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
@@ -306,6 +332,7 @@ class TestStapling:
         assert ocsp_file
 
     # Use certificate files in direct config, check that stapling works
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_008(self, env):
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
@@ -331,6 +358,7 @@ class TestStapling:
 
     # Turn on stapling for a certificate without OCSP responder and issuer
     # (certificates without issuer prevent mod_ssl asking around for stapling)
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_009(self, env):
         md = self.mdA
         domains = [md]
@@ -360,6 +388,7 @@ class TestStapling:
 
     # Turn on stapling for an MDomain not used in any virtualhost
     # There was a crash in server-status in this case
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_010(self, env):
         env.clear_ocsp_store()
         md = self.mdA
@@ -379,6 +408,7 @@ class TestStapling:
     # scheduling.
     # This checks the mistaken assert() reported in
     # <https://bz.apache.org/bugzilla/show_bug.cgi?id=65567>
+    @pytest.mark.skipif(MDTestEnv.lacks_ocsp(), reason="no OCSP responder")
     def test_md_801_011(self, env):
         domains = [ f'test-801-011-{i}-{env.DOMAIN_SUFFIX}' for i in range(7)]
         self.configure_httpd(env, domains, """
