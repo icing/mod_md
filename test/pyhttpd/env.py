@@ -272,7 +272,9 @@ class HttpdTestEnv:
         self._server_dir = os.path.join(self._gen_dir, 'apache')
         self._server_conf_dir = os.path.join(self._server_dir, "conf")
         self._server_docs_dir = os.path.join(self._server_dir, "htdocs")
+        self._server_lock_dir = os.path.join(self.server_dir, "locks")
         self._server_logs_dir = os.path.join(self.server_dir, "logs")
+        self._server_run_dir = os.path.join(self.server_dir, "run")
         self._server_access_log = os.path.join(self._server_logs_dir, "access_log")
         self._error_log = HttpdErrorLog(os.path.join(self._server_logs_dir, "error_log"))
         self._apachectl_stderr = None
@@ -553,14 +555,17 @@ class HttpdTestEnv:
         if not os.path.exists(path):
             return os.makedirs(path)
 
-    def run(self, args, stdout_list=False, intext=None, inbytes=None, debug_log=True):
+    def run(self, args, stdout_list=False, intext=None, inbytes=None, debug_log=True,
+            run_env=None):
+        if not run_env:
+            run_env = os.environ
         if debug_log:
             log.debug(f"run: {args}")
         start = datetime.now()
         if intext is not None:
             inbytes = intext.encode()
         p = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE,
-                           input=inbytes)
+                           input=inbytes, env=run_env)
         stdout_as_list = None
         if stdout_list:
             try:
@@ -655,11 +660,16 @@ class HttpdTestEnv:
 
     def _run_apachectl(self, cmd) -> ExecResult:
         conf_file = 'stop.conf' if cmd == 'stop' else 'httpd.conf'
+        env = os.environ.copy()
+        env['APACHE_RUN_DIR'] = self._server_run_dir
+        env['APACHE_RUN_USER'] = os.environ['USER']
+        env['APACHE_LOCK_DIR'] = self._server_lock_dir
+        env['APACHE_CONFDIR'] = self._server_conf_dir
         args = [self._apachectl,
                 "-d", self.server_dir,
                 "-f", os.path.join(self._server_dir, f'conf/{conf_file}'),
                 "-k", cmd]
-        r = self.run(args)
+        r = self.run(args, run_env=env)
         self._apachectl_stderr = r.stderr
         if r.exit_code != 0:
             log.warning(f"failed: {r}")
