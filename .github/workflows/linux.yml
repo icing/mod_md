@@ -95,4 +95,4 @@ jobs:
         run: |
           export PATH=$PATH:$HOME/go/bin
           [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
-          pytest
+          pytest -v test/modules/md
