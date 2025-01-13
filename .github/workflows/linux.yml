@@ -49,7 +49,7 @@ jobs:
         include:
           - name: Default
             install_packages:
-            install_steps: pytest
+            install_steps: pytest pebble
 
     steps:
       - name: 'install prereqs'
@@ -57,7 +57,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --no-install-suggests --no-install-recommends \
             libtool autoconf automake pkgconf apache2 apache2-dev openssl \
-            libssl-dev libjansson-dev libcurl4-openssl-dev \
+            curl nghttp2-client libssl-dev libjansson-dev libcurl4-openssl-dev \
             ${{ matrix.build.install_packages }}
           python3 -m venv $HOME/venv
 
@@ -67,6 +67,17 @@ jobs:
         run: |
           [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
           python3 -m pip install -r test/requirements.txt
+
+      - name: setup Go
+        if: contains(matrix.build.install_steps, 'pebble')
+        uses: actions/setup-go@v5
+
+      - name: install pebble
+        if: contains(matrix.build.install_steps, 'pebble')
+        run: |
+          git clone --quiet --depth=1 https://github.com/letsencrypt/pebble/
+          cd pebble
+          go install ./cmd/pebble
 
       - name: 'configure'
         run: |
