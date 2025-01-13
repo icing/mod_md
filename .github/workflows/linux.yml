@@ -82,6 +82,7 @@ jobs:
 
       - name: 'configure'
         run: |
+          export PATH=$PATH:$HOME/go/bin
           autoreconf -fi
           ./configure --enable-werror
 
