@@ -52,20 +52,20 @@ jobs:
             install_steps: pytest
 
   steps:
-      - name: 'install prereqs'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-suggests --no-install-recommends \
-            libtool autoconf automake pkgconf apache2 apache2-dev openssl \
-            libssl-dev libjansson-dev libcurl4-openssl-dev \
-            ${{ matrix.build.install_packages }}
-          python3 -m venv $HOME/venv
+    - name: 'install prereqs'
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y --no-install-suggests --no-install-recommends \
+          libtool autoconf automake pkgconf apache2 apache2-dev openssl \
+          libssl-dev libjansson-dev libcurl4-openssl-dev \
+          ${{ matrix.build.install_packages }}
+        python3 -m venv $HOME/venv
 
-      - name: 'configure'
-        run: |
-          autoreconf -fi
-          ./configure --enable-werror
+    - name: 'configure'
+      run: |
+        autoreconf -fi
+        ./configure --enable-werror
 
-      - name: 'build'
-        run: |
-          make V=1
+    - name: 'build'
+      run: |
+        make V=1
