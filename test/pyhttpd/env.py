@@ -634,9 +634,6 @@ class HttpdTestEnv:
                     log.debug("Unexpected error: %s", last_err)
                 time.sleep(.1)
         log.debug(f"Unable to contact server after {timeout}")
-        if r:
-            log.error(f"curl args={r.args} exit={r.exit_code} stderr={r.stderr} stdout={r.stdout}")
-            self._error_log.dump(log)
         return False
 
     def is_dead(self, url: str = None, timeout: timedelta = None):
@@ -685,28 +682,46 @@ class HttpdTestEnv:
         r = self._run_apachectl("graceful")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
-            return 0 if self.is_live(self._http_base, timeout=timeout) else -1
+            if self.is_live(self._http_base, timeout=timeout):
+                return 0
+            log.error('failed to reload apache')
+            self._error_log.dump(log)
+            return -1
         return r.exit_code
 
     def apache_restart(self):
-        self.apache_stop()
+        x = self.apache_stop()
+        if x != 0:
+            return x
         r = self._run_apachectl("start")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
-            return 0 if self.is_live(self._http_base, timeout=timeout) else -1
+            if self.is_live(self._http_base, timeout=timeout):
+                return 0
+            log.error('failed to reload apache')
+            self._error_log.dump(log)
+            return -1
         return r.exit_code
         
     def apache_stop(self):
         r = self._run_apachectl("stop")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
-            return 0 if self.is_dead(self._http_base, timeout=timeout) else -1
+            if self.is_dead(self._http_base, timeout=timeout):
+                return 0
+            log.error('failed to stop apache')
+            self._error_log.dump(log)
+            return -1
         return r
 
     def apache_graceful_stop(self):
         log.debug("stop apache")
         self._run_apachectl("graceful-stop")
-        return 0 if self.is_dead() else -1
+        if self.is_dead():
+            return 0
+        log.error('failed to gracefully stop apache')
+        self._error_log.dump(log)
+        return -1
 
     def apache_fail(self):
         log.debug("expect apache fail")
