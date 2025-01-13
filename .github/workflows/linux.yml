@@ -39,33 +39,62 @@ env:
   CFLAGS: "-g"
 
 jobs:
-  build:
+  linux:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
+        build:
           - name: Default
             install_packages:
-            install_steps: pytest
+            install_steps: pytest pebble
 
-  steps:
-    - name: 'install prereqs'
-      run: |
-        sudo apt-get update -y
-        sudo apt-get install -y --no-install-suggests --no-install-recommends \
-          libtool autoconf automake pkgconf apache2 apache2-dev openssl \
-          libssl-dev libjansson-dev libcurl4-openssl-dev \
-          ${{ matrix.build.install_packages }}
-        python3 -m venv $HOME/venv
+    steps:
+      - name: 'install prereqs'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-suggests --no-install-recommends \
+            libtool autoconf automake pkgconf apache2 apache2-dev openssl \
+            curl nghttp2-client libssl-dev libjansson-dev libcurl4-openssl-dev \
+            ${{ matrix.build.install_packages }}
+          python3 -m venv $HOME/venv
 
-    - name: 'configure'
-      run: |
-        autoreconf -fi
-        ./configure --enable-werror
+      - uses: actions/checkout@v4
 
-    - name: 'build'
-      run: |
-        make V=1
+      - name: 'install test prereqs'
+        run: |
+          [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
+          python3 -m pip install -r test/requirements.txt
+
+      - name: setup Go
+        if: contains(matrix.build.install_steps, 'pebble')
+        uses: actions/setup-go@v5
+
+      - name: install pebble
+        if: contains(matrix.build.install_steps, 'pebble')
+        run: |
+          export PATH=$PATH:$HOME/go/bin
+          git clone --quiet --depth=1 https://github.com/letsencrypt/pebble/
+          cd pebble
+          go install ./cmd/pebble
+          go install ./cmd/pebble-challtestsrv
+
+      - name: 'configure'
+        run: |
+          export PATH=$PATH:$HOME/go/bin
+          autoreconf -fi
+          ./configure --enable-werror
+
+      - name: 'build'
+        run: make V=1
+
+      - name: pytest
+        if: contains(matrix.build.install_steps, 'pytest')
+        env:
+          PYTEST_ADDOPTS: "--color=yes"
+        run: |
+          export PATH=$PATH:$HOME/go/bin
+          [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
+          pytest -v

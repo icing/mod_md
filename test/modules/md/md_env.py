@@ -27,7 +27,8 @@ class MDTestSetup(HttpdTestSetup):
     def __init__(self, env: 'MDTestEnv'):
         super().__init__(env=env)
         self.mdenv = env
-        self.add_modules(["watchdog", "proxy_connect", "md"])
+        self.add_modules(["watchdog", "proxy_connect"])
+        self.add_local_module("md", "src/.libs/mod_md.so")
 
     def make(self):
         super().make()
@@ -87,13 +88,16 @@ class MDTestEnv(HttpdTestEnv):
     def lacks_ocsp(cls):
         return cls.is_pebble()
 
+    A2MD_BIN = None
+
     @classmethod
     def has_a2md(cls):
-        d = os.path.dirname(inspect.getfile(HttpdTestEnv))
-        config = ConfigParser(interpolation=ExtendedInterpolation())
-        config.read(os.path.join(d, 'config.ini'))
-        bin_dir = config.get('global', 'bindir')
-        a2md_bin = os.path.join(bin_dir, 'a2md')
+        if cls.A2MD_BIN is None:
+            d = os.path.dirname(inspect.getfile(HttpdTestEnv))
+            config = ConfigParser(interpolation=ExtendedInterpolation())
+            config.read(os.path.join(d, 'config.ini'))
+            src_dir = config.get('test', 'src_dir')
+            a2md_bin = os.path.join(src_dir, 'src/a2md')
         return os.path.isfile(a2md_bin)
 
     def __init__(self, pytestconfig=None):
@@ -113,7 +117,7 @@ class MDTestEnv(HttpdTestEnv):
         self._acme_server_down = False
         self._acme_server_ok = False
 
-        self._a2md_bin = os.path.join(self.bin_dir, 'a2md')
+        self._a2md_bin = os.path.join(self.src_dir, 'src/a2md')
         self._default_domain = f"test1.{self.http_tld}"
         self._tailscale_domain = "test.headless-chicken.ts.net"
         self._store_dir = "./md"
@@ -309,8 +313,15 @@ class MDTestEnv(HttpdTestEnv):
         if md:
             domain = md
         path = self.store_domain_file(domain, 'md.json')
-        with open(path) as f:
-            md = json.load(f)
+        try:
+            with open(path) as f:
+                md = json.load(f)
+        except FileNotFoundError:
+            log.error(f"not found: {path}")
+            if not os.path.exists(self._store_dir):
+                log.error(f"md store dir not found: {self._store_dir}")
+            self.httpd_error_log.dump(log)
+            assert False
         assert md
         if domains:
             assert md['domains'] == domains

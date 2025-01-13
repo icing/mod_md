@@ -12,7 +12,7 @@ libexecdir = @libexecdir@
 
 apr_bindir = @APR_BINDIR@
 apxs = @bindir@/apxs
-apachectl = @sbindir@/apachectl
+httpd = @HTTPD@
 
 [httpd]
 version = @HTTPD_VERSION@
@@ -21,6 +21,7 @@ dso_modules = @DSO_MODULES@
 mpm_modules = @MPM_MODULES@
 
 [test]
+src_dir = @abs_top_srcdir@
 gen_dir = @abs_srcdir@/../gen
 http_port = 5002
 https_port = 5001

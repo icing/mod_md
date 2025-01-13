@@ -3,7 +3,7 @@ ServerRoot "${server_dir}"
 
 # not in 2.4.x
 #DefaultRuntimeDir logs
-#PidFile httpd.pid
+PidFile "${server_dir}/logs/httpd.pid"
 
 Include "conf/modules.conf"
 
