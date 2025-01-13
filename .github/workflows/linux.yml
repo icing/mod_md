@@ -79,6 +79,7 @@ jobs:
           git clone --quiet --depth=1 https://github.com/letsencrypt/pebble/
           cd pebble
           go install ./cmd/pebble
+          go install ./cmd/pebble-challtestsrv
 
       - name: 'configure'
         run: |
