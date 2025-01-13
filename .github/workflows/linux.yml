@@ -52,6 +52,7 @@ jobs:
             install_steps: pytest
 
     steps:
+      - uses: actions/checkout@v4
       - name: 'install prereqs'
         run: |
           sudo apt-get update -y
