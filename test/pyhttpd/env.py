@@ -633,7 +633,7 @@ class HttpdTestEnv:
                 time.sleep(.1)
         log.debug(f"Unable to contact server after {timeout}")
         if r:
-            log.error(f"curl exit={r.exit_code} stderr={r.stderr} stdout={r.stdout}")
+            log.error(f"curl args={r.args} exit={r.exit_code} stderr={r.stderr} stdout={r.stdout}")
             log.error(f"httpd_error_log={open(self._error_log.path).readlines()}")
         return False
 
