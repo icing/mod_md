@@ -92,6 +92,8 @@ jobs:
 
       - name: pytest
         if: contains(matrix.build.install_steps, 'pytest')
+        env:
+          PYTEST_ADDOPTS: "--color=yes"
         run: |
           export PATH=$PATH:$HOME/go/bin
           [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
