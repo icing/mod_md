@@ -94,5 +94,7 @@ jobs:
         if: contains(matrix.build.install_steps, 'pytest')
         run: |
           export PATH=$PATH:$HOME/go/bin
+          export APACHE_RUN_DIR=$HOME/run/apaache2
+          mkdir -p "$APACHE_RUN_DIR"
           [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
           pytest
