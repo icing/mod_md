@@ -52,7 +52,6 @@ jobs:
             install_steps: pytest
 
     steps:
-      - uses: actions/checkout@v4
       - name: 'install prereqs'
         run: |
           sudo apt-get update -y
@@ -61,6 +60,8 @@ jobs:
             libssl-dev libjansson-dev libcurl4-openssl-dev \
             ${{ matrix.build.install_packages }}
           python3 -m venv $HOME/venv
+
+      - uses: actions/checkout@v4
 
       - name: 'configure'
         run: |
