@@ -75,6 +75,7 @@ jobs:
       - name: install pebble
         if: contains(matrix.build.install_steps, 'pebble')
         run: |
+          export PATH=$PATH:$HOME/go/bin
           git clone --quiet --depth=1 https://github.com/letsencrypt/pebble/
           cd pebble
           go install ./cmd/pebble
