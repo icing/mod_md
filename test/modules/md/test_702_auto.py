@@ -21,7 +21,7 @@ class TestAutov2:
         env.check_acme()
         env.clear_store()
         MDConf(env).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
     @pytest.fixture(autouse=True, scope='function')
     def _method_scope(self, env, request):
@@ -44,7 +44,7 @@ class TestAutov2:
         conf.install()
         #
         # restart, check that MD is synched to store
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         stat = env.get_md_status(domain)
         assert stat["watched"] == 0
@@ -52,7 +52,7 @@ class TestAutov2:
         # add vhost for MD, restart should drive it
         conf.add_vhost(domains)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion([domain])
         env.check_md_complete(domain)
         stat = env.get_md_status(domain)
@@ -89,7 +89,7 @@ class TestAutov2:
         conf.install()
         #
         # restart, check that md is in store
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains_a)
         env.check_md(domains_b)
         #
@@ -106,7 +106,7 @@ class TestAutov2:
         assert status['state-descr'] == "certificate(rsa) is missing"
 
         # restart and activate
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         # check: SSL is running OK
         cert_a = env.get_cert(domain_a)
         assert domains_a == cert_a.get_san_list()
@@ -136,7 +136,7 @@ class TestAutov2:
         self._write_res_file(os.path.join(env.server_docs_dir, "b"), "name.txt", name_b)
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         assert env.await_completion([domain])
         md = env.check_md_complete(domain)
@@ -170,7 +170,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         assert env.await_completion([domain])
         env.check_md_complete(domain)
@@ -196,7 +196,7 @@ class TestAutov2:
         self._write_res_file(os.path.join(env.server_docs_dir, "a"), "name.txt", name_a)
         #
         # restart, check that md is in store
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         #        
         # check: that request to domains give 503 Service Unavailable
@@ -227,7 +227,7 @@ class TestAutov2:
         self._write_res_file(os.path.join(env.server_docs_dir, "a"), "name.txt", name_a)
         #
         # restart, check that md is in store
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         # await drive completion
         md = env.await_error(domain)
@@ -262,7 +262,7 @@ class TestAutov2:
         conf.install()
         #
         # - restart (-> drive)
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         # await drive completion
         md = env.await_error(domain)
         assert md
@@ -291,9 +291,9 @@ class TestAutov2:
         conf.install()
         #
         # - restart (-> drive), check that md is in store
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion([domain])
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md_complete(domain)
 
     # Force cert renewal due to critical remaining valid duration
@@ -311,7 +311,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that md+cert is in store, TLS is up
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion([domain])
         env.check_md_complete(domain)
         cert1 = MDCertUtil(env.store_domain_file(domain, 'pubcert.pem'))
@@ -327,7 +327,7 @@ class TestAutov2:
         creds.save_cert_pem(env.store_domain_file(domain, 'pubcert.pem'))
         creds.save_pkey_pem(env.store_domain_file(domain, 'privkey.pem'))
         assert creds.certificate.serial_number == 7029
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_certificate_status(domain)
         assert creds.certificate.serial_number == int(stat['rsa']['serial'], 16)
         #
@@ -348,7 +348,7 @@ class TestAutov2:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         md = env.await_error(domain)
         assert md["renewal"]["errors"] > 0
         #
@@ -360,7 +360,7 @@ class TestAutov2:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         assert env.await_completion([domain])
         #
@@ -386,7 +386,7 @@ class TestAutov2:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         md = env.await_error(domain)
         assert md["renewal"]["errors"] > 0
         #
@@ -399,7 +399,7 @@ class TestAutov2:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         assert env.await_completion([domain])
         #
@@ -431,7 +431,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         assert env.await_completion([name_x])
         env.check_md_complete(name_x)
@@ -451,7 +451,7 @@ class TestAutov2:
         conf.add_vhost(name_b)
         conf.install()
         # restart, check that host still works and kept the cert
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(new_list)
         status = env.get_certificate_status(name_a)
         assert cert_a.same_serial_as(status['rsa']['serial'])
@@ -475,7 +475,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         assert env.await_completion([name_x])
         env.check_md_complete(name_x)
@@ -495,7 +495,7 @@ class TestAutov2:
         conf.add_vhost(name_b)
         conf.install()
         # restart, check that host still works and have new cert
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(new_list)
         assert env.await_completion([name_a])
         #
@@ -520,7 +520,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md([name1])
         env.check_md([name2])
         assert env.await_completion([name1, name2])
@@ -538,7 +538,7 @@ class TestAutov2:
         conf.add_md([name1])
         conf.add_vhost([name1, name2])
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md([name1, name2])
         assert env.await_completion([name1])
         #
@@ -563,7 +563,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains1)
         assert env.await_completion([name_x])
         env.check_md_complete(name_x)
@@ -576,7 +576,7 @@ class TestAutov2:
         conf.add_vhost(domains=domains2)
         conf.install()
         # restart, check that host still works and kept the cert
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         status = env.get_certificate_status(name_a)
         assert cert_x.same_serial_as(status['rsa']['serial'])
 
@@ -597,7 +597,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         # check that acme-tls/1 is available for all domains
         stat = env.get_md_status(domain)
@@ -625,7 +625,7 @@ class TestAutov2:
         #
         # restart (-> drive), check that MD job shows errors 
         # and that missing proto is detected
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         # check that acme-tls/1 is available for none of the domains
         stat = env.get_md_status(domain)
@@ -645,7 +645,7 @@ class TestAutov2:
         conf.add_md(dns_list)
         conf.add_vhost(dns_list)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion([domain])
 
     # test case: test "tls-alpn-01" without enabling 'acme-tls/1' challenge protocol
@@ -666,7 +666,7 @@ class TestAutov2:
         #
         # restart (-> drive), check that MD job shows errors
         # and that missing proto is detected
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         # check that acme-tls/1 is available for none of the domains
         stat = env.get_md_status(domain)
@@ -694,7 +694,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(md_domains)
         assert env.await_completion([domain])
         env.check_md_complete(domain)
@@ -714,7 +714,7 @@ class TestAutov2:
             """)
         conf.add_md([domain])
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion([domain])
 
     # Make a setup using the base server without http:, will fail.
@@ -728,7 +728,7 @@ class TestAutov2:
             """)
         conf.add_md([domain])
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_error(domain)
         #
         env.httpd_error_log.ignore_recent(
@@ -759,7 +759,7 @@ class TestAutov2:
         ])
         conf.add_md([domain])
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_md_status(domain, via_domain=env.http_addr, use_https=False)
         assert stat["proto"]["acme-tls/1"] == [domain]
         assert env.await_completion([domain], via_domain=env.http_addr, use_https=False)
@@ -786,7 +786,7 @@ class TestAutov2:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.check_md(domains)
         assert env.await_error(long_domain)
         # add a short domain to the SAN list, the CA should now use that one
@@ -800,7 +800,7 @@ class TestAutov2:
         conf.add_md(domains)
         conf.add_vhost(domains)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion([long_domain])
         env.check_md_complete(long_domain)
         #
@@ -823,7 +823,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion(domains)
         env.check_md_complete(domains[0])
 
@@ -842,7 +842,7 @@ class TestAutov2:
         conf.install()
         #
         # restart (-> drive), check that MD was synched and completes
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion(domains)
         env.check_md_complete(domains[0])
 

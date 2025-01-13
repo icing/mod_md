@@ -24,7 +24,7 @@ class TestStapling:
         mdB = "b-" + domain
         self.configure_httpd(env, [mdA, mdB]).install()
         env.apache_stop()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion([mdA, mdB])
         env.check_md_complete(mdA)
         env.check_md_complete(mdB)
@@ -67,7 +67,7 @@ class TestStapling:
     def test_md_801_001(self, env):
         md = self.mdA
         self.configure_httpd(env, md).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_ocsp_status(md)
         if MDTestEnv.lacks_ocsp():
             assert 'ocsp' not in stat, f'{stat}'
@@ -81,7 +81,7 @@ class TestStapling:
             MDStapling on
             LogLevel md:trace5
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         if MDTestEnv.lacks_ocsp():
             stat = env.get_md_status(md)
             assert 'ocsp' not in stat, f'{stat}'
@@ -102,7 +102,7 @@ class TestStapling:
         #
         # turn stapling off (explicitly) again, should disappear
         self.configure_httpd(env, md, "MDStapling off").install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_ocsp_status(md)
         if MDTestEnv.lacks_ocsp():
             assert 'ocsp' not in stat, f'{stat}'
@@ -117,7 +117,7 @@ class TestStapling:
     def test_md_801_002(self, env):
         md = self.mdA
         self.configure_httpd(env, md, ssl_stapling=True).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" if \
             env.ssl_module == "mod_ssl" else "no response sent"
@@ -126,7 +126,7 @@ class TestStapling:
         #
         # turn stapling on, wait for it to appear in connections
         self.configure_httpd(env, md, "MDStapling on", ssl_stapling=True).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
@@ -138,7 +138,7 @@ class TestStapling:
         #
         # turn stapling off (explicitly) again, should disappear
         self.configure_httpd(env, md, "MDStapling off", ssl_stapling=True).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" if \
             env.ssl_module == "mod_ssl" else "no response sent"
@@ -160,7 +160,7 @@ class TestStapling:
         conf.add_vhost(md_a)
         conf.add_vhost(md_b)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         # mdA has stapling
         if MDTestEnv.lacks_ocsp():
             stat = env.get_ocsp_status(md_a)
@@ -198,7 +198,7 @@ class TestStapling:
         conf.add_vhost(md_a)
         conf.add_vhost(md_b)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         # mdA has stapling
         stat = env.await_ocsp_status(md_a)
         assert stat['ocsp'] == "successful (0x0)"
@@ -223,7 +223,7 @@ class TestStapling:
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
         self.configure_httpd(env, md, "MDStapling on").install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
@@ -238,7 +238,7 @@ class TestStapling:
         mtime1 = os.path.getmtime(ocsp_file)
         # wait a sec, restart and check that file does not change
         time.sleep(1)
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 
         mtime2 = os.path.getmtime(ocsp_file)
@@ -250,12 +250,12 @@ class TestStapling:
             MDStapling on
             MDStaplingKeepResponse 1s
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)"
         assert not os.path.exists(ocsp_file)
         # if we restart again, a new file needs to appear
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)"
         mtime3 = os.path.getmtime(ocsp_file)
@@ -268,7 +268,7 @@ class TestStapling:
         # turn stapling on, wait for it to appear in connections
         md = self.mdA
         self.configure_httpd(env, md, "MDStapling on").install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
@@ -281,7 +281,7 @@ class TestStapling:
                 ocsp_file = os.path.join(dirpath, name)
         assert ocsp_file
         mtime1 = os.path.getmtime(ocsp_file)
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 
         # wait a sec, restart and check that file does not change
@@ -293,7 +293,7 @@ class TestStapling:
             MDStapling on
             MDStaplingRenewWindow 10d
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)"
         # wait a sec, restart and check that file does change
@@ -317,7 +317,7 @@ class TestStapling:
                    env.store_domain_file(md, 'pubcert.pem')))
         conf.add_vhost(md)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
@@ -342,7 +342,7 @@ class TestStapling:
                              env.store_domain_file(md, 'privkey.pem'))
         conf.end_vhost()
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.await_ocsp_status(md)
         assert stat['ocsp'] == "successful (0x0)" 
         assert stat['verify'] == "0 (ok)"
@@ -380,7 +380,7 @@ class TestStapling:
         conf.end_md()
         conf.add_vhost(md)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         time.sleep(1)
         stat = env.get_ocsp_status(md)
         assert stat['ocsp'] == "no response sent" 
@@ -397,7 +397,7 @@ class TestStapling:
         conf.add("MDStapling on")
         conf.end_md()
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_server_status()
         assert stat
 
@@ -414,9 +414,9 @@ class TestStapling:
             MDStapling on
             LogLevel md:trace2 ssl:warn
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         assert env.await_completion(domains, restart=False, timeout=120)
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         # now the certs are installed and ocsp will be retrieved
         time.sleep(1)
         for domain in domains:

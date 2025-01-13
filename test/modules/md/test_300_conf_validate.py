@@ -24,7 +24,7 @@ class TestConf:
         MDConf(env, text="""
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -38,7 +38,7 @@ class TestConf:
             MDomain not-forbidden.org www.not-forbidden.org mail.not-forbidden.org
             MDomain example2.org www.example2.org mail.example2.org
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -84,7 +84,7 @@ class TestConf:
                 MDomain example2.org www.example2.org www.example3.org
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -101,7 +101,7 @@ class TestConf:
                 MDomain example2.org www.example2.org www.example3.org
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -121,7 +121,7 @@ class TestConf:
                 ServerName www.example2.org
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -144,7 +144,7 @@ class TestConf:
                 ServerAlias example2.org
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -186,7 +186,7 @@ class TestConf:
             </VirtualHost>
             """)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
     # test case: MDomain, misses one ServerAlias
     def test_md_300_011a(self, env):
@@ -216,7 +216,7 @@ class TestConf:
                 ServerAlias test4.not-forbidden.org
             </VirtualHost>
             """ % env.https_port).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
     # test case: MDomain does not match any vhost
     def test_md_300_012(self, env):
@@ -227,7 +227,7 @@ class TestConf:
                 ServerAlias test3.not-forbidden.org
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -246,7 +246,7 @@ class TestConf:
                 ServerName test-b.example2.org
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
     # test case: global server name as managed domain name
     def test_md_300_014(self, env):
@@ -257,7 +257,7 @@ class TestConf:
                 ServerName www.example2.org
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
     # test case: valid pkey specification
     def test_md_300_015(self, env):
@@ -268,7 +268,7 @@ class TestConf:
             MDPrivateKeys RSA 3072
             MDPrivateKeys RSA 4096
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
     # test case: invalid pkey specification
     @pytest.mark.parametrize("line,exp_err_msg", [
@@ -355,7 +355,7 @@ class TestConf:
                 ServerName secret.com
             </VirtualHost>
             """).install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         #
         env.httpd_error_log.ignore_recent(
             lognos = [
@@ -431,7 +431,7 @@ class TestConf:
             </VirtualHost>
             """)
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
     # test case: configure more than 1 CA
     @pytest.mark.parametrize("cas, should_work", [
@@ -493,7 +493,7 @@ class TestConf:
         # It works, if we only match on ServerNames
         conf.add("MDMatchNames servernames")
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         env.httpd_error_log.ignore_recent(
             lognos=[
                 "AH10040",  # ServerAlias not covered
@@ -537,7 +537,7 @@ class TestConf:
         # It works, if we only match on ServerNames
         conf.add("MDMatchNames servernames")
         conf.install()
-        assert env.apache_restart() == 0
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         time.sleep(2)
         assert env.apache_stop() == 0
         # we need dns-01 challenge for the wildcard, which is not configured
