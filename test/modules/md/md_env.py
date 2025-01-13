@@ -310,8 +310,15 @@ class MDTestEnv(HttpdTestEnv):
         if md:
             domain = md
         path = self.store_domain_file(domain, 'md.json')
-        with open(path) as f:
-            md = json.load(f)
+        try:
+            with open(path) as f:
+                md = json.load(f)
+        except FileNotFoundError:
+            log.error(f"not found: {path}")
+            if not os.path.exists(self._store_dir):
+                log.error(f"md store dir not found: {self._store_dir}")
+            self.httpd_error_log.dump(log)
+            assert False
         assert md
         if domains:
             assert md['domains'] == domains

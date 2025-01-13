@@ -150,3 +150,7 @@ class HttpdErrorLog:
                     raise TimeoutError(f"pattern not found in error log after {timeout} seconds")
                 time.sleep(.1)
         return False
+
+    def dump(self, logger):
+        for line in open(self.path).readlines():
+            logger.error(f'httpd: {line}')
