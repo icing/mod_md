@@ -633,7 +633,8 @@ class HttpdTestEnv:
                 time.sleep(.1)
         log.debug(f"Unable to contact server after {timeout}")
         if r:
-            log.error(f"curl stderr: {r.stderr}")
+            log.error(f"curl exit={r.exit_code} stderr={r.stderr} stdout={r.stdout}")
+            log.error(f"httpd_error_log={open(self._error_log.path).readlines()}")
         return False
 
     def is_dead(self, url: str = None, timeout: timedelta = None):
