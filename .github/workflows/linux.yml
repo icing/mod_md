@@ -66,7 +66,7 @@ jobs:
       - name: 'configure'
         run: |
           autoreconf -fi
-          ./configure --enable-werror bla
+          ./configure --enable-werror
 
       - name: 'build'
         run: make V=1
