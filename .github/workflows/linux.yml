@@ -61,6 +61,11 @@ jobs:
             ${{ matrix.build.install_packages }}
           python3 -m venv $HOME/venv
 
+      - name: 'install test prereqs'
+        run: |
+          [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
+          python3 -m pip install -r test/requirements.txt
+
       - uses: actions/checkout@v4
 
       - name: 'configure'
