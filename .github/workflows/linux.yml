@@ -89,3 +89,10 @@ jobs:
 
       - name: 'build'
         run: make V=1
+
+      - name: pytest
+        if: contains(matrix.build.install_steps, 'pytest')
+        run: |
+          export PATH=$PATH:$HOME/go/bin
+          [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
+          pytest
