@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import timedelta
 
 import pytest
@@ -45,6 +46,7 @@ class TestAutov2:
         #
         # restart, check that MD is synched to store
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
+        time.sleep(20)
         env.check_md(domains)
         stat = env.get_md_status(domain)
         assert stat["watched"] == 0
