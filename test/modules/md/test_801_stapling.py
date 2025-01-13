@@ -70,7 +70,7 @@ class TestStapling:
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_ocsp_status(md)
         if MDTestEnv.lacks_ocsp():
-            assert 'ocsp' not in stat, f'{stat}'
+            assert 'ocsp' not in stat, f'{stat}' or stat['ocsp'] == "no response sent"
         else:
             assert stat['ocsp'] == "no response sent"
         stat = env.get_md_status(md)
@@ -84,7 +84,7 @@ class TestStapling:
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         if MDTestEnv.lacks_ocsp():
             stat = env.get_md_status(md)
-            assert 'ocsp' not in stat, f'{stat}'
+            assert 'ocsp' not in stat, f'{stat}' or stat['ocsp'] == "no response sent"
         else:
             stat = env.await_ocsp_status(md)
             assert stat['ocsp'] == "successful (0x0)"
@@ -105,7 +105,7 @@ class TestStapling:
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_ocsp_status(md)
         if MDTestEnv.lacks_ocsp():
-            assert 'ocsp' not in stat, f'{stat}'
+            assert 'ocsp' not in stat, f'{stat}' or stat['ocsp'] == "no response sent"
         else:
             assert stat['ocsp'] == "no response sent"
         stat = env.get_md_status(md)

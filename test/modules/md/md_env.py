@@ -88,13 +88,16 @@ class MDTestEnv(HttpdTestEnv):
     def lacks_ocsp(cls):
         return cls.is_pebble()
 
+    A2MD_BIN = None
+
     @classmethod
     def has_a2md(cls):
-        d = os.path.dirname(inspect.getfile(HttpdTestEnv))
-        config = ConfigParser(interpolation=ExtendedInterpolation())
-        config.read(os.path.join(d, 'config.ini'))
-        bin_dir = config.get('global', 'bindir')
-        a2md_bin = os.path.join(bin_dir, 'a2md')
+        if cls.A2MD_BIN is None:
+            d = os.path.dirname(inspect.getfile(HttpdTestEnv))
+            config = ConfigParser(interpolation=ExtendedInterpolation())
+            config.read(os.path.join(d, 'config.ini'))
+            src_dir = config.get('test', 'src_dir')
+            a2md_bin = os.path.join(src_dir, 'src/a2md')
         return os.path.isfile(a2md_bin)
 
     def __init__(self, pytestconfig=None):
@@ -114,7 +117,7 @@ class MDTestEnv(HttpdTestEnv):
         self._acme_server_down = False
         self._acme_server_ok = False
 
-        self._a2md_bin = os.path.join(self.bin_dir, 'a2md')
+        self._a2md_bin = os.path.join(self.src_dir, 'src/a2md')
         self._default_domain = f"test1.{self.http_tld}"
         self._tailscale_domain = "test.headless-chicken.ts.net"
         self._store_dir = "./md"

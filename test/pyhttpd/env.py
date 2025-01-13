@@ -246,7 +246,6 @@ class HttpdTestEnv:
         self._bin_dir = self.config.get('global', 'bindir')
         self._apxs = self.config.get('global', 'apxs')
         self._prefix = self.config.get('global', 'prefix')
-        self._apachectl = self.config.get('global', 'apachectl')
         self._httpd = self.config.get('global', 'httpd')
         if HttpdTestEnv.LIBEXEC_DIR is None:
             HttpdTestEnv.LIBEXEC_DIR = self._libexec_dir = self.get_apxs_var('LIBEXECDIR')
@@ -278,7 +277,7 @@ class HttpdTestEnv:
         self._server_run_dir = os.path.join(self.server_dir, "run")
         self._server_access_log = os.path.join(self._server_logs_dir, "access_log")
         self._error_log = HttpdErrorLog(os.path.join(self._server_logs_dir, "error_log"))
-        self._apachectl_stderr = None
+        self._httpd_cmd_stderr = None
 
         self._dso_modules = self.config.get('httpd', 'dso_modules').split(' ')
         self._mpm_modules = self.config.get('httpd', 'mpm_modules').split(' ')
@@ -480,7 +479,7 @@ class HttpdTestEnv:
 
     @property
     def apachectl_stderr(self):
-        return self._apachectl_stderr
+        return self._httpd_cmd_stderr
 
     def add_cert_specs(self, specs: List[CertificateSpec]):
         self._cert_specs.extend(specs)
@@ -661,25 +660,21 @@ class HttpdTestEnv:
         log.debug(f"Server still responding after {timeout}")
         return False
 
-    def _run_apachectl(self, cmd) -> ExecResult:
+    def _httpd_cmd(self, cmd) -> ExecResult:
         conf_file = 'stop.conf' if cmd == 'stop' else 'httpd.conf'
         env = os.environ.copy()
-        env['APACHE_RUN_DIR'] = self._server_run_dir
-        env['APACHE_RUN_USER'] = os.environ['USER']
-        env['APACHE_LOCK_DIR'] = self._server_lock_dir
-        env['APACHE_CONFDIR'] = self._server_conf_dir
         args = [self._httpd,
                 "-d", self.server_dir,
                 "-f", os.path.join(self._server_dir, f'conf/{conf_file}'),
                 "-k", cmd]
         r = self.run(args, run_env=env)
-        self._apachectl_stderr = r.stderr
+        self._httpd_cmd_stderr = r.stderr
         if r.exit_code != 0:
             log.warning(f"failed: {r}")
         return r
 
     def apache_reload(self):
-        r = self._run_apachectl("graceful")
+        r = self._httpd_cmd("graceful")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
             if self.is_live(self._http_base, timeout=timeout):
@@ -693,7 +688,7 @@ class HttpdTestEnv:
         x = self.apache_stop()
         if x != 0:
             return x
-        r = self._run_apachectl("start")
+        r = self._httpd_cmd("start")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
             if self.is_live(self._http_base, timeout=timeout):
@@ -704,7 +699,7 @@ class HttpdTestEnv:
         return r.exit_code
         
     def apache_stop(self):
-        r = self._run_apachectl("stop")
+        r = self._httpd_cmd("stop")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
             if self.is_dead(self._http_base, timeout=timeout):
@@ -716,7 +711,7 @@ class HttpdTestEnv:
 
     def apache_graceful_stop(self):
         log.debug("stop apache")
-        self._run_apachectl("graceful-stop")
+        self._httpd_cmd("graceful-stop")
         if self.is_dead():
             return 0
         log.error('failed to gracefully stop apache')
@@ -725,8 +720,8 @@ class HttpdTestEnv:
 
     def apache_fail(self):
         log.debug("expect apache fail")
-        self._run_apachectl("stop")
-        rv = self._run_apachectl("start")
+        self._httpd_cmd("stop")
+        rv = self._httpd_cmd("start")
         if rv == 0:
             rv = 0 if self.is_dead() else -1
         else:
