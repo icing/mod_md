@@ -132,12 +132,23 @@ HTTPD="$sbindir/httpd"
 if test -x "$HTTPD"; then
   :  # all fine
 else
-  AC_PATH_PROG([HTTPD], [httpd])
-  if test "x$HTTPD" = "x"; then
-    AC_PATH_PROG([HTTPD], [apache2])
-  fi
-  if test "x$HTTPD" = "x"; then
-    AC_MSG_ERROR([httpd/apache2 not in PATH])
+  HTTPD="$sbindir/apache2"
+  if test -x "$HTTPD"; then
+    :  # all fine
+  else
+    HTTPD=""
+    AC_PATH_PROG([HTTPD], [httpd])
+    if test -x "$HTTPD"; then
+      :  # ok
+    else
+      HTTPD=""
+      AC_PATH_PROG([HTTPD], [apache2])
+      if test -x "$HTTPD"; then
+        :  # ok
+      else
+        AC_MSG_ERROR([httpd/apache2 not in PATH])
+      fi
+    fi
   fi
 fi
 AC_SUBST(HTTPD)
