@@ -12,7 +12,8 @@ libexecdir = @libexecdir@
 
 apr_bindir = @APR_BINDIR@
 apxs = @bindir@/apxs
-apachectl = @sbindir@/apachectl
+apachectl = @APACHECTL@
+httpd = @HTTPD@
 
 [httpd]
 version = @HTTPD_VERSION@

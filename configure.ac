@@ -118,11 +118,29 @@ HTTPD_VERSION="$($APXS -q HTTPD_VERSION)"
 AC_SUBST(HTTPD_VERSION)
 
 APACHECTL="$sbindir/apachectl"
-if test ! -x "$APACHECTL"; then
-    # rogue distros rename things! =)
-    APACHECTL="$sbindir/apache2ctl"
+if test -x "$APACHECTL"; then
+  :  # all fine
+else
+  AC_PATH_PROG([APACHECTL], [apachectl])
+  if test "x$APACHECTL" = "x"; then
+    AC_MSG_ERROR([apachectl not in PATH])
+  fi
 fi
 AC_SUBST(APACHECTL)
+
+HTTPD="$sbindir/httpd"
+if test -x "$HTTPD"; then
+  :  # all fine
+else
+  AC_PATH_PROG([HTTPD], [httpd])
+  if test "x$HTTPD" = "x"; then
+    AC_PATH_PROG([HTTPD], [apache2])
+  fi
+  if test "x$HTTPD" = "x"; then
+    AC_MSG_ERROR([httpd/apache2 not in PATH])
+  fi
+fi
+AC_SUBST(HTTPD)
 
 if test -x "$APACHECTL"; then
     DSO_MODULES="$($APACHECTL -t -D DUMP_MODULES | fgrep '(shared)'| sed 's/_module.*//g'|tr -d \\n)"
@@ -459,6 +477,8 @@ AC_MSG_NOTICE([summary of build options:
     Install prefix: ${prefix}
     APXS:           ${APXS}
     HTTPD-VERSION:  ${HTTPD_VERSION}
+    APACHECTL:      ${APACHECTL}
+    HTTPD:          ${HTTPD}
     C compiler:     ${CC} ${COMPILER_VERSION}
     CFLAGS:         ${CFLAGS}
     WARNCFLAGS:     ${WERROR_CFLAGS}

@@ -247,6 +247,7 @@ class HttpdTestEnv:
         self._apxs = self.config.get('global', 'apxs')
         self._prefix = self.config.get('global', 'prefix')
         self._apachectl = self.config.get('global', 'apachectl')
+        self._httpd = self.config.get('global', 'httpd')
         if HttpdTestEnv.LIBEXEC_DIR is None:
             HttpdTestEnv.LIBEXEC_DIR = self._libexec_dir = self.get_apxs_var('LIBEXECDIR')
         self._curl = self.config.get('global', 'curl_bin')
@@ -670,7 +671,7 @@ class HttpdTestEnv:
         env['APACHE_RUN_USER'] = os.environ['USER']
         env['APACHE_LOCK_DIR'] = self._server_lock_dir
         env['APACHE_CONFDIR'] = self._server_conf_dir
-        args = [self._apachectl,
+        args = [self._httpd,
                 "-d", self.server_dir,
                 "-f", os.path.join(self._server_dir, f'conf/{conf_file}'),
                 "-k", cmd]
