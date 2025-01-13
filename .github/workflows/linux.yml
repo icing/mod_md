@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        build:
           - name: Default
             install_packages:
             install_steps: pytest pebble
