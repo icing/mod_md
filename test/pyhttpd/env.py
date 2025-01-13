@@ -619,7 +619,7 @@ class HttpdTestEnv:
         while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
-                r = self.curl_get(url, insecure=True)
+                r = self.curl_get(url, insecure=True, options=['-vvvv'])
                 if r.exit_code == 0:
                     return True
                 time.sleep(.1)
@@ -634,7 +634,8 @@ class HttpdTestEnv:
         log.debug(f"Unable to contact server after {timeout}")
         if r:
             log.error(f"curl args={r.args} exit={r.exit_code} stderr={r.stderr} stdout={r.stdout}")
-            log.error(f"httpd_error_log={open(self._error_log.path).readlines()}")
+            for line in open(self._error_log.path).readlines():
+                log.error(line)
         return False
 
     def is_dead(self, url: str = None, timeout: timedelta = None):
