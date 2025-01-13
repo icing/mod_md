@@ -10,7 +10,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from string import Template
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from configparser import ConfigParser, ExtendedInterpolation
 from urllib.parse import urlparse
@@ -72,6 +72,7 @@ class HttpdTestSetup:
         self._source_dirs = [os.path.dirname(inspect.getfile(HttpdTestSetup))]
         self._modules = HttpdTestSetup.MODULES.copy()
         self._optional_modules = []
+        self._local_modules = []
 
     def add_source_dir(self, source_dir):
         self._source_dirs.append(source_dir)
@@ -81,6 +82,9 @@ class HttpdTestSetup:
 
     def add_optional_modules(self, modules: List[str]):
         self._optional_modules.extend(modules)
+
+    def add_local_module(self, mod_name: str, mod_path: str):
+        self._local_modules.append((mod_name, mod_path))
 
     def make(self):
         self._make_dirs()
@@ -92,6 +96,7 @@ class HttpdTestSetup:
             self.add_modules([self.env.ssl_module])
         self._make_modules_conf()
         self._make_htdocs()
+        self._add_local_modules()
         self._add_aptest()
         self.env.clear_curl_headerfiles()
 
@@ -196,6 +201,14 @@ class HttpdTestSetup:
             # load our test module which is not installed
             fd.write(f"LoadModule aptest_module   \"{local_dir}/mod_aptest/.libs/mod_aptest.so\"\n")
 
+    def _add_local_modules(self):
+        if len(self._local_modules):
+            modules_conf = os.path.join(self.env.server_dir, 'conf/modules.conf')
+            with open(modules_conf, 'a') as fd:
+                for mod_name, mod_path in self._local_modules:
+                    mod_path = os.path.join(self.env.src_dir, mod_path)
+                    fd.write(f"LoadModule {mod_name}_module   \"{mod_path}\"\n")
+
 
 class HttpdTestEnv:
 
@@ -233,7 +246,7 @@ class HttpdTestEnv:
         self._bin_dir = self.config.get('global', 'bindir')
         self._apxs = self.config.get('global', 'apxs')
         self._prefix = self.config.get('global', 'prefix')
-        self._apachectl = self.config.get('global', 'apachectl')
+        self._httpd = self.config.get('global', 'httpd')
         if HttpdTestEnv.LIBEXEC_DIR is None:
             HttpdTestEnv.LIBEXEC_DIR = self._libexec_dir = self.get_apxs_var('LIBEXECDIR')
         self._curl = self.config.get('global', 'curl_bin')
@@ -254,14 +267,17 @@ class HttpdTestEnv:
         self._http_tld = self.config.get('test', 'http_tld')
         self._test_dir = self.config.get('test', 'test_dir')
         self._clients_dir = os.path.join(os.path.dirname(self._test_dir), 'clients')
+        self._src_dir = self.config.get('test', 'src_dir')
         self._gen_dir = self.config.get('test', 'gen_dir')
         self._server_dir = os.path.join(self._gen_dir, 'apache')
         self._server_conf_dir = os.path.join(self._server_dir, "conf")
         self._server_docs_dir = os.path.join(self._server_dir, "htdocs")
+        self._server_lock_dir = os.path.join(self.server_dir, "locks")
         self._server_logs_dir = os.path.join(self.server_dir, "logs")
+        self._server_run_dir = os.path.join(self.server_dir, "run")
         self._server_access_log = os.path.join(self._server_logs_dir, "access_log")
         self._error_log = HttpdErrorLog(os.path.join(self._server_logs_dir, "error_log"))
-        self._apachectl_stderr = None
+        self._httpd_cmd_stderr = None
 
         self._dso_modules = self.config.get('httpd', 'dso_modules').split(' ')
         self._mpm_modules = self.config.get('httpd', 'mpm_modules').split(' ')
@@ -320,6 +336,7 @@ class HttpdTestEnv:
                 log_level = "debug"
             else:
                 log_level = "info"
+            log_level = "trace2"
             self._log_interesting = "LogLevel"
             for name in self._httpd_log_modules:
                 self._log_interesting += f" {name}:{log_level}"
@@ -399,6 +416,10 @@ class HttpdTestEnv:
         return self._gen_dir
 
     @property
+    def src_dir(self) -> str:
+        return self._src_dir
+
+    @property
     def test_dir(self) -> str:
         return self._test_dir
 
@@ -458,7 +479,7 @@ class HttpdTestEnv:
 
     @property
     def apachectl_stderr(self):
-        return self._apachectl_stderr
+        return self._httpd_cmd_stderr
 
     def add_cert_specs(self, specs: List[CertificateSpec]):
         self._cert_specs.extend(specs)
@@ -535,14 +556,17 @@ class HttpdTestEnv:
         if not os.path.exists(path):
             return os.makedirs(path)
 
-    def run(self, args, stdout_list=False, intext=None, inbytes=None, debug_log=True):
+    def run(self, args, stdout_list=False, intext=None, inbytes=None, debug_log=True,
+            run_env=None):
+        if not run_env:
+            run_env = os.environ
         if debug_log:
             log.debug(f"run: {args}")
         start = datetime.now()
         if intext is not None:
             inbytes = intext.encode()
         p = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE,
-                           input=inbytes)
+                           input=inbytes, env=run_env)
         stdout_as_list = None
         if stdout_list:
             try:
@@ -592,10 +616,11 @@ class HttpdTestEnv:
             timeout = timedelta(seconds=5)
         try_until = datetime.now() + timeout
         last_err = ""
+        r = None
         while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
-                r = self.curl_get(url, insecure=True)
+                r = self.curl_get(url, insecure=True, options=['-vvvv'])
                 if r.exit_code == 0:
                     return True
                 time.sleep(.1)
@@ -635,49 +660,68 @@ class HttpdTestEnv:
         log.debug(f"Server still responding after {timeout}")
         return False
 
-    def _run_apachectl(self, cmd) -> ExecResult:
+    def _httpd_cmd(self, cmd) -> ExecResult:
         conf_file = 'stop.conf' if cmd == 'stop' else 'httpd.conf'
-        args = [self._apachectl,
+        env = os.environ.copy()
+        args = [self._httpd,
                 "-d", self.server_dir,
                 "-f", os.path.join(self._server_dir, f'conf/{conf_file}'),
                 "-k", cmd]
-        r = self.run(args)
-        self._apachectl_stderr = r.stderr
+        r = self.run(args, run_env=env)
+        self._httpd_cmd_stderr = r.stderr
         if r.exit_code != 0:
             log.warning(f"failed: {r}")
         return r
 
     def apache_reload(self):
-        r = self._run_apachectl("graceful")
+        r = self._httpd_cmd("graceful")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
-            return 0 if self.is_live(self._http_base, timeout=timeout) else -1
+            if self.is_live(self._http_base, timeout=timeout):
+                return 0
+            log.error('failed to reload apache')
+            self._error_log.dump(log)
+            return -1
         return r.exit_code
 
     def apache_restart(self):
-        self.apache_stop()
-        r = self._run_apachectl("start")
+        x = self.apache_stop()
+        if x != 0:
+            return x
+        r = self._httpd_cmd("start")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
-            return 0 if self.is_live(self._http_base, timeout=timeout) else -1
+            if self.is_live(self._http_base, timeout=timeout):
+                return 0
+            log.error('failed to reload apache')
+            self._error_log.dump(log)
+            return -1
         return r.exit_code
         
     def apache_stop(self):
-        r = self._run_apachectl("stop")
+        r = self._httpd_cmd("stop")
         if r.exit_code == 0:
             timeout = timedelta(seconds=10)
-            return 0 if self.is_dead(self._http_base, timeout=timeout) else -1
+            if self.is_dead(self._http_base, timeout=timeout):
+                return 0
+            log.error('failed to stop apache')
+            self._error_log.dump(log)
+            return -1
         return r
 
     def apache_graceful_stop(self):
         log.debug("stop apache")
-        self._run_apachectl("graceful-stop")
-        return 0 if self.is_dead() else -1
+        self._httpd_cmd("graceful-stop")
+        if self.is_dead():
+            return 0
+        log.error('failed to gracefully stop apache')
+        self._error_log.dump(log)
+        return -1
 
     def apache_fail(self):
         log.debug("expect apache fail")
-        self._run_apachectl("stop")
-        rv = self._run_apachectl("start")
+        self._httpd_cmd("stop")
+        rv = self._httpd_cmd("start")
         if rv == 0:
             rv = 0 if self.is_dead() else -1
         else:
