@@ -27,7 +27,8 @@ class MDTestSetup(HttpdTestSetup):
     def __init__(self, env: 'MDTestEnv'):
         super().__init__(env=env)
         self.mdenv = env
-        self.add_modules(["watchdog", "proxy_connect", "md"])
+        self.add_modules(["watchdog", "proxy_connect"])
+        self.add_local_module("md", "src/.libs/mod_md.so")
 
     def make(self):
         super().make()

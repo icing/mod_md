@@ -10,7 +10,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from string import Template
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from configparser import ConfigParser, ExtendedInterpolation
 from urllib.parse import urlparse
@@ -72,6 +72,7 @@ class HttpdTestSetup:
         self._source_dirs = [os.path.dirname(inspect.getfile(HttpdTestSetup))]
         self._modules = HttpdTestSetup.MODULES.copy()
         self._optional_modules = []
+        self._local_modules = []
 
     def add_source_dir(self, source_dir):
         self._source_dirs.append(source_dir)
@@ -81,6 +82,9 @@ class HttpdTestSetup:
 
     def add_optional_modules(self, modules: List[str]):
         self._optional_modules.extend(modules)
+
+    def add_local_module(self, mod_name: str, mod_path: str):
+        self._local_modules.append((mod_name, mod_path))
 
     def make(self):
         self._make_dirs()
@@ -92,6 +96,7 @@ class HttpdTestSetup:
             self.add_modules([self.env.ssl_module])
         self._make_modules_conf()
         self._make_htdocs()
+        self._add_local_modules()
         self._add_aptest()
         self.env.clear_curl_headerfiles()
 
@@ -196,6 +201,14 @@ class HttpdTestSetup:
             # load our test module which is not installed
             fd.write(f"LoadModule aptest_module   \"{local_dir}/mod_aptest/.libs/mod_aptest.so\"\n")
 
+    def _add_local_modules(self):
+        if len(self._local_modules):
+            modules_conf = os.path.join(self.env.server_dir, 'conf/modules.conf')
+            with open(modules_conf, 'a') as fd:
+                for mod_name, mod_path in self._local_modules:
+                    mod_path = os.path.join(self.env.src_dir, mod_path)
+                    fd.write(f"LoadModule {mod_name}_module   \"{mod_path}\"\n")
+
 
 class HttpdTestEnv:
 
@@ -254,6 +267,7 @@ class HttpdTestEnv:
         self._http_tld = self.config.get('test', 'http_tld')
         self._test_dir = self.config.get('test', 'test_dir')
         self._clients_dir = os.path.join(os.path.dirname(self._test_dir), 'clients')
+        self._src_dir = self.config.get('test', 'src_dir')
         self._gen_dir = self.config.get('test', 'gen_dir')
         self._server_dir = os.path.join(self._gen_dir, 'apache')
         self._server_conf_dir = os.path.join(self._server_dir, "conf")
@@ -397,6 +411,10 @@ class HttpdTestEnv:
     @property
     def gen_dir(self) -> str:
         return self._gen_dir
+
+    @property
+    def src_dir(self) -> str:
+        return self._src_dir
 
     @property
     def test_dir(self) -> str:
