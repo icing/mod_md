@@ -39,7 +39,7 @@ env:
   CFLAGS: "-g"
 
 jobs:
-  build:
+  linux:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -66,8 +66,7 @@ jobs:
       - name: 'configure'
         run: |
           autoreconf -fi
-          ./configure --enable-werror
+          ./configure --enable-werror bla
 
       - name: 'build'
-        run: |
-          make V=1
+        run: make V=1
