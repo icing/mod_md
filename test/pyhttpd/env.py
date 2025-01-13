@@ -615,6 +615,7 @@ class HttpdTestEnv:
             timeout = timedelta(seconds=5)
         try_until = datetime.now() + timeout
         last_err = ""
+        r = None
         while datetime.now() < try_until:
             # noinspection PyBroadException
             try:
@@ -631,6 +632,8 @@ class HttpdTestEnv:
                     log.debug("Unexpected error: %s", last_err)
                 time.sleep(.1)
         log.debug(f"Unable to contact server after {timeout}")
+        if r:
+            log.error(f"curl stderr: {r.stderr}")
         return False
 
     def is_dead(self, url: str = None, timeout: timedelta = None):
