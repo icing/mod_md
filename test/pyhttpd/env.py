@@ -336,7 +336,6 @@ class HttpdTestEnv:
                 log_level = "debug"
             else:
                 log_level = "info"
-            log_level = "trace2"
             self._log_interesting = "LogLevel"
             for name in self._httpd_log_modules:
                 self._log_interesting += f" {name}:{log_level}"
