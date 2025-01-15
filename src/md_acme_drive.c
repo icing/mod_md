@@ -515,8 +515,8 @@ static apr_status_t acme_driver_preload_init(md_proto_driver_t *d, md_result_t *
     d->baton = ad;
     
     ad->driver = d;
-    ad->authz_monitor_timeout = apr_time_from_sec(30);
-    ad->cert_poll_timeout = apr_time_from_sec(30);
+    ad->authz_monitor_timeout = apr_time_from_sec(300);
+    ad->cert_poll_timeout = apr_time_from_sec(300);
     ad->ca_challenges = apr_array_make(d->p, 3, sizeof(const char*));
     
     /* We want to obtain credentials (key+certificate) for every key spec in this MD */
