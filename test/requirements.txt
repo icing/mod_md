@@ -16,5 +16,5 @@
 pytest
 cryptography
 filelock
-multipart
+python-multipart
 psutil
