@@ -152,11 +152,17 @@ retry:
     
     rv = md_acme_order_monitor_authzs(ad->order, ad->acme, d->md,
                                       ad->authz_monitor_timeout, result, d->p);
-    if (APR_SUCCESS != rv) goto leave;
+    if (APR_SUCCESS != rv) {
+      md_result_set(result, rv, "Error waiting on domain names to be validated");
+      goto leave;
+    }
 
     rv = md_acme_order_await_ready(ad->order, ad->acme, d->md,
                                    ad->authz_monitor_timeout, result, d->p);
-    if (APR_SUCCESS != rv) goto leave;
+    if (APR_SUCCESS != rv) {
+      md_result_set(result, rv, "Error waiting for order to become ready");
+      goto leave;
+    }
 
     if (MD_ACME_ORDER_ST_READY == ad->order->status) {
         rv = md_acme_drive_setup_cred_chain(d, result);
@@ -166,7 +172,10 @@ retry:
 
     rv = md_acme_order_await_valid(ad->order, ad->acme, d->md, 
                                    ad->authz_monitor_timeout, result, d->p);
-    if (APR_SUCCESS != rv) goto leave;
+    if (APR_SUCCESS != rv) {
+      md_result_set(result, rv, "Error waiting for order to become valid.");
+      goto leave;
+    }
     
     if (!ad->order->certificate) {
         md_result_set(result, APR_EINVAL, "Order valid, but certificate url is missing.");
