@@ -1,3 +1,7 @@
+ * Add Issue Name/Uris to certificate information in md-status handler
+ * MDomains with static certificate files have MDRenewMode "manual", unless
+   "always" is configured.
+
 v2.4.31
 ----------------------------------------------------------------------------------------------------
  * Improved error reporting when waiting for ACME server to verify domains
