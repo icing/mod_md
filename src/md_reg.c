@@ -222,10 +222,15 @@ static apr_status_t state_init(md_reg_t *reg, apr_pool_t *p, md_t *md)
     const md_cert_t *cert;
     const md_pkey_spec_t *spec;
     apr_status_t rv = APR_SUCCESS;
-    int i;
+    int i, is_static = (md->cert_files && md->cert_files->nelts);
 
     if (md->renew_window == NULL) md->renew_window = reg->renew_window;
     if (md->warn_window == NULL) md->warn_window = reg->warn_window;
+
+    if(is_static) {
+      if(md->renew_mode == MD_RENEW_AUTO)
+        md->renew_mode = MD_RENEW_MANUAL;
+    }
 
     if (md->domains && md->domains->pool != p) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, 0, p,

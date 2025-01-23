@@ -154,6 +154,8 @@ struct md_t {
 #define MD_KEY_HTTPS            "https"
 #define MD_KEY_ID               "id"
 #define MD_KEY_IDENTIFIER       "identifier"
+#define MD_KEY_ISSUER_NAME      "issuer-name"
+#define MD_KEY_ISSUER_URI       "issuer-uri"
 #define MD_KEY_KEY              "key"
 #define MD_KEY_KID              "kid"
 #define MD_KEY_KEYAUTHZ         "keyAuthorization"
