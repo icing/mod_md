@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import timedelta
 
 import pytest
@@ -312,29 +313,22 @@ class TestAutov2:
         #
         # restart (-> drive), check that md+cert is in store, TLS is up
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
-        assert env.await_completion([domain])
-        env.check_md_complete(domain)
-        cert1 = MDCertUtil(env.store_domain_file(domain, 'pubcert.pem'))
-        # compare with what md reports as status
-        stat = env.get_certificate_status(domain)
-        assert cert1.same_serial_as(stat['rsa']['serial'])
-        #
-        # create self-signed cert, with critical remaining valid duration -> drive again
+        assert env.await_completion([domain], restart=False)
+        # Overwrite stages cert with one which has little remaining lifetime
         creds = env.create_self_signed_cert(CertificateSpec(domains=[domain]),
                                             valid_from=timedelta(days=-120),
                                             valid_to=timedelta(days=2),
                                             serial=7029)
-        creds.save_cert_pem(env.store_domain_file(domain, 'pubcert.pem'))
-        creds.save_pkey_pem(env.store_domain_file(domain, 'privkey.pem'))
         assert creds.certificate.serial_number == 7029
+        creds.save_cert_pem(env.store_staged_file(domain, 'pubcert.pem'))
+        creds.save_pkey_pem(env.store_staged_file(domain, 'privkey.pem'))
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         stat = env.get_certificate_status(domain)
         assert creds.certificate.serial_number == int(stat['rsa']['serial'], 16)
-        #
         # cert should renew and be different afterwards
         assert env.await_completion([domain], must_renew=True)
         stat = env.get_certificate_status(domain)
-        creds.certificate.serial_number != int(stat['rsa']['serial'], 16)
+        assert creds.certificate.serial_number != int(stat['rsa']['serial'], 16)
 
     # test case: drive with an unsupported challenge due to port availability 
     def test_md_702_010(self, env):

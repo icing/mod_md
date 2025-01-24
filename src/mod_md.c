@@ -363,6 +363,12 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     if (md->stapling < 0) {
         md->stapling = md_config_geti(md->sc, MD_CONFIG_STAPLING);
     }
+    if (!md->profile) {
+        md->profile = md_config_gets(md->sc, MD_CONFIG_CA_PROFILE);
+    }
+    if (md->profile_mandatory < 0) {
+        md->profile_mandatory = md_config_geti(md->sc, MD_CONFIG_CA_PROFILE_MANDATORY);
+    }
 }
 
 static apr_status_t check_coverage(md_t *md, const char *domain, server_rec *s,
