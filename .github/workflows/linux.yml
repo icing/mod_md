@@ -37,6 +37,7 @@ permissions: {}
 env:
   MARGS: "-j5"
   CFLAGS: "-g"
+  pebble-version: v2.7.0
 
 jobs:
   linux:
@@ -76,7 +77,7 @@ jobs:
         if: contains(matrix.build.install_steps, 'pebble')
         run: |
           export PATH=$PATH:$HOME/go/bin
-          git clone --quiet --depth=1 https://github.com/letsencrypt/pebble/
+          git clone --quiet --depth=1 -b ${{ env.pebble-version }} https://github.com/letsencrypt/pebble/
           cd pebble
           go install ./cmd/pebble
           go install ./cmd/pebble-challtestsrv

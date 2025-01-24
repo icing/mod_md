@@ -765,7 +765,9 @@ static apr_status_t acme_renew(md_proto_driver_t *d, md_result_t *result)
     if (!ad->domains) {
         ad->domains = md_dns_make_minimal(d->p, ad->md->domains);
     }
-    
+    ad->profile = ad->md->profile;
+    ad->profile_mandatory = ad->md->profile_mandatory;
+
     md_result_activity_printf(result, "Contacting ACME server for %s at %s",
                               d->md->name, ca_effective);
     if (APR_SUCCESS != (rv = md_acme_create(&ad->acme, d->p, ca_effective,
