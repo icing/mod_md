@@ -58,6 +58,7 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Use tailscale certificates](#tailscale)
     * [Have a failover ACME CA](#acme-failover)
     * [Revocations](#revocations)
+    * [Use ACME Profiles](#profiles)
   - Stapling
     * [Staple all my certificates](#how-to-staple-all-my-certificates)
     * [Staple some of my certificates](#how-to-staple-some-of-my-certificates)
@@ -830,6 +831,33 @@ MDCheckInterval 1h
 **But remember**: the renewal puts a new cert into your file system. You need a server reload to make it active! Another choice for you to make. Small sites will have not trouble, but big installations may not want to do this during busy hours. If you do not want to reload during the day/week, small check/renew times will not help you.
 
 In order to treat revocations special, you may consider monitoring the OCSP stapling by asking your Apache about it. You can use a special client that checks OCSP stapling (hint: `curl --cert-status` may do). Or you can use the module's `md-status` handler to retrieve a domain status in JSON from Apache.
+
+# Profiles
+
+[Lets Encrypt announced](https://letsencrypt.org/2025/01/09/acme-profiles/) they will add Certificate Profiles support
+in their CA during 2025, beginning with their staging servers. This, among some other details, let's you select the lifetime
+of the certificates you get. The "default" profile will keep the 90 days and a "tlsserver" profile will issue certificates with only 6 days of validity.
+
+If you do not change your `mod_md` configuration, you will continue to get the 90 days certificates. Should you believe 
+that a shorter lifetime is beneficial for you (and take the risk that the renewal time is way shorter), you can configure
+the profile to use:
+
+```
+MDProfile tlsserver
+```
+You may set that for an individual MDomain as well. If the ACME CA supports that profile, `mod_md` will order the 
+certificate with it. Should the ACME CA have no profiles, or non matching your configuration, `mod_md` will use
+no profile. This was chosen as default behaviour to keep your certificate renewals going, even if the CA changes
+its set of profiles.
+
+If you really want to have only certificates of a given profile, you can make it mandatory:
+
+```
+MDProfile tlsserver
+MDProfileMandatory on
+```
+
+and cert renewal will fail of the profile is not supported by the CA.
 
 # Just the Stapling, Mam!
 
@@ -2407,6 +2435,24 @@ locks are not properly handled in the underlying file system. A lock *should* on
 instance for a short duration and *should* be released on process termination. At least on any *nix
 type host system, this is the case.
 
+## MDProfile
+`MDProfile name`
+Default: none
+
+Specify the name of a certificate profile your ACME CA supports. This will give your new certificate
+the properties the CA has configured for it. Let's Encrypt issues different certificate lifetimes for
+profiles.
+
+If the CA does not support the profile, no profile will be used and you get a certificate with 
+default properties - as the CA defines them. If you need certificates of a certain profile and would
+let renewals rather fail otherwise, use `MDProfileMandatory`.
+
+## MDProfileMandatory
+`MDProfileMandatory on|off`
+Default: off
+
+Select if a certificate renewal should make a configured profile mandatory, e.g. fail renewal if
+the CA does not support it.
 
 # Test Suite
 
