@@ -1,3 +1,7 @@
+v2.5.0
+----------------------------------------------------------------------------------------------------
+ * Added support for ACME profiles. See README on how to use them.
+ * restored fixed to #336 and #337 which got lost in a sync with Apache svn
  * Add Issue Name/Uris to certificate information in md-status handler
  * MDomains with static certificate files have MDRenewMode "manual", unless
    "always" is configured.
