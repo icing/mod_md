@@ -865,12 +865,24 @@ apr_status_t md_reg_sync_start(md_reg_t *reg, apr_array_header_t *master_mds, ap
         idx = md_array_str_index(ctx.store_names, md->name, 0, 1);
         if (idx < 0) {
             APR_ARRAY_PUSH(ctx.maybe_new_mds, md_t*) = md;
+        }
+        else {
             md_array_remove_at(ctx.store_names, idx);
         }
     }
     
-    if (ctx.maybe_new_mds->nelts == 0) goto leave; /* none new */
-    if (ctx.store_names->nelts == 0) goto leave;   /* all new */
+    if (ctx.maybe_new_mds->nelts == 0) {
+        /* none new */
+        goto leave;
+    }
+    if (ctx.store_names->nelts == 0) {
+        /* all new */
+        for (i = 0; i < ctx.maybe_new_mds->nelts; ++i) {
+            md = APR_ARRAY_IDX(ctx.maybe_new_mds, i, md_t*);
+            APR_ARRAY_PUSH(ctx.new_mds, md_t*) = md;
+        }
+        goto leave;
+    }
     
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, p, 
                   "sync MDs, %d potentially new MDs detected, looking for renames among "
