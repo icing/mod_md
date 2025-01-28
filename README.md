@@ -1775,27 +1775,37 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 
 * [MDomain](#mdomain)
 * [\<MDomainSet\>](#mdomainset--md-specific-settings)
+* [MDBaseServer](#mdbaseserver)
+* [MDCACertificateFile](#mdcacertificatefile)
 * [MDCAChallenges](#mdcachallenges)
 * [MDCertificateAgreement](#mdcertificateagreement--terms-of-service)
 * [MDCertificateAuthority](#mdcertificateauthority)
+* [MDCertificateCheck](#mdcertificatecheck)
 * [MDCertificateFile](#mdcertificatefile)
 * [MDCertificateKeyFile](#mdcertificatekeyfile)
 * [MDCertificateMonitor](#mdcertificatemonitor)
 * [MDCertificateProtocol](#mdcertificateprotocol)
 * [MDCertificateStatus](#mdcertificatestatus)
+* [MDContactEmail](#mdcontactemail)
 * [MDCheckInterval](#mdcheckinterval)
 * [MDChallengeDns01](#mdchallengedns01)
 * [MDChallengeDns01Version](#mdchallengedns01version)
+* [MDExternalAccountBinding](#mdexternalaccountbinding)
 * [MDRenewMode](#mdrenewmode--renew-mode)
 * [MDMatchNames](#mdmatchnames)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
+* [MDMustStaple](#mdmuststaple)
 * [MDNotifyCmd](#mdnotifycmd)
 * [MDMessageCmd](#mdmessagecmd)
 * [MDPortMap](#mdportmap)
 * [MDPrivateKeys](#mdprivatekeys)
+* [MDProfile](#mdprofile)
+* [MDProfileMandatory](#mdprofilemandatory)
 * [MDHttpProxy](#mdhttpproxy)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
+* [MDRequireHttps](#mdrequirehttps)
+* [MDRetryFailover](#mdretryfailover)
 * [MDWarnWindow](#mdwarnwindow--when-to-warn)
 * [MDServerStatus](#mdserverstatus)
 * [MDStapling](#mdstapling)
@@ -1803,6 +1813,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDStaplingKeepResponse](#mdstaplingkeepresponse)
 * [MDStaplingRenewWIndow](#mdstaplingrenewwindow)
 * [MDStoreDir](#mdstoredir)
+* [MDStoreLocks](#mdstorelocks)
 
 
 ## MDomain
@@ -2265,6 +2276,15 @@ Controls if Managed Domains appear in the `server-status` handler of Apache.
 Default: `on`
 
 Controls if Managed Domains respond to public requests for `/.httpd/certificate-status` or not.
+
+## MDCertificateCheck
+
+`MDCertificateCheck name url`<BR/>
+Default: `none`
+
+A name and a URL to be used in Apache's "server-status" page for checking a certificate status at a remote site. This will generate a link on the HTML version of "server-status" with the given name and the certificate fingerprint appended to the url.
+
+This is merely a user interface enhancement and does not influence the workings of the module otherwise.
 
 ## MDStapling
 
