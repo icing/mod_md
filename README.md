@@ -1780,6 +1780,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDCAChallenges](#mdcachallenges)
 * [MDCertificateAgreement](#mdcertificateagreement--terms-of-service)
 * [MDCertificateAuthority](#mdcertificateauthority)
+* [MDCertificateCheck](#mdcertificatecheck)
 * [MDCertificateFile](#mdcertificatefile)
 * [MDCertificateKeyFile](#mdcertificatekeyfile)
 * [MDCertificateMonitor](#mdcertificatemonitor)
@@ -2275,6 +2276,15 @@ Controls if Managed Domains appear in the `server-status` handler of Apache.
 Default: `on`
 
 Controls if Managed Domains respond to public requests for `/.httpd/certificate-status` or not.
+
+## MDCertificateCheck
+
+`MDCertificateCheck name url`<BR/>
+Default: `none`
+
+A name and a URL to be used in Apache's "server-status" page for checking a certificate status at a remote site. This will generate a link on the HTML version of "server-status" with the given name and the certificate fingerprint appended to the url.
+
+This is merely a user interface enhancement and does not influence the workings of the module otherwise.
 
 ## MDStapling
 
