@@ -951,7 +951,8 @@ static apr_status_t md_post_config_before_ssl(apr_pool_t *p, apr_pool_t *plog,
     /*5*/
     md_reg_load_stagings(mc->reg, mc->mds, mc->env, p);
 leave:
-    md_reg_unlock_global(mc->reg, ptemp);
+    if (mc->reg)
+        md_reg_unlock_global(mc->reg, ptemp);
     return rv;
 }
 

@@ -81,6 +81,18 @@ static apr_status_t load_props(md_reg_t *reg, apr_pool_t *p)
     else if (APR_STATUS_IS_ENOENT(rv)) {
         rv = APR_SUCCESS;
     }
+    else {
+        apr_status_t rv2;
+        md_log_perror(MD_LOG_MARK, MD_LOG_INFO, 0, p,
+                      "removing md/%s on error loading it", MD_FN_HTTPD_JSON);
+        rv2 = md_store_remove(reg->store, MD_SG_NONE, NULL, MD_FN_HTTPD_JSON,
+                              p, TRUE);
+        if (rv2 != APR_SUCCESS)
+          md_log_perror(MD_LOG_MARK, MD_LOG_ERR, APR_EINVAL, p,
+                        "error removing md/%s", MD_FN_HTTPD_JSON);
+        else
+          rv = APR_SUCCESS;
+    }
     return rv;
 }
 

@@ -1,4 +1,5 @@
 # test mod_md basic configurations
+import os
 
 import re
 import time
@@ -17,7 +18,12 @@ class TestConf:
     @pytest.fixture(autouse=True, scope='class')
     def _class_scope(self, env, acme):
         acme.start(config='default')
+        env.purge_store()
+
+    @pytest.fixture(autouse=True, scope='function')
+    def _method_scope(self, env, request):
         env.clear_store()
+        self.test_domain = env.get_request_domain(request)
 
     # test case: just one MDomain definition
     def test_md_300_001(self, env):
@@ -545,3 +551,35 @@ class TestConf:
             r'.*None of offered challenge types.*are supported.*'
         ])
 
+    # test case: corrupted md/httpd.json, see #369
+    def test_md_300_030(self, env):
+        domain = self.test_domain
+        domains = [domain]
+        conf = MDConf(env, admin="admin@" + domain)
+        conf.add_drive_mode("manual")
+        conf.add_md(domains)
+        conf.add_vhost(domain)
+        conf.install()
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
+        with open(os.path.join(env.store_dir, 'httpd.json'), 'w') as fd:
+            fd.write('garbage\n')
+        # self-repairing now
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
+
+    # test case: corrupted md/md_store.json, related to #369
+    def test_md_300_031(self, env):
+        env.purge_store()
+        domain = self.test_domain
+        domains = [domain]
+        conf = MDConf(env, admin="admin@" + domain)
+        conf.add_drive_mode("manual")
+        conf.add_md(domains)
+        conf.add_vhost(domain)
+        conf.install()
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
+        with open(os.path.join(env.store_dir, 'md_store.json'), 'w') as fd:
+            fd.write('garbage\n')
+        # not self-repairing, failing to start
+        r = env.apache_restart()
+        env.purge_store()
+        assert r != 0, f'{env.apachectl_stderr}'
