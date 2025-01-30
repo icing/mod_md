@@ -1,3 +1,7 @@
+ * When installing a custom CA file via `MDCACertificateFile`, also set the
+   libcurl option CURLSSLOPT_NO_REVOKE that suppresses complains by Schannel
+   (when curl is linked with it) about missing CRL/OCSP in certificates.
+   Fixes #361.
  * Fixed handling of corrupted httpd.json and added test 300_30 for it.
    File is removed on error and written again. Fixes #369.
  * Added explanation in log for how to proceed when md_store.json could not be
