@@ -1,3 +1,5 @@
+v2.5.1
+----------------------------------------------------------------------------------------------------
  * When installing a custom CA file via `MDCACertificateFile`, also set the
    libcurl option CURLSSLOPT_NO_REVOKE that suppresses complains by Schannel
    (when curl is linked with it) about missing CRL/OCSP in certificates.
