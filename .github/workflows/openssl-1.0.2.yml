@@ -71,7 +71,7 @@ jobs:
       - name: 'install openssl'
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/OpenSSL_1_0_2/openssl-1.0.2.tar.gz
-          tar x openssl-1.0.2.tar.gz
+          tar xfz openssl-1.0.2.tar.gz
           cd openssl-1.0.2
           ./config --prefix=$HOME/openssl --libdir=lib
           make
