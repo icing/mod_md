@@ -258,6 +258,7 @@ class TestConf:
     def test_md_300_014(self, env):
         MDConf(env, text=f"""
             MDomain www.{env.http_tld} www.example2.org
+            MDRenewMode manual
 
             <VirtualHost *:12346>
                 ServerName www.example2.org
@@ -273,6 +274,7 @@ class TestConf:
             MDPrivateKeys RSA 2048
             MDPrivateKeys RSA 3072
             MDPrivateKeys RSA 4096
+            MDRenewMode manual
             """).install()
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
 
