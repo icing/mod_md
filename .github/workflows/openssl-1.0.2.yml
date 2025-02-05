@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-name: Linux
+name: OpenSSL-1.0.2
 
 'on':
   push:
