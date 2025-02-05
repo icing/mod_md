@@ -91,7 +91,7 @@ jobs:
         # configure without --enable-werror since openssl 1.0.2 will give warnings
         run: |
           autoreconf -fi
-          ./configure --with-openssl=$HOME/openssl
+          ./configure --enable-werror --with-openssl=$HOME/openssl
 
       - name: 'build'
         run: make V=1
