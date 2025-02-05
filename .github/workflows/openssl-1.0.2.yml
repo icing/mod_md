@@ -39,7 +39,7 @@ env:
   CFLAGS: "-g"
 
 jobs:
-  linux:
+  openssl-1.0.2:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -83,7 +83,7 @@ jobs:
           curl -LO https://github.com/openssl/openssl/releases/download/OpenSSL_1_0_2/openssl-1.0.2.tar.gz
           tar xfz openssl-1.0.2.tar.gz
           cd openssl-1.0.2
-          ./config --prefix=$HOME/openssl --libdir=lib
+          CFLAGS="-fPIC" ./config --prefix=$HOME/openssl --libdir=lib
           make
           make -j1 install_sw
 
