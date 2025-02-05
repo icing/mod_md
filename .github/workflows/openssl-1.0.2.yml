@@ -68,7 +68,17 @@ jobs:
           [ -x "$HOME/venv/bin/activate" ] && source $HOME/venv/bin/activate
           python3 -m pip install -r test/requirements.txt
 
+      - name: 'cache openssl'
+        uses: actions/cache@v4
+        id: cache-openssl
+        env:
+          cache-name: cache-openssl
+        with:
+          path: ~/openssl
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-1.0.2
+
       - name: 'install openssl'
+        if: steps.cache-openssl.outputs.cache-hit != 'true'
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/OpenSSL_1_0_2/openssl-1.0.2.tar.gz
           tar xfz openssl-1.0.2.tar.gz
@@ -78,9 +88,10 @@ jobs:
           make -j1 install_sw
 
       - name: 'configure'
+        # configure without --enable-werror since openssl 1.0.2 will give warnings
         run: |
           autoreconf -fi
-          ./configure --enable-werror --with-openssl=$HOME/openssl
+          ./configure --with-openssl=$HOME/openssl
 
       - name: 'build'
         run: make V=1
