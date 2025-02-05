@@ -624,6 +624,13 @@ class TestAutov2:
         # check that acme-tls/1 is available for none of the domains
         stat = env.get_md_status(domain)
         assert stat["proto"]["acme-tls/1"] == []
+        MDConf(env).install()
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
+        env.httpd_error_log.ignore_recent(matches=[
+            r'.*None of offered challenge types for domain.*',
+        ], lognos=[
+            "AH10056"  # challenges not available
+        ])
 
     # test case: 2.4.40 mod_ssl stumbles over a SSLCertificateChainFile when installing
     # a fallback certificate
