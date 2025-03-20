@@ -1,3 +1,5 @@
+ * Fixed missing newlines in the status page output. [andreasgroth]
+
 v2.5.1
 ----------------------------------------------------------------------------------------------------
  * When installing a custom CA file via `MDCACertificateFile`, also set the
