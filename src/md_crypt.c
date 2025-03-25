@@ -570,7 +570,7 @@ static md_pkey_spec_t PkeySpecDef = { MD_PKEY_TYPE_DEFAULT, {{ 0 }} };
 md_pkey_spec_t *md_pkeys_spec_get(const md_pkeys_spec_t *pks, int index)
 {
     if (md_pkeys_spec_is_empty(pks)) {
-        return index == 1? &PkeySpecDef : NULL;
+        return index == 0? &PkeySpecDef : NULL;
     }
     else if (pks && index >= 0 && index < pks->specs->nelts) {
         return APR_ARRAY_IDX(pks->specs, index, md_pkey_spec_t*);

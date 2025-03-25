@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from datetime import timedelta
 
@@ -576,7 +577,10 @@ class TestAutov2:
 
 
     # test case: test "tls-alpn-01" challenge handling
-    def test_md_702_040(self, env):
+    @pytest.mark.parametrize("pkey_spec", [
+            "", "rsa 4096", "secp384r1", "secp384r1 rsa 4096",
+        ])
+    def test_md_702_040(self, env, pkey_spec):
         domain = self.test_domain
         domains = [domain, "www." + domain]
         #
@@ -585,6 +589,8 @@ class TestAutov2:
         conf.add("LogLevel core:debug")
         conf.add("Protocols http/1.1 acme-tls/1")
         conf.add_drive_mode("auto")
+        if len(pkey_spec):
+            conf.add(f"MDPrivateKeys {pkey_spec}")
         conf.add("MDCAChallenges tls-alpn-01")
         conf.add_md(domains)
         conf.add_vhost(domains=domains)
@@ -597,7 +603,10 @@ class TestAutov2:
         stat = env.get_md_status(domain)
         assert stat["proto"]["acme-tls/1"] == domains
         assert env.await_completion([domain])
-        env.check_md_complete(domain)
+        if re.match(r'secp384r1', pkey_spec):
+            env.check_md_complete(domain, pkey='secp384r1')
+        else:
+            env.check_md_complete(domain)
         #        
         # check SSL running OK
         cert = env.get_cert(domain)
