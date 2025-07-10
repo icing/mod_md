@@ -1,4 +1,6 @@
- * Fixed compilation issue with pre-industrial versions of libcurl.
+v2.5.3
+----------------------------------------------------------------------------------------------------
+ * Fixed a compilation issue with pre-industrial versions of libcurl.
 
 v2.5.2
 ----------------------------------------------------------------------------------------------------
