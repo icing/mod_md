@@ -205,10 +205,10 @@ else
 fi
 AC_SUBST(CURL_BIN)
 
-AC_CHECK_HEADERS([curl/curl.h])
-
 CFLAGS=`$curl_config --cflags`" $CFLAGS"
 LDFLAGS=`$curl_config --libs`" $LDFLAGS"
+
+AC_CHECK_HEADERS([curl/curl.h])
 
 AC_MSG_CHECKING([for curl version >= 7.29])
 AC_TRY_COMPILE([#include <curl/curlver.h>],[
