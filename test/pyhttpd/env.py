@@ -879,6 +879,12 @@ class HttpdTestEnv:
         options.extend(["--data", "%s" % data])
         return self.curl_raw(url, timeout, options)
 
+    def curl_post_json(self, url, data, timeout=5, options=None):
+        if not options:
+            options = []
+        options.extend(["--json", f'{data}'])
+        return self.curl_raw(url, timeout, options)
+
     def curl_post_value(self, url, key, value, timeout=5, options=None):
         if not options:
             options = []

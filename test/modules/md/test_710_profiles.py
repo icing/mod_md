@@ -121,4 +121,4 @@ class TestProfiles:
         assert stat["profile"] == "XXX", f'{stat}'
         assert len(stat['cert']) == 0, f'{stat}'
         assert stat['renewal']['errors'] > 0, f'{stat}'
-        assert stat['renewal']['last']['activity'] == 'Creating new order', f'{stat}'
+        assert stat['renewal']['last']['activity'].startswith('Creating new order'), f'{stat}'

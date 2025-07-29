@@ -372,7 +372,7 @@ static apr_status_t ts_complete_md(md_t *md, apr_pool_t *p)
 
 static md_proto_t TAILSCALE_PROTO = {
     MD_PROTO_TAILSCALE, ts_init, ts_renew,
-    ts_preload_init, ts_preload, ts_complete_md,
+    ts_preload_init, ts_preload, ts_complete_md, NULL,
 };
 
 apr_status_t md_tailscale_protos_add(apr_hash_t *protos, apr_pool_t *p)

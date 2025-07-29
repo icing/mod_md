@@ -1192,8 +1192,9 @@ apr_status_t md_json_read_http(md_json_t **pjson, apr_pool_t *pool, const md_htt
     ctype = md_util_parse_ct(res->req->pool, apr_table_get(res->headers, "content-type"));
     if (!ctype) goto cleanup;
     p = ctype + strlen(ctype) +1;
-    if (!strcmp(p - sizeof("/json"), "/json")
-        || !strcmp(p - sizeof("+json"), "+json")) {
+    if (!strcmp(p - sizeof("/json"), "/json") ||
+        !strcmp(p - sizeof("+json"), "+json") ||
+        !strcmp(ctype, "text/plain")) {
         rv = md_json_readb(pjson, pool, res->body);
     }
 cleanup:

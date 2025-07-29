@@ -37,7 +37,7 @@ permissions: {}
 env:
   MARGS: "-j5"
   CFLAGS: "-g"
-  pebble-version: v2.7.0
+  pebble-version: v2.8.0
 
 jobs:
   linux:

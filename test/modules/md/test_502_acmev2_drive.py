@@ -237,7 +237,7 @@ class TestDrivev2:
         assert env.a2md(["drive", name]).exit_code == 0
         assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
         # test HTTP access - no redirect
-        jdata = env.get_json_content(f"test1.{env.http_tld}", "/alive.json", use_https=False)
+        _, jdata = env.get_json_content(f"test1.{env.http_tld}", "/alive.json", use_https=False)
         assert jdata['host']== "test1"
         assert env.get_content(name, "/name.txt", use_https=False) == name
         r = env.get_meta(name, "/name.txt", use_https=False)
@@ -257,7 +257,7 @@ class TestDrivev2:
         # should not see this
         assert 'strict-transport-security' not in r.response['header']
         # test default HTTP vhost -> still no redirect
-        jdata = env.get_json_content(f"test1.{env.http_tld}", "/alive.json", use_https=False)
+        _, jdata = env.get_json_content(f"test1.{env.http_tld}", "/alive.json", use_https=False)
         assert jdata['host']== "test1"
         r = env.get_meta(name, "/name.txt", use_https=True)
         # also not for this

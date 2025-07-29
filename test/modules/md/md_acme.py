@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -34,8 +35,19 @@ class ACMEServer:
     def install_ca_bundle(self, dest):
         raise NotImplementedError
 
+    @abstractmethod
+    def get_ari_for(self, ari_cert_id):
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_ari_for(self, domain):
+        raise NotImplementedError
+
 
 class MDPebbleRunner(ACMEServer):
+
+    ACME_HOST = 'localhost:14000'
+    MGMT_HOST = 'localhost:15000'
 
     def __init__(self, env: MDTestEnv, configs: Dict[str, str]):
         self.env = env
@@ -102,6 +114,40 @@ class MDPebbleRunner(ACMEServer):
                 with open(dest, 'a') as fd:
                     fd.write(r.stdout)
                 break
+
+    def get_ari_for(self, ari_cert_id):
+        url = f'https://{self.ACME_HOST}/dir'
+        r = self.env.curl_get(url, insecure=True)
+        if r.exit_code != 0:
+            log.error(f"curl get on {url} returned {r.exit_code}"
+                      f"\nstdout: {r.stdout}"
+                      f"\nstderr: {r.stderr}")
+            return None
+        assert r.json
+        if 'renewalInfo' not in r.json:
+            return None
+        ari_url = f'{r.json["renewalInfo"]}/{ari_cert_id}'
+        r = self.env.curl_get(ari_url, insecure=True)
+        if r.exit_code != 0:
+            log.error(f"curl get on {url} returned {r.exit_code}"
+                      f"\nstdout: {r.stdout}"
+                      f"\nstderr: {r.stderr}")
+            return None
+        assert r.json
+        return r.json
+
+    def set_ari_for(self, domain, ari):
+        url = f'https://{self.MGMT_HOST}/set-renewal-info/'
+        cert_file = self.env.store_domain_file(domain, 'pubcert.pem')
+        assert os.path.exists(cert_file)
+        req_json = {
+            'Certificate': f'{open(cert_file).read()}',
+            'ARIResponse': f'{json.JSONEncoder(indent="").encode(ari)}',
+        }
+        filename = os.path.join(self.env.gen_dir, f'set_ari_{domain}.tmp')
+        with open(filename, 'w') as fd:
+            fd.write(json.JSONEncoder(indent="").encode(req_json))
+        return self.env.curl_post_json(url, f'@{filename}', options=['-vvv'])
 
 
 class MDBoulderRunner(ACMEServer):
