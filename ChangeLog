@@ -1,3 +1,7 @@
+ * Added ACME ARI support (rfc9773) to the module. Enabled by default. New
+   directive "MDRenewViaARI on|off" for controlling this. Documentation in
+   README.md
+
 v2.5.3
 ----------------------------------------------------------------------------------------------------
  * Fixed a compilation issue with pre-industrial versions of libcurl.
