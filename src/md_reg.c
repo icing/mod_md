@@ -34,7 +34,6 @@
 #include "md_ocsp.h"
 #include "md_store.h"
 #include "md_status.h"
-#include "md_tailscale.h"
 #include "md_util.h"
 
 #include "md_acme.h"
@@ -122,8 +121,7 @@ apr_status_t md_reg_create(md_reg_t **preg, apr_pool_t *p, struct md_store_t *st
     md_timeslice_create(&reg->renew_window, p, MD_TIME_LIFE_NORM, MD_TIME_RENEW_WINDOW_DEF); 
     md_timeslice_create(&reg->warn_window, p, MD_TIME_LIFE_NORM, MD_TIME_WARN_WINDOW_DEF); 
     
-    if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, p))
-        && APR_SUCCESS == (rv = md_tailscale_protos_add(reg->protos, p))) {
+    if (APR_SUCCESS == (rv = md_acme_protos_add(reg->protos, p))) {
         rv = load_props(reg, p);
     }
     
