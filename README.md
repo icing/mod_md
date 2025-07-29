@@ -55,7 +55,6 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Get a Wildcard Cert](#how-to-get-a-wildcard-cert)
     * [Use Other Certificates](#how-to-use-other-certificates)
     * [Have two certs for one Host](#how-to-have-two-certs-for-one-host)
-    * [Use tailscale certificates](#tailscale)
     * [Have a failover ACME CA](#acme-failover)
     * [Revocations](#revocations)
     * [Use ACME Profiles](#profiles)
@@ -724,59 +723,6 @@ It depends on the CA, if there are any limits on EAB values and ACME accounts co
 needs to track those, they will not come without restrictions. But several EAB values active at the
 same time seems common practise.
 
-
-# Tailscale
-
-**Update**: this section is **historical** now. Tailscale have changed the API for certificate retrieval
-and this setup is no longer working. If someone with time and knowledge can make that working, I'd be 
-more than happy to accept a PR.
-
-The secure networking provided by [tailscale](https://tailscale.com) allows you to connect your own devices
-in a very easy way without fiddling with firewalls and without public IP addresses. It's a bit of magic.
-
-In its recent versions, it can also give you domain names and your own subdomain underneath the `*.ts.net` suffix. Something like `*.headless-chicken.ts.net` can be yours and your machines appear as, for example, `my-raspberry.headless-chicken.ts.net` in your own network.
-
-But if you run a webserver on it, you'd need a certificate that your browser accept. And tailscale also does 
-that magic and negotiates with Let's Encrypt to provide you with a valid one (and renews it).
-
-Via `mod_md`, you can make use of that service (if you are on **linux** for now). To stick with the example above, you'd configure:
-
-```
-<MDomain my-raspberry.headless-chicken.ts.net>
-  MDCertificateProtocol tailscale
-  MDCertificateAuthority file://localhost/var/run/tailscale/tailscaled.sock
-</MDomain>
-
-<VirtualHost *:443>
-  ServerName my-raspberry.headless-chicken.ts.net
-  SSLEngine on
-  ...
-</VirtualHost>
-```
-
-If you do this on a distribution like `debian` your Apache runs as user `www-data` and you need to
-tell the tailscale demon to give access to it. See [here for a description by tailscale on how to do this](https://tailscale.com/kb/1190/caddy-certificates/).
-
-This then works just like certificates from Let's Encrypt. `mod_md` will give you status information on the cert
-and also try to renew it and give you notifications via `MDMessageCmd`. OCSP stapling should be available as
-well, but I have not tested that.
-
-One thing to beware: Apache's attempts to renew, e.g. get a new certificate from the tailscale demon, are
-not necessarily in sync. You might want to adjust your `MDRenewWindow` to only trigger right after tailscale
-should have gotten a new one.
-
-Also, for server restarts, the same rules apply as for ACME certificates.
-
-Is there a dependency between the Apache service and your tailscale daemon? **No**. Both will
-start and operate independent of each other. Apache will start also if your tailscale daemon is down. Just like your Apache will work when Let's Encrypt is not reachable for a while.
-
-**Caveat**: if your Apache is *also* reachable from the public internet, the tailscale domain name will not
-give you enhanced security. Anyone who can contact your server can ask for any domain in `*.ts.net`. There are
-a myriad of options to make secure setups and you should consult the tailscale documentation on how/when/if
-security in a tailscale network can be managed.
-
-**Credits**: the nice and friendly [Caddy server](https://caddyserver.com) was the first HTTP server to add
-tailscale support a couple of days ago. Which inspired me to strive for second place.
 
 # ACME Failover
 

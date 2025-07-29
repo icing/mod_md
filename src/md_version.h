@@ -38,6 +38,5 @@
 #define MOD_MD_VERSION_NUM 0x020503
 
 #define MD_ACME_DEF_URL         "https://acme-v02.api.letsencrypt.org/directory"
-#define MD_TAILSCALE_DEF_URL    "file://localhost/var/run/tailscale/tailscaled.sock"
 
 #endif /* mod_md_md_version_h */
