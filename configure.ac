@@ -14,7 +14,7 @@
 #
 
 AC_PREREQ([2.69])
-AC_INIT([mod_md], [2.5.3], [stefan@eissing.org])
+AC_INIT([mod_md], [2.6.0], [stefan@eissing.org])
 
 LT_PREREQ([2.2.6])
 LT_INIT()
