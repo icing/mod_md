@@ -1,6 +1,9 @@
  * Added ACME ARI support (rfc9773) to the module. Enabled by default. New
    directive "MDRenewViaARI on|off" for controlling this. Documentation in
    README.md
+ * Removing tailscale support. It has not been working for a long time
+   as the company decided to change their APIs. Away with the dead code,
+   documentation and tests.
 
 v2.5.3
 ----------------------------------------------------------------------------------------------------
