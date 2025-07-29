@@ -59,6 +59,7 @@ into your Apache server log where `mod_md` logs its version at startup.
     * [Have a failover ACME CA](#acme-failover)
     * [Revocations](#revocations)
     * [Use ACME Profiles](#profiles)
+    * [Use ACME ARI Extension](#acme-ari)
   - Stapling
     * [Staple all my certificates](#how-to-staple-all-my-certificates)
     * [Staple some of my certificates](#how-to-staple-some-of-my-certificates)
@@ -860,6 +861,47 @@ MDProfileMandatory on
 ```
 
 and cert renewal will fail of the profile is not supported by the CA.
+
+# ACME ARI
+
+ACME ARI is an extension to the ACME protocol described in [rfc9773](https://datatracker.ietf.org/doc/rfc9773/). It allows
+a client to query the CA for the recommended time window to renew a certificate. This serves two purposes:
+
+1. Steer clients to renewal times that are best suited for the CA. This allows a CA to mitigate peak traffic hours and planned downtime.
+2. Inform clients that they need to renew a certificate because it has/will soon become invalid. This may be due to a a certificate having been revoked or to trouble in the certificates trust chain (this has happened in the past).
+
+By default, `mod_md` uses ARI when offered by a CA (Note: it needs at least OpenSSL v1.1.0 for that or the feature
+is not available). This happens *in addition* to the "normal" renewal handling. A renewal will be done when ARI says so *or* when the renewal window has been reached. Whichever is earlier. This means things will continue to happen as before, **except** when an abnormal, early renewal is signalled by the CA. Then `mod_md` will do that.
+
+If you want to rely mainly on ARI, configure a smaller `MDRenewWindow`. If you do **not**, for whatever reasons - you know best,
+use ARI in any way, configure `MDRenewViaARI off`.
+
+### ARI Renewal Explanations
+
+When a CA advises about renewals via ARI, it *may* accompany it with an "explanationURL" field. At that link, 
+a human operator should find information about *why* the renewal is advised. Regular renewals should *not*
+carry such a URL, indicating normal, unexciting operations.
+
+`mod_md` will log an "explanationURL", when causing a renew, into the server log at level `NOTICE` with the text 
+`md(<name>): CA advises renew via ARI now, for explanation see <URL>`.
+
+### ARI Manual Checks
+
+There are several examples to be found on the web how you can check the ARI status of your certificate yourself.
+Should you have the `md-status` handler configured in your server, you can retrieve the JSON describing a MDomain
+there. For each certificate listed, you will see the field `ari-cert-id`. This has the form of `<base64-of-issuer-auth-id>.<base64-of-cert-serial>`. 
+
+You can use `curl` to get the ARI of a certificate yourself. For Let's Encrypt:
+
+
+```sh
+> curl https://acme-v02.api.letsencrypt.org/directory
+...
+  "renewalInfo": "https://acme-v02.api.letsencrypt.org/acme/renewal-info",
+...
+> curl https://acme-v02.api.letsencrypt.org/acme/renewal-info/<ari-cert-id>
+...ARI JSON...
+```
 
 # Just the Stapling, Mam!
 
@@ -1805,6 +1847,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDProfile](#mdprofile)
 * [MDProfileMandatory](#mdprofilemandatory)
 * [MDHttpProxy](#mdhttpproxy)
+* [MDRenewViaARI](#mdrenewviaari)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
 * [MDRequireHttps](#mdrequirehttps)
 * [MDRetryFailover](#mdretryfailover)
@@ -2477,6 +2520,13 @@ Default: off
 
 Select if a certificate renewal should make a configured profile mandatory, e.g. fail renewal if
 the CA does not support it.
+
+## MDRenewViaARI
+`MDRenewViaARI on|off`
+Default: on
+
+En-/Disable certificate renewals triggered via the ACME ARI extension (rfc9773). These renewals
+happen *in addition* to the mechanism controlled by [MDRenewWindow](#mdrenewwindow--when-to-renew).
 
 # Test Suite
 

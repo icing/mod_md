@@ -464,17 +464,27 @@ class MDTestEnv(HttpdTestEnv):
             log.error(f"curl get on {url} returned {r.exit_code}"
                       f"\nstdout: {r.stdout}"
                       f"\nstderr: {r.stderr}")
-        assert r.exit_code == 0, r.stderr
-        return r.json
+        return r.exit_code, r.json
 
     def get_certificate_status(self, domain) -> Dict:
-        return self.get_json_content(domain, "/.httpd/certificate-status", insecure=True)
+        rv, jstat = self.get_json_content(domain, "/.httpd/certificate-status", insecure=True)
+        assert rv == 0
+        return jstat
 
-    def get_md_status(self, domain, via_domain=None, use_https=True) -> Dict:
+    def get_md_rv_status(self, domain, via_domain=None, use_https=True):
         if via_domain is None:
             via_domain = self._default_domain
         return self.get_json_content(via_domain, f"/md-status/{domain}",
                                      use_https=use_https)
+
+    def get_md_status(self, domain, via_domain=None, use_https=True) -> Dict:
+        if via_domain is None:
+            via_domain = self._default_domain
+        rv, jstat = self.get_md_rv_status(domain=domain, via_domain=via_domain,
+                                          use_https=use_https)
+        assert rv == 0
+        return jstat
+
 
     def get_server_status(self, query="/", via_domain=None, use_https=True):
         if via_domain is None:
@@ -490,7 +500,9 @@ class MDTestEnv(HttpdTestEnv):
             if time.time() >= try_until:
                 return False
             for name in names:
-                mds = self.get_md_status(name, via_domain=via_domain, use_https=use_https)
+                rv, mds = self.get_md_rv_status(name, via_domain=via_domain, use_https=use_https)
+                if rv != 0:
+                    continue
                 if mds is None:
                     log.debug("not managed by md: %s" % name)
                     return False
