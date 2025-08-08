@@ -1258,13 +1258,14 @@ static int md_add_cert_files(server_rec *s, apr_pool_t *p,
     rv = get_certificates(s, p, 0, &md_cert_files, &md_key_files);
     if (APR_SUCCESS == rv) {
         if (!apr_is_empty_array(cert_files)) {
-            /* downgraded fromm WARNING to DEBUG, since installing separate certificates
+            /* downgraded from WARNING to DEBUG, since installing separate certificates
              * may be a valid use case. */
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10084)
                          "host '%s' is covered by a Managed Domain, but "
                          "certificate/key files are already configured "
                          "for it (most likely via SSLCertificateFile).",
                          s->server_hostname);
+            return DECLINED;
         }
         ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,
                      "host '%s' is covered by a Managed Domain and "
