@@ -612,11 +612,19 @@ apr_time_t md_job_delay_on_errors(md_job_t *job, int err_count, const char *last
         delay = max_delay;
     }
     else if (err_count > 0) {
-        /* back off duration, depending on the errors we encounter in a row */
-        delay = job->min_delay << (err_count - 1);
-        if (delay > max_delay) {
-            delay = max_delay;
+        /* back off duration, depending on the errors we encounter in a row.
+         * As apr_time_t is signed, this might wrap around*/
+        int i;
+        delay = job->min_delay;
+        for (i = 0; i < err_count; ++i) {
+          delay <<= 1;
+          if ((delay <= 0) || (delay > max_delay)) {
+              delay = max_delay;
+              break;
+          }
         }
+        if (delay > max_delay)
+            delay = max_delay;
     }
     if (delay > 0) {
         /* jitter the delay by +/- 0-50%.

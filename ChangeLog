@@ -1,3 +1,10 @@
+ * Increasing default `MDRetryDelay` to 30 seconds to generate less bursty
+   traffic on errored renewals for the ACME CA. This leads to error retries
+   of 30s, 1 minute, 2, 4, etc. up to daily attempts.
+ * Checking that configuring `MDRetryDelay` will result in a positive
+   duration. A delay of 0 is not accepted.
+ * Fix a bug in checking Content-Type of responses from the ACME server.
+
 v2.6.0
 ----------------------------------------------------------------------------------------------------
  * Added ACME ARI support (rfc9773) to the module. Enabled by default. New
