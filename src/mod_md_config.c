@@ -85,7 +85,7 @@ static md_mod_conf_t defmc = {
     "https://crt.sh?q=",       /* default cert checker site url */
     NULL,                      /* CA cert file to use */
     apr_time_from_sec(MD_SECS_PER_DAY/2), /* default time between cert checks */
-    apr_time_from_sec(5),      /* minimum delay for retries */
+    apr_time_from_sec(30),     /* minimum delay for retries */
     13,                        /* retry_failover after 14 errors, with 5s delay ~ half a day */
     0,                         /* store locks, disabled by default */
     apr_time_from_sec(5),      /* max time to wait to obaint a store lock */
@@ -704,6 +704,9 @@ static const char *md_config_set_min_delay(cmd_parms *cmd, void *dc, const char 
     if (err) return err;
     if (md_duration_parse(&delay, value, "s") != APR_SUCCESS) {
         return "unrecognized duration format";
+    }
+    if (delay <= 0) {
+        return "minimum delay must be greater than 0";
     }
     config->mc->min_delay = delay;
     return NULL;

@@ -2414,7 +2414,7 @@ files as usual.
 
 ## MDRetryDelay
 `MDRetryDelay duration`
-Default: 5s
+Default: 30s
 
 The delay on a failed renewal before the next attempt is done. This doubles on every consecutive error with a
 cap of 24 hours, e.g. daily retries. Furthermore, the effective delay is randomly jiggled by +-50%. This is
