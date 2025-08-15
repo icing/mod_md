@@ -1,3 +1,5 @@
+v2.6.1
+----------------------------------------------------------------------------------------------------
  * Increasing default `MDRetryDelay` to 30 seconds to generate less bursty
    traffic on errored renewals for the ACME CA. This leads to error retries
    of 30s, 1 minute, 2, 4, etc. up to daily attempts.
