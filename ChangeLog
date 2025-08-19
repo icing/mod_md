@@ -1,3 +1,6 @@
+ * Fix error retry delay calculation to not already doubling the wait
+   on the first error.
+
 v2.6.1
 ----------------------------------------------------------------------------------------------------
  * Increasing default `MDRetryDelay` to 30 seconds to generate less bursty
