@@ -1781,7 +1781,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDChallengeDns01](#mdchallengedns01)
 * [MDChallengeDns01Version](#mdchallengedns01version)
 * [MDExternalAccountBinding](#mdexternalaccountbinding)
-* [MDRenewMode](#mdrenewmode--renew-mode)
+* [MDInitialDelay](#mdinitialdelay)
 * [MDMatchNames](#mdmatchnames)
 * [MDMember](#mdmember)
 * [MDMembers](#mdmembers)
@@ -1794,8 +1794,10 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDProfileMandatory](#mdprofilemandatory)
 * [MDHttpProxy](#mdhttpproxy)
 * [MDRenewViaARI](#mdrenewviaari)
+* [MDRenewMode](#mdrenewmode--renew-mode)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
 * [MDRequireHttps](#mdrequirehttps)
+* [MDRetryDelay](#mdretrydelay)
 * [MDRetryFailover](#mdretryfailover)
 * [MDWarnWindow](#mdwarnwindow--when-to-warn)
 * [MDServerStatus](#mdserverstatus)
@@ -2411,6 +2413,13 @@ format and would look like this:
 
 Make the file readable for root only (or what the httpd starts with) and handle your configuration
 files as usual.
+
+## MDInitialDelay
+`MDInitialDelay duration`
+Default: 0
+
+How long to delay the first certificate check.
+By default, it occurs immediately after the server start.
 
 ## MDRetryDelay
 `MDRetryDelay duration`
