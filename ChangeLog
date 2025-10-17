@@ -1,3 +1,8 @@
+v2.6.2
+----------------------------------------------------------------------------------------------------
+ * New directive `MDInitialDelay`, controlling how longer to wait after
+   a server restart before checking certificates for renewal.
+   [Michael Kaufmann]
  * Fix error retry delay calculation to not already doubling the wait
    on the first error.
 
