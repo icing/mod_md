@@ -1,3 +1,5 @@
+ * Fix a small memory leak when using OpenSSL's BIGNUMs. [Theo Buehler]
+
 v2.6.5
 ----------------------------------------------------------------------------------------------------
  * Hardening: when build with OpenSSL older than 1.0.2 or old libressl versions,
