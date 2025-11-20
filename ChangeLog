@@ -1,4 +1,5 @@
  * Fix a small memory leak when using OpenSSL's BIGNUMs. [Theo Buehler]
+ * Fix reuse of curl easy handles by resetting them. [Michael Kaufmann]
 
 v2.6.5
 ----------------------------------------------------------------------------------------------------
