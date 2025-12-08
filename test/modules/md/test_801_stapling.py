@@ -1,6 +1,7 @@
 # test mod_md stapling support
 
 import os
+import re
 import time
 from datetime import timedelta
 import pytest
@@ -37,10 +38,11 @@ class TestStapling:
         yield
         env.apache_stop()
 
-    def configure_httpd(self, env, domains=None, add_lines="", ssl_stapling=False):
+    def configure_httpd(self, env, domains=None, add_lines="", ssl_stapling=False,
+                        std_vhosts=True):
         if not isinstance(domains, list):
             domains = [domains] if domains else []
-        conf = MDConf(env)
+        conf = MDConf(env, std_vhosts=std_vhosts)
         conf.add("""
         <IfModule tls_module>
             LogLevel tls:trace4
@@ -421,5 +423,31 @@ class TestStapling:
         time.sleep(1)
         for domain in domains:
             stat = env.await_ocsp_status(domain)
+            assert stat['ocsp'] == "successful (0x0)"
+            assert stat['verify'] == "0 (ok)"
+
+    # test MDStapleOthers setting
+    def test_md_801_012(self, env):
+        # turn stapling on, wait for it to appear in connections
+        md = self.mdA
+        conf = self.configure_httpd(env, std_vhosts=False)
+        conf.add("MDStapling on")
+        conf.add("MDStapleOthers on")
+        conf.add("LogLevel md:debug")
+        conf.start_vhost(md)
+        conf.add_certificate(env.store_domain_file(md, 'pubcert.pem'),
+                             env.store_domain_file(md, 'privkey.pem'))
+        conf.end_vhost()
+        conf.install()
+        env.httpd_error_log.clear_log()
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
+        try:
+            stat = env.await_ocsp_status(md, timeout=1)
+        except TimeoutError:
+            pass
+        if env.lacks_ocsp():
+            assert env.httpd_error_log.scan_recent(
+                pattern=re.compile(r'.*md\[other]: certificate with serial .* has no OCSP responder URL'))
+        else:
             assert stat['ocsp'] == "successful (0x0)"
             assert stat['verify'] == "0 (ok)"
