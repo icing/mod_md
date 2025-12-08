@@ -61,11 +61,11 @@ int md_ocsp_prime_status(server_rec *s, apr_pool_t *p,
     apr_array_header_t *chain;
     apr_status_t rv = APR_ENOENT;
 
-    ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, s, "ocsp prime status call for: %s",
+    ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, "ocsp prime status call for: %s",
                  s->server_hostname);
     sc = md_config_get(s);
     if (!staple_here(sc)) {
-        ap_log_error(APLOG_MARK, APLOG_TRACE1, rv, s,
+        ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s,
                      "ocsp prime does not apply here: server=%s, sc=%d"
                      "ocsp=%d, conf-ocsp=%d conf-others=%d",
                      s->server_hostname, !!sc, sc? !!sc->mc->ocsp : 0,
