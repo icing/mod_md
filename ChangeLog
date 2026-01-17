@@ -1,6 +1,6 @@
 v2.6.7
 ----------------------------------------------------------------------------------------------------
- * Fix a regression in `MDStapleOthers` which broken in v2.6.0 and no longer
+ * Fix a regression in `MDStapleOthers` which broke in v2.6.0 and no longer
    applied, no matter the configuration.
 
 v2.6.6
