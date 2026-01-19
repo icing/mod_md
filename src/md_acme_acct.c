@@ -284,8 +284,8 @@ static int find_acct(void *baton, const char *name, const char *aspect,
         if (MD_ACME_ACCT_ST_VALID == acct->status
             && (!ctx->md || md_acme_acct_matches_md(acct, ctx->md))) {
             md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, 0, ctx->p, 
-                          "found account %s for %s: %s, status=%d",
-                          acct->id, ctx->md->ca_effective, aspect, acct->status);
+                          "found account for %s: %s, status=%d",
+                          ctx->md->ca_effective, aspect, acct->status);
             ctx->id = apr_pstrdup(ctx->p, name);
             return 0;
         }
