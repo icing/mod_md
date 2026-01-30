@@ -283,7 +283,7 @@ static apr_status_t setup_store(md_store_t **pstore, md_mod_conf_t *mc,
     base_dir = ap_server_root_relative(p, mc->base_dir);
     cache_dir = ap_server_root_relative(p, mc->cache_dir);
 
-    if (APR_SUCCESS != (rv = md_store_fs_init(pstore, p, base_dir))) {
+    if (APR_SUCCESS != (rv = md_store_fs_init(pstore, p, base_dir, cache_dir))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10046)"setup store for %s", base_dir);
         goto leave;
     }
@@ -1598,4 +1598,3 @@ static void md_hooks(apr_pool_t *pool)
 #error "This version of mod_md requires Apache httpd 2.4.48 or newer."
 #endif /* AP_MODULE_MAGIC_AT_LEAST() */
 }
-
