@@ -277,10 +277,11 @@ static apr_status_t check_group_dir(md_store_t *store, md_store_group_t group,
 static apr_status_t setup_store(md_store_t **pstore, md_mod_conf_t *mc,
                                 apr_pool_t *p, server_rec *s)
 {
-    const char *base_dir;
+    const char *base_dir, *cache_dir;
     apr_status_t rv;
 
     base_dir = ap_server_root_relative(p, mc->base_dir);
+    cache_dir = ap_server_root_relative(p, mc->cache_dir);
 
     if (APR_SUCCESS != (rv = md_store_fs_init(pstore, p, base_dir))) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10046)"setup store for %s", base_dir);
