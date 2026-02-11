@@ -1084,45 +1084,7 @@ The module has become part of Fedora 31.
 
 ## Ubuntu
 
-Version 2-x status: unknown, see #124.
-
-### Version 1-x:
-
-If you do not already build your Apache httdp yourself, you can get a prebuilt, current 2.4.x release via the  PPA by @oerdnj, see [here](https://launchpad.net/~ondrej/+archive/ubuntu/apache2/+packages). 
-
-What you need to do to get the PPA installed is basically:
-
-```
-> sudo add-apt-repository ppa:ondrej/apache2                                                                                                                                                                                                     
-> sudo apt update                                                                                                                                                                                                                                
-> sudo apt install -y apache2 apache2-dev build-essential autoconf make libtool libssl-dev libjansson-dev libcurl4-openssl-dev
-```
-
-Then you get a [mod_md release](https://github.com/icing/mod_md/releases) and configure it:
-
-```
-mod_md > ./configure --with-apxs=/usr/bin/apxs --enable-werror
-mod_md > make
-mod_md > make install
-```
-Then you create two files in ```/etc/apache2/mods-available```
-
-```
-md.load:-----------------------------------------------
-LoadModule md_module /usr/lib/apache2/modules/mod_md.so
--snip--------------------------------------------------
-
-md.conf------------------------------------------------
-LogLevel md:info
--snip--------------------------------------------------
-```
-
-enable the module and restart:
-
-```
-> sudo a2enmod md
-> sudo service apache2 restart
-```
+The module is part of Ubuntu 24.04 LTS and other releases.
 
 ## FreeBSD
 
