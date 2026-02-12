@@ -27,6 +27,7 @@ typedef enum {
     MD_CONFIG_CA_CONTACT,
     MD_CONFIG_CA_PROTO,
     MD_CONFIG_BASE_DIR,
+    MD_CONFIG_CACHE_DIR,
     MD_CONFIG_CA_AGREEMENT,
     MD_CONFIG_DRIVE_MODE,
     MD_CONFIG_RENEW_WINDOW,
@@ -53,6 +54,7 @@ typedef struct md_mod_conf_t md_mod_conf_t;
 struct md_mod_conf_t {
     apr_array_header_t *mds;           /* all md_t* defined in the config, shared */
     const char *base_dir;              /* base dir for store */
+    const char *cache_dir;             /* base dir for cache */
     const char *proxy_url;             /* proxy url to use (or NULL) */
     struct md_reg_t *reg;              /* md registry instance */
     struct md_ocsp_reg_t *ocsp;        /* ocsp status registry */
