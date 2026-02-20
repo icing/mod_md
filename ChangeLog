@@ -1,3 +1,5 @@
+v2.6.8
+----------------------------------------------------------------------------------------------------
  * Fix the ARI related `replaces` property in ACME order creation to only
    be used when the CA supports ARI and it is enabled in the menu config.
    Fixes #406.
