@@ -36,7 +36,6 @@ typedef enum {
 } md_acme_acct_st;
 
 struct md_acme_acct_t {
-    const char *id;                 /* short, unique id for the account */
     const char *url;                /* url of the account, once registered */
     const char *ca_url;             /* url of the ACME protocol endpoint */
     md_acme_acct_st status;         /* status of this account */
