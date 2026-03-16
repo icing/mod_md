@@ -71,6 +71,9 @@ typedef enum {
     MD_SG_COUNT,        /* number of storage groups, used in setups */
 } md_store_group_t;
 
+/* Test whether group is supposed to be in the ephemeral cache directory */
+#define MD_SG_CACHE(group) ((group == MD_SG_CHALLENGES) || (group == MD_SG_STAGING) || (group == MD_SG_TMP) || (group == MD_SG_OCSP))
+
 #define MD_FN_MD                "md.json"
 #define MD_FN_JOB               "job.json"
 #define MD_FN_HTTPD_JSON        "httpd.json"

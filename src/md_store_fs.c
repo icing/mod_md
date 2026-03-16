@@ -51,6 +51,7 @@ struct md_store_fs_t {
     md_store_t s;
     
     const char *base;       /* base directory of store */
+    const char *cache;      /* base directory of cache */
     perms_t def_perms;
     perms_t group_perms[MD_SG_COUNT];
     md_store_fs_cb *event_cb;
@@ -292,7 +293,8 @@ read:
     return rv;
 }
 
-apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *path)
+apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p,
+                              const char *store_path, const char *cache_path)
 {
     md_store_fs_t *s_fs;
     apr_status_t rv = APR_SUCCESS;
@@ -331,7 +333,8 @@ apr_status_t md_store_fs_init(md_store_t **pstore, apr_pool_t *p, const char *pa
     s_fs->group_perms[MD_SG_OCSP].dir = MD_FPROT_D_UALL_WREAD;
     s_fs->group_perms[MD_SG_OCSP].file = MD_FPROT_F_UALL_WREAD;
 
-    s_fs->base = apr_pstrdup(p, path);
+    s_fs->base = apr_pstrdup(p, store_path);
+    s_fs->cache = apr_pstrdup(p, cache_path);
 
     rv = md_util_is_dir(s_fs->base, p);
     if (APR_STATUS_IS_ENOENT(rv)) {
@@ -411,8 +414,14 @@ static apr_status_t fs_get_fname(const char **pfname,
     if (group == MD_SG_NONE) {
         return md_util_path_merge(pfname, p, s_fs->base, aspect, NULL);
     }
-    return md_util_path_merge(pfname, p, 
-                              s_fs->base, md_store_group_name(group), name, aspect, NULL);
+
+    if MD_SG_CACHE(group) {
+        return md_util_path_merge(pfname, p, s_fs->cache,
+                                  md_store_group_name(group), name, aspect, NULL);
+    }
+
+    return md_util_path_merge(pfname, p, s_fs->base,
+                              md_store_group_name(group), name, aspect, NULL);
 }
 
 static apr_status_t fs_get_dname(const char **pdname, 
@@ -424,6 +433,10 @@ static apr_status_t fs_get_dname(const char **pdname,
         *pdname = s_fs->base;
         return APR_SUCCESS;
     }
+    if MD_SG_CACHE(group) {
+        return md_util_path_merge(pdname, p, s_fs->cache, md_store_group_name(group), name, NULL);
+    }
+
     return md_util_path_merge(pdname, p, s_fs->base, md_store_group_name(group), name, NULL);
 }
 

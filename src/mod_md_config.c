@@ -61,6 +61,11 @@ static md_mod_conf_t defmc = {
 #else
     MD_DEFAULT_BASE_DIR,
 #endif
+#if AP_MODULE_MAGIC_AT_LEAST(20120211, 2)
+    NULL,                      /* cache dirm by default runtime-dir-relative */
+#else
+    MD_DEFAULT_BASE_DIR,
+#endif
     NULL,                      /* proxy url for outgoing http */
     NULL,                      /* md_reg_t */
     NULL,                      /* md_ocsp_reg_t */
@@ -890,6 +895,19 @@ static const char *md_config_set_store_dir(cmd_parms *cmd, void *arg, const char
     return NULL;
 }
 
+static const char *md_config_set_cache_dir(cmd_parms *cmd, void *arg, const char *value)
+{
+    md_srv_conf_t *sc = md_config_get(cmd->server);
+    const char *err;
+
+    if ((err = md_conf_check_location(cmd, MD_LOC_NOT_MD))) {
+        return err;
+    }
+    sc->mc->cache_dir = value;
+    (void)arg;
+    return NULL;
+}
+
 static const char *set_port_map(md_mod_conf_t *mc, const char *value)
 {
     int net_port, local_port;
@@ -1349,6 +1367,8 @@ const command_rec md_cmds[] = {
                   "URL of a HTTP(S) proxy to use for outgoing connections"),
     AP_INIT_TAKE1("MDStoreDir", md_config_set_store_dir, NULL, RSRC_CONF, 
                   "the directory for file system storage of managed domain data."),
+    AP_INIT_TAKE1("MDCacheDir", md_config_set_cache_dir, NULL, RSRC_CONF,
+                  "the directory for file system storage of temporary data."),
     AP_INIT_TAKE1("MDRenewWindow", md_config_set_renew_window, NULL, RSRC_CONF, 
                   "Time length for renewal before certificate expires (defaults to days)."),
     AP_INIT_TAKE1("MDRequireHttps", md_config_set_require_https, NULL, RSRC_CONF|OR_AUTHCFG, 
@@ -1428,7 +1448,11 @@ apr_status_t md_config_post_config(server_rec *s, apr_pool_t *p)
         mc->base_dir = ap_state_dir_relative(p, MD_DEFAULT_BASE_DIR);
     }
 #endif
-    
+#if AP_MODULE_MAGIC_AT_LEAST(20120211, 2)
+    if (mc->cache_dir == NULL) {
+        mc->cache_dir = ap_runtime_dir_relative(p, MD_DEFAULT_BASE_DIR);
+    }
+#endif
     return APR_SUCCESS;
 }
 
@@ -1471,6 +1495,8 @@ const char *md_config_gets(const md_srv_conf_t *sc, md_config_var_t var)
             return sc->ca_proto? sc->ca_proto : defconf.ca_proto;
         case MD_CONFIG_BASE_DIR:
             return sc->mc->base_dir;
+        case MD_CONFIG_CACHE_DIR:
+            return sc->mc->cache_dir;
         case MD_CONFIG_PROXY:
             return sc->mc->proxy_url;
         case MD_CONFIG_CA_AGREEMENT:

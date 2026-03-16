@@ -34,6 +34,7 @@ struct md_cmd_ctx {
     apr_pool_t *p;
     
     const char *base_dir;
+    const char *cache_dir;
     const char *ca_url;
     const char *ca_file;
     struct apr_table_t *env;

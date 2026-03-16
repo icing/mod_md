@@ -39,7 +39,7 @@ struct md_store_t;
 #define MD_FPROT_D_UALL_WREAD (MD_FPROT_D_UALL_GREAD|APR_FPROT_WREAD|APR_FPROT_WEXECUTE)
 
 apr_status_t md_store_fs_init(struct md_store_t **pstore, apr_pool_t *p, 
-                              const char *path);
+                              const char *store_path, const char *cache_path);
 
 
 apr_status_t md_store_fs_default_perms_set(struct md_store_t *store, 
