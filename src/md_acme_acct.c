@@ -358,11 +358,16 @@ static apr_status_t acct_find_and_verify(md_store_t *store, md_store_group_t gro
 apr_status_t md_acme_find_acct_for_md(md_acme_t *acme, md_store_t *store, const md_t *md)
 {
     apr_status_t rv;
+    int max_retries = acme->max_retries;
     
     while (APR_EAGAIN == (rv = acct_find_and_verify(store, MD_SG_ACCOUNTS, 
                                                     mk_acct_pattern(acme->p, acme), 
                                                     acme, md, acme->p))) {
-        /* nop */
+        if (max_retries == 0) {
+            break;
+        }
+
+        --max_retries;
     }
     
     if (APR_STATUS_IS_ENOENT(rv)) {
