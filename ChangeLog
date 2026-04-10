@@ -1,3 +1,6 @@
+ * Pebble 2.9+ reports another error when terms of service agreement is not set.
+   Treating all "userActionRequired" errors as permanent now.
+
 v2.6.8
 ----------------------------------------------------------------------------------------------------
  * Fix the ARI related `replaces` property in ACME order creation to only
