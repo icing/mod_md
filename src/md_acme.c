@@ -49,6 +49,7 @@ struct acme_problem_status_t {
 };
 
 static acme_problem_status_t Problems[] = {
+    { "acme:error:agreementRequired",            APR_EGENERAL, 1 },
     { "acme:error:badCSR",                       APR_EINVAL,   1 },
     { "acme:error:badNonce",                     APR_EAGAIN,   0 },
     { "acme:error:badSignatureAlgorithm",        APR_EINVAL,   1 },
@@ -61,7 +62,7 @@ static acme_problem_status_t Problems[] = {
     { "acme:error:serverInternal",               APR_EGENERAL, 0 },
     { "acme:error:unauthorized",                 APR_EACCES,   0 },
     { "acme:error:unsupportedIdentifier",        APR_BADARG,   1 },
-    { "acme:error:userActionRequired",           APR_EAGAIN,   0 },
+    { "acme:error:userActionRequired",           APR_EGENERAL, 1 },
     { "acme:error:badRevocationReason",          APR_EINVAL,   1 },
     { "acme:error:caa",                          APR_EGENERAL, 0 },
     { "acme:error:dns",                          APR_EGENERAL, 0 },
