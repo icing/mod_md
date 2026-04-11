@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import time
@@ -856,3 +857,29 @@ class TestAutov2:
         assert env.await_completion(domains)
         env.check_md_complete(domains[0])
 
+    # Verify issue #420. A lying job.json in staging prevents renewal by
+    # reporting it has already been done.
+    def test_md_702_080(self, env):
+        domain = self.test_domain
+        dns_list = [domain]
+        conf = MDConf(env, admin="admin@" + domain)
+        conf.add_md(dns_list)
+        conf.add_vhost(dns_list)
+        conf.install()
+        fake_job = {
+            "name": domain,
+            "finished": True,
+            "notified": True,
+            "notified-renewed": True,
+            "errors": 0,
+        }
+        staging_dir = os.path.join(env.store_dir, 'staging', domain)
+        env.mkpath(staging_dir)
+        staging_job = os.path.join(staging_dir, 'job.json')
+        with open(staging_job, 'w') as fd:
+            fd.write(json.JSONEncoder(indent="").encode(fake_job))
+        assert env.apache_restart() == 0, f'{env.apachectl_stderr}'
+        stat = env.get_md_status(domain)
+        assert stat['renew'] is True
+        assert env.await_completion([domain])
+        assert os.path.exists(env.store_domain_file(domain, 'pubcert.pem'))

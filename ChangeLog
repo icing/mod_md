@@ -1,3 +1,7 @@
+ * Fix issue #420 by ignoring job.json files that claim to have completely
+   finished a certificate renewal, but have not produced the necessary
+   result files.
+
 v2.6.9
 ----------------------------------------------------------------------------------------------------
  * Pebble 2.9+ reports another error when terms of service agreement is not set.
