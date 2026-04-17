@@ -2,7 +2,7 @@ version: '3.7'
 services:
   debian-sid:
     # build and run tests in a debian sid container
-    image: ${DOCKER_REGISTRY}/mod-md-debian-sid:0.0.1
+    image: mod-md-debian-sid:0.0.1
     container_name: mod-md-debian-sid
     build:
       context: .

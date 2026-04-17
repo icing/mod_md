@@ -2490,7 +2490,7 @@ It no ACME test server was detected, most of the tests will be skipped.
 You can test the module with docker:
 
 ```
-> make test-docker
+> make docker-test
 ```
 
 This creates a Debian sid image and installs the current apache2 package and Pebble. It copies and
