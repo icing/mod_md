@@ -2103,6 +2103,8 @@ best matching your client's capabilities.
 
 Use a proxy (on `url`) to connect to the MDCertificateAuthority url. Use if your webserver has no outbound connectivity in combination with your forward proxy.
 
+Since version 2.6.11, a proxy can be configured separately for each `MDomain`.
+
 ## MDRenewMode / Renew Mode
 
 ***Controls when `mod_md` will try to obtain/renew certificates***<BR/>

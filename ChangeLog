@@ -1,3 +1,6 @@
+ * Allow the MDHttpProxy setting to be set per MDomain. The global MDHttpProxy
+   setting is used by default. [Michael Kaufmann]
+
 v2.6.10
 ----------------------------------------------------------------------------------------------------
  * Fix issue #420 by ignoring job.json files that claim to have completely
