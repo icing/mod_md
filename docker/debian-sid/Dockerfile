@@ -5,11 +5,11 @@ RUN apt install -y apt-listchanges \
       make openssl libssl-dev libcurl4 libcurl4-openssl-dev \
       gcc subversion git cargo python3 iputils-ping \
       libapr1-dev libaprutil1-dev libnghttp2-dev pip \
-      autoconf libtool libtool-bin libpcre3-dev libjansson-dev curl rsync nghttp2-client
+      autoconf libtool libtool-bin libpcre2-dev libjansson-dev curl rsync nghttp2-client
 
-RUN pip install pytest tqdm pycurl cryptography requests pyopenssl
+RUN pip install --break-system-packages pytest tqdm pycurl cryptography requests pyopenssl filelock
 
-RUN apt install -y apache2 apache2-dev libapache2-mod-md
+RUN apt install -y apache2 apache2-dev
 RUN apt install -y pebble
 
 COPY docker/debian-sid/bin/* /apache-httpd/bin/

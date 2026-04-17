@@ -257,7 +257,7 @@ static void log_print(const char *file, int line, md_log_level_t level,
 {
     if (log_is_level(baton, p, level)) {
         char buffer[LOG_BUF_LEN];
-        char errbuff[32];
+        char errbuff[64];
         
         apr_vsnprintf(buffer, LOG_BUF_LEN-1, fmt, ap);
         buffer[LOG_BUF_LEN-1] = '\0';
