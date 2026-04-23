@@ -46,7 +46,12 @@ class MDCertUtil(object):
         connection.setblocking(1)
         connection.set_tlsext_host_name(host_name.encode('utf-8'))
         connection.do_handshake()
-        return MDCertUtil(None, cert=connection.get_peer_certificate(as_cryptography=True))
+        try:
+            return MDCertUtil(None, cert=connection.get_peer_certificate(as_cryptography=True))
+        except TypeError:
+            # older python versions do not have as_cryptography
+            ossl_cert = connection.get_peer_certificate()
+            return ossl_cert.to_cryptography()
 
     @classmethod
     def parse_pem_cert(cls, text):
