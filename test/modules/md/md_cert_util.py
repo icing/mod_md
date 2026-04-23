@@ -11,7 +11,12 @@ from datetime import timedelta
 from http.client import HTTPConnection
 from urllib.parse import urlparse
 
+from cryptography.hazmat._oid import ExtensionOID
+from cryptography.hazmat.bindings._rust import ObjectIdentifier
+from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption, load_pem_private_key
+
 from cryptography import x509
+from cryptography.x509 import DNSName, ExtensionNotFound
 
 SEC_PER_DAY = 24 * 60 * 60
 
@@ -42,12 +47,11 @@ class MDCertUtil(object):
         connection.setblocking(1)
         connection.set_tlsext_host_name(host_name.encode('utf-8'))
         connection.do_handshake()
-        peer_cert = connection.get_peer_certificate()
-        return MDCertUtil(None, cert=peer_cert)
+        return MDCertUtil(None, cert=connection.get_peer_certificate(as_cryptography=True))
 
     @classmethod
     def parse_pem_cert(cls, text):
-        cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, text.encode('utf-8'))
+        cert = x509.load_pem_x509_certificate(text.encode('utf-8'))
         return MDCertUtil(None, cert=cert)
 
     @classmethod
@@ -72,24 +76,21 @@ class MDCertUtil(object):
         return None
 
     def __init__(self, cert_path, cert=None):
+        self.cert = cert
         if cert_path is not None:
             self.cert_path = cert_path
             # load certificate and private key
             if cert_path.startswith("http"):
-                cert_data = self.get_plain(cert_path, 1)
-            else:
-                cert_data = MDCertUtil._load_binary_file(cert_path)
-
-            for file_type in (OpenSSL.crypto.FILETYPE_PEM, OpenSSL.crypto.FILETYPE_ASN1):
-                try:
-                    self.cert = OpenSSL.crypto.load_certificate(file_type, cert_data)
-                except Exception as error:
-                    self.error = error
-        if cert is not None:
-            self.cert = cert
-
-        if self.cert is None:
-            raise self.error
+                assert False
+            try:
+                with open(cert_path) as fd:
+                    cert = x509.load_pem_x509_certificate("".join(fd.readlines()).encode())
+            except Exception as error:
+                self.error = error
+            if cert is not None:
+                self.cert = cert
+            if self.cert is None:
+                raise self.error
 
     def get_issuer(self):
         return self.cert.get_issuer()
@@ -97,21 +98,20 @@ class MDCertUtil(object):
     def get_serial(self):
         # the string representation of a serial number is not unique. Some
         # add leading 0s to align with word boundaries.
-        return ("%lx" % (self.cert.get_serial_number())).upper()
+        return ("%lx" % (self.cert.serial_number)).upper()
 
     @staticmethod
     def _get_serial(cert) -> int:
         if isinstance(cert, x509.Certificate):
             return cert.serial_number
         if isinstance(cert, MDCertUtil):
-            return cert.get_serial_number()
-        elif isinstance(cert, OpenSSL.crypto.X509):
-            return cert.get_serial_number()
+            return cert.cert.serial_number
         elif isinstance(cert, str):
             # assume a hex number
             return int(cert, 16)
         elif isinstance(cert, int):
             return cert
+        assert False, f'{cert}'
         return 0
 
     def get_serial_number(self):
@@ -121,55 +121,39 @@ class MDCertUtil(object):
         return self._get_serial(self.cert) == self._get_serial(other)
 
     def get_not_before(self):
-        tsp = self.cert.get_notBefore()
-        return self._parse_tsp(tsp)
+        return self.cert.not_valid_before_utc
 
     def get_not_after(self):
-        tsp = self.cert.get_notAfter()
-        return self._parse_tsp(tsp)
-
-    def get_cn(self):
-        return self.cert.get_subject().CN
+        return self.cert.not_valid_after_utc
 
     def get_key_length(self):
-        return self.cert.get_pubkey().bits()
+        return self.cert.public_key().key_size
 
     def get_san_list(self):
-        text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
-        m = re.search(r"X509v3 Subject Alternative Name:(\s+critical)?\s*(.*)", text)
-        sans_list = []
-        if m:
-            sans_list = m.group(2).split(",")
-
-        def _strip_prefix(s):
-            return s.split(":")[1] if s.strip().startswith("DNS:") else s.strip()
-        return list(map(_strip_prefix, sans_list))
+        sans = self.cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        return sans.value.get_values_for_type(DNSName)
 
     def get_must_staple(self):
-        text = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_TEXT, self.cert).decode("utf-8")
-        m = re.search(r"1.3.6.1.5.5.7.1.24:\s*\n\s*0....", text)
-        if not m:
-            # Newer openssl versions print this differently
-            m = re.search(r"TLS Feature:\s*\n\s*status_request\s*\n", text)
-        return m is not None
+        try:
+            self.cert.extensions.get_extension_for_oid(ExtensionOID.TLS_FEATURE)
+            return True
+        except ExtensionNotFound:
+            return False
 
     @classmethod
     def validate_privkey(cls, privkey_path, passphrase=None):
-        privkey_data = cls._load_binary_file(privkey_path)
-        if passphrase:
-            privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data, passphrase)
-        else:
-            privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
-        return privkey.check()
+        with open(privkey_path) as fd:
+            privkey = load_pem_private_key("".join(fd.readlines()).encode(), password=passphrase)
+            return privkey is not None
 
     def validate_cert_matches_priv_key(self, privkey_path):
         # Verifies that the private key and cert match.
-        privkey_data = MDCertUtil._load_binary_file(privkey_path)
-        privkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey_data)
-        context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
-        context.use_privatekey(privkey)
-        context.use_certificate(self.cert)
-        context.check_privatekey()
+        with open(privkey_path) as fd:
+            privkey = load_pem_private_key("".join(fd.readlines()).encode(), password=None)
+            context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+            context.use_privatekey(privkey)
+            context.use_certificate(self.cert)
+            context.check_privatekey()
 
     # --------- _utils_ ---------
 

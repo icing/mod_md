@@ -345,7 +345,7 @@ class MDTestEnv(HttpdTestEnv):
         md = self.get_md_status(domain)
         assert md
         assert 'state' in md, "md is unexpected: {0}".format(md)
-        assert md['state'] is MDTestEnv.MD_S_COMPLETE, f"unexpected state: {md['state']}"
+        assert md['state'] is MDTestEnv.MD_S_COMPLETE, f"unexpected state: {md}"
         pkey_file = self.store_domain_file(domain, self.pkey_fname(pkey))
         cert_file = self.store_domain_file(domain, self.cert_fname(pkey))
         r = self.run(['ls', os.path.dirname(pkey_file)])
