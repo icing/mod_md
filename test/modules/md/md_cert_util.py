@@ -51,7 +51,7 @@ class MDCertUtil(object):
         except TypeError:
             # older python versions do not have as_cryptography
             ossl_cert = connection.get_peer_certificate()
-            return ossl_cert.to_cryptography()
+            return MDCertUtil(None, cert=ossl_cert.to_cryptography())
 
     @classmethod
     def parse_pem_cert(cls, text):
@@ -130,10 +130,16 @@ class MDCertUtil(object):
         return self._get_serial(self.cert) == self._get_serial(other)
 
     def get_not_before(self):
-        return self.cert.not_valid_before_utc
+        try:
+            return self.cert.not_valid_before_utc
+        except AttributeError:
+            return self.cert.not_valid_before
 
     def get_not_after(self):
-        return self.cert.not_valid_after_utc
+        try:
+            return self.cert.not_valid_after_utc
+        except AttributeError:
+            return self.cert.not_valid_after
 
     def get_key_length(self):
         return self.cert.public_key().key_size
