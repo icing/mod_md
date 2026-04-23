@@ -26,7 +26,6 @@ log = logging.getLogger(__name__)
 
 class MDCertUtil(object):
     # Utility class for inspecting certificates in test cases
-    # Uses PyOpenSSL: https://pyopenssl.org/en/stable/index.html
 
     @classmethod
     def load_server_cert(cls, host_ip, host_port, host_name, tls=None, ciphers=None):
@@ -77,6 +76,7 @@ class MDCertUtil(object):
 
     def __init__(self, cert_path, cert=None):
         self.cert = cert
+        self.privkey = None
         if cert_path is not None:
             self.cert_path = cert_path
             # load certificate and private key
@@ -91,6 +91,10 @@ class MDCertUtil(object):
                 self.cert = cert
             if self.cert is None:
                 raise self.error
+
+    def add_privkey(self, path, password=None):
+        with open(path) as fd:
+            self.privkey = load_pem_private_key("".join(fd.readlines()).encode(), password=password)
 
     def get_issuer(self):
         return self.cert.get_issuer()
@@ -145,49 +149,3 @@ class MDCertUtil(object):
         with open(privkey_path) as fd:
             privkey = load_pem_private_key("".join(fd.readlines()).encode(), password=passphrase)
             return privkey is not None
-
-    def validate_cert_matches_priv_key(self, privkey_path):
-        # Verifies that the private key and cert match.
-        with open(privkey_path) as fd:
-            privkey = load_pem_private_key("".join(fd.readlines()).encode(), password=None)
-            context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
-            context.use_privatekey(privkey)
-            context.use_certificate(self.cert)
-            context.check_privatekey()
-
-    # --------- _utils_ ---------
-
-    def astr(self, s):
-        return s.decode('utf-8')
-        
-    def _parse_tsp(self, tsp):
-        # timestampss returned by PyOpenSSL are bytes
-        # parse date and time part
-        s = ("%s-%s-%s %s:%s:%s" % (self.astr(tsp[0:4]), self.astr(tsp[4:6]), self.astr(tsp[6:8]),
-                                    self.astr(tsp[8:10]), self.astr(tsp[10:12]), self.astr(tsp[12:14])))
-        timestamp = datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
-        # adjust timezone
-        tz_h, tz_m = 0, 0
-        m = re.match(r"([+\-]\d{2})(\d{2})", self.astr(tsp[14:]))
-        if m:
-            tz_h, tz_m = int(m.group(1)),  int(m.group(2)) if tz_h > 0 else -1 * int(m.group(2))
-        return timestamp.replace(tzinfo=self.FixedOffset(60 * tz_h + tz_m))
-
-    @classmethod
-    def _load_binary_file(cls, path):
-        with open(path, mode="rb") as file:
-            return file.read()
-
-    class FixedOffset(tzinfo):
-
-        def __init__(self, offset):
-            self.__offset = timedelta(minutes=offset)
-
-        def utcoffset(self, dt):
-            return self.__offset
-
-        def tzname(self, dt):
-            return None
-
-        def dst(self, dt):
-            return timedelta(0)

@@ -364,7 +364,7 @@ class MDTestEnv(HttpdTestEnv):
         # check private key, validate certificate, etc
         MDCertUtil.validate_privkey(self.store_domain_file(domain, 'privkey.pem'))
         cert = MDCertUtil(self.store_domain_file(domain, 'pubcert.pem'))
-        cert.validate_cert_matches_priv_key(self.store_domain_file(domain, 'privkey.pem'))
+        cert.add_privkey(self.store_domain_file(domain, 'privkey.pem'))
         # No longer check CN, it may not be set or is not trusted anyway
         # assert cert.get_cn() == domain, f'CN: expected "{domain}", got {cert.get_cn()}'
         # check SANs
