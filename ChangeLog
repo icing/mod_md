@@ -1,3 +1,6 @@
+v2.6.11
+----------------------------------------------------------------------------------------------------
+ * New directive `MDHttpProxyCACertificateFile`. [Michael Kaufmann]
  * OpenSSL 4 compatibility.
  * Allow the MDHttpProxy setting to be set per MDomain. The global MDHttpProxy
    setting is used by default. [Michael Kaufmann]
