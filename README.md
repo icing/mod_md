@@ -1755,6 +1755,7 @@ checks by mod_md in v1.1.x which are now eliminated. If you have many domains, t
 * [MDProfile](#mdprofile)
 * [MDProfileMandatory](#mdprofilemandatory)
 * [MDHttpProxy](#mdhttpproxy)
+* [MDHttpProxyCACertificateFile](#mdhttpproxycacertificatefile)
 * [MDRenewViaARI](#mdrenewviaari)
 * [MDRenewMode](#mdrenewmode--renew-mode)
 * [MDRenewWindow](#mdrenewwindow--when-to-renew)
@@ -2101,9 +2102,23 @@ best matching your client's capabilities.
 ***The URL of the http-proxy to use***<BR/>
 `MDHttpProxy url` 
 
-Use a proxy (on `url`) to connect to the MDCertificateAuthority url. Use if your webserver has no outbound connectivity in combination with your forward proxy.
+Use a proxy (on `url`) to connect to the `MDCertificateAuthority` url. Use if your webserver has no outbound connectivity in combination with your forward proxy.
 
 Since version 2.6.11, a proxy can be configured separately for each `MDomain`.
+
+## MDHttpProxyCACertificateFile
+
+***Sets the root (CA) certificates to use for TLS connections to the http-proxy***<BR/>
+`MDHttpProxyCACertificateFile path-to-pem-file`<BR/>
+Default: none
+
+This is used for connections to the HTTPS proxy (`MDHttpProxy`). It is needed if the certificate of the HTTPS proxy cannot be verified using the general CA root store.
+This is sometimes the case in test setups or enterprise environments.
+The certificate of the ACME server is verified with the root certificates set by `MDCACertificateFile`, so you might need to use both settings.
+
+Use "none" as path to disable explicitly.
+
+This can be configured separately for each `MDomain`.
 
 ## MDRenewMode / Renew Mode
 
@@ -2339,6 +2354,8 @@ CA might find a use for this, but they have probably adapted the general CA root
 store already and there is no special need.
 
 Use "none" as path to disable explicitly.
+
+Since version 2.6.11, this can be configured separately for each `MDomain`.
 
 ## MDExternalAccountBinding
 ***Sets the external account binding (EAB) information to use***<BR/>
